@@ -5,7 +5,7 @@ import { add, fromAngle, len, scale } from './vec';
 const TAU = Math.PI * 2;
 
 /** Normalize an angle into (-PI, PI]. */
-const wrap = (a: number): number => {
+export const wrap = (a: number): number => {
   let r = a % TAU;
   if (r > Math.PI) r -= TAU;
   else if (r <= -Math.PI) r += TAU;
