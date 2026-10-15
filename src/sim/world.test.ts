@@ -6,7 +6,15 @@ import systems from '../../data/systems.json';
 import { parseGameData } from '../data/load';
 import type { ActionId } from '../input/actions';
 import type { FrameInput, SimEvent, WorldState } from './types';
-import { applyRefuel, applyTow, departFrom, interruptAutopilot, newWorld, stepWorld } from './world';
+import {
+  applyRefuel,
+  applyTow,
+  departFrom,
+  interruptAutopilot,
+  JUMP_ARRIVAL_INSET,
+  newWorld,
+  stepWorld,
+} from './world';
 import { dist, len } from './vec';
 
 const data = parseGameData({ ships, systems, planets, config });
@@ -213,21 +221,57 @@ describe('stepWorld: jumping', () => {
   it('30 consecutive jump presses cost fuel once and emit one jumped event', () => {
     let w = at(newWorld(data), { x: 2100, y: 0 });
     const events: SimEvent[] = [];
-    let arrival: WorldState | null = null;
     for (let i = 0; i < 180; i++) {
       const r = stepWorld(w, data, i < 30 ? frame(['jump'], ['jump']) : frame(), DT, OPTS);
       w = r.world;
       events.push(...r.events);
-      if (!arrival && r.events.some((e) => e.type === 'jumped')) arrival = w;
     }
     expect(events.filter((e) => e.type === 'jumped')).toEqual([{ type: 'jumped', toSystemId: 'vesk' }]);
     expect(events.filter((e) => e.type === 'message')).toEqual([]);
     expect(w.ship.fuel).toBe(200);
     expect(w.systemId).toBe('vesk');
+  });
+
+  it('jump pressed on every tick for 90 ticks (through arrival) costs fuel once, one jumped event', () => {
+    let w = at(newWorld(data), { x: 2100, y: 0 });
+    const events: SimEvent[] = [];
+    for (let i = 0; i < 90; i++) {
+      const r = stepWorld(w, data, frame(['jump'], ['jump']), DT, OPTS);
+      w = r.world;
+      events.push(...r.events);
+    }
+    expect(events.filter((e) => e.type === 'jumped')).toEqual([{ type: 'jumped', toSystemId: 'vesk' }]);
+    expect(w.ship.fuel).toBe(200);
+    expect(w.jump).toBeNull();
+    expect(w.systemId).toBe('vesk');
+    // Post-arrival presses are refused as too close, never as a second jump.
+    for (const e of events.filter((x) => x.type === 'message')) {
+      expect(e).toEqual({ type: 'message', text: 'Too close to the star to jump. Press G to autopilot out.' });
+    }
+  });
+
+  it('arrives inside the jump boundary on the side toward the origin, facing the center at 100 px/s', () => {
+    let w = at(newWorld(data), { x: 2100, y: 0 });
+    let arrival: WorldState | null = null;
+    for (let i = 0; i < 90 && !arrival; i++) {
+      const r = stepWorld(w, data, i === 0 ? frame(['jump']) : frame(), DT, OPTS);
+      w = r.world;
+      if (r.events.some((e) => e.type === 'jumped')) arrival = w;
+    }
     expect(arrival).not.toBeNull();
-    expect(len(arrival!.ship.pos)).toBeCloseTo(1800, 6);
-    expect(len(arrival!.ship.vel)).toBeCloseTo(100, 6);
-    expect(arrival!.jump).toBeNull();
+    const a = arrival!;
+    const calder = data.systems.calder.mapPos;
+    const vesk = data.systems.vesk.mapPos;
+    expect(len(a.ship.pos)).toBeCloseTo(data.systems.vesk.jumpDistance - JUMP_ARRIVAL_INSET, 6);
+    expect(len(a.ship.pos)).toBeLessThan(data.systems.vesk.jumpDistance);
+    expect(Math.atan2(a.ship.pos.y, a.ship.pos.x)).toBeCloseTo(Math.atan2(calder.y - vesk.y, calder.x - vesk.x), 6);
+    expect(a.ship.heading).toBeCloseTo(Math.atan2(-a.ship.pos.y, -a.ship.pos.x), 6);
+    expect(len(a.ship.vel)).toBeCloseTo(100, 6);
+    expect(a.jump).toBeNull();
+    // The very next tick cannot start another jump.
+    const next = stepWorld(a, data, frame(['jump']), DT, OPTS);
+    expect(next.world.jump).toBeNull();
+    expect(next.world.ship.fuel).toBe(200);
   });
 
   it('jump takes 1 second', () => {

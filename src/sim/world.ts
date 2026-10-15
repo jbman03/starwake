@@ -22,6 +22,8 @@ export const AUTOPILOT_ARRIVE_SPEED = 20;
 export const JUMP_DURATION = 1.0;
 /** Speed on arrival in the destination system (px/s). */
 export const JUMP_ARRIVAL_SPEED = 100;
+/** Arrive this far inside the jump boundary so an immediate re-jump is refused. */
+export const JUMP_ARRIVAL_INSET = 50;
 /** Stick magnitude above which the stick counts as manual input. */
 export const STICK_DEADZONE = 0.25;
 /** Point-mode stick magnitude above which the ship thrusts. */
@@ -96,10 +98,11 @@ export function applyTow(world: WorldState, data: GameData): { world: WorldState
 function arriveFromJump(world: WorldState, data: GameData, toSystemId: string): WorldState {
   const from = data.systems[world.systemId];
   const to = data.systems[toSystemId];
-  // Placed on the opposite side of the destination from the origin's map position.
-  let dir = norm(sub(to.mapPos, from.mapPos));
+  // EV-style: arrive from the direction we came, on the side toward the origin's map position,
+  // just inside the jump boundary so the player must fly out again before the next jump.
+  let dir = norm(sub(from.mapPos, to.mapPos));
   if (len(dir) === 0) dir = { x: 1, y: 0 };
-  const pos = add(SYSTEM_CENTER, scale(dir, to.jumpDistance));
+  const pos = add(SYSTEM_CENTER, scale(dir, to.jumpDistance - JUMP_ARRIVAL_INSET));
   const heading = angleOf(sub(SYSTEM_CENTER, pos));
   return {
     ...world,
