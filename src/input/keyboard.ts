@@ -49,11 +49,8 @@ export class KeyboardSource {
         if (this.justPressed.has(code)) pressed.add(id);
       }
     }
-    // Only keys of this group's actions are consumed; others stay pending for their own poll.
-    for (const id of ACTION_IDS) {
-      if (ACTION_GROUP[id] !== group) continue;
-      for (const code of b[id]) if (code !== null) this.justPressed.delete(code);
-    }
+    // Presses are only meaningful for the context that was active when they happened.
+    this.justPressed.clear();
     return { actions, pressed };
   }
 

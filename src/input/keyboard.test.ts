@@ -65,4 +65,28 @@ describe('KeyboardSource', () => {
     key('keydown', 'ArrowUp');
     expect(src.poll('flight').actions.size).toBe(0);
   });
+
+  it('reports a shared key press in whichever group polls first', () => {
+    const { src, key } = setup();
+    key('keydown', 'KeyR');
+    key('keyup', 'KeyR');
+    expect(src.poll('planet').pressed.has('refuel')).toBe(true);
+  });
+
+  it('does not carry a flight-time tap into the planet poll', () => {
+    const { src, key } = setup();
+    key('keydown', 'KeyL');
+    key('keyup', 'KeyL');
+    expect(src.poll('flight').pressed.has('land')).toBe(true);
+    expect(src.poll('planet').pressed.has('leave')).toBe(false);
+  });
+
+  it('drains unbound taps so they never show up later', () => {
+    const { src, key } = setup();
+    key('keydown', 'KeyL');
+    key('keyup', 'KeyL');
+    src.poll('menus');
+    expect(src.poll('planet').pressed.has('leave')).toBe(false);
+    expect(src.poll('flight').pressed.size).toBe(0);
+  });
 });
