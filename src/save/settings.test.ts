@@ -61,4 +61,14 @@ describe('settings', () => {
     expect(s.touch.buttonSize).toBe('M');
     expect(s.bindings).toEqual(resetBindings());
   });
+  it('restores Escape-bearing defaults for pause/back when stored bindings drop Escape', () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ bindings: { pause: [null, null], back: ['KeyB', null], thrust: ['KeyW', null] } }),
+    );
+    const s = loadSettings();
+    expect(s.bindings.pause).toEqual(resetBindings().pause);
+    expect(s.bindings.back).toEqual(resetBindings().back);
+    expect(s.bindings.thrust).toEqual(['KeyW', null]);
+  });
 });

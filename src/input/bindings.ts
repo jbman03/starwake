@@ -24,11 +24,20 @@ export const DEFAULT_BINDINGS: Bindings = {
   back: ['Escape', null],
 };
 
-const MUST_KEEP_ESCAPE: readonly ActionId[] = ['pause', 'back'];
+export const MUST_KEEP_ESCAPE: readonly ActionId[] = ['pause', 'back'];
 
 export function resetBindings(): Bindings {
   const out = {} as Bindings;
   for (const id of ACTION_IDS) out[id] = [...DEFAULT_BINDINGS[id]];
+  return out;
+}
+
+/** Restore the default entry for any must-keep-Escape action that lost Escape. */
+export function ensureEscapeInvariant(b: Bindings): Bindings {
+  const out = clone(b);
+  for (const id of MUST_KEEP_ESCAPE) {
+    if (!out[id].includes('Escape')) out[id] = [...DEFAULT_BINDINGS[id]];
+  }
   return out;
 }
 

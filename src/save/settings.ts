@@ -1,5 +1,5 @@
 import { ACTION_IDS } from '../input/actions';
-import { resetBindings, type Bindings, type Slot } from '../input/bindings';
+import { ensureEscapeInvariant, resetBindings, type Bindings, type Slot } from '../input/bindings';
 
 export interface Settings {
   bindings: Bindings;
@@ -42,7 +42,7 @@ function mergeBindings(raw: unknown): Bindings {
     const v = raw[id];
     if (Array.isArray(v) && v.length === 2 && isSlot(v[0]) && isSlot(v[1])) out[id] = [v[0], v[1]];
   }
-  return out;
+  return ensureEscapeInvariant(out);
 }
 
 function merge(raw: unknown): Settings {
