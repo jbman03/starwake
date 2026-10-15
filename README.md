@@ -1,4 +1,4 @@
-# space-game (working title)
+# Starwake (working title)
 
 An original 2D space trading and combat game inspired by the classic
 Escape Velocity series (EV, Override, Nova). It runs in the browser and
