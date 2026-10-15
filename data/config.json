@@ -1,0 +1,11 @@
+{
+  "startSystemId": "calder",
+  "startPlanetId": "halcyon",
+  "startShipId": "shuttle",
+  "startCredits": 10000,
+  "towFee": 500,
+  "landingSpeed": 60,
+  "landingMargin": 40,
+  "arrivalRadius": 30,
+  "fuelPerJump": 100
+}

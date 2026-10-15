@@ -1,0 +1,22 @@
+[
+  {
+    "id": "halcyon", "name": "Halcyon", "systemId": "calder", "pos": { "x": 700, "y": -200 }, "radius": 60, "techTier": 3, "fuelPrice": 2, "kind": "planet",
+    "description": "A temperate world of terraced orchards and quiet harbors, where the evening light turns the sea to copper."
+  },
+  {
+    "id": "merrow", "name": "Merrow", "systemId": "calder", "pos": { "x": -900, "y": 450 }, "radius": 48, "techTier": 2, "fuelPrice": 2, "kind": "planet",
+    "description": "A fog-wrapped moon of salvage yards and rope bridges. Everything here has been mended at least twice."
+  },
+  {
+    "id": "brigg-station", "name": "Brigg Station", "systemId": "calder", "pos": { "x": 400, "y": 1100 }, "radius": 30, "techTier": 1, "fuelPrice": 3, "kind": "station",
+    "description": "A lantern-lit ring of patched hull plates, humming with pilots trading rumors over bad coffee."
+  },
+  {
+    "id": "tallow-rock", "name": "Tallow Rock", "systemId": "vesk", "pos": { "x": -600, "y": -700 }, "radius": 40, "techTier": 1, "kind": "planet",
+    "description": "A pale, wind-scoured rock where hardy settlers render lichen into candle wax and call it a living."
+  },
+  {
+    "id": "vesk-outpost", "name": "Vesk Outpost", "systemId": "vesk", "pos": { "x": 850, "y": 350 }, "radius": 26, "techTier": 1, "kind": "station",
+    "description": "A lonely relay at the edge of the charts. The porch light is always on, and the pilot on duty is always glad to see you."
+  }
+]
