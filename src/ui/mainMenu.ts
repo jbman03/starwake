@@ -1,0 +1,161 @@
+import { SaveError, worldFromPilot } from '../save/pilot';
+import { importPilot } from '../save/transfer';
+import { newWorld } from '../sim/world';
+import type { UiContext } from './context';
+import { button, confirmDialog, el, promptDialog } from './dom';
+
+export const NAME_MAX = 24;
+export const DEFAULT_NAME = 'Pilot';
+export const MSG_USED_BACKUP = 'Your last save was damaged; loaded the previous one.';
+
+/** Trim to 1–24 characters; empty becomes "Pilot". */
+export function cleanPilotName(raw: string): string {
+  return raw.trim().slice(0, NAME_MAX).trim() || DEFAULT_NAME;
+}
+
+function saveErrorText(err: unknown, verb: string): string {
+  if (err instanceof SaveError && err.code === 'futureVersion') return `This pilot was saved by a newer version of Starwake and can't be ${verb}.`;
+  return `This pilot couldn't be ${verb}: the file or save is damaged.`;
+}
+
+function formatSavedAt(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : `Saved ${d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`;
+}
+
+/** Title screen: pilot list (Load / Rename / Delete), New Pilot and Import. */
+export function showMainMenu(ctx: UiContext): void {
+  const { controller, store, root } = ctx;
+  const { data } = controller;
+  const list = el('ul', { class: 'sw-pilots', attrs: { 'aria-label': 'Pilots' } });
+  const status = el('p', { class: 'sw-status', attrs: { 'aria-live': 'polite' } });
+  const say = (text: string) => (status.textContent = text);
+  let busy = false;
+
+  /** Run one async action at a time so double taps can't double-create or double-load. */
+  const guarded = (fn: () => Promise<void>) => async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      await fn();
+    } catch (err) {
+      console.warn(err);
+      say(`Something went wrong: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      busy = false;
+    }
+  };
+
+  async function refresh(): Promise<void> {
+    const pilots = (await store.list()).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+    if (pilots.length === 0) {
+      list.replaceChildren(el('li', { class: 'sw-empty', text: 'No pilots yet. Create one to begin.' }));
+      return;
+    }
+    list.replaceChildren(
+      ...pilots.map((p) =>
+        el('li', { class: 'sw-pilot' }, [
+          el('div', { class: 'sw-pilot-meta' }, [
+            el('div', { class: 'sw-pilot-name', text: p.name }),
+            el('div', { class: 'sw-pilot-saved', text: formatSavedAt(p.savedAt) }),
+          ]),
+          el('div', { class: 'sw-pilot-actions' }, [
+            button('Load', guarded(() => load(p.id)), { class: 'sw-btn-primary' }),
+            button('Rename', guarded(() => rename(p.id, p.name))),
+            button('Delete', guarded(() => remove(p.id, p.name)), { class: 'sw-btn-danger' }),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  async function newPilot(): Promise<void> {
+    const raw = await promptDialog(root, {
+      title: 'New Pilot',
+      label: 'Pilot name',
+      value: DEFAULT_NAME,
+      maxLength: NAME_MAX,
+      confirm: 'Create',
+    });
+    if (raw === null) return;
+    const planetId = data.config.startPlanetId;
+    controller.beginSession(newWorld(data), { id: crypto.randomUUID(), name: cleanPilotName(raw) }, planetId);
+    let notice: string | undefined;
+    try {
+      await controller.save();
+    } catch (err) {
+      notice = `Couldn't save the new pilot: ${err instanceof Error ? err.message : String(err)}`;
+    }
+    ctx.go.planet(planetId, notice);
+  }
+
+  async function load(id: string): Promise<void> {
+    try {
+      const { pilot, usedBackup } = await store.load(id);
+      const world = worldFromPilot(pilot, data);
+      controller.beginSession(world, { id: pilot.id, name: pilot.name }, pilot.planetId);
+      ctx.go.planet(pilot.planetId, usedBackup ? MSG_USED_BACKUP : undefined);
+    } catch (err) {
+      say(saveErrorText(err, 'loaded'));
+    }
+  }
+
+  async function rename(id: string, current: string): Promise<void> {
+    const raw = await promptDialog(root, {
+      title: 'Rename Pilot',
+      label: 'Pilot name',
+      value: current,
+      maxLength: NAME_MAX,
+      confirm: 'Rename',
+    });
+    if (raw === null) return;
+    await store.rename(id, cleanPilotName(raw));
+    await refresh();
+  }
+
+  async function remove(id: string, name: string): Promise<void> {
+    const ok = await confirmDialog(root, {
+      title: `Delete pilot "${name}"?`,
+      message: 'This cannot be undone. Export the pilot first if you want a copy.',
+      confirm: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    await store.remove(id);
+    say(`Deleted ${name}.`);
+    await refresh();
+  }
+
+  const file = el('input', { class: 'sw-hidden', attrs: { type: 'file', accept: '.json,application/json', 'aria-label': 'Pilot file' } });
+  file.addEventListener('change', () => {
+    const f = file.files?.[0];
+    file.value = '';
+    if (!f) return;
+    void guarded(async () => {
+      try {
+        const p = importPilot(await f.text());
+        await store.save(p);
+        say(`Imported ${p.name}.`);
+        await refresh();
+      } catch (err) {
+        say(saveErrorText(err, 'imported'));
+      }
+    })();
+  });
+
+  const screen = el('div', { class: 'sw-screen sw-main-menu', attrs: { 'data-testid': 'main-menu' } }, [
+    el('div', { class: 'sw-panel sw-menu sw-menu-wide' }, [
+      el('h1', { class: 'sw-logo', text: 'STARWAKE' }),
+      el('div', { class: 'sw-actions sw-actions-row' }, [
+        button('New Pilot', guarded(newPilot), { class: 'sw-btn-primary' }),
+        button('Import pilot', () => file.click()),
+      ]),
+      list,
+      status,
+      file,
+    ]),
+  ]);
+
+  ctx.mount(screen);
+  void refresh().catch((err) => say(`Couldn't read saved pilots: ${err instanceof Error ? err.message : String(err)}`));
+}

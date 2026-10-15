@@ -1,17 +1,23 @@
+import './ui/styles.css';
 import { Controller } from './app/controller';
 import { installTestHook } from './app/testHook';
 import { loadGameData } from './data/load';
-import { createGame } from './render/game';
+import { createGame, planetImages, whenGameReady } from './render/game';
 import { loadSettings } from './save/settings';
+import { PilotStore } from './save/store';
+import { createUi } from './ui/context';
 
 async function boot(): Promise<void> {
   const data = await loadGameData();
   const settings = loadSettings();
   const controller = new Controller(data, settings, window);
-  installTestHook(controller, data);
-  // Until menus arrive (Task 9), boot straight into flight at the start planet.
-  controller.startFlight();
-  createGame(document.getElementById('game')!, controller);
+  const store = new PilotStore();
+  controller.store = store;
+  installTestHook(controller, data, store);
+  const game = createGame(document.getElementById('game')!, controller);
+  await whenGameReady(game);
+  const ui = createUi(document.getElementById('ui')!, controller, store, planetImages(game, controller));
+  ui.go.mainMenu();
 }
 
 boot().catch((err) => {

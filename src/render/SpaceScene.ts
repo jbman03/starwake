@@ -55,9 +55,6 @@ export class SpaceScene extends Phaser.Scene {
     this.unsubs.push(
       this.controller.on('jumped', (e) => this.buildSystem(e.toSystemId)),
       this.controller.on('message', (e) => this.hud.showMessage(e.text)),
-      // TEMPORARY landed overlay — Task 9 swaps this for the planet screen.
-      this.controller.on('landed', (e) => this.showLanded(e.planetId)),
-      this.controller.on('towed', (e) => this.showLanded(e.planetId)),
     );
 
     this.scale.on('resize', this.onResize, this);
@@ -70,11 +67,6 @@ export class SpaceScene extends Phaser.Scene {
 
   private onResize(size: Phaser.Structs.Size): void {
     for (const ts of this.stars) ts.setSize(size.width, size.height);
-  }
-
-  private showLanded(planetId: string): void {
-    const name = this.controller.data.planets[planetId]?.name ?? planetId;
-    this.hud.setOverlay(`Landed on ${name} — press L to leave`);
   }
 
   /** Rebuild the star and planets for a system. */
@@ -101,7 +93,6 @@ export class SpaceScene extends Phaser.Scene {
     this.controller.update(dt);
     const { world, prevShip, alpha, data } = this.controller.view();
     if (world.systemId !== this.builtSystemId) this.buildSystem(world.systemId);
-    if (this.controller.isFlying) this.hud.setOverlay(null);
 
     // Interpolated ship position; camera stays centered on it.
     const x = prevShip.pos.x + (world.ship.pos.x - prevShip.pos.x) * alpha;

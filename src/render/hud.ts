@@ -25,7 +25,6 @@ export class Hud {
   private system: Phaser.GameObjects.Text;
   private target: Phaser.GameObjects.Text;
   private message: Phaser.GameObjects.Text;
-  private overlay: Phaser.GameObjects.Text;
   private messageAge = Infinity;
 
   constructor(private scene: Phaser.Scene) {
@@ -40,8 +39,6 @@ export class Hud {
     this.fuel = text(20, 82, 13);
     this.target = text(20, 104, 13, '#b8c4d2');
     this.message = text(0, 0, 15, '#ffffff').setOrigin(0.5, 1);
-    this.overlay = text(0, 0, 22, '#ffffff').setOrigin(0.5).setAlign('center');
-    this.overlay.setBackgroundColor('rgba(0,0,0,0.6)').setPadding(18, 12, 18, 12).setVisible(false);
     this.layout();
     scene.scale.on('resize', this.layout, this);
   }
@@ -63,17 +60,11 @@ export class Hud {
   private layout(): void {
     const { width, height } = this.scene.scale;
     this.message.setPosition(width / 2, height - 28);
-    this.overlay.setPosition(width / 2, height / 2 - 80);
   }
 
   showMessage(text: string): void {
     this.message.setText(text).setAlpha(1);
     this.messageAge = 0;
-  }
-
-  /** TEMPORARY landed overlay (Task 9 replaces it with the planet screen). */
-  setOverlay(text: string | null): void {
-    this.overlay.setText(text ?? '').setVisible(text !== null);
   }
 
   update(world: WorldState, data: GameData, dtSec: number): void {

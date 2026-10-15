@@ -89,4 +89,36 @@ describe('KeyboardSource', () => {
     expect(src.poll('planet').pressed.has('leave')).toBe(false);
     expect(src.poll('flight').pressed.size).toBe(0);
   });
+
+  it('polls several groups at once', () => {
+    const { src, key } = setup();
+    key('keydown', 'KeyM');
+    key('keydown', 'Escape');
+    const p = src.poll(['flight', 'menus']);
+    expect(p.pressed.has('map')).toBe(true);
+    expect(p.pressed.has('back')).toBe(true);
+    expect(p.pressed.has('leave')).toBe(false);
+  });
+
+  it('ignores keys typed into text fields and does not block them', () => {
+    const target = document.createElement('div');
+    const input = document.createElement('input');
+    target.appendChild(input);
+    const src = new KeyboardSource(target, () => DEFAULT_BINDINGS);
+    const e = new KeyboardEvent('keydown', { code: 'KeyL', cancelable: true, bubbles: true });
+    input.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(false);
+    expect(src.poll('flight').pressed.size).toBe(0);
+  });
+
+  it('does not block keys on focused buttons but still reports them', () => {
+    const target = document.createElement('div');
+    const button = document.createElement('button');
+    target.appendChild(button);
+    const src = new KeyboardSource(target, () => DEFAULT_BINDINGS);
+    const e = new KeyboardEvent('keydown', { code: 'Space', cancelable: true, bubbles: true });
+    button.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(false);
+    expect(src.poll('flight').pressed.has('firePrimary')).toBe(true);
+  });
 });

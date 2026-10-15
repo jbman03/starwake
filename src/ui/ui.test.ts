@@ -1,0 +1,81 @@
+// @vitest-environment happy-dom
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_BINDINGS } from '../input/bindings';
+import { confirmDialog, dialogOpen, formatCredits, hotkeyFor, keyLabel, promptDialog } from './dom';
+import { cleanPilotName } from './mainMenu';
+import { starMapSvg } from './mapPlaceholder';
+import { fuelText } from './planetScreen';
+
+describe('ui helpers', () => {
+  it('keyLabel shortens key codes', () => {
+    expect(keyLabel('KeyL')).toBe('L');
+    expect(keyLabel('Escape')).toBe('Esc');
+    expect(keyLabel('Digit7')).toBe('7');
+    expect(keyLabel('ArrowUp')).toBe('↑');
+    expect(keyLabel('F5')).toBe('F5');
+  });
+
+  it('hotkeyFor uses the first bound slot', () => {
+    expect(hotkeyFor(DEFAULT_BINDINGS, 'leave')).toBe('L');
+    expect(hotkeyFor({ ...DEFAULT_BINDINGS, refuel: [null, 'KeyQ'] }, 'refuel')).toBe('Q');
+    expect(hotkeyFor({ ...DEFAULT_BINDINGS, refuel: [null, null] }, 'refuel')).toBeUndefined();
+  });
+
+  it('cleanPilotName trims, caps at 24 and defaults to Pilot', () => {
+    expect(cleanPilotName('  Ava  ')).toBe('Ava');
+    expect(cleanPilotName('   ')).toBe('Pilot');
+    expect(cleanPilotName('x'.repeat(30))).toHaveLength(24);
+  });
+
+  it('fuelText and formatCredits', () => {
+    expect(fuelText(300, 100)).toBe('Fuel: 3 jumps');
+    expect(fuelText(199, 100)).toBe('Fuel: 1 jump');
+    expect(formatCredits(10000)).toBe('10,000 cr');
+  });
+
+  it('starMapSvg draws each link once and marks the current system', () => {
+    const systems = [
+      { id: 'a', name: 'A', mapPos: { x: 0, y: 0 }, jumpDistance: 1, links: ['b'], starRadius: 1 },
+      { id: 'b', name: 'B', mapPos: { x: 100, y: 50 }, jumpDistance: 1, links: ['a'], starRadius: 1 },
+    ];
+    const svg = starMapSvg(systems, 'b');
+    expect(svg.querySelectorAll('line')).toHaveLength(1);
+    expect(svg.querySelector('.sw-map-here')?.textContent).toContain('You are here');
+  });
+});
+
+describe('dialogs', () => {
+  it('confirmDialog resolves with the choice and Escape cancels without reaching window listeners', async () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    let leaked = 0;
+    const listener = () => leaked++;
+    window.addEventListener('keydown', listener);
+
+    const p = confirmDialog(root, { title: 'Sure?', confirm: 'Yes' });
+    expect(dialogOpen()).toBe(true);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', cancelable: true }));
+    expect(await p).toBe(false);
+    expect(dialogOpen()).toBe(false);
+    expect(leaked).toBe(0);
+    expect(root.querySelector('[role=dialog]')).toBeNull();
+
+    const p2 = confirmDialog(root, { title: 'Sure?', confirm: 'Yes' });
+    const yes = [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('Yes'))!;
+    yes.click();
+    expect(await p2).toBe(true);
+    window.removeEventListener('keydown', listener);
+  });
+
+  it('promptDialog rejects empty input and returns trimmed text', async () => {
+    const root = document.createElement('div');
+    const p = promptDialog(root, { title: 'Name', label: 'Pilot name', value: '', maxLength: 24, confirm: 'Create' });
+    const input = root.querySelector('input')!;
+    const create = [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('Create'))!;
+    create.click();
+    expect(root.querySelector('.sw-error')?.textContent).toBe('Please enter a name.');
+    input.value = '  Ava ';
+    create.click();
+    expect(await p).toBe('Ava');
+  });
+});
