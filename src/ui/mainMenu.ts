@@ -2,6 +2,7 @@ import { SaveError, worldFromPilot } from '../save/pilot';
 import { importPilot } from '../save/transfer';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
+import { showSettings } from './settingsScreen';
 import { button, confirmDialog, el, promptDialog } from './dom';
 
 export const NAME_MAX = 24;
@@ -149,6 +150,7 @@ export function showMainMenu(ctx: UiContext): void {
       el('div', { class: 'sw-actions sw-actions-row' }, [
         button('New Pilot', guarded(newPilot), { class: 'sw-btn-primary' }),
         button('Import pilot', () => file.click()),
+        button('Settings', () => showSettings(ctx, { mode: 'keyboard', onClose: () => showMainMenu(ctx) })),
       ]),
       list,
       status,

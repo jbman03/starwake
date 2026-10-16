@@ -202,3 +202,35 @@
   border-radius: 3px;
 }
 .sw-input:focus { outline: 2px solid var(--sw-accent); outline-offset: 0; }
+
+/* ---- settings ---- */
+.sw-settings { max-height: calc(100dvh - 24px); overflow-y: auto; }
+.sw-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.sw-tabs > .sw-tab { width: auto; flex: 1 1 0; justify-content: center; }
+.sw-tab-active { border-color: var(--sw-accent); background: linear-gradient(#22344a, #16253a); }
+.sw-tab-body { display: grid; gap: 14px; }
+.sw-field { display: grid; gap: 6px; }
+.sw-field-label { font-size: 14px; color: var(--sw-dim); }
+.sw-segmented { display: flex; gap: 6px; }
+.sw-segmented > .sw-btn { width: auto; flex: 1 1 0; justify-content: center; }
+.sw-segmented > .sw-btn[aria-pressed='true'] { border-color: var(--sw-accent); background: linear-gradient(#22344a, #16253a); }
+.sw-toggle { grid-template-columns: auto 1fr; align-items: center; min-height: 44px; gap: 10px; cursor: pointer; }
+.sw-check { width: 24px; height: 24px; }
+.sw-range-row { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.sw-range { flex: 1; min-height: 44px; }
+.sw-range-value { min-width: 3.5em; text-align: right; }
+.sw-hotkey-group-title { margin: 14px 0 6px; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sw-dim); }
+.sw-hotkey-row { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr); gap: 6px; align-items: center; padding: 3px 0; }
+.sw-hotkey-name { font-size: 15px; }
+.sw-slot-cell { display: flex; gap: 4px; min-width: 0; }
+.sw-slot { flex: 1; min-width: 0; justify-content: center; }
+.sw-slot-capturing { border-color: var(--sw-accent); }
+.sw-slot-clear { width: 44px; flex: none; justify-content: center; padding: 0; }
+.sw-conflict { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--sw-border-hi); border-radius: 3px; background: var(--sw-panel-2); }
+.sw-conflict-actions { display: flex; gap: 6px; }
+.sw-conflict-actions > .sw-btn { width: auto; justify-content: center; }
+.sw-reset { margin-top: 14px; justify-content: center; }
+@media (max-width: 520px) {
+  .sw-hotkey-row { grid-template-columns: 1fr 1fr; }
+  .sw-hotkey-name { grid-column: 1 / -1; }
+}

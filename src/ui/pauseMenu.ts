@@ -1,6 +1,7 @@
 import { exportFileName, exportPilot } from '../save/transfer';
 import type { UiContext } from './context';
-import { alertDialog, button, confirmDialog, el, formatCredits, hotkeyFor } from './dom';
+import { showSettings } from './settingsScreen';
+import { button, confirmDialog, el, formatCredits, hotkeyFor } from './dom';
 
 /** Opened by the `pause` action; the sim stays paused until Resume or `back`. */
 export function showPauseMenu(ctx: UiContext): void {
@@ -57,9 +58,7 @@ export function showPauseMenu(ctx: UiContext): void {
           controller.callTow();
         })
       : null,
-    button('Settings', () =>
-      void alertDialog(root, { title: 'Settings', message: 'Settings and hotkey editing arrive in the next update.' }),
-    ),
+    button('Settings', () => showSettings(ctx, { mode: 'keyboard', onClose: () => showPauseMenu(ctx) })),
     button('Export pilot', exportCurrent),
     button('Quit to main menu', () => void quit(), { class: 'sw-btn-danger' }),
   ]);
