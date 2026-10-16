@@ -42,15 +42,14 @@ export function createHotkeyEditor(ctx: UiContext): HotkeyEditor {
     setTimeout(() => window.removeEventListener('keyup', onUp, true), 1500);
   };
 
-  const commit = (r: CaptureResult): boolean => {
+  /** Apply a result; returns the inline error text ('' on success or no-op). */
+  const commit = (r: CaptureResult): string => {
     if (r.kind === 'ok') {
       controller.settings.bindings = r.bindings;
       saveSettings(controller.settings);
-      error = '';
-      return true;
+      return '';
     }
-    error = r.kind === 'error' ? r.message : '';
-    return false;
+    return r.kind === 'error' ? r.message : '';
   };
 
   /** While capturing (or confirming a swap), Esc cancels and no key reaches the game or closes menus. */
@@ -78,13 +77,13 @@ export function createHotkeyEditor(ctx: UiContext): HotkeyEditor {
       setState({ kind: 'conflict', action, slot, code: e.code, other: r.other });
       return;
     }
-    commit(r);
-    setState({ kind: 'idle' });
+    setState({ kind: 'idle' }, commit(r));
   };
   window.addEventListener('keydown', onKey, true);
 
-  function setState(next: State): void {
-    if (next.kind !== 'idle' || state.kind !== 'idle') error = '';
+  /** Move to `next`; `err` is the inline message to show after the transition (default none). */
+  function setState(next: State, err = ''): void {
+    error = err;
     state = next;
     render();
   }
@@ -111,8 +110,7 @@ export function createHotkeyEditor(ctx: UiContext): HotkeyEditor {
       text: '×',
       attrs: { type: 'button', 'aria-label': `Clear ${name} key ${slot + 1}`, 'data-testid': `clear-${action}-${slot}` },
       onClick: () => {
-        commit(applyClear(controller.settings.bindings, action, slot));
-        setState({ kind: 'idle' });
+        setState({ kind: 'idle' }, commit(applyClear(controller.settings.bindings, action, slot)));
       },
     });
     clear.disabled = code === null;
@@ -130,8 +128,7 @@ export function createHotkeyEditor(ctx: UiContext): HotkeyEditor {
             el('span', { text: `${keyName(conflict.code)} is already used by ${ACTION_LABEL[conflict.other]}. Swap?` }),
             el('div', { class: 'sw-conflict-actions' }, [
               button('Swap', () => {
-                commit(applySwap(controller.settings.bindings, conflict.action, conflict.slot, conflict.code));
-                setState({ kind: 'idle' });
+                setState({ kind: 'idle' }, commit(applySwap(controller.settings.bindings, conflict.action, conflict.slot, conflict.code)));
               }, { class: 'sw-btn-primary' }),
               button('Cancel', () => setState({ kind: 'idle' })),
             ]),
