@@ -5,7 +5,7 @@ import type { ActionId } from '../input/actions';
 import type { InputMode } from '../input/mode';
 import { getInsets } from '../input/insets';
 import { computeLayout, railMetrics, stickFromOffset, type Insets, type Layout, type Rect } from '../input/touch';
-import { hudInfo } from '../render/hudInfo';
+import { hudInfo, routeBannerText } from '../render/hudInfo';
 import type { ContextAction } from '../sim/context';
 import { jumpDestination, pickLandTarget } from '../sim/rules';
 import type { WorldState } from '../sim/types';
@@ -176,7 +176,11 @@ export function mountRails(opts: RailsOptions): Rails {
     controller.doContextAction();
   });
 
-  const layer = el('div', { class: 'sw-touch', attrs: { 'data-testid': 'touch-rails' } }, [stickRail, buttonRail, contextBtn]);
+  // ---- autopilot route banner (top-center of the clear region) -------------
+  const banner = el('div', { class: 'sw-route-banner', attrs: { 'data-testid': 'route-banner', role: 'status' } });
+  banner.hidden = true;
+
+  const layer = el('div', { class: 'sw-touch', attrs: { 'data-testid': 'touch-rails' } }, [stickRail, buttonRail, contextBtn, banner]);
   layer.hidden = true;
   layer.addEventListener('contextmenu', (e) => e.preventDefault());
   opts.parent.append(layer);
@@ -215,6 +219,7 @@ export function mountRails(opts: RailsOptions): Rails {
   let shown = false;
   let lastKey = '';
   let lastLabel: string | null = null;
+  let lastRoute: string | null = null;
 
   const applyLayout = (w: number, h: number, layout: Layout) => {
     const s = controller.settings.touch;
@@ -243,6 +248,10 @@ export function mountRails(opts: RailsOptions): Rails {
     contextBtn.style.left = px(layout.view.x + layout.view.w / 2);
     contextBtn.style.bottom = px(h - (layout.view.y + layout.view.h) + 12 + layout.insets.bottom);
     contextBtn.style.maxWidth = px(Math.max(0, layout.clear.w - 16));
+    // Top-center of the view, kept inside the clear region so it never covers a rail.
+    banner.style.left = px(layout.clear.x + layout.clear.w / 2);
+    banner.style.top = px(Math.max(layout.view.y, layout.clear.y) + 8 + layout.insets.top);
+    banner.style.maxWidth = px(Math.max(0, layout.clear.w - 16));
   };
 
   const update = () => {
@@ -277,6 +286,13 @@ export function mountRails(opts: RailsOptions): Rails {
       lastLabel = label;
       contextBtn.textContent = label ?? '';
       contextBtn.hidden = label === null;
+    }
+
+    const route = controller.isFlying ? routeBannerText(world, data) : null;
+    if (route !== lastRoute) {
+      lastRoute = route;
+      banner.textContent = route ?? '';
+      banner.hidden = route === null;
     }
 
     if (!radar.hidden) drawRadar(radarCanvas, world, data);

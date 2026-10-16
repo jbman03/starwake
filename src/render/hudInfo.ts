@@ -1,6 +1,7 @@
 /** HUD text and colors, free of Phaser so the HTML touch HUD (src/ui/rails.ts) can share it. */
 import type { GameData } from '../data/schemas';
 import { fuelText, jumpsOf } from '../sim/fuel';
+import { jumpDestination } from '../sim/rules';
 import type { WorldState } from '../sim/types';
 import { dist } from '../sim/vec';
 
@@ -31,4 +32,26 @@ export function hudInfo(world: WorldState, data: GameData): HudInfo {
     fuelColor: fuelColor(jumps),
     target: t && t.systemId === world.systemId ? `Target: ${t.name}  ${Math.round(dist(t.pos, world.ship.pos))}` : 'Target: none',
   };
+}
+
+/**
+ * Autopilot route banner ("Autopilot → Halcyon · fuel after: 3 jumps"), or null when the
+ * autopilot is off. Fuel after is the jumps left once the planned trip is done: unchanged for a
+ * planet, one less for the jump point (never below zero).
+ */
+export function routeBannerText(world: WorldState, data: GameData): string | null {
+  const a = world.assist;
+  if (a.kind !== 'autopilot') return null;
+  const jumps = fuelJumps(world, data);
+  let name: string;
+  let after: number;
+  if (a.dest.type === 'planet') {
+    name = data.planets[a.dest.id]?.name ?? a.dest.id;
+    after = jumps;
+  } else {
+    const to = jumpDestination(world, data);
+    name = to ? (data.systems[to]?.name ?? to) : 'jump point';
+    after = Math.max(0, jumps - 1);
+  }
+  return `Autopilot → ${name} · fuel after: ${after} ${after === 1 ? 'jump' : 'jumps'}`;
 }

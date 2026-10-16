@@ -41,7 +41,11 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   await page.waitForTimeout(100);
   await page.keyboard.press('KeyG');
   await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'autopilot');
+  await expect
+    .poll(() => page.evaluate(() => window.__starwake!.hudBanner!()))
+    .toBe('Autopilot → Vesk · fuel after: 2 jumps');
   await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'none', null, { timeout: 30_000 });
+  await expect.poll(() => page.evaluate(() => window.__starwake!.hudBanner!())).toBeNull();
 
   const fuel0 = await page.evaluate(() => window.__starwake!.world().ship.fuel);
   await page.keyboard.press('KeyJ');

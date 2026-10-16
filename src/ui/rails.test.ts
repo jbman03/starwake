@@ -103,6 +103,24 @@ describe('mountRails', () => {
     expect(parent.querySelector<HTMLElement>('[data-control="fire"]')!.style.opacity).toBe('');
   });
 
+  it('shows the autopilot route banner top-center of the clear region while the autopilot flies', async () => {
+    const { c, rails, parent } = await setup();
+    c.startFlight();
+    rails.update();
+    const banner = parent.querySelector<HTMLElement>('[data-testid="route-banner"]')!;
+    expect(banner.hidden).toBe(true);
+    c.world = { ...c.world, assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
+    rails.update();
+    expect(banner.hidden).toBe(false);
+    expect(banner.textContent).toBe('Autopilot → Vesk · fuel after: 2 jumps');
+    const clear = JSON.parse(parent.querySelector<HTMLElement>('[data-testid="touch-rails"]')!.dataset.clear!);
+    expect(parseFloat(banner.style.left)).toBeCloseTo(clear.x + clear.w / 2, 5);
+    expect(parseFloat(banner.style.maxWidth)).toBeLessThanOrEqual(clear.w);
+    c.world = { ...c.world, assist: { kind: 'none' } };
+    rails.update();
+    expect(banner.hidden).toBe(true);
+  });
+
   it('classic steering adds a Thrust button', async () => {
     const { c, rails, parent } = await setup();
     c.startFlight();

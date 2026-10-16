@@ -10,6 +10,8 @@ export interface StarwakeTestHook {
   store: PilotStore;
   /** Set by SpaceScene: the main camera's viewport in screen px. */
   cameraViewport?: () => { x: number; y: number; w: number; h: number };
+  /** Set by SpaceScene: the desktop HUD's autopilot route banner text, or null when hidden. */
+  hudBanner?: () => string | null;
   /** Set by SpaceScene: a planet's on-screen position, or null if not in the current system. */
   planetScreenPos?: (planetId: string) => { x: number; y: number } | null;
 }

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { GameData } from '../data/schemas';
 import type { WorldState } from '../sim/types';
-import { hudInfo } from './hudInfo';
+import { hudInfo, routeBannerText } from './hudInfo';
 
 const MESSAGE_SECONDS = 3;
 const FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
@@ -9,7 +9,7 @@ const PANEL_W = 210;
 
 /**
  * Flight HUD drawn by the main camera, fixed to its viewport. Keyboard mode: status panel
- * top-left, message line bottom-center. Touch mode: the status panel moves into the left rail
+ * top-left, autopilot route banner top-center, message line bottom-center. Touch mode: the status panel moves into the left rail
  * (drawn in HTML by src/ui/rails.ts), and the message moves to the top so it never sits under
  * the context button.
  */
@@ -19,6 +19,8 @@ export class Hud {
   private system: Phaser.GameObjects.Text;
   private target: Phaser.GameObjects.Text;
   private message: Phaser.GameObjects.Text;
+  /** Autopilot route banner, top-center (keyboard mode; the rails draw it in touch mode). */
+  private banner: Phaser.GameObjects.Text;
   private messageAge = Infinity;
   private statics: Phaser.GameObjects.GameObject[] = [];
   private touchMode = false;
@@ -36,6 +38,18 @@ export class Hud {
     this.fuel = text(20, 82, 13);
     this.target = text(20, 104, 13, '#b8c4d2');
     this.message = text(0, 0, 15, '#ffffff').setOrigin(0.5, 1);
+    this.banner = scene.add
+      .text(0, 14, '', {
+        fontFamily: FONT,
+        fontSize: '14px',
+        color: '#dff7df',
+        backgroundColor: 'rgba(16, 36, 22, 0.85)',
+        padding: { x: 12, y: 6 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setVisible(false);
     this.setLayout(scene.scale.width, scene.scale.height, false);
   }
 
@@ -48,7 +62,9 @@ export class Hud {
     for (const o of [this.panel, this.system, this.fuel, this.target, ...this.statics]) {
       (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(!touchMode);
     }
-    if (touchMode) this.message.setOrigin(0.5, 0).setPosition(viewW / 2, 14);
+    this.banner.setPosition(viewW / 2, 14);
+    // Touch mode: the message sits below the (HTML) route banner, clear of the context button.
+    if (touchMode) this.message.setOrigin(0.5, 0).setPosition(viewW / 2, 56);
     else this.message.setOrigin(0.5, 1).setPosition(viewW / 2, viewH - 28);
   }
 
@@ -67,6 +83,11 @@ export class Hud {
     }
   }
 
+  /** The route banner's text when it is showing (e2e checks), else null. */
+  bannerText(): string | null {
+    return this.banner.visible ? this.banner.text : null;
+  }
+
   showMessage(text: string): void {
     this.message.setText(text).setAlpha(1);
     this.messageAge = 0;
@@ -79,6 +100,9 @@ export class Hud {
       this.fuel.setText(info.fuel).setColor(info.fuelColor);
       this.target.setText(info.target);
     }
+    const route = this.touchMode ? null : routeBannerText(world, data);
+    if (route === null) this.banner.setVisible(false);
+    else if (!this.banner.visible || this.banner.text !== route) this.banner.setText(route).setVisible(true);
 
     this.messageAge += dtSec;
     const fade = 0.5;

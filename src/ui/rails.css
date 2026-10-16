@@ -123,6 +123,24 @@ html, body { overscroll-behavior: none; }
 }
 .sw-context:active { background: #23502f; }
 
+/* Autopilot route banner: top-center of the view's clear region. Display only, never blocks taps. */
+.sw-route-banner {
+  position: absolute;
+  transform: translateX(-50%);
+  pointer-events: none;
+  padding: 6px 12px;
+  box-sizing: border-box;
+  border: 1px solid #6fae6f;
+  border-radius: 14px;
+  background: rgba(16, 36, 22, 0.85);
+  color: #dff7df;
+  font: 600 13px/1.2 var(--sw-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sw-route-banner[hidden] { display: none; }
+
 /* Portrait phone: ask to rotate. (Markup is in index.html.) */
 #rotate-overlay { display: none; }
 @media (orientation: portrait) and (pointer: coarse) {
