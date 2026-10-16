@@ -6,7 +6,7 @@ import { departFrom, newWorld } from '../sim/world';
 export const CURRENT_SAVE_VERSION = 1;
 
 export class SaveError extends Error {
-  constructor(public readonly code: 'futureVersion' | 'invalid', message?: string) {
+  constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
     super(message ?? code);
     this.name = 'SaveError';
   }

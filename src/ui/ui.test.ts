@@ -2,7 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BINDINGS } from '../input/bindings';
 import { confirmDialog, dialogOpen, formatCredits, hotkeyFor, keyLabel, promptDialog } from './dom';
-import { cleanPilotName } from './mainMenu';
+import { SaveError } from '../save/pilot';
+import { cleanPilotName, saveErrorText } from './mainMenu';
 import { starMapSvg } from './mapPlaceholder';
 import { fuelText } from '../sim/fuel';
 
@@ -25,6 +26,13 @@ describe('ui helpers', () => {
     expect(cleanPilotName('  Ava  ')).toBe('Ava');
     expect(cleanPilotName('   ')).toBe('Pilot');
     expect(cleanPilotName('x'.repeat(30))).toHaveLength(24);
+  });
+
+  it('saveErrorText explains unknown content clearly', () => {
+    expect(saveErrorText(new SaveError('unknownContent'), 'imported')).toBe(
+      "This pilot couldn't be imported: it uses a ship, system or planet this version of Starwake doesn't have.",
+    );
+    expect(saveErrorText(new SaveError('invalid'), 'imported')).toContain('damaged');
   });
 
   it('fuelText and formatCredits', () => {

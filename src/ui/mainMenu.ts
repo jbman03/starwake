@@ -14,8 +14,11 @@ export function cleanPilotName(raw: string): string {
   return raw.trim().slice(0, NAME_MAX).trim() || DEFAULT_NAME;
 }
 
-function saveErrorText(err: unknown, verb: string): string {
+export function saveErrorText(err: unknown, verb: string): string {
   if (err instanceof SaveError && err.code === 'futureVersion') return `This pilot was saved by a newer version of Starwake and can't be ${verb}.`;
+  if (err instanceof SaveError && err.code === 'unknownContent') {
+    return `This pilot couldn't be ${verb}: it uses a ship, system or planet this version of Starwake doesn't have.`;
+  }
   return `This pilot couldn't be ${verb}: the file or save is damaged.`;
 }
 
@@ -134,7 +137,7 @@ export function showMainMenu(ctx: UiContext): void {
     if (!f) return;
     void guarded(async () => {
       try {
-        const p = importPilot(await f.text());
+        const p = importPilot(await f.text(), data);
         await store.save(p);
         say(`Imported ${p.name}.`);
         await refresh();
