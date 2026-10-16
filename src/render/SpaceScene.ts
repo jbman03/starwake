@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import type { Controller } from '../app/controller';
 import type { SystemDef } from '../data/schemas';
+import type { InputMode } from '../input/mode';
+import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { JUMP_DURATION } from '../sim/world';
 import { Hud } from './hud';
@@ -12,10 +14,19 @@ import {
   shipFrame,
 } from './sprites';
 
+/** Planets and stations are tappable this far beyond their edge... */
+const TAP_MARGIN = 12;
+/** ...and never with a radius under this (a 44 px wide touch target). */
+const MIN_TAP_RADIUS = 22;
+
 /** Parallax factor per starfield layer (far → near). */
 const PARALLAX = [0.08, 0.22, 0.45];
 
-/** Draws the current system around the player ship. Reads controller.view() every frame. */
+/**
+ * Draws the current system around the player ship. Reads controller.view() every frame.
+ * The camera viewport is the layout's view: the whole window in keyboard mode, the region
+ * between the touch rails in touch mode, so the ship stays centered in what the player sees.
+ */
 export class SpaceScene extends Phaser.Scene {
   private stars: Phaser.GameObjects.TileSprite[] = [];
   private bodies: Phaser.GameObjects.Image[] = [];
@@ -25,8 +36,12 @@ export class SpaceScene extends Phaser.Scene {
   private hud!: Hud;
   private builtSystemId: string | null = null;
   private unsubs: (() => void)[] = [];
+  private viewport: Rect = { x: 0, y: 0, w: 0, h: 0 };
 
-  constructor(private controller: Controller) {
+  constructor(
+    private controller: Controller,
+    private inputMode: InputMode,
+  ) {
     super('space');
   }
 
@@ -57,16 +72,46 @@ export class SpaceScene extends Phaser.Scene {
       this.controller.on('message', (e) => this.hud.showMessage(e.text)),
     );
 
-    this.scale.on('resize', this.onResize, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.unsubs.forEach((u) => u());
-      this.scale.off('resize', this.onResize, this);
-      this.hud.destroy();
-    });
+    this.applyLayout();
+    this.installTestHook();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsubs.forEach((u) => u()));
   }
 
-  private onResize(size: Phaser.Structs.Size): void {
-    for (const ts of this.stars) ts.setSize(size.width, size.height);
+  /** The view rect for the current window size and input mode, in whole pixels. */
+  private currentView(): Rect {
+    const { width, height } = this.scale;
+    const v =
+      this.inputMode.mode === 'touch'
+        ? computeLayout(width, height, this.controller.settings.touch).view
+        : { x: 0, y: 0, w: width, h: height };
+    return { x: Math.round(v.x), y: Math.round(v.y), w: Math.round(v.w), h: Math.round(v.h) };
+  }
+
+  /** Fit the camera, starfield and HUD to the view. Cheap when nothing changed; runs every frame. */
+  private applyLayout(): void {
+    const v = this.currentView();
+    const old = this.viewport;
+    if (v.x === old.x && v.y === old.y && v.w === old.w && v.h === old.h) return;
+    this.viewport = v;
+    this.cameras.main.setViewport(v.x, v.y, v.w, v.h);
+    for (const ts of this.stars) ts.setSize(v.w, v.h);
+    this.hud.setLayout(v.w, v.h, this.inputMode.mode === 'touch');
+  }
+
+  /** e2e helpers: the camera viewport and where a planet is on screen. */
+  private installTestHook(): void {
+    const hook = window.__starwake;
+    if (!hook) return;
+    hook.cameraViewport = () => {
+      const c = this.cameras.main;
+      return { x: c.x, y: c.y, w: c.width, h: c.height };
+    };
+    hook.planetScreenPos = (id) => {
+      const p = this.controller.data.planets[id];
+      if (!p || p.systemId !== this.builtSystemId) return null;
+      const c = this.cameras.main;
+      return { x: c.x + (p.pos.x - c.worldView.x) * c.zoom, y: c.y + (p.pos.y - c.worldView.y) * c.zoom };
+    };
   }
 
   /** Rebuild the star and planets for a system. */
@@ -82,7 +127,11 @@ export class SpaceScene extends Phaser.Scene {
     );
     for (const p of Object.values(data.planets)) {
       if (p.systemId !== systemId) continue;
-      this.bodies.push(this.add.image(p.pos.x, p.pos.y, makePlanetTexture(this, p)).setDepth(1));
+      const img = this.add.image(p.pos.x, p.pos.y, makePlanetTexture(this, p)).setDepth(1);
+      const r = Math.max(MIN_TAP_RADIUS, p.radius + TAP_MARGIN);
+      img.setInteractive(new Phaser.Geom.Circle(img.width / 2, img.height / 2, r), Phaser.Geom.Circle.Contains);
+      img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => this.controller.tapPlanet(p.id));
+      this.bodies.push(img);
     }
   }
 
@@ -93,6 +142,7 @@ export class SpaceScene extends Phaser.Scene {
     this.controller.update(dt);
     const { world, prevShip, alpha, data } = this.controller.view();
     if (world.systemId !== this.builtSystemId) this.buildSystem(world.systemId);
+    this.applyLayout();
 
     // Interpolated ship position; camera stays centered on it.
     const x = prevShip.pos.x + (world.ship.pos.x - prevShip.pos.x) * alpha;

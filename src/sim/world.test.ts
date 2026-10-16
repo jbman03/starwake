@@ -168,6 +168,33 @@ describe('stepWorld: manual flight and assists', () => {
     expect(len(w.ship.vel)).toBeGreaterThan(0);
   });
 
+  it('touch stick, point mode: angle π/2 at magnitude 0.7 turns toward π/2 and thrusts', () => {
+    const w0 = at(newWorld(data), { x: 0, y: -1500 }, { heading: 0 });
+    const stick = { angle: Math.PI / 2, magnitude: 0.7, mode: 'point' as const };
+    const w1 = stepWorld(w0, data, frame([], [], stick), DT, OPTS).world;
+    expect(w1.ship.heading).toBeGreaterThan(0);
+    expect(len(w1.ship.vel)).toBeGreaterThan(0);
+    let w = w1;
+    for (let i = 0; i < 60; i++) w = stepWorld(w, data, frame([], [], stick), DT, OPTS).world;
+    expect(w.ship.heading).toBeCloseTo(Math.PI / 2, 6);
+  });
+
+  it('touch stick, point mode: magnitude 0.5 turns but does not thrust', () => {
+    const w0 = at(newWorld(data), { x: 0, y: -1500 }, { heading: 0 });
+    const w = stepWorld(w0, data, frame([], [], { angle: Math.PI / 2, magnitude: 0.5, mode: 'point' }), DT, OPTS).world;
+    expect(w.ship.heading).toBeGreaterThan(0);
+    expect(len(w.ship.vel)).toBe(0);
+  });
+
+  it('touch stick, classic mode: angle 0 at magnitude 0.7 turns +1 without thrust', () => {
+    const w0 = at(newWorld(data), { x: 0, y: -1500 }, { heading: 0 });
+    const right = stepWorld(w0, data, frame([], [], { angle: 0, magnitude: 0.7, mode: 'classic' }), DT, OPTS).world;
+    const keyRight = stepWorld(w0, data, frame([], ['turnRight']), DT, OPTS).world;
+    expect(right.ship.heading).toBeGreaterThan(0);
+    expect(right.ship.heading).toBeCloseTo(keyRight.ship.heading, 9);
+    expect(len(right.ship.vel)).toBe(0);
+  });
+
   it('autoStop brings the ship to exactly zero and clears the assist', () => {
     let w = at(newWorld(data), { x: 0, y: -1500 }, { vel: { x: 200, y: 0 } });
     w = { ...w, ship: { ...w.ship, vel: { x: 200, y: 0 } } };

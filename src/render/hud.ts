@@ -1,24 +1,18 @@
 import Phaser from 'phaser';
 import type { GameData } from '../data/schemas';
 import type { WorldState } from '../sim/types';
-import { dist } from '../sim/vec';
-
-export const FUEL_COLORS = { normal: '#9fe7a0', low: '#ffb347', empty: '#ff5a4f' } as const;
-
-export function fuelJumps(world: WorldState, data: GameData): number {
-  const per = data.config.fuelPerJump;
-  return per > 0 ? Math.floor(world.ship.fuel / per) : Infinity;
-}
-
-export function fuelColor(jumps: number): string {
-  return jumps >= 2 ? FUEL_COLORS.normal : jumps === 1 ? FUEL_COLORS.low : FUEL_COLORS.empty;
-}
+import { hudInfo } from './hudInfo';
 
 const MESSAGE_SECONDS = 3;
 const FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
 const PANEL_W = 210;
 
-/** Desktop flight HUD: status panel top-left, message line bottom-center. Fixed to the screen. */
+/**
+ * Flight HUD drawn by the main camera, fixed to its viewport. Keyboard mode: status panel
+ * top-left, message line bottom-center. Touch mode: the status panel moves into the left rail
+ * (drawn in HTML by src/ui/rails.ts), and the message moves to the top so it never sits under
+ * the context button.
+ */
 export class Hud {
   private panel: Phaser.GameObjects.Graphics;
   private fuel: Phaser.GameObjects.Text;
@@ -26,22 +20,38 @@ export class Hud {
   private target: Phaser.GameObjects.Text;
   private message: Phaser.GameObjects.Text;
   private messageAge = Infinity;
+  private statics: Phaser.GameObjects.GameObject[] = [];
+  private touchMode = false;
+  private viewW = 0;
+  private viewH = 0;
 
-  constructor(private scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene) {
     const text = (x: number, y: number, size: number, color = '#cfd8e3') =>
       scene.add.text(x, y, '', { fontFamily: FONT, fontSize: `${size}px`, color }).setScrollFactor(0).setDepth(1000);
 
     this.panel = scene.add.graphics().setScrollFactor(0).setDepth(999);
     this.drawPanel();
     this.system = text(20, 16, 15, '#e8eef5');
-    text(20, 42, 12, '#8fa0b5').setText('Shields');
-    text(20, 58, 12, '#8fa0b5').setText('Armor');
+    this.statics.push(text(20, 42, 12, '#8fa0b5').setText('Shields'), text(20, 58, 12, '#8fa0b5').setText('Armor'));
     this.fuel = text(20, 82, 13);
     this.target = text(20, 104, 13, '#b8c4d2');
     this.message = text(0, 0, 15, '#ffffff').setOrigin(0.5, 1);
-    this.layout();
-    scene.scale.on('resize', this.layout, this);
+    this.setLayout(scene.scale.width, scene.scale.height, false);
   }
+
+  /** Size of the camera viewport the HUD is drawn in, and whether touch rails are showing. */
+  setLayout(viewW: number, viewH: number, touchMode: boolean): void {
+    if (viewW === this.viewW && viewH === this.viewH && touchMode === this.touchMode) return;
+    this.viewW = viewW;
+    this.viewH = viewH;
+    this.touchMode = touchMode;
+    for (const o of [this.panel, this.system, this.fuel, this.target, ...this.statics]) {
+      (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(!touchMode);
+    }
+    if (touchMode) this.message.setOrigin(0.5, 0).setPosition(viewW / 2, 14);
+    else this.message.setOrigin(0.5, 1).setPosition(viewW / 2, viewH - 28);
+  }
+
 
   private drawPanel(): void {
     const g = this.panel;
@@ -57,33 +67,21 @@ export class Hud {
     }
   }
 
-  private layout(): void {
-    const { width, height } = this.scene.scale;
-    this.message.setPosition(width / 2, height - 28);
-  }
-
   showMessage(text: string): void {
     this.message.setText(text).setAlpha(1);
     this.messageAge = 0;
   }
 
   update(world: WorldState, data: GameData, dtSec: number): void {
-    this.system.setText(data.systems[world.systemId]?.name ?? world.systemId);
-
-    const jumps = fuelJumps(world, data);
-    this.fuel.setText(`Fuel: ${jumps} jumps`).setColor(fuelColor(jumps));
-
-    const t = world.targetPlanetId ? data.planets[world.targetPlanetId] : undefined;
-    this.target.setText(
-      t && t.systemId === world.systemId ? `Target: ${t.name}  ${Math.round(dist(t.pos, world.ship.pos))}` : 'Target: none',
-    );
+    if (!this.touchMode) {
+      const info = hudInfo(world, data);
+      this.system.setText(info.system);
+      this.fuel.setText(info.fuel).setColor(info.fuelColor);
+      this.target.setText(info.target);
+    }
 
     this.messageAge += dtSec;
     const fade = 0.5;
     this.message.setAlpha(this.messageAge < MESSAGE_SECONDS - fade ? 1 : Math.max(0, (MESSAGE_SECONDS - this.messageAge) / fade));
-  }
-
-  destroy(): void {
-    this.scene.scale.off('resize', this.layout, this);
   }
 }

@@ -1,6 +1,7 @@
 import type { GameData } from '../data/schemas';
 import type { ActionGroup, ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
+import { TouchSource } from '../input/touch';
 import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import type { Settings } from '../save/settings';
 import { contextAction, type ContextAction } from '../sim/context';
@@ -53,6 +54,8 @@ export class Controller {
   private lastContext: ContextAction = null;
   private uiInput: UiInput | null = null;
   readonly keyboard: KeyboardSource;
+  /** On-screen touch controls feed this; merged with the keyboard every tick. */
+  readonly touch: TouchSource;
 
   /** Planet the ship is sitting on (planet screen open), or null. */
   landedPlanetId: string | null = null;
@@ -74,6 +77,7 @@ export class Controller {
     this.world = world;
     this.prevShip = world.ship;
     this.keyboard = new KeyboardSource(keyTarget, () => this.settings.bindings);
+    this.touch = new TouchSource(() => this.settings.touch.steering);
   }
 
   on<T extends ControllerEventType>(type: T, fn: (e: EventOf<T>) => void): () => void {
@@ -188,6 +192,19 @@ export class Controller {
     this.checkContext();
   }
 
+  /**
+   * A planet was tapped: select it, then land the way the context button does (lands at once
+   * when close and slow, else autopilots there). Takes over from any autopilot first so the
+   * tapped planet wins instead of the landing autopilot's "next planet" cycling.
+   */
+  tapPlanet(id: string): void {
+    if (!this.flying || this.world.jump) return;
+    if (this.world.assist.kind === 'autopilot') this.world = interruptAutopilot(this.world);
+    this.selectPlanet(id);
+    this.queued.add('land');
+    this.checkContext();
+  }
+
   /** Planet a tow would take us to right now, or null when no tow is offered. */
   towDestination(): string | null {
     if (this.landedPlanetId || this.world.jump) return null;
@@ -230,7 +247,12 @@ export class Controller {
     }
     this.alpha = this.stepper.advance(elapsedSec, (dt) => {
       if (!this.flying) return; // a landing or menu earlier in this frame paused flight
-      const polled = this.keyboard.poll('flight');
+      const keys = this.keyboard.poll('flight');
+      const touch = this.touch.poll('flight');
+      const polled = {
+        actions: new Set([...keys.actions, ...touch.actions]),
+        pressed: new Set([...keys.pressed, ...touch.pressed]),
+      };
       const menu = polled.pressed.has('pause') ? 'pause' : polled.pressed.has('map') ? 'map' : null;
       if (menu) {
         this.pauseFlight();
@@ -239,7 +261,9 @@ export class Controller {
       }
       const pressed = new Set([...polled.pressed, ...this.queued]);
       this.queued.clear();
-      const input: FrameInput = { actions: polled.actions, pressed };
+      const input: FrameInput = touch.stick
+        ? { actions: polled.actions, pressed, stick: touch.stick }
+        : { actions: polled.actions, pressed };
       this.prevShip = this.world.ship;
       const r = stepWorld(this.world, this.data, input, dt, {
         autoLandOnArrival: this.settings.autoLandOnArrival,
@@ -254,6 +278,7 @@ export class Controller {
   private updateUi(): void {
     const ui = this.uiInput;
     const { pressed } = this.keyboard.poll(ui?.groups ?? 'menus');
+    this.touch.poll('flight'); // drain: a tap made while paused must not fire on resume
     if (ui && pressed.size > 0) ui.handler(pressed);
   }
 

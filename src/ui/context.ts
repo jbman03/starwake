@@ -1,5 +1,6 @@
 import type { Controller } from '../app/controller';
 import type { ActionGroup, ActionId } from '../input/actions';
+import type { InputMode } from '../input/mode';
 import type { PilotStore } from '../save/store';
 import { dialogOpen } from './dom';
 import { showMainMenu } from './mainMenu';
@@ -19,6 +20,8 @@ export interface UiContext {
   root: HTMLElement;
   controller: Controller;
   store: PilotStore;
+  /** Keyboard or touch: picks the settings tab and whether touch rails show. */
+  inputMode: InputMode;
   /** PNG data URL of a planet's generated sprite, or null if unavailable. */
   planetImage: (planetId: string) => string | null;
   /** Replace the open screen with `screen`. */
@@ -39,6 +42,7 @@ export function createUi(
   controller: Controller,
   store: PilotStore,
   planetImage: (planetId: string) => string | null,
+  inputMode: InputMode,
 ): UiContext {
   let current: { node: HTMLElement; cleanup?: () => void; offInput?: () => void } | null = null;
 
@@ -54,6 +58,7 @@ export function createUi(
     root,
     controller,
     store,
+    inputMode,
     planetImage,
     mount(screen, opts = {}) {
       unmount();

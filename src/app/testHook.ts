@@ -8,6 +8,10 @@ export interface StarwakeTestHook {
   data: GameData;
   controller: Controller;
   store: PilotStore;
+  /** Set by SpaceScene: the main camera's viewport in screen px. */
+  cameraViewport?: () => { x: number; y: number; w: number; h: number };
+  /** Set by SpaceScene: a planet's on-screen position, or null if not in the current system. */
+  planetScreenPos?: (planetId: string) => { x: number; y: number } | null;
 }
 
 declare global {

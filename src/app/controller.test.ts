@@ -210,4 +210,62 @@ describe('Controller', () => {
     expect(c.snapshot()).toBeNull();
     expect(c.isFlying).toBe(false);
   });
+  it('touch presses and the touch stick merge into the flight input', async () => {
+    const { c, data } = await setup();
+    c.startFlight();
+    c.touch.press('autoStop');
+    c.touch.release('autoStop');
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 0, y: -1500 }, vel: { x: 300, y: 0 } } };
+    c.update(1 / 60);
+    expect(c.world.assist.kind).toBe('autoStop');
+
+    c.world = newWorld(data);
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 0, y: -1500 }, heading: 0 } };
+    c.touch.setStick(Math.PI / 2, 1);
+    for (let i = 0; i < 30; i++) c.update(1 / 60);
+    expect(c.world.ship.heading).toBeGreaterThan(0.5);
+    expect(c.world.ship.vel.y).toBeGreaterThan(0);
+  });
+
+  it('a touch pause or map press opens the menu like the keys do', async () => {
+    const { c, events } = await setup();
+    c.startFlight();
+    c.touch.press('map');
+    c.touch.release('map');
+    c.update(1 / 60);
+    expect(c.isFlying).toBe(false);
+    expect(events).toContainEqual({ type: 'menu', action: 'map' });
+  });
+
+  it('touch presses made while paused are dropped, not replayed on resume', async () => {
+    const { c, events } = await setup();
+    c.touch.press('pause');
+    c.touch.release('pause');
+    c.update(1 / 60);
+    c.startFlight();
+    c.update(1 / 60);
+    expect(events.filter((e) => e.type === 'menu')).toHaveLength(0);
+  });
+
+  it('tapPlanet selects the planet and lands through the context path', async () => {
+    const { c, events } = await setup();
+    c.startFlight();
+    c.tapPlanet('halcyon');
+    expect(c.world.targetPlanetId).toBe('halcyon');
+    c.update(1 / 60);
+    expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
+  });
+
+  it('tapPlanet on a far planet autopilots there (even mid-autopilot), and is ignored when not flying', async () => {
+    const { c } = await setup();
+    c.tapPlanet('merrow');
+    expect(c.world.targetPlanetId).toBeNull();
+    c.startFlight();
+    c.tapPlanet('brigg-station');
+    c.update(1 / 60);
+    expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'planet', id: 'brigg-station' } });
+    c.tapPlanet('merrow');
+    c.update(1 / 60);
+    expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'planet', id: 'merrow' } });
+  });
 });

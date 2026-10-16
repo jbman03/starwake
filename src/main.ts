@@ -2,10 +2,12 @@ import './ui/styles.css';
 import { Controller } from './app/controller';
 import { installTestHook } from './app/testHook';
 import { loadGameData } from './data/load';
+import { InputMode } from './input/mode';
 import { createGame, planetImages, whenGameReady } from './render/game';
 import { loadSettings } from './save/settings';
 import { PilotStore } from './save/store';
 import { createUi } from './ui/context';
+import { mountRails } from './ui/rails';
 
 async function boot(): Promise<void> {
   const data = await loadGameData();
@@ -14,9 +16,11 @@ async function boot(): Promise<void> {
   const store = new PilotStore();
   controller.store = store;
   installTestHook(controller, data, store);
-  const game = createGame(document.getElementById('game')!, controller);
+  const inputMode = new InputMode(window, () => settings.bindings);
+  const game = createGame(document.getElementById('game')!, controller, inputMode);
   await whenGameReady(game);
-  const ui = createUi(document.getElementById('ui')!, controller, store, planetImages(game, controller));
+  const ui = createUi(document.getElementById('ui')!, controller, store, planetImages(game, controller), inputMode);
+  mountRails({ parent: document.getElementById('touch')!, controller, inputMode });
   ui.go.mainMenu();
 }
 

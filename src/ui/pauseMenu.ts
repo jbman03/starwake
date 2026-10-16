@@ -58,7 +58,7 @@ export function showPauseMenu(ctx: UiContext): void {
           controller.callTow();
         })
       : null,
-    button('Settings', () => showSettings(ctx, { mode: 'keyboard', onClose: () => showPauseMenu(ctx) })),
+    button('Settings', () => showSettings(ctx, { mode: ctx.inputMode.mode, onClose: () => showPauseMenu(ctx) })),
     button('Export pilot', exportCurrent),
     button('Quit to main menu', () => void quit(), { class: 'sw-btn-danger' }),
   ]);

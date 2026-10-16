@@ -150,7 +150,7 @@ export function showMainMenu(ctx: UiContext): void {
       el('div', { class: 'sw-actions sw-actions-row' }, [
         button('New Pilot', guarded(newPilot), { class: 'sw-btn-primary' }),
         button('Import pilot', () => file.click()),
-        button('Settings', () => showSettings(ctx, { mode: 'keyboard', onClose: () => showMainMenu(ctx) })),
+        button('Settings', () => showSettings(ctx, { mode: ctx.inputMode.mode, onClose: () => showMainMenu(ctx) })),
       ]),
       list,
       status,

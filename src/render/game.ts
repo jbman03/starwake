@@ -1,15 +1,16 @@
 import Phaser from 'phaser';
 import type { Controller } from '../app/controller';
+import type { InputMode } from '../input/mode';
 import { SpaceScene } from './SpaceScene';
 import { makePlanetTexture } from './sprites';
 
-export function createGame(parent: HTMLElement, controller: Controller): Phaser.Game {
+export function createGame(parent: HTMLElement, controller: Controller, inputMode: InputMode): Phaser.Game {
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent,
     backgroundColor: '#000000',
     scale: { mode: Phaser.Scale.RESIZE, width: '100%', height: '100%' },
-    scene: [new SpaceScene(controller)],
+    scene: [new SpaceScene(controller, inputMode)],
     banner: false,
   });
 }
