@@ -356,6 +356,25 @@ describe('Controller', () => {
   });
 });
 
+describe('Controller.plotRoute', () => {
+  it('stores a course to a charted system and offers the jump to its first hop', async () => {
+    const { c } = await setup();
+    c.startFlight();
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 2100, y: 0 }, vel: { x: 0, y: 0 } } };
+    expect(c.currentContext()).toBeNull();
+    expect(c.plotRoute('vesk')).toBe(true);
+    expect(c.world.route).toEqual(['vesk']);
+    expect(c.currentContext()).toBe('jump');
+  });
+
+  it('refuses an uncharted system and keeps the old course', async () => {
+    const { c } = await setup();
+    c.plotRoute('vesk');
+    expect(c.plotRoute('skerry')).toBe(false);
+    expect(c.world.route).toEqual(['vesk']);
+  });
+});
+
 describe('Controller flight events and input release', () => {
   it('emits flying on start and pause, only on change', async () => {
     const c = new Controller(await loadGameData(), { ...DEFAULT_SETTINGS }, new EventTarget());

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import type { ActionId } from '../input/actions';
 import type { FrameInput, SimEvent, WorldState } from './types';
+import type { GameData } from '../data/schemas';
 import {
+  advanceDays,
   applyRefuel,
   applyTow,
   departFrom,
@@ -10,7 +12,10 @@ import {
   JUMP_ARRIVAL_INSET,
   JUMP_DURATION,
   jumpHeading,
+  MSG_NO_DESTINATION,
+  MSG_ROUTE_BROKEN,
   newWorld,
+  setRoute,
   stepWorld,
 } from './world';
 import { dist, len } from './vec';
@@ -29,6 +34,9 @@ const at = (w: WorldState, pos: { x: number; y: number }, extra: Partial<WorldSt
   ...w,
   ship: { ...w.ship, pos, vel: { x: 0, y: 0 }, ...extra },
 });
+
+/** A fresh world with a course plotted to vesk (calder's neighbour). */
+const toVesk = (): WorldState => ({ ...newWorld(data, 1), route: ['vesk'] });
 
 /** Steps with no input until `until` returns true or maxSec elapses. */
 function run(w: WorldState, maxSec: number, opts = OPTS, until?: (w: WorldState, ev: SimEvent[]) => boolean) {
@@ -244,7 +252,7 @@ describe('stepWorld: manual flight and assists', () => {
 
 describe('stepWorld: jumping', () => {
   it('30 consecutive jump presses cost fuel once and emit one jumped event', () => {
-    let w = at(newWorld(data), { x: 2100, y: 0 });
+    let w = at(toVesk(), { x: 2100, y: 0 });
     const events: SimEvent[] = [];
     for (let i = 0; i < 180; i++) {
       const r = stepWorld(w, data, i < 30 ? frame(['jump'], ['jump']) : frame(), DT, OPTS);
@@ -258,7 +266,7 @@ describe('stepWorld: jumping', () => {
   });
 
   it('jump pressed on every tick for 90 ticks (through arrival) costs fuel once, one jumped event', () => {
-    let w = at(newWorld(data), { x: 2100, y: 0 });
+    let w = at(toVesk(), { x: 2100, y: 0 });
     const events: SimEvent[] = [];
     for (let i = 0; i < 90; i++) {
       const r = stepWorld(w, data, frame(['jump'], ['jump']), DT, OPTS);
@@ -276,7 +284,7 @@ describe('stepWorld: jumping', () => {
   });
 
   it('arrives inside the jump boundary on the side toward the origin, facing the center at 100 px/s', () => {
-    let w = at(newWorld(data), { x: 2100, y: 0 });
+    let w = at(toVesk(), { x: 2100, y: 0 });
     let arrival: WorldState | null = null;
     for (let i = 0; i < 90 && !arrival; i++) {
       const r = stepWorld(w, data, i === 0 ? frame(['jump']) : frame(), DT, OPTS);
@@ -300,7 +308,7 @@ describe('stepWorld: jumping', () => {
   });
 
   it('jump takes 1 second', () => {
-    let w = at(newWorld(data), { x: 2100, y: 0 });
+    let w = at(toVesk(), { x: 2100, y: 0 });
     w = stepWorld(w, data, frame(['jump']), DT, OPTS).world;
     expect(w.jump).toEqual({ toSystemId: 'vesk', t: 0 });
     expect(w.ship.fuel).toBe(200);
@@ -313,7 +321,7 @@ describe('stepWorld: jumping', () => {
     const vesk = data.systems.vesk.mapPos;
     const want = Math.atan2(vesk.y - calder.y, vesk.x - calder.x);
     // Start a quarter turn off the destination.
-    let w = at(newWorld(data), { x: 2100, y: 0 }, { heading: want - Math.PI / 2 });
+    let w = at(toVesk(), { x: 2100, y: 0 }, { heading: want - Math.PI / 2 });
     expect(jumpHeading(w, data, 'vesk')).toBeCloseTo(want, 9);
     w = stepWorld(w, data, frame(['jump']), DT, OPTS).world;
     const maxStep = (data.ships[w.shipId].turnRate * Math.PI) / 180 * DT;
@@ -333,7 +341,7 @@ describe('stepWorld: jumping', () => {
   });
 
   it('actions are ignored while jumping', () => {
-    let w = at(newWorld(data), { x: 2100, y: 0 });
+    let w = at(toVesk(), { x: 2100, y: 0 });
     w = stepWorld(w, data, frame(['jump']), DT, OPTS).world;
     const r = stepWorld(w, data, frame(['autopilot', 'land'], ['thrust']), DT, OPTS);
     expect(r.world.assist).toEqual({ kind: 'none' });
@@ -349,7 +357,7 @@ describe('stepWorld: jumping', () => {
   });
 
   it('no fuel → message', () => {
-    const w = at(newWorld(data), { x: 2100, y: 0 }, { fuel: 99 });
+    const w = at(toVesk(), { x: 2100, y: 0 }, { fuel: 99 });
     const r = stepWorld(w, data, frame(['jump']), DT, OPTS);
     expect(r.events).toEqual([{ type: 'message', text: 'Not enough fuel to jump.' }]);
     expect(r.world.jump).toBeNull();
@@ -399,5 +407,215 @@ describe('refuel, tow, depart', () => {
     expect(d.ship.vel).toEqual({ x: 0, y: 0 });
     expect(d.assist).toEqual({ kind: 'none' });
     expect(d.systemId).toBe('calder');
+  });
+});
+
+describe('newWorld: world state v2', () => {
+  it('starts on day 0 with empty cargo, missions, route, pressure and events', () => {
+    const w = newWorld(data, 42);
+    expect(w.seed).toBe(42);
+    expect(w.day).toBe(0);
+    expect(w.cargo).toEqual({});
+    expect(w.missions).toEqual([]);
+    expect(w.route).toEqual([]);
+    expect(w.pressure).toEqual({});
+    expect(w.events).toEqual([]);
+  });
+
+  it('knows the core systems and the start system; sees their neighbours, never both', () => {
+    const w = newWorld(data, 1);
+    expect(new Set(w.known)).toEqual(new Set([...data.config.knownAtStart, 'calder']));
+    const neighbours = new Set(w.known.flatMap((id) => data.systems[id].links));
+    for (const id of w.known) neighbours.delete(id);
+    expect(new Set(w.seen)).toEqual(neighbours);
+    expect(w.seen).toContain('vesk');
+    expect(w.seen).not.toContain('skerry');
+  });
+
+  it('picks a seed when none is given', () => {
+    expect(Number.isInteger(newWorld(data).seed)).toBe(true);
+  });
+});
+
+/** Fly a jump from just outside the current system's jump distance; returns the arrival world and events. */
+function jumpOnce(w: WorldState, d: GameData = data) {
+  const sys = d.systems[w.systemId];
+  w = { ...w, ship: { ...w.ship, pos: { x: sys.jumpDistance + 100, y: 0 }, vel: { x: 0, y: 0 } } };
+  const events: SimEvent[] = [];
+  for (let i = 0; i < 90; i++) {
+    const r = stepWorld(w, d, i === 0 ? frame(['jump']) : frame(), DT, OPTS);
+    w = r.world;
+    events.push(...r.events);
+    if (r.events.some((e) => e.type === 'jumped')) break;
+  }
+  return { world: w, events };
+}
+
+describe('stepWorld: destinations and routes', () => {
+  it('no route and several links: noDestination message, no jump, no fuel', () => {
+    const w0: WorldState = { ...newWorld(data, 1), systemId: 'mirren' };
+    expect(data.systems.mirren.links).toHaveLength(2);
+    const w = at(w0, { x: data.systems.mirren.jumpDistance + 100, y: 0 });
+    const r = stepWorld(w, data, frame(['jump']), DT, OPTS);
+    expect(r.events).toEqual([{ type: 'message', text: MSG_NO_DESTINATION }]);
+    expect(MSG_NO_DESTINATION).toBe('Choose a destination on the star map (M).');
+    expect(r.world.jump).toBeNull();
+    expect(r.world.ship.fuel).toBe(300);
+  });
+
+  it('route [vesk] from calder: arrives in vesk on day 1, route cleared, vesk known, its neighbours seen', () => {
+    const { world: w, events } = jumpOnce(toVesk());
+    expect(w.systemId).toBe('vesk');
+    expect(w.day).toBe(1);
+    expect(w.route).toEqual([]);
+    expect(w.known).toContain('vesk');
+    expect(w.seen).not.toContain('vesk');
+    for (const n of data.systems.vesk.links) if (!w.known.includes(n)) expect(w.seen).toContain(n);
+    expect(w.seen).toContain('lastlight');
+    expect(w.ship.fuel).toBe(200);
+    expect(events.filter((e) => e.type === 'jumped' || e.type === 'arrived')).toEqual([
+      { type: 'jumped', toSystemId: 'vesk' },
+      { type: 'arrived', systemId: 'vesk', day: 1 },
+    ]);
+  });
+
+  it('a 3-hop route is followed by three jumps, advancing one hop and one day each', () => {
+    const r = setRoute(newWorld(data, 1), data, 'corvana');
+    expect(r.ok).toBe(true);
+    const route = r.world.route;
+    expect(route).toHaveLength(3);
+    expect(route[2]).toBe('corvana');
+    let w = r.world;
+    for (let i = 0; i < 3; i++) {
+      w = jumpOnce(w).world;
+      expect(w.systemId).toBe(route[i]);
+      expect(w.day).toBe(i + 1);
+      expect(w.route).toEqual(route.slice(i + 1));
+    }
+    expect(w.systemId).toBe('corvana');
+    expect(w.ship.fuel).toBe(0);
+  });
+
+  it('stale route (next hop not linked): route cleared with a message, no jump, no fuel', () => {
+    const w = at({ ...newWorld(data, 1), route: ['skerry', 'redwater'] }, { x: 2100, y: 0 });
+    const r = stepWorld(w, data, frame(['jump']), DT, OPTS);
+    expect(r.events).toEqual([{ type: 'message', text: MSG_ROUTE_BROKEN }]);
+    expect(MSG_ROUTE_BROKEN).toBe('Course no longer valid — plot a new one on the star map.');
+    expect(r.world.route).toEqual([]);
+    expect(r.world.jump).toBeNull();
+    expect(r.world.ship.fuel).toBe(300);
+    expect(r.world.day).toBe(0);
+  });
+
+  it('with a single link and no route, jumps there', () => {
+    const one = { ...data, systems: { ...data.systems, mirren: { ...data.systems.mirren, links: ['vesk'] } } };
+    const { world: w } = jumpOnce({ ...newWorld(data, 1), systemId: 'mirren' }, one);
+    expect(w.systemId).toBe('vesk');
+    expect(w.day).toBe(1);
+  });
+});
+
+describe('setRoute', () => {
+  it('plots a fewest-hop route to a seen neighbour', () => {
+    const r = setRoute(newWorld(data, 1), data, 'vesk');
+    expect(r).toMatchObject({ ok: true });
+    expect(r.world.route).toEqual(['vesk']);
+  });
+
+  it('routes only through known or seen systems', () => {
+    const w = newWorld(data, 1);
+    const r = setRoute(w, data, 'brannock'); // seen (corvana's neighbour)
+    expect(r.ok).toBe(true);
+    const allowed = new Set([...w.known, ...w.seen]);
+    for (const id of r.world.route) expect(allowed.has(id)).toBe(true);
+    expect(r.world.route.at(-1)).toBe('brannock');
+  });
+
+  it('refuses an unknown-and-unseen destination with noRoute and leaves the world alone', () => {
+    const w = { ...newWorld(data, 1), route: ['vesk'] };
+    const r = setRoute(w, data, 'skerry');
+    expect(r).toEqual({ world: w, ok: false, reason: 'noRoute' });
+  });
+
+  it('refuses a destination reachable only through unexplored systems', () => {
+    // Only calder known and thistle seen: every path to thistle crosses unknown systems.
+    const w = { ...newWorld(data, 1), known: ['calder'], seen: ['thistle'] };
+    expect(setRoute(w, data, 'thistle')).toEqual({ world: w, ok: false, reason: 'noRoute' });
+  });
+
+  it('a route to the current system is empty', () => {
+    const r = setRoute({ ...newWorld(data, 1), route: ['vesk'] }, data, 'calder');
+    expect(r.ok).toBe(true);
+    expect(r.world.route).toEqual([]);
+  });
+});
+
+describe('applyTow: time and routes', () => {
+  /** Only halcyon (calder) sells fuel, so a tow from brackwater travels 3 hops. */
+  const dry: GameData = {
+    ...data,
+    planets: Object.fromEntries(
+      Object.entries(data.planets).map(([id, p]) => {
+        if (id === 'halcyon') return [id, p];
+        const { fuelPrice: _drop, ...rest } = p;
+        return [id, rest];
+      }),
+    ),
+  };
+  const stranded = (p: Partial<WorldState> = {}): WorldState => ({
+    ...newWorld(data, 1),
+    systemId: 'brackwater',
+    ship: { pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, heading: 0, fuel: 0 },
+    ...p,
+  });
+
+  it('a tow from a fringe system 3 hops away advances 3 days and explores the destination', () => {
+    const r = applyTow(stranded({ day: 5 }), dry);
+    expect(r.events).toEqual([{ type: 'towed', planetId: 'halcyon' }]);
+    expect(r.world.systemId).toBe('calder');
+    expect(r.world.day).toBe(8);
+    expect(r.world.known).toContain('calder');
+  });
+
+  it('a one-hop tow still advances one day', () => {
+    const w: WorldState = { ...stranded(), systemId: 'vesk' };
+    expect(applyTow(w, data).world.day).toBe(1);
+  });
+
+  it('clears a route whose next hop is not linked from the tow system', () => {
+    expect(applyTow(stranded({ route: ['skerry', 'redwater'] }), dry).world.route).toEqual([]);
+  });
+
+  it('clears a route that ends in the tow system', () => {
+    expect(applyTow(stranded({ route: ['lastlight', 'vesk', 'calder'] }), dry).world.route).toEqual([]);
+  });
+
+  it('keeps the rest of a route that passes through the tow system', () => {
+    const r = applyTow(stranded({ route: ['lastlight', 'vesk', 'calder', 'tessaly'] }), dry);
+    expect(r.world.route).toEqual(['tessaly']);
+  });
+
+  it('a tow into an unexplored system marks it known and its neighbours seen', () => {
+    const fuelOnlyAtSkerry: GameData = {
+      ...data,
+      planets: Object.fromEntries(
+        Object.entries(data.planets).map(([id, p]) => {
+          if (id === 'skerry-light') return [id, p];
+          const { fuelPrice: _drop, ...rest } = p;
+          return [id, rest];
+        }),
+      ),
+    };
+    const r = applyTow(stranded(), fuelOnlyAtSkerry);
+    expect(r.world.systemId).toBe('skerry');
+    expect(r.world.known).toContain('skerry');
+    expect(r.world.seen).toContain('redwater');
+  });
+});
+
+describe('advanceDays', () => {
+  it('is an identity for now', () => {
+    const w = newWorld(data, 1);
+    expect(advanceDays(w, data, 3)).toEqual({ world: w, events: [] });
   });
 });

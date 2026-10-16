@@ -21,10 +21,16 @@ describe('routeBannerText', () => {
   });
 
   it('names the destination system for the jump point and counts the jump', () => {
-    const w: WorldState = { ...newWorld(data), assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
+    const w: WorldState = {
+      ...newWorld(data),
+      route: ['vesk'],
+      assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false },
+    };
     expect(routeBannerText(w, data)).toBe('Autopilot → Vesk · fuel after: 2 jumps');
     expect(routeBannerText(withFuel(w, 200), data)).toBe('Autopilot → Vesk · fuel after: 1 jump');
     expect(routeBannerText(withFuel(w, 50), data)).toBe('Autopilot → Vesk · fuel after: 0 jumps');
+    // No course plotted: the autopilot flies out radially to a plain jump point.
+    expect(routeBannerText({ ...w, route: [] }, data)).toBe('Autopilot → jump point · fuel after: 2 jumps');
   });
 });
 

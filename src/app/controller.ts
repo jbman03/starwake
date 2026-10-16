@@ -8,7 +8,16 @@ import { contextAction, type ContextAction } from '../sim/context';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { FixedStepper } from '../sim/stepper';
 import type { FrameInput, ShipState, SimEvent, WorldState } from '../sim/types';
-import { applyRefuel, applyTow, autopilotToJumpPoint, departFrom, interruptAutopilot, newWorld, stepWorld } from '../sim/world';
+import {
+  applyRefuel,
+  applyTow,
+  autopilotToJumpPoint,
+  departFrom,
+  interruptAutopilot,
+  newWorld,
+  setRoute,
+  stepWorld,
+} from '../sim/world';
 
 export type ControllerEvent =
   | SimEvent
@@ -242,6 +251,14 @@ export class Controller {
     this.handleEvents(r.events);
     this.checkContext();
     return true;
+  }
+
+  /** Plot a course to a known or seen system (works landed or in flight). False if there's no route. */
+  plotRoute(systemId: string): boolean {
+    const r = setRoute(this.world, this.data, systemId);
+    this.world = r.world;
+    this.checkContext();
+    return r.ok;
   }
 
   selectPlanet(id: string | null): void {

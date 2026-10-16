@@ -107,6 +107,7 @@ test.describe('phone (touch, landscape)', () => {
     await page.evaluate(() => {
       const c = window.__starwake!.controller;
       c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: -1000, y: -1000 }, vel: { x: 0, y: 0 } } };
+      c.plotRoute('vesk'); // no star-map course plotting yet
     });
     const ctxBtn = page.getByTestId('context-button');
     await expect(ctxBtn).toHaveText('⇱ AUTOPILOT TO JUMP POINT');

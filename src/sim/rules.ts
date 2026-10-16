@@ -7,7 +7,7 @@ export const SYSTEM_CENTER: Vec2 = { x: 0, y: 0 };
 /** Jump point sits this far beyond the jump distance. */
 export const JUMP_POINT_MARGIN = 50;
 
-export type JumpCheck = { ok: true } | { ok: false; reason: 'tooClose' | 'noFuel' | 'jumping' };
+export type JumpCheck = { ok: true } | { ok: false; reason: 'tooClose' | 'noFuel' | 'jumping' | 'noDestination' };
 export type RefuelQuote = { units: number; cost: number; reason?: 'full' | 'noFuelSold' | 'noCredits' };
 
 /** Planets of the current system, sorted nearest-first from the ship. */
@@ -40,20 +40,36 @@ export function canJump(world: WorldState, data: GameData): JumpCheck {
   const sys = data.systems[world.systemId];
   if (dist(world.ship.pos, SYSTEM_CENTER) < sys.jumpDistance) return { ok: false, reason: 'tooClose' };
   if (world.ship.fuel < data.config.fuelPerJump) return { ok: false, reason: 'noFuel' };
+  if (!jumpDestination(world, data)) return { ok: false, reason: 'noDestination' };
   return { ok: true };
 }
 
-/** Destination of a jump from the current system (always its first link). */
-export function jumpDestination(world: WorldState, data: GameData): string | null {
-  return data.systems[world.systemId].links[0] ?? null;
+/** True when the route's next hop is set but not linked from the current system. */
+export function routeBroken(world: WorldState, data: GameData): boolean {
+  const next = world.route[0];
+  return next !== undefined && !data.systems[world.systemId].links.includes(next);
 }
 
-/** Point at jumpDistance+50 from center, toward the destination system's map position. */
+/**
+ * Destination of a jump from the current system: the route's next hop if it is linked from here;
+ * else the only link when there is exactly one; else null (the player must plot a course).
+ */
+export function jumpDestination(world: WorldState, data: GameData): string | null {
+  const links = data.systems[world.systemId].links;
+  const next = world.route[0];
+  if (next !== undefined && links.includes(next)) return next;
+  return links.length === 1 ? links[0] : null;
+}
+
+/**
+ * Point at jumpDistance+50 from center, toward the destination system's map position. With no
+ * destination: radially outward through the ship, or along +x when the ship sits at the center.
+ */
 export function jumpPoint(world: WorldState, data: GameData): Vec2 {
   const sys = data.systems[world.systemId];
   const destId = jumpDestination(world, data);
   const dest = destId ? data.systems[destId] : undefined;
-  let dir = dest ? norm(sub(dest.mapPos, sys.mapPos)) : { x: 0, y: 0 };
+  let dir = dest ? norm(sub(dest.mapPos, sys.mapPos)) : norm(sub(world.ship.pos, SYSTEM_CENTER));
   if (len(dir) === 0) dir = { x: 1, y: 0 };
   return add(SYSTEM_CENTER, scale(dir, sys.jumpDistance + JUMP_POINT_MARGIN));
 }

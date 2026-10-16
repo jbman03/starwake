@@ -33,11 +33,13 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
     .poll(async () => (await pilots(page))[0].savedAt > before[0].savedAt, { timeout: 5000 })
     .toBe(true);
 
-  // Leave via the button; no target remains, so G autopilots to the jump point.
+  // Leave via the button; no target remains, so G autopilots to the jump point. The star map
+  // can't plot courses yet, so plot one to Vesk through the test hook.
   await page.getByRole('button', { name: /^Leave/ }).click();
   await expect(planet).toBeHidden();
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);
   expect(await page.evaluate(() => window.__starwake!.world().targetPlanetId)).toBeNull();
+  expect(await page.evaluate(() => window.__starwake!.controller.plotRoute('vesk'))).toBe(true);
   await page.waitForTimeout(100);
   await page.keyboard.press('KeyG');
   await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'autopilot');
@@ -53,6 +55,9 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   const w = await page.evaluate(() => window.__starwake!.world());
   expect(w.systemId).toBe('vesk');
   expect(w.ship.fuel).toBe(fuel0 - 100);
+  expect(w.day).toBe(1);
+  expect(w.route).toEqual([]);
+  expect(w.known).toContain('vesk');
 
   // Escape opens the pause menu and freezes the sim.
   await page.keyboard.press('Escape');

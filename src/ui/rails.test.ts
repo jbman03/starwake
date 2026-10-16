@@ -26,7 +26,9 @@ describe('contextLabel', () => {
     const w = newWorld(data);
     expect(contextLabel('land', w, data)).toBe('⬇ LAND ON HALCYON');
     expect(contextLabel('land', { ...w, targetPlanetId: 'merrow' }, data)).toBe('⬇ LAND ON MERROW');
-    expect(contextLabel('jump', w, data)).toBe('JUMP TO VESK');
+    expect(contextLabel('jump', { ...w, route: ['vesk'] }, data)).toBe('JUMP TO VESK');
+    expect(contextLabel('jump', { ...w, route: ['tessaly', 'aurelle'] }, data)).toBe('JUMP TO TESSALY');
+    expect(contextLabel('jump', w, data)).toBeNull();
     expect(contextLabel('autopilotOut', w, data)).toBe('⇱ AUTOPILOT TO JUMP POINT');
     expect(contextLabel('takeControl', w, data)).toBe('✋ TAKE CONTROL');
     expect(contextLabel('tow', w, data)).toBe(`CALL TOW (${data.config.towFee} cr)`);
@@ -109,7 +111,7 @@ describe('mountRails', () => {
     rails.update();
     const banner = parent.querySelector<HTMLElement>('[data-testid="route-banner"]')!;
     expect(banner.hidden).toBe(true);
-    c.world = { ...c.world, assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
+    c.world = { ...c.world, route: ['vesk'], assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
     rails.update();
     expect(banner.hidden).toBe(false);
     expect(banner.textContent).toBe('Autopilot → Vesk · fuel after: 2 jumps');
