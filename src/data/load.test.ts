@@ -22,6 +22,8 @@ const raw = () =>
   missionTypes: any[];
 };
 
+const port = (r: ReturnType<typeof raw>, id: string) => r.planets.find((p) => p.id === id);
+
 function failure(r: unknown): DataError {
   try {
     parseGameData(r as any);
@@ -36,9 +38,18 @@ describe('game data', () => {
   it('shipped data passes validation', () => {
     const d = parseGameData(raw());
     expect(d.ships.shuttle.maxSpeed).toBe(300);
-    expect(d.systems.calder.links).toEqual(['vesk']);
-    expect(Object.keys(d.planets)).toHaveLength(5);
+    expect(d.systems.calder.links[0]).toBe('vesk');
+    expect(Object.keys(d.systems)).toHaveLength(20);
     expect(d.config.startPlanetId).toBe('halcyon');
+  });
+
+  it('keeps the foundation start: calder (concord) jumps first to vesk (independent)', () => {
+    const d = parseGameData(raw());
+    expect(d.systems.calder.government).toBe('concord');
+    expect(d.systems.calder.links[0]).toBe('vesk');
+    expect(d.systems.vesk.government).toBe('independent');
+    for (const id of ['halcyon', 'merrow', 'brigg-station']) expect(d.planets[id].systemId).toBe('calder');
+    for (const id of ['tallow-rock', 'vesk-outpost']) expect(d.planets[id].systemId).toBe('vesk');
   });
 
   it('loadGameData resolves the shipped data', async () => {
@@ -63,15 +74,16 @@ describe('game data', () => {
 
   it('asymmetric link fails', () => {
     const r = raw();
-    r.systems.push({ ...r.systems[1], id: 'orrin', name: 'Orrin', links: [] });
-    r.systems[1].links.push('orrin');
+    const vesk = r.systems.find((s) => s.id === 'vesk');
+    r.systems.push({ ...vesk, id: 'orrin', name: 'Orrin', links: [] });
+    vesk.links.push('orrin');
     const e = failure(r);
     expect(e.issues).toContain('systems.json → vesk.links: link to orrin is not mirrored');
   });
 
   it('disconnected system fails', () => {
     const r = raw();
-    r.systems.push({ ...r.systems[1], id: 'island', name: 'Island', links: [] });
+    r.systems.push({ ...r.systems.find((s) => s.id === 'vesk'), id: 'island', name: 'Island', links: [] });
     const e = failure(r);
     expect(e.issues).toContain('systems.json → island: unreachable from calder');
   });
@@ -96,13 +108,13 @@ describe('game data', () => {
 
   it('refuel service without fuelPrice fails', () => {
     const r = raw();
-    r.planets[3].services = ['refuel'];
+    port(r, 'tallow-rock').services = ['refuel'];
     expect(failure(r).issues.some((i) => i.startsWith('planets.json → tallow-rock.services'))).toBe(true);
   });
 
   it('exchange service requires a market and vice versa', () => {
     const r = raw();
-    r.planets[3].services = [];
+    port(r, 'tallow-rock').services = [];
     expect(failure(r).issues.some((i) => i.startsWith('planets.json → tallow-rock.services'))).toBe(true);
   });
 
@@ -128,7 +140,7 @@ describe('game data', () => {
 
   it('dump-site mission type requires a dumpSite port', () => {
     const r = raw();
-    delete r.planets[2].dumpSite;
+    for (const p of r.planets) delete p.dumpSite;
     expect(failure(r).issues.some((i) => i.startsWith('missionTypes.json → dump.toDumpSite'))).toBe(true);
   });
 
@@ -145,5 +157,184 @@ describe('game data', () => {
     r.config.startPlanetId = 'tallow-rock';
     const e = failure(r);
     expect(e.issues.some((i) => i.startsWith('config.json → startPlanetId'))).toBe(true);
+  });
+});
+
+describe('galaxy content', () => {
+  const d = parseGameData(raw());
+  const systemList = Object.values(d.systems);
+  const ports = Object.values(d.planets);
+  const CLASSIC = ['food', 'industrial', 'medical', 'luxury', 'metal', 'equipment'];
+  const govOf = (g: string) => systemList.filter((s) => s.government === g);
+  const portsIn = (sysId: string) => ports.filter((p) => p.systemId === sysId);
+
+  /** Hop counts from one system to every reachable system. */
+  function hopsFrom(start: string): Map<string, number> {
+    const out = new Map([[start, 0]]);
+    const queue = [start];
+    while (queue.length) {
+      const cur = queue.shift()!;
+      for (const l of d.systems[cur].links) {
+        if (!out.has(l)) {
+          out.set(l, out.get(cur)! + 1);
+          queue.push(l);
+        }
+      }
+    }
+    return out;
+  }
+
+  it('has exactly 20 systems: 7 concord, 8 free-reach, 5 independent', () => {
+    expect(systemList).toHaveLength(20);
+    expect(govOf('concord')).toHaveLength(7);
+    expect(govOf('free-reach')).toHaveLength(8);
+    expect(govOf('independent')).toHaveLength(5);
+  });
+
+  it('every system has 2-4 links and 0-4 ports', () => {
+    for (const s of systemList) {
+      expect(s.links.length, s.id).toBeGreaterThanOrEqual(2);
+      expect(s.links.length, s.id).toBeLessThanOrEqual(4);
+      expect(portsIn(s.id).length, s.id).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('tech tiers follow the owner: concord 3-5, free-reach 2-4, independent 1-2', () => {
+    const range: Record<string, [number, number]> = { concord: [3, 5], 'free-reach': [2, 4], independent: [1, 2] };
+    for (const p of ports) {
+      const [lo, hi] = range[d.systems[p.systemId].government];
+      expect(p.techTier, p.id).toBeGreaterThanOrEqual(lo);
+      expect(p.techTier, p.id).toBeLessThanOrEqual(hi);
+    }
+  });
+
+  it('no two systems sit closer than 60 map units, and all fit within ±600', () => {
+    for (const a of systemList) {
+      expect(Math.abs(a.mapPos.x), a.id).toBeLessThanOrEqual(600);
+      expect(Math.abs(a.mapPos.y), a.id).toBeLessThanOrEqual(600);
+      for (const b of systemList) {
+        if (a.id >= b.id) continue;
+        const gap = Math.hypot(a.mapPos.x - b.mapPos.x, a.mapPos.y - b.mapPos.y);
+        expect(gap, `${a.id}-${b.id}`).toBeGreaterThanOrEqual(60);
+      }
+    }
+  });
+
+  it('has at least 30 ports', () => {
+    expect(ports.length).toBeGreaterThanOrEqual(30);
+  });
+
+  it('every classic good is low somewhere and high somewhere within 3 hops of it', () => {
+    for (const g of CLASSIC) {
+      const lows = ports.filter((p) => p.market?.[g] === 'low');
+      const highs = ports.filter((p) => p.market?.[g] === 'high');
+      expect(lows.length, g).toBeGreaterThan(0);
+      expect(highs.length, g).toBeGreaterThan(0);
+      for (const lo of lows) {
+        const hops = hopsFrom(lo.systemId);
+        expect(highs.some((h) => hops.get(h.systemId)! <= 3), `${g} from ${lo.id}`).toBe(true);
+      }
+    }
+  });
+
+  it('classic basePrice 80-500, unique basePrice 400-900', () => {
+    for (const c of Object.values(d.commodities)) {
+      const [lo, hi] = c.origin ? [400, 900] : [80, 500];
+      expect(c.basePrice, c.id).toBeGreaterThanOrEqual(lo);
+      expect(c.basePrice, c.id).toBeLessThanOrEqual(hi);
+    }
+  });
+
+  it('three unique goods: low only at origin, high at 2-3 ports not next to the origin', () => {
+    const uniques = Object.values(d.commodities).filter((c) => c.origin);
+    expect(uniques).toHaveLength(3);
+    expect(d.commodities.glowmoss?.origin).toBe('tallow-rock');
+    expect(d.commodities.copperwine?.origin).toBe('halcyon');
+    for (const u of uniques) {
+      const originSys = d.planets[u.origin!].systemId;
+      const listed = ports.filter((p) => p.market?.[u.id] !== undefined && p.id !== u.origin);
+      expect(listed.every((p) => p.market![u.id] === 'high'), u.id).toBe(true);
+      expect(listed.length, u.id).toBeGreaterThanOrEqual(2);
+      expect(listed.length, u.id).toBeLessThanOrEqual(3);
+      const hops = hopsFrom(originSys);
+      for (const p of listed) expect(hops.get(p.systemId)!, `${u.id} at ${p.id}`).toBeGreaterThanOrEqual(2);
+    }
+    const third = uniques.find((u) => u.id !== 'glowmoss' && u.id !== 'copperwine')!;
+    expect(d.systems[d.planets[third.origin!].systemId].government).toBe('free-reach');
+  });
+
+  it('at least 2 systems sell no fuel', () => {
+    const dry = systemList.filter((s) => !portsIn(s.id).some((p) => p.fuelPrice !== undefined));
+    expect(dry.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('at least 2 dump sites', () => {
+    expect(ports.filter((p) => p.dumpSite).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('every port description is non-empty and unique', () => {
+    const seen = new Set<string>();
+    for (const p of ports) {
+      expect(p.description.trim().length, p.id).toBeGreaterThan(0);
+      expect(seen.has(p.description), p.id).toBe(false);
+      seen.add(p.description);
+    }
+  });
+
+  it('events: 10-14, each classic good has a surplus and a shortage in range', () => {
+    const evs = Object.values(d.events);
+    expect(evs.length).toBeGreaterThanOrEqual(10);
+    expect(evs.length).toBeLessThanOrEqual(14);
+    for (const e of evs) {
+      const [lo, hi] = e.effect === 'surplus' ? [0.55, 0.7] : [1.5, 1.9];
+      expect(e.strength, e.id).toBeGreaterThanOrEqual(lo);
+      expect(e.strength, e.id).toBeLessThanOrEqual(hi);
+      expect(e.days[0], e.id).toBeGreaterThanOrEqual(3);
+      expect(e.days[1], e.id).toBeLessThanOrEqual(8);
+    }
+    for (const g of CLASSIC) {
+      expect(evs.some((e) => e.commodity === g && e.effect === 'surplus'), g).toBe(true);
+      expect(evs.some((e) => e.commodity === g && e.effect === 'shortage'), g).toBe(true);
+    }
+  });
+
+  it('mission types match the spec table', () => {
+    const m = d.missionTypes;
+    expect(Object.keys(m).sort()).toEqual(['delivery', 'dump', 'ferry', 'rush', 'shipment', 'transport']);
+    expect([m.ferry.passengers, m.ferry.hops, m.ferry.deadline]).toEqual([[1, 4], [1, 4], { perHop: 3, plus: 0 }]);
+    expect([m.rush.tons, m.rush.hops, m.rush.deadline]).toEqual([[1, 5], [1, 2], { perHop: 1, plus: 1 }]);
+    expect([m.transport.tons, m.transport.hops, m.transport.deadline]).toEqual([[8, 15], [2, 4], { perHop: 2, plus: 2 }]);
+    expect([m.shipment.tons, m.shipment.hops, m.shipment.deadline]).toEqual([[20, 40], [3, 6], { perHop: 3, plus: 3 }]);
+    expect([m.delivery.tons, m.delivery.hops, m.delivery.deadline]).toEqual([[2, 10], [1, 1], { perHop: 0, plus: 4 }]);
+    expect([m.dump.tons, m.dump.deadline, m.dump.paidUpfront, m.dump.toDumpSite]).toEqual([[5, 15], null, true, true]);
+    for (const t of Object.values(m)) expect(`${t.titleTemplate} ${t.textTemplate}`, t.id).toContain('{dest}');
+  });
+
+  it('mission pay lands on the tuning targets', () => {
+    const pay = (id: string, hops: number, tons: number, pax: number) => {
+      const t = d.missionTypes[id];
+      const raw = (t.basePay + t.perHop * hops + t.perTon * tons + t.perPassenger * pax) * t.urgency;
+      return Math.round(raw / 10) * 10;
+    };
+    for (const tons of [2, 10]) {
+      expect(pay('delivery', 1, tons, 0)).toBeGreaterThanOrEqual(800);
+      expect(pay('delivery', 1, tons, 0)).toBeLessThanOrEqual(1500);
+    }
+    for (const pax of [1, 4]) {
+      expect(pay('ferry', 4, 0, pax)).toBeGreaterThanOrEqual(4000);
+      expect(pay('ferry', 4, 0, pax)).toBeLessThanOrEqual(8000);
+    }
+    for (const [h, t] of [[1, 5], [4, 15]]) {
+      expect(pay('dump', h, t, 0)).toBeGreaterThanOrEqual(300);
+      expect(pay('dump', h, t, 0)).toBeLessThanOrEqual(800);
+    }
+    // The cheapest rush ton still beats the dearest ton of any other cargo job.
+    const rushMin = pay('rush', 2, 5, 0) / 5;
+    const others = [pay('delivery', 1, 2, 0) / 2, pay('transport', 4, 8, 0) / 8, pay('shipment', 6, 20, 0) / 20];
+    for (const o of others) expect(rushMin).toBeGreaterThan(o);
+  });
+
+  it('every concord system is known at the start', () => {
+    expect([...d.config.knownAtStart].sort()).toEqual(govOf('concord').map((s) => s.id).sort());
   });
 });

@@ -1,20 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import config from '../../data/config.json';
-import governments from '../../data/governments.json';
-import commodities from '../../data/commodities.json';
-import events from '../../data/events.json';
-import missionTypes from '../../data/missionTypes.json';
-import planets from '../../data/planets.json';
-import ships from '../../data/ships.json';
-import systems from '../../data/systems.json';
-import { parseGameData } from '../data/load';
+import { testData } from '../data/testData';
 import { contextAction } from './context';
 import type { WorldState } from './types';
 import { autopilotToJumpPoint, newWorld, stepWorld } from './world';
 import { jumpPoint } from './rules';
 import { dist } from './vec';
 
-const data = parseGameData({ ships, systems, planets, config, governments, commodities, events, missionTypes });
+const data = testData();
 const at = (w: WorldState, pos: { x: number; y: number }, fuel = w.ship.fuel): WorldState => ({
   ...w,
   ship: { ...w.ship, pos, fuel },

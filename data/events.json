@@ -1,6 +1,14 @@
 [
-  { "id": "bumper-harvest", "text": "Bumper harvest on {port}: Food is cheap.", "commodity": "food", "effect": "surplus", "strength": 0.6, "days": [6, 12] },
-  { "id": "fever-outbreak", "text": "Fever outbreak on {port}: Medical is in demand.", "commodity": "medical", "effect": "shortage", "strength": 1.6, "days": [5, 10] },
-  { "id": "mine-collapse", "text": "A mine collapse on {port} has Metal running short.", "commodity": "metal", "effect": "shortage", "strength": 1.5, "days": [6, 12] },
-  { "id": "festival-glut", "text": "A festival ended early on {port}: Luxury goods are piling up.", "commodity": "luxury", "effect": "surplus", "strength": 0.7, "days": [4, 8] }
+  { "id": "bumper-harvest", "text": "Bumper harvest on {port}: Food is cheap.", "commodity": "food", "effect": "surplus", "strength": 0.6, "days": [4, 8] },
+  { "id": "blight", "text": "Blight in the fields near {port}: Food is scarce and dear.", "commodity": "food", "effect": "shortage", "strength": 1.7, "days": [4, 7] },
+  { "id": "warehouse-clearance", "text": "A failed factory on {port} is clearing its stores: Industrial goods are going cheap.", "commodity": "industrial", "effect": "surplus", "strength": 0.65, "days": [3, 6] },
+  { "id": "pump-failure", "text": "The main pumps on {port} have failed again: Industrial parts are wanted urgently.", "commodity": "industrial", "effect": "shortage", "strength": 1.6, "days": [3, 6] },
+  { "id": "clinic-overstock", "text": "The clinics on {port} over-ordered: Medical supplies are piling up.", "commodity": "medical", "effect": "surplus", "strength": 0.65, "days": [3, 7] },
+  { "id": "fever-outbreak", "text": "Fever outbreak on {port}: Medical is in demand.", "commodity": "medical", "effect": "shortage", "strength": 1.8, "days": [4, 8] },
+  { "id": "festival-glut", "text": "A festival ended early on {port}: Luxury goods are piling up.", "commodity": "luxury", "effect": "surplus", "strength": 0.7, "days": [4, 8] },
+  { "id": "wedding-season", "text": "Wedding season on {port}: everyone wants something nice, and Luxury prices show it.", "commodity": "luxury", "effect": "shortage", "strength": 1.5, "days": [5, 8] },
+  { "id": "rich-seam", "text": "Miners near {port} struck a rich seam: Metal is cheap.", "commodity": "metal", "effect": "surplus", "strength": 0.55, "days": [4, 8] },
+  { "id": "mine-collapse", "text": "A mine collapse on {port} has Metal running short.", "commodity": "metal", "effect": "shortage", "strength": 1.6, "days": [4, 8] },
+  { "id": "survey-recalled", "text": "A survey team pulled out of {port} and sold its kit: Equipment is cheap.", "commodity": "equipment", "effect": "surplus", "strength": 0.6, "days": [3, 6] },
+  { "id": "storm-damage", "text": "Storms battered {port} overnight: Equipment is needed for repairs.", "commodity": "equipment", "effect": "shortage", "strength": 1.7, "days": [3, 7] }
 ]

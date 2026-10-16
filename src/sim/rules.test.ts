@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import config from '../../data/config.json';
-import governments from '../../data/governments.json';
-import commodities from '../../data/commodities.json';
-import events from '../../data/events.json';
-import missionTypes from '../../data/missionTypes.json';
-import planets from '../../data/planets.json';
-import ships from '../../data/ships.json';
-import systems from '../../data/systems.json';
-import { parseGameData } from '../data/load';
+import { testData } from '../data/testData';
 import {
   canJump,
   canLand,
@@ -19,7 +11,7 @@ import {
 import type { WorldState } from './types';
 import { dist, len } from './vec';
 
-const data = parseGameData({ ships, systems, planets, config, governments, commodities, events, missionTypes });
+const data = testData();
 const shuttle = data.ships.shuttle;
 
 const mkWorld = (p: Partial<WorldState> = {}, ship: Partial<WorldState['ship']> = {}): WorldState => ({
@@ -115,8 +107,10 @@ describe('canJump / jumpPoint', () => {
   it('jump point lies at jumpDistance+50 toward the destination', () => {
     const p = jumpPoint(mkWorld(), data);
     expect(len(p)).toBeCloseTo(2050, 6);
-    // vesk mapPos (300,-120) relative to calder (0,0)
-    expect(Math.atan2(p.y, p.x)).toBeCloseTo(Math.atan2(-120, 300), 6);
+    // Toward vesk (calder's first link) on the star map.
+    const calder = data.systems.calder.mapPos;
+    const vesk = data.systems.vesk.mapPos;
+    expect(Math.atan2(p.y, p.x)).toBeCloseTo(Math.atan2(vesk.y - calder.y, vesk.x - calder.x), 6);
     expect(canJump(mkWorld({}, { pos: p }), data)).toEqual({ ok: true });
   });
 });
