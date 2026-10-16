@@ -4,6 +4,7 @@ import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { showSettings } from './settingsScreen';
 import { button, confirmDialog, el, promptDialog } from './dom';
+import { randomPilotName } from '../save/pilotNames';
 
 export const NAME_MAX = 24;
 export const DEFAULT_NAME = 'Pilot';
@@ -77,9 +78,10 @@ export function showMainMenu(ctx: UiContext): void {
     const raw = await promptDialog(root, {
       title: 'New Pilot',
       label: 'Pilot name',
-      value: DEFAULT_NAME,
+      value: randomPilotName(),
       maxLength: NAME_MAX,
       confirm: 'Create',
+      randomize: randomPilotName,
     });
     if (raw === null) return;
     const planetId = data.config.startPlanetId;

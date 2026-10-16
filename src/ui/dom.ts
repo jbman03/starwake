@@ -155,7 +155,15 @@ export function alertDialog(parent: HTMLElement, opts: { title: string; message:
 /** Text prompt. Resolves with the trimmed text (≥1 char, ≤maxLength), or null if cancelled. */
 export function promptDialog(
   parent: HTMLElement,
-  opts: { title: string; label: string; value?: string; maxLength: number; confirm: string },
+  opts: {
+    title: string;
+    label: string;
+    value?: string;
+    maxLength: number;
+    confirm: string;
+    /** When given, a 🎲 Random button refills the input with this generator's output. */
+    randomize?: () => string;
+  },
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const inputId = `sw-prompt-${dialogSeq + 1}`;
@@ -178,6 +186,12 @@ export function promptDialog(
       }
       finish(v);
     };
+    const randomButton = (randomize: () => string) =>
+      button('🎲 Random', () => {
+        input.value = randomize().slice(0, opts.maxLength);
+        error.textContent = '';
+        input.focus();
+      });
     const ok = button(opts.confirm, submit, { class: 'sw-btn-primary' });
     const cancel = button('Cancel', () => finish(null));
     input.addEventListener('keydown', (e) => {
@@ -189,7 +203,11 @@ export function promptDialog(
     const d = openDialog(
       parent,
       opts.title,
-      [el('label', { class: 'sw-label', text: opts.label, attrs: { for: inputId } }), input, error],
+      [
+        el('label', { class: 'sw-label', text: opts.label, attrs: { for: inputId } }),
+        opts.randomize ? el('div', { class: 'sw-input-row' }, [input, randomButton(opts.randomize)]) : input,
+        error,
+      ],
       [cancel, ok],
       () => finish(null),
     );

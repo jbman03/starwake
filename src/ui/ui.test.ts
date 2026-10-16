@@ -86,4 +86,33 @@ describe('dialogs', () => {
     create.click();
     expect(await p).toBe('Ava');
   });
+
+  it('promptDialog shows a Random button that refills the name when given a generator', async () => {
+    const root = document.createElement('div');
+    const names = ['Mara Voss', 'Dax Calloway'];
+    let i = 0;
+    const p = promptDialog(root, {
+      title: 'New Pilot',
+      label: 'Pilot name',
+      value: 'Ava Reyes',
+      maxLength: 24,
+      confirm: 'Create',
+      randomize: () => names[i++],
+    });
+    const input = root.querySelector('input')!;
+    const random = [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('Random'))!;
+    expect(random).toBeTruthy();
+    random.click();
+    expect(input.value).toBe('Mara Voss');
+    random.click();
+    expect(input.value).toBe('Dax Calloway');
+    [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('Create'))!.click();
+    expect(await p).toBe('Dax Calloway');
+  });
+
+  it('promptDialog has no Random button without a generator', () => {
+    const root = document.createElement('div');
+    void promptDialog(root, { title: 'Rename', label: 'Pilot name', value: 'Ava', maxLength: 24, confirm: 'Save' });
+    expect([...root.querySelectorAll('button')].some((b) => b.textContent?.includes('Random'))).toBe(false);
+  });
 });

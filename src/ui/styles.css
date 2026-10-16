@@ -202,6 +202,9 @@
   border-radius: 3px;
 }
 .sw-input:focus { outline: 2px solid var(--sw-accent); outline-offset: 0; }
+.sw-input-row { display: flex; gap: 8px; align-items: stretch; }
+.sw-input-row .sw-input { flex: 1; min-width: 0; }
+.sw-input-row .sw-btn { flex: none; width: auto; white-space: nowrap; }
 
 /* ---- settings ---- */
 .sw-settings { max-height: calc(100dvh - 24px); overflow-y: auto; }
