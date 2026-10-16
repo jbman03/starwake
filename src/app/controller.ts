@@ -99,6 +99,7 @@ export class Controller {
   }
 
   startFlight(): void {
+    console.info('[debug] startFlight', new Error().stack?.split('\n').slice(1, 4).join(' | '));
     const changed = !this.flying;
     this.flying = true;
     this.landedPlanetId = null;
@@ -107,6 +108,7 @@ export class Controller {
 
   /** Stop stepping the sim. Pending context actions are dropped so they can't fire on resume. */
   pauseFlight(): void {
+    console.info('[debug] pauseFlight', new Error().stack?.split('\n').slice(1, 4).join(' | '));
     const changed = this.flying;
     this.flying = false;
     this.queued.clear();
@@ -277,6 +279,7 @@ export class Controller {
       };
       const menu = polled.pressed.has('pause') ? 'pause' : polled.pressed.has('map') ? 'map' : null;
       if (menu) {
+        console.info('[debug] flight menu', menu, 'pressed', [...polled.pressed].join(','), 'held', [...polled.actions].join(','));
         this.pauseFlight();
         this.emit({ type: 'menu', action: menu });
         return;
