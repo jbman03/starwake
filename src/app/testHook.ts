@@ -22,9 +22,9 @@ declare global {
   }
 }
 
-/** True in dev builds or when the URL contains `test`. */
+/** True in dev builds only; production builds never expose the hook or honour test flags. */
 export function testHookActive(): boolean {
-  return import.meta.env.DEV || location.href.includes('test');
+  return import.meta.env.DEV;
 }
 
 export interface TestFlags {
@@ -49,7 +49,7 @@ export function testFlags(search: string = location.search): TestFlags {
   return flags;
 }
 
-/** Exposes game internals to e2e tests in dev builds or when the URL contains `test`. */
+/** Exposes game internals to e2e tests in dev builds. */
 export function installTestHook(controller: Controller, data: GameData, store: PilotStore): void {
   if (!testHookActive()) return;
   window.__starwake = { world: () => controller.world, data, controller, store };

@@ -5,7 +5,9 @@ export class FixedStepper {
 
   /** Runs tick(step) for each whole step elapsed; returns interpolation alpha in [0,1). */
   advance(elapsedSec: number, tick: (dt: number) => void): number {
-    this.acc += Math.min(Math.max(elapsedSec, 0), this.maxFrame);
+    // A non-finite elapsed (NaN from a bad timer, Infinity) counts as no time passing.
+    const elapsed = Number.isFinite(elapsedSec) ? elapsedSec : 0;
+    this.acc += Math.min(Math.max(elapsed, 0), this.maxFrame);
     const eps = 1e-9;
     while (this.acc >= this.step - eps) {
       tick(this.step);

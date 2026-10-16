@@ -27,4 +27,15 @@ describe('FixedStepper', () => {
     new FixedStepper().advance(1 / 60, (dt) => dts.push(dt));
     expect(dts).toEqual([1 / 60]);
   });
+  it('treats a non-finite elapsed as zero and keeps working afterwards', () => {
+    const s = new FixedStepper();
+    let n = 0;
+    for (const bad of [Number.NaN, Infinity, -Infinity]) {
+      const a = s.advance(bad, () => n++);
+      expect(n).toBe(0);
+      expect(a).toBe(0);
+    }
+    s.advance(1 / 30, () => n++);
+    expect(n).toBe(2);
+  });
 });

@@ -85,7 +85,7 @@ export function showSettings(ctx: UiContext, opts: { mode: SettingsMode; onClose
         : null,
     general: el('div', { class: 'sw-tab-body' }, [
       slider('Volume (sounds arrive later)', 0, 100, () => s.volume, (v) => ((s.volume = v), persist())),
-      segmented('Graphics quality', [
+      segmented('Graphics quality (applies after restart)', [
         { value: 'low', text: 'Low' },
         { value: 'high', text: 'High' },
       ], () => s.quality, (v) => ((s.quality = v), persist())),
