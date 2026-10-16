@@ -210,12 +210,17 @@ export class Controller {
   }
 
   /**
-   * A planet was tapped: select it, then land the way the context button does (lands at once
-   * when close and slow, else autopilots there). Takes over from any autopilot first so the
+   * A planet was clicked or tapped. A mouse click only selects it (desktop players land with L).
+   * A touch (or pen) tap selects it, then lands the way the context button does (lands at once
+   * when close and slow, else autopilots there), taking over from any autopilot first so the
    * tapped planet wins instead of the landing autopilot's "next planet" cycling.
    */
-  tapPlanet(id: string): void {
+  tapPlanet(id: string, pointerType: string = 'touch'): void {
     if (!this.flying || this.world.jump) return;
+    if (pointerType === 'mouse') {
+      this.selectPlanet(id);
+      return;
+    }
     if (this.world.assist.kind === 'autopilot') this.world = interruptAutopilot(this.world);
     this.selectPlanet(id);
     this.queued.add('land');

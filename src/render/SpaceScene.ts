@@ -3,6 +3,7 @@ import type { Controller } from '../app/controller';
 import type { SystemDef } from '../data/schemas';
 import type { InputMode } from '../input/mode';
 import { getInsets } from '../input/insets';
+import { pointerTypeOf } from '../input/pointer';
 import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { JUMP_DURATION } from '../sim/world';
@@ -132,7 +133,10 @@ export class SpaceScene extends Phaser.Scene {
       const img = this.add.image(p.pos.x, p.pos.y, makePlanetTexture(this, p)).setDepth(1);
       const r = Math.max(MIN_TAP_RADIUS, p.radius + TAP_MARGIN);
       img.setInteractive(new Phaser.Geom.Circle(img.width / 2, img.height / 2, r), Phaser.Geom.Circle.Contains);
-      img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => this.controller.tapPlanet(p.id));
+      // Mouse click: select only. Touch tap: select and land.
+      img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, (pointer: Phaser.Input.Pointer) =>
+        this.controller.tapPlanet(p.id, pointerTypeOf(pointer.event, pointer.wasTouch)),
+      );
       this.bodies.push(img);
     }
   }

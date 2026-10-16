@@ -52,3 +52,18 @@ test('L lands at the start planet, pauses flight, and L on the planet screen dep
 
   expect(errors).toEqual([]);
 });
+
+test('a mouse click on a planet selects it without landing', async ({ page }) => {
+  const errors = trackErrors(page);
+  await newPilot(page);
+  await leavePlanet(page);
+  await page.waitForTimeout(200);
+  const pos = await page.evaluate(() => window.__starwake!.planetScreenPos!('halcyon'));
+  expect(pos).not.toBeNull();
+  await page.mouse.click(pos!.x, pos!.y);
+  await page.waitForFunction(() => window.__starwake!.world().targetPlanetId === 'halcyon');
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(true);
+  await expect(page.getByTestId('planet-screen')).toBeHidden();
+  expect(errors).toEqual([]);
+});

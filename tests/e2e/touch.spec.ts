@@ -97,6 +97,32 @@ test.describe('phone (touch, landscape)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('too close to jump: the context button autopilots out and the route banner shows', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Out');
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await page.touchscreen.tap(422, 30);
+    await expect(page.getByTestId('touch-rails')).toBeVisible();
+    await page.evaluate(() => {
+      const c = window.__starwake!.controller;
+      c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: -1000, y: -1000 }, vel: { x: 0, y: 0 } } };
+    });
+    const ctxBtn = page.getByTestId('context-button');
+    await expect(ctxBtn).toHaveText('⇱ AUTOPILOT TO JUMP POINT');
+    await ctxBtn.tap();
+    await expect(ctxBtn).toHaveText('✋ TAKE CONTROL');
+    const banner = page.getByTestId('route-banner');
+    await expect(banner).toBeVisible();
+    await expect(banner).toHaveText('Autopilot → Vesk · fuel after: 2 jumps');
+    const { clear } = await layoutOf(page);
+    const b = (await banner.boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(clear.x);
+    expect(b.x + b.width).toBeLessThanOrEqual(clear.x + clear.w);
+    expect(b.y).toBeLessThan(80);
+    expect(errors).toEqual([]);
+  });
+
   test('4:3 tablet: rails overlay the view edges but stay out of the clear region', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await newPilot(page, 'Tab');

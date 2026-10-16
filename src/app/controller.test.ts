@@ -308,6 +308,40 @@ describe('Controller', () => {
     expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
   });
 
+  it('a mouse click on a planet only selects it; touch and pen taps select and land', async () => {
+    const { c, events } = await setup();
+    c.startFlight();
+    c.tapPlanet('merrow', 'mouse');
+    expect(c.world.targetPlanetId).toBe('merrow');
+    c.update(1 / 60);
+    expect(c.world.assist.kind).toBe('none');
+    c.tapPlanet('halcyon', 'mouse');
+    c.update(1 / 60);
+    expect(c.world.targetPlanetId).toBe('halcyon');
+    expect(c.isFlying).toBe(true);
+    expect(events.some((e) => e.type === 'landed')).toBe(false);
+
+    c.tapPlanet('halcyon', 'touch');
+    c.update(1 / 60);
+    expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
+
+    c.leavePlanet();
+    c.tapPlanet('merrow', 'pen');
+    c.update(1 / 60);
+    expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'planet', id: 'merrow' } });
+  });
+
+  it('a mouse click mid-autopilot selects without taking over', async () => {
+    const { c } = await setup();
+    c.startFlight();
+    c.tapPlanet('brigg-station', 'touch');
+    c.update(1 / 60);
+    c.tapPlanet('merrow', 'mouse');
+    c.update(1 / 60);
+    expect(c.world.targetPlanetId).toBe('merrow');
+    expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'planet', id: 'brigg-station' } });
+  });
+
   it('tapPlanet on a far planet autopilots there (even mid-autopilot), and is ignored when not flying', async () => {
     const { c } = await setup();
     c.tapPlanet('merrow');
