@@ -2,7 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  use: { baseURL: 'http://localhost:5173' },
+  // GitHub runners have no GPU, so the game renders in software and each action takes ~1s+.
+  timeout: process.env.CI ? 60_000 : 30_000,
+  use: { baseURL: 'http://localhost:5173', trace: 'retain-on-failure', video: 'retain-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: 'npm run dev',

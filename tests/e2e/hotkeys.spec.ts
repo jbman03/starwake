@@ -15,7 +15,7 @@ async function openControls(page: Page) {
   await page.getByRole('tab', { name: 'Controls' }).click();
 }
 
-test('rebinding hotkeys: live, persisted, swap, reset', async ({ page }) => {
+test('rebinding hotkeys: live and persisted', async ({ page }) => {
   const errors = trackErrors(page);
   await newPilot(page);
   await leavePlanet(page);
@@ -40,6 +40,23 @@ test('rebinding hotkeys: live, persisted, swap, reset', async ({ page }) => {
   // persisted across reload
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('starwake.settings')!).bindings.thrust);
   expect(saved).toEqual(['KeyW', null]);
+  await page.reload();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('tab', { name: 'Controls' }).click();
+  await expect(page.getByTestId('slot-thrust-0')).toHaveText(/W/);
+
+  expect(errors).toEqual([]);
+});
+
+test('hotkey editor: conflict swap and reset to defaults', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/?test');
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'starwake.settings',
+      JSON.stringify({ bindings: { thrust: ['KeyW', null] } }),
+    ),
+  );
   await page.reload();
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('tab', { name: 'Controls' }).click();
