@@ -15,7 +15,7 @@ export async function clearPilots(page: Page): Promise<void> {
   await page.evaluate(
     () =>
       new Promise<void>((resolve) => {
-        const req = indexedDB.deleteDatabase('keyval-store');
+        const req = indexedDB.deleteDatabase('starwake');
         req.onsuccess = req.onerror = req.onblocked = () => resolve();
       }),
   );

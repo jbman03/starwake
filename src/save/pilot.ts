@@ -16,7 +16,8 @@ export const PilotSaveSchema = z.object({
   version: z.literal(1),
   id: z.string().min(1),
   name: z.string(),
-  credits: z.number().finite().nonnegative(),
+  /** May be negative: tow fees can put a pilot in debt (spec §7). */
+  credits: z.number().finite(),
   shipId: z.string().min(1),
   fuel: z.number().finite().nonnegative(),
   systemId: z.string().min(1),

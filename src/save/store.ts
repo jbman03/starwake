@@ -1,5 +1,5 @@
 import { createStore, del, get, keys, set } from 'idb-keyval';
-import { SaveError, upgradeSave, type PilotSave } from './pilot';
+import { PilotSaveSchema, SaveError, upgradeSave, type PilotSave } from './pilot';
 
 type Entry = { current: PilotSave; backup?: PilotSave };
 type Store = ReturnType<typeof createStore>;
@@ -15,8 +15,21 @@ function tryUpgrade(raw: unknown): PilotSave | null {
   }
 }
 
+/** Starwake's own IndexedDB database, so pilots never share idb-keyval's default store. */
+export const PILOT_DB = 'starwake';
+export const PILOT_OBJECT_STORE = 'pilots';
+
+let defaultStore: Store | undefined;
+/** Created lazily so importing this module never touches IndexedDB. */
+function pilotDb(): Store {
+  return (defaultStore ??= createStore(PILOT_DB, PILOT_OBJECT_STORE));
+}
+
 export class PilotStore {
-  constructor(private readonly store?: Store) {}
+  private readonly store: Store;
+  constructor(store?: Store) {
+    this.store = store ?? pilotDb();
+  }
 
   private rawGet(id: string): Promise<{ current?: unknown; backup?: unknown } | undefined> {
     return get(keyOf(id), this.store);
@@ -33,7 +46,11 @@ export class PilotStore {
     return out;
   }
 
+  /** Validates `p` first: an invalid pilot rejects with SaveError and the store is untouched. */
   async save(p: PilotSave): Promise<void> {
+    const parsed = PilotSaveSchema.safeParse(p);
+    if (!parsed.success) throw new SaveError('invalid', `refusing to save an invalid pilot: ${parsed.error.message}`);
+    p = parsed.data;
     const prev = await this.rawGet(p.id);
     const prevGood = tryUpgrade(prev?.current);
     const entry: Entry = prevGood ? { current: p, backup: prevGood } : { current: p };

@@ -1,7 +1,11 @@
+import 'fake-indexeddb/auto';
+import { createStore } from 'idb-keyval';
 import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../data/load';
 import type { PilotSave } from '../save/pilot';
+import { worldFromPilot } from '../save/pilot';
 import { DEFAULT_SETTINGS } from '../save/settings';
+import { PilotStore } from '../save/store';
 import { newWorld } from '../sim/world';
 import { Controller, type ControllerEvent } from './controller';
 
@@ -199,6 +203,29 @@ describe('Controller', () => {
     expect(c.landedPlanetId).toBe(c.lastPlanetId);
     expect(data.planets[c.landedPlanetId!].systemId).toBe('calder');
     expect(c.world.credits).toBe(data.config.startCredits - data.config.towFee);
+  });
+
+  it('a tow into debt autosaves a valid pilot that loads back without the backup', async () => {
+    const { c, data, events } = await setup();
+    const store = new PilotStore(createStore('ctl-tow-debt', 'kv'));
+    c.store = store;
+    const w = newWorld(data);
+    c.beginSession({ ...w, credits: 100 }, { id: 'p1', name: 'Ava' }, 'halcyon');
+    await c.save(); // a good earlier save, so a bad one would fall back to it
+    c.world = { ...c.world, systemId: 'vesk', ship: { ...c.world.ship, pos: { x: -600, y: -700 }, fuel: 0 } };
+    c.startFlight();
+    expect(c.callTow()).toBe(true);
+    await c.lastSave;
+    expect(events).toContainEqual({ type: 'saved', ok: true });
+    expect(c.world.credits).toBe(100 - data.config.towFee);
+    expect(c.world.credits).toBeLessThan(0);
+
+    const { pilot, usedBackup } = await store.load('p1');
+    expect(usedBackup).toBe(false);
+    expect(pilot).toEqual(c.snapshot() && { ...c.snapshot()!, savedAt: pilot.savedAt });
+    expect(pilot.credits).toBe(100 - data.config.towFee);
+    expect(pilot.planetId).toBe(c.landedPlanetId);
+    expect(worldFromPilot(pilot, data).credits).toBe(pilot.credits);
   });
 
   it('endSession forgets the pilot', async () => {

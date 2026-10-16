@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto';
-import { createStore, set } from 'idb-keyval';
+import { createStore, get, set } from 'idb-keyval';
 import { describe, expect, it } from 'vitest';
 import type { PilotSave } from './pilot';
-import { PilotStore } from './store';
+import { PILOT_DB, PILOT_OBJECT_STORE, PilotStore } from './store';
 
 let n = 0;
 const mkStore = () => createStore(`db-${n++}`, 'kv');
@@ -59,5 +59,34 @@ describe('PilotStore', () => {
     await set('pilot:bad', { current: 1 }, store);
     await set('other', 1, store);
     expect((await s.list()).map((x) => x.id)).toEqual(['p1']);
+  });
+
+  it('round-trips a pilot in debt (negative credits)', async () => {
+    const s = new PilotStore(mkStore());
+    await s.save(mk({ credits: -350 }));
+    const r = await s.load('p1');
+    expect(r.usedBackup).toBe(false);
+    expect(r.pilot.credits).toBe(-350);
+  });
+
+  it('rejects an invalid pilot before writing, leaving the store untouched', async () => {
+    const store = mkStore();
+    const s = new PilotStore(store);
+    await s.save(mk({ credits: 5 }));
+    await expect(s.save(mk({ credits: Number.NaN }))).rejects.toMatchObject({ code: 'invalid' });
+    await expect(s.save({ ...mk(), shipId: '' })).rejects.toMatchObject({ code: 'invalid' });
+    const r = await s.load('p1');
+    expect(r).toEqual({ pilot: mk({ credits: 5 }), usedBackup: false });
+    expect(await get('pilot:p1', store)).toEqual({ current: mk({ credits: 5 }) });
+  });
+
+  it('defaults to its own starwake/pilots database, not the shared keyval-store', async () => {
+    expect([PILOT_DB, PILOT_OBJECT_STORE]).toEqual(['starwake', 'pilots']);
+    const s = new PilotStore();
+    await s.save(mk({ id: 'dflt' }));
+    const raw = await get('pilot:dflt', createStore('starwake', 'pilots'));
+    expect(raw?.current?.id).toBe('dflt');
+    expect(await get('pilot:dflt')).toBeUndefined();
+    await s.remove('dflt');
   });
 });

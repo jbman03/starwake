@@ -43,4 +43,10 @@ describe('pilot', () => {
     expect(() => worldFromPilot({ ...p, shipId: 'nope' }, data)).toThrowError(expect.objectContaining({ code: 'invalid' }));
     expect(() => worldFromPilot({ ...p, planetId: 'nope' }, data)).toThrowError(expect.objectContaining({ code: 'invalid' }));
   });
+
+  it('negative credits (tow debt) are a valid save', () => {
+    const p = pilotFromWorld({ ...newWorld(data), credits: -500 }, start, { id: 'a', name: 'A' });
+    expect(upgradeSave(JSON.parse(JSON.stringify(p))).credits).toBe(-500);
+    expect(worldFromPilot(p, data).credits).toBe(-500);
+  });
 });
