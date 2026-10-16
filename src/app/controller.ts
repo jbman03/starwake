@@ -15,6 +15,8 @@ export type ControllerEvent =
   | { type: 'contextChanged'; action: ContextAction }
   /** A flight key asked for a menu; flight is already paused. */
   | { type: 'menu'; action: 'pause' | 'map' }
+  /** Flight started or stopped (planet screen, menus, pause). */
+  | { type: 'flying'; flying: boolean }
   /** Result of the autosave started by a landing. */
   | { type: 'saved'; ok: boolean; error?: string };
 
@@ -93,14 +95,24 @@ export class Controller {
   }
 
   startFlight(): void {
+    const changed = !this.flying;
     this.flying = true;
     this.landedPlanetId = null;
+    if (changed) this.emit({ type: 'flying', flying: true });
   }
 
   /** Stop stepping the sim. Pending context actions are dropped so they can't fire on resume. */
   pauseFlight(): void {
+    const changed = this.flying;
     this.flying = false;
     this.queued.clear();
+    if (changed) this.emit({ type: 'flying', flying: false });
+  }
+
+  /** Let go of every held key and touch control (app backgrounded or window blurred). */
+  releaseInputs(): void {
+    this.keyboard.releaseAll();
+    this.touch.releaseAll();
   }
 
   get isFlying(): boolean {

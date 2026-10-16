@@ -48,8 +48,14 @@ export class KeyboardSource {
   };
 
   private onBlur = (): void => {
-    this.held.clear();
+    this.releaseAll();
   };
+
+  /** Forget every held key and pending press (app backgrounded, window lost focus). */
+  releaseAll(): void {
+    this.held.clear();
+    this.justPressed.clear();
+  }
 
   /** Held and newly pressed actions in `groups`; drains every pending press (any group). */
   poll(groups: ActionGroup | readonly ActionGroup[]): { actions: Set<ActionId>; pressed: Set<ActionId> } {

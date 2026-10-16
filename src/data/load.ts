@@ -107,7 +107,10 @@ export function parseGameData(raw: {
   return { ships, systems, planets, config };
 }
 
-export async function loadGameData(): Promise<GameData> {
+/** Loads and validates the bundled data. `override` swaps raw payloads (used by test flags). */
+export async function loadGameData(
+  override: Partial<Record<'ships' | 'systems' | 'planets' | 'config', unknown>> = {},
+): Promise<GameData> {
   const [ships, systems, planets, config] = await Promise.all([
     import('../../data/ships.json'),
     import('../../data/systems.json'),
@@ -119,5 +122,6 @@ export async function loadGameData(): Promise<GameData> {
     systems: systems.default,
     planets: planets.default,
     config: config.default,
+    ...override,
   });
 }

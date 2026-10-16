@@ -20,8 +20,35 @@ declare global {
   }
 }
 
+/** True in dev builds or when the URL contains `test`. */
+export function testHookActive(): boolean {
+  return import.meta.env.DEV || location.href.includes('test');
+}
+
+export interface TestFlags {
+  /** `?crash=1`: throw during boot. */
+  crash: boolean;
+  /** Raw data overrides for `?baddata=1`: a shuttle whose maxSpeed is a string. */
+  dataOverride?: { ships: unknown };
+}
+
+/** Failure-injection flags for e2e tests; always empty unless the test hook is active. */
+export function testFlags(search: string = location.search): TestFlags {
+  if (!testHookActive()) return { crash: false };
+  const q = new URLSearchParams(search);
+  const flags: TestFlags = { crash: q.get('crash') === '1' };
+  if (q.get('baddata') === '1') {
+    flags.dataOverride = {
+      ships: [
+        { id: 'shuttle', name: 'Wayfarer Shuttle', turnRate: 180, acceleration: 150, maxSpeed: 'fast', fuelCapacity: 300, radius: 14 },
+      ],
+    };
+  }
+  return flags;
+}
+
 /** Exposes game internals to e2e tests in dev builds or when the URL contains `test`. */
 export function installTestHook(controller: Controller, data: GameData, store: PilotStore): void {
-  if (!import.meta.env.DEV && !location.href.includes('test')) return;
+  if (!testHookActive()) return;
   window.__starwake = { world: () => controller.world, data, controller, store };
 }

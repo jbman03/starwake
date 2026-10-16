@@ -122,3 +122,14 @@ describe('KeyboardSource', () => {
     expect(src.poll('flight').pressed.has('firePrimary')).toBe(true);
   });
 });
+
+describe('KeyboardSource.releaseAll', () => {
+  it('drops held keys and pending presses', () => {
+    const { src, key } = setup();
+    key('keydown', 'ArrowUp');
+    src.releaseAll();
+    const r = src.poll('flight');
+    expect(r.actions.size).toBe(0);
+    expect(r.pressed.size).toBe(0);
+  });
+});

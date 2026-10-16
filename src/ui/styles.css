@@ -234,3 +234,46 @@
   .sw-hotkey-row { grid-template-columns: 1fr 1fr; }
   .sw-hotkey-name { grid-column: 1 / -1; }
 }
+
+/* Fatal screens (crash, bad data) and the update banner live on <body>, above everything. */
+.sw-fatal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  box-sizing: border-box;
+  overflow: auto;
+  background: var(--sw-bg);
+  color: var(--sw-text);
+  font-family: var(--sw-font);
+}
+.sw-fatal-panel { margin: auto; width: min(640px, 100%); }
+.sw-fatal-report {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 8px 0 12px;
+  padding: 8px;
+  background: var(--sw-panel-2);
+  color: var(--sw-text);
+  border: 1px solid var(--sw-border);
+  font: 12px/1.4 ui-monospace, Consolas, monospace;
+  resize: vertical;
+}
+.sw-fatal-issues { margin: 8px 0 14px; padding-left: 20px; font: 13px/1.5 ui-monospace, Consolas, monospace; color: var(--sw-danger); }
+.sw-fatal-status { min-height: 1.3em; margin: 8px 0 0; font-size: 14px; color: var(--sw-good); }
+.sw-update {
+  position: fixed;
+  z-index: 150;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: max(12px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  font-family: var(--sw-font);
+  color: var(--sw-text);
+}
+.sw-update .sw-btn { width: auto; }

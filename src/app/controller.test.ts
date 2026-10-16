@@ -269,3 +269,23 @@ describe('Controller', () => {
     expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'planet', id: 'merrow' } });
   });
 });
+
+describe('Controller flight events and input release', () => {
+  it('emits flying on start and pause, only on change', async () => {
+    const c = new Controller(await loadGameData(), { ...DEFAULT_SETTINGS }, new EventTarget());
+    const seen: boolean[] = [];
+    c.on('flying', (e) => seen.push(e.flying));
+    c.startFlight();
+    c.startFlight();
+    c.pauseFlight();
+    c.pauseFlight();
+    expect(seen).toEqual([true, false]);
+  });
+
+  it('releaseInputs drops touch and keyboard holds', async () => {
+    const c = new Controller(await loadGameData(), { ...DEFAULT_SETTINGS }, new EventTarget());
+    c.touch.press('thrust');
+    c.releaseInputs();
+    expect(c.touch.poll('flight').actions.size).toBe(0);
+  });
+});

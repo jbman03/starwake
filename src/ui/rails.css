@@ -68,7 +68,7 @@ html, body { overscroll-behavior: none; }
 }
 .sw-rail-hud-top { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .sw-rail-sys { font-size: 13px; color: #e8eef5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sw-rail-pause { width: 30px; height: 30px; border-radius: 4px; font-size: 11px; }
+.sw-rail-pause { width: 44px; height: 44px; border-radius: 6px; font-size: 13px; }
 .sw-rail-bar { display: flex; align-items: center; gap: 4px; color: var(--sw-dim); font-size: 10px; }
 .sw-rail-bar span { width: 40px; flex: none; }
 .sw-rail-bar i { flex: 1; height: 6px; }
@@ -123,7 +123,7 @@ html, body { overscroll-behavior: none; }
 }
 .sw-context:active { background: #23502f; }
 
-/* Portrait phone: ask to rotate. Task 12 builds on this. */
+/* Portrait phone: ask to rotate. (Markup is in index.html.) */
 #rotate-overlay { display: none; }
 @media (orientation: portrait) and (pointer: coarse) {
   #rotate-overlay {

@@ -60,6 +60,26 @@ const placeRect = (node: HTMLElement, r: Rect) => {
   node.style.width = px(r.w);
   node.style.height = px(r.h);
 };
+/**
+ * Place a rail. The rail touching a screen edge grows by that edge's safe-area inset (phone
+ * notch, rounded corners) and pads its content by the same amount, so controls are never clipped.
+ */
+const placeRail = (node: HTMLElement, r: Rect, screenW: number, pad: number) => {
+  const atRight = r.x > 0 && r.x + r.w >= screenW;
+  const inset = `env(safe-area-inset-${atRight ? 'right' : 'left'}, 0px)`;
+  node.style.left = px(r.x);
+  node.style.top = px(r.y);
+  node.style.height = px(r.h);
+  node.style.width = `calc(${px(r.w)} + ${inset})`;
+  // The right rail grows leftwards (it can't grow past the screen edge).
+  node.style.marginLeft = atRight ? `calc(-1 * ${inset})` : '';
+  const p = px(pad);
+  node.style.padding =
+    `calc(${p} + env(safe-area-inset-top, 0px)) ` +
+    `calc(${p} + ${atRight ? inset : '0px'}) ` +
+    `calc(${p} + env(safe-area-inset-bottom, 0px)) ` +
+    `calc(${p} + ${atRight ? '0px' : inset})`;
+};
 const square = (node: HTMLElement, size: number) => {
   node.style.width = px(size);
   node.style.height = px(size);
@@ -211,12 +231,9 @@ export function mountRails(opts: RailsOptions): Rails {
     layer.dataset.view = JSON.stringify(layout.view);
     layer.dataset.clear = JSON.stringify(layout.clear);
     layer.classList.toggle('sw-touch-overlay', layout.overlayRails);
-    placeRect(stickRail, layout.leftRail);
-    placeRect(buttonRail, layout.rightRail);
-    for (const rail of [stickRail, buttonRail]) {
-      rail.style.padding = px(m.pad);
-      rail.style.gap = px(m.gap);
-    }
+    placeRail(stickRail, layout.leftRail, w, m.pad);
+    placeRail(buttonRail, layout.rightRail, w, m.pad);
+    for (const rail of [stickRail, buttonRail]) rail.style.gap = px(m.gap);
     hud.style.height = px(m.hud);
     for (const b of [stop, targetBtn, missile, thrust]) square(b, m.button);
     square(fire, m.fire);
@@ -229,7 +246,7 @@ export function mountRails(opts: RailsOptions): Rails {
     if (thrust.hidden) touch.release('thrust');
     // Bottom-center of the view.
     contextBtn.style.left = px(layout.view.x + layout.view.w / 2);
-    contextBtn.style.bottom = px(h - (layout.view.y + layout.view.h) + 12);
+    contextBtn.style.bottom = `calc(${px(h - (layout.view.y + layout.view.h) + 12)} + env(safe-area-inset-bottom, 0px))`;
     contextBtn.style.maxWidth = px(Math.max(0, layout.clear.w - 16));
   };
 
