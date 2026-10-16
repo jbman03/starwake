@@ -27,6 +27,7 @@ describe('contextLabel', () => {
     expect(contextLabel('land', w, data)).toBe('⬇ LAND ON HALCYON');
     expect(contextLabel('land', { ...w, targetPlanetId: 'merrow' }, data)).toBe('⬇ LAND ON MERROW');
     expect(contextLabel('jump', w, data)).toBe('JUMP TO VESK');
+    expect(contextLabel('autopilotOut', w, data)).toBe('⇱ AUTOPILOT TO JUMP POINT');
     expect(contextLabel('takeControl', w, data)).toBe('✋ TAKE CONTROL');
     expect(contextLabel('tow', w, data)).toBe(`CALL TOW (${data.config.towFee} cr)`);
     expect(contextLabel(null, w, data)).toBeNull();
@@ -61,6 +62,20 @@ describe('mountRails', () => {
     expect(c.landedPlanetId).toBe('halcyon');
     rails.update();
     expect(btn.hidden).toBe(true);
+  });
+
+  it('in open space too close to jump, the context button autopilots out to the jump point', async () => {
+    const { c, rails, parent } = await setup();
+    c.startFlight();
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: -1000, y: -1000 } } };
+    rails.update();
+    const btn = parent.querySelector<HTMLButtonElement>('[data-testid="context-button"]')!;
+    expect(btn.hidden).toBe(false);
+    expect(btn.textContent).toBe('⇱ AUTOPILOT TO JUMP POINT');
+    btn.dispatchEvent(new Event('pointerdown'));
+    expect(c.world.assist).toEqual({ kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false });
+    rails.update();
+    expect(btn.textContent).toBe('✋ TAKE CONTROL');
   });
 
   it('fire button presses and releases firePrimary through the touch source', async () => {

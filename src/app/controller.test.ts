@@ -59,6 +59,17 @@ describe('Controller', () => {
     expect(c.world.targetPlanetId).toBeNull();
   });
 
+  it('the autopilotOut context action engages the autopilot to the jump point', async () => {
+    const { c, events } = await setup();
+    c.startFlight();
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: -1000, y: -1000 } } };
+    c.update(1 / 60);
+    expect(events).toContainEqual({ type: 'contextChanged', action: 'autopilotOut' });
+    c.doContextAction();
+    expect(c.world.assist).toEqual({ kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false });
+    expect(events.at(-1)).toEqual({ type: 'contextChanged', action: 'takeControl' });
+  });
+
   it('selectPlanet sets the target', async () => {
     const { c } = await setup();
     c.selectPlanet('merrow');

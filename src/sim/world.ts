@@ -29,7 +29,7 @@ export const STICK_DEADZONE = 0.25;
 /** Point-mode stick magnitude above which the ship thrusts. */
 export const STICK_THRUST = 0.6;
 
-export const MSG_TOO_CLOSE = 'Too close to the star to jump. Press G to autopilot out.';
+export const MSG_TOO_CLOSE = 'Too close to the star to jump. Use autopilot (G) to fly out.';
 export const MSG_NO_FUEL = 'Not enough fuel to jump.';
 
 const NONE: Assist = { kind: 'none' };
@@ -61,6 +61,11 @@ export function newWorld(data: GameData): WorldState {
 
 export function interruptAutopilot(world: WorldState): WorldState {
   return { ...world, assist: NONE };
+}
+
+/** Engage the autopilot toward the current system's jump point (the `autopilotOut` context action). */
+export function autopilotToJumpPoint(world: WorldState): WorldState {
+  return { ...world, assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
 }
 
 /** Leave a planet: in its system, parked at its edge, at rest, no assist. */

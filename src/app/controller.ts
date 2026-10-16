@@ -8,7 +8,7 @@ import { contextAction, type ContextAction } from '../sim/context';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { FixedStepper } from '../sim/stepper';
 import type { FrameInput, ShipState, SimEvent, WorldState } from '../sim/types';
-import { applyRefuel, applyTow, departFrom, interruptAutopilot, newWorld, stepWorld } from '../sim/world';
+import { applyRefuel, applyTow, autopilotToJumpPoint, departFrom, interruptAutopilot, newWorld, stepWorld } from '../sim/world';
 
 export type ControllerEvent =
   | SimEvent
@@ -200,6 +200,7 @@ export class Controller {
     if (action === 'takeControl') this.world = interruptAutopilot(this.world);
     else if (action === 'tow') this.callTow();
     else if (action === 'land') this.queued.add('land');
+    else if (action === 'autopilotOut') this.world = autopilotToJumpPoint(this.world);
     else if (action === 'jump') this.queued.add('jump');
     this.checkContext();
   }

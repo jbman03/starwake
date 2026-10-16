@@ -273,7 +273,7 @@ describe('stepWorld: jumping', () => {
     expect(w.systemId).toBe('vesk');
     // Post-arrival presses are refused as too close, never as a second jump.
     for (const e of events.filter((x) => x.type === 'message')) {
-      expect(e).toEqual({ type: 'message', text: 'Too close to the star to jump. Press G to autopilot out.' });
+      expect(e).toEqual({ type: 'message', text: 'Too close to the star to jump. Use autopilot (G) to fly out.' });
     }
   });
 
@@ -321,7 +321,7 @@ describe('stepWorld: jumping', () => {
 
   it('too close → message', () => {
     const r = stepWorld(newWorld(data), data, frame(['jump']), DT, OPTS);
-    expect(r.events).toEqual([{ type: 'message', text: 'Too close to the star to jump. Press G to autopilot out.' }]);
+    expect(r.events).toEqual([{ type: 'message', text: 'Too close to the star to jump. Use autopilot (G) to fly out.' }]);
     expect(r.world.jump).toBeNull();
     expect(r.world.ship.fuel).toBe(300);
   });
