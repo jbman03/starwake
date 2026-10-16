@@ -11,7 +11,7 @@
   },
   {
     "id": "brigg-station", "name": "Brigg Station", "systemId": "calder", "pos": { "x": 400, "y": 1100 }, "radius": 30, "techTier": 3, "fuelPrice": 3, "kind": "station",
-    "services": ["refuel", "exchange"], "market": { "industrial": "low", "luxury": "med", "medical": "high" }, "dumpSite": true,
+    "services": ["refuel", "exchange"], "market": { "industrial": "low", "luxury": "med", "medical": "med" }, "dumpSite": true,
     "description": "A lantern-lit ring of patched hull plates, humming with pilots trading rumors over bad coffee."
   },
 
@@ -60,18 +60,18 @@
 
   {
     "id": "corvana-works", "name": "Corvana Works", "systemId": "corvana", "pos": { "x": 650, "y": 450 }, "radius": 66, "techTier": 5, "fuelPrice": 2, "kind": "planet",
-    "services": ["refuel", "exchange", "missions"], "market": { "industrial": "low", "equipment": "low", "metal": "high", "food": "high" },
+    "services": ["refuel", "exchange", "missions"], "market": { "industrial": "low", "equipment": "low", "metal": "high", "food": "med" },
     "description": "A foundry planet under a permanent orange sky. The workers sing in shifts, and the songs are better than the air."
   },
   {
     "id": "smelt-ring", "name": "Smelt Ring", "systemId": "corvana", "pos": { "x": -700, "y": -700 }, "radius": 34, "techTier": 4, "fuelPrice": 2, "kind": "station",
-    "services": ["refuel", "exchange"], "market": { "metal": "low", "industrial": "med", "medical": "high", "copperwine": "high" },
+    "services": ["refuel", "exchange"], "market": { "metal": "low", "industrial": "med", "food": "high", "copperwine": "high" },
     "description": "A ring of furnaces turning fringe ore into Concord plate. The crews are paid well, burn often, and treat a good bottle like a holiday."
   },
 
   {
     "id": "quillon-spires", "name": "Quillon Spires", "systemId": "quillon", "pos": { "x": -350, "y": -550 }, "radius": 54, "techTier": 4, "fuelPrice": 2, "kind": "planet",
-    "services": ["refuel", "exchange", "missions"], "market": { "luxury": "low", "equipment": "high", "food": "med", "glowmoss": "high", "emberwool": "high" },
+    "services": ["refuel", "exchange", "missions"], "market": { "luxury": "low", "equipment": "med", "food": "med", "glowmoss": "high", "emberwool": "high" },
     "description": "An old artisans' world of glass towers and narrow galleries. Everything sold here is beautiful, and nothing is cheap except the compliments."
   },
   {
@@ -98,7 +98,7 @@
   },
   {
     "id": "shaft-nine", "name": "Shaft Nine", "systemId": "brannock", "pos": { "x": -650, "y": -400 }, "radius": 26, "techTier": 2, "fuelPrice": 3, "kind": "station",
-    "services": ["refuel", "exchange"], "market": { "metal": "low", "industrial": "high", "food": "high" },
+    "services": ["refuel", "exchange"], "market": { "metal": "low", "food": "high", "medical": "high" },
     "description": "An ore depot bolted to a spent asteroid. Shafts one through eight are a long story, and the dockhands will tell it for a drink."
   },
 
@@ -131,7 +131,7 @@
 
   {
     "id": "kiln", "name": "Kiln", "systemId": "cinderfall", "pos": { "x": 600, "y": 300 }, "radius": 52, "techTier": 3, "fuelPrice": 3, "kind": "planet",
-    "services": ["refuel", "exchange", "missions"], "market": { "metal": "low", "industrial": "low", "food": "high", "equipment": "high", "copperwine": "high" },
+    "services": ["refuel", "exchange", "missions"], "market": { "metal": "low", "food": "high", "equipment": "high", "copperwine": "high" },
     "description": "A volcanic world where the Reach smelts its own ore and owes nobody for it. The forges never cool, and neither does the conversation."
   },
   {
@@ -158,7 +158,7 @@
   },
   {
     "id": "redwater-locks", "name": "Redwater Locks", "systemId": "redwater", "pos": { "x": -600, "y": 700 }, "radius": 30, "techTier": 2, "fuelPrice": 3, "kind": "station",
-    "services": ["refuel", "exchange"], "market": { "industrial": "low", "equipment": "med", "food": "high" },
+    "services": ["refuel", "exchange"], "market": { "industrial": "low", "equipment": "med", "food": "med" },
     "description": "A chain of pressure docks where the Reach builds its pumps and valves. Everything leaks a little, and everyone is proud that it does not leak more."
   },
 

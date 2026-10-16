@@ -237,6 +237,24 @@ describe('galaxy content', () => {
     }
   });
 
+  it('no golden routes: ports within 2 hops never form a reciprocal low/high pair', () => {
+    const lowAt = (p: (typeof ports)[number]) => Object.keys(p.market ?? {}).filter((g) => p.market![g] === 'low');
+    const highAt = (p: (typeof ports)[number]) => new Set(Object.keys(p.market ?? {}).filter((g) => p.market![g] === 'high'));
+    const carries = (from: (typeof ports)[number], to: (typeof ports)[number]) => {
+      const highs = highAt(to);
+      return lowAt(from).some((g) => highs.has(g));
+    };
+    const bad: string[] = [];
+    for (const a of ports) {
+      const hops = hopsFrom(a.systemId);
+      for (const b of ports) {
+        if (a.id >= b.id || hops.get(b.systemId)! > 2) continue;
+        if (carries(a, b) && carries(b, a)) bad.push(`${a.id}<->${b.id}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
   it('classic basePrice 80-500, unique basePrice 400-900', () => {
     for (const c of Object.values(d.commodities)) {
       const [lo, hi] = c.origin ? [400, 900] : [80, 500];
