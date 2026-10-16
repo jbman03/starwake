@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
+import governments from '../../data/governments.json';
+import commodities from '../../data/commodities.json';
+import events from '../../data/events.json';
+import missionTypes from '../../data/missionTypes.json';
 import planets from '../../data/planets.json';
 import ships from '../../data/ships.json';
 import systems from '../../data/systems.json';
@@ -7,7 +11,7 @@ import { parseGameData } from '../data/load';
 import type { PilotSave } from './pilot';
 import { exportFileName, exportPilot, importPilot } from './transfer';
 
-const data = parseGameData({ ships, systems, planets, config });
+const data = parseGameData({ ships, systems, planets, config, governments, commodities, events, missionTypes });
 const p: PilotSave = {
   version: 1, id: 'p1', name: 'A/B:c', credits: 100, shipId: 'shuttle', fuel: 5, systemId: 'calder',
   planetId: 'halcyon', gameTimeSec: 1, savedAt: '2026-01-01T00:00:00.000Z',

@@ -43,8 +43,8 @@ describe('ui helpers', () => {
 
   it('starMapSvg draws each link once and marks the current system', () => {
     const systems = [
-      { id: 'a', name: 'A', mapPos: { x: 0, y: 0 }, jumpDistance: 1, links: ['b'], starRadius: 1 },
-      { id: 'b', name: 'B', mapPos: { x: 100, y: 50 }, jumpDistance: 1, links: ['a'], starRadius: 1 },
+      { id: 'a', name: 'A', mapPos: { x: 0, y: 0 }, jumpDistance: 1, government: 'g', links: ['b'], starRadius: 1 },
+      { id: 'b', name: 'B', mapPos: { x: 100, y: 50 }, jumpDistance: 1, government: 'g', links: ['a'], starRadius: 1 },
     ];
     const svg = starMapSvg(systems, 'b');
     expect(svg.querySelectorAll('line')).toHaveLength(1);

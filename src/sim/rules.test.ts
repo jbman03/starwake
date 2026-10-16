@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import config from '../../data/config.json';
+import governments from '../../data/governments.json';
+import commodities from '../../data/commodities.json';
+import events from '../../data/events.json';
+import missionTypes from '../../data/missionTypes.json';
 import planets from '../../data/planets.json';
 import ships from '../../data/ships.json';
 import systems from '../../data/systems.json';
@@ -15,7 +19,7 @@ import {
 import type { WorldState } from './types';
 import { dist, len } from './vec';
 
-const data = parseGameData({ ships, systems, planets, config });
+const data = parseGameData({ ships, systems, planets, config, governments, commodities, events, missionTypes });
 const shuttle = data.ships.shuttle;
 
 const mkWorld = (p: Partial<WorldState> = {}, ship: Partial<WorldState['ship']> = {}): WorldState => ({

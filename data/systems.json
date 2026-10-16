@@ -1,4 +1,4 @@
 [
-  { "id": "calder", "name": "Calder", "mapPos": { "x": 0, "y": 0 }, "jumpDistance": 2000, "links": ["vesk"], "starRadius": 120 },
-  { "id": "vesk", "name": "Vesk", "mapPos": { "x": 300, "y": -120 }, "jumpDistance": 1800, "links": ["calder"], "starRadius": 90 }
+  { "id": "calder", "name": "Calder", "mapPos": { "x": 0, "y": 0 }, "jumpDistance": 2000, "government": "concord", "links": ["vesk"], "starRadius": 120 },
+  { "id": "vesk", "name": "Vesk", "mapPos": { "x": 300, "y": -120 }, "jumpDistance": 1800, "government": "independent", "links": ["calder"], "starRadius": 90 }
 ]

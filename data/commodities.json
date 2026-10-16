@@ -1,0 +1,8 @@
+[
+  { "id": "food", "name": "Food", "basePrice": 20, "description": "Grain, preserves and fresh harvests." },
+  { "id": "industrial", "name": "Industrial", "basePrice": 40, "description": "Machine parts, fasteners and raw plant stock." },
+  { "id": "medical", "name": "Medical", "basePrice": 60, "description": "Medicines, bandages and clinic supplies." },
+  { "id": "luxury", "name": "Luxury", "basePrice": 120, "description": "Fine goods for those who can afford the finer things." },
+  { "id": "metal", "name": "Metal", "basePrice": 30, "description": "Ingots and plate from the mines." },
+  { "id": "equipment", "name": "Equipment", "basePrice": 80, "description": "Tools, instruments and ship fittings." }
+]

@@ -1,0 +1,6 @@
+[
+  { "id": "bumper-harvest", "text": "Bumper harvest on {port}: Food is cheap.", "commodity": "food", "effect": "surplus", "strength": 0.6, "days": [6, 12] },
+  { "id": "fever-outbreak", "text": "Fever outbreak on {port}: Medical is in demand.", "commodity": "medical", "effect": "shortage", "strength": 1.6, "days": [5, 10] },
+  { "id": "mine-collapse", "text": "A mine collapse on {port} has Metal running short.", "commodity": "metal", "effect": "shortage", "strength": 1.5, "days": [6, 12] },
+  { "id": "festival-glut", "text": "A festival ended early on {port}: Luxury goods are piling up.", "commodity": "luxury", "effect": "surplus", "strength": 0.7, "days": [4, 8] }
+]
