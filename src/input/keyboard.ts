@@ -13,6 +13,23 @@ function isTextEntry(t: EventTarget | null): boolean {
 /** Focused buttons keep their default key behaviour (Space/Enter activate them). */
 const isButton = (t: EventTarget | null) => (t as TargetLike | null)?.tagName === 'BUTTON';
 
+/** Controls with their own keyboard behaviour: buttons, form fields and links. */
+function isInteractive(t: EventTarget | null): boolean {
+  if (isTextEntry(t) || isButton(t)) return true;
+  const el = t as (TargetLike & { hasAttribute?: (n: string) => boolean }) | null;
+  return el?.tagName === 'A' && typeof el.hasAttribute === 'function' && el.hasAttribute('href');
+}
+
+/** What the game is doing, which decides which keys the browser must not act on. */
+export interface KeyContext {
+  /** True while the ship is flying (no menu or planet screen open). */
+  flying: boolean;
+  /** Action groups the open screen listens to (ignored while flying). */
+  groups: readonly ActionGroup[];
+}
+
+const FLYING: KeyContext = { flying: true, groups: ['flight'] };
+
 export class KeyboardSource {
   private held = new Set<string>();
   private justPressed = new Set<string>();
@@ -20,21 +37,36 @@ export class KeyboardSource {
   constructor(
     private target: EventTarget,
     private getBindings: () => Bindings,
+    private getContext: () => KeyContext = () => FLYING,
   ) {
     target.addEventListener('keydown', this.onDown);
     target.addEventListener('keyup', this.onUp);
     if (typeof window !== 'undefined') window.addEventListener('blur', this.onBlur);
   }
 
-  private isBound(code: string): boolean {
+  private boundIn(code: string, groups: readonly ActionGroup[]): boolean {
     const b = this.getBindings();
-    return ACTION_IDS.some((id) => b[id].includes(code));
+    return ACTION_IDS.some((id) => groups.includes(ACTION_GROUP[id]) && b[id].includes(code));
+  }
+
+  /**
+   * Whether to stop the browser's default for this key. Flying: keys bound in the flight group
+   * (Tab, Space, arrows...) so the page doesn't scroll or move focus. In menus and on the planet
+   * screen: only the open screen's own keys, only when focus isn't on a control, and never Tab,
+   * so keyboard navigation of buttons always works.
+   */
+  private shouldBlock(e: KeyboardEvent): boolean {
+    if (isTextEntry(e.target)) return false;
+    const ctx = this.getContext();
+    if (ctx.flying) return !isButton(e.target) && this.boundIn(e.code, ['flight']);
+    if (e.code === 'Tab' || isInteractive(e.target)) return false;
+    return this.boundIn(e.code, ctx.groups);
   }
 
   private onDown = (ev: Event): void => {
     const e = ev as KeyboardEvent;
     if (isTextEntry(e.target)) return;
-    if (this.isBound(e.code) && !isButton(e.target)) e.preventDefault();
+    if (this.shouldBlock(e)) e.preventDefault();
     if (e.repeat) return;
     if (!this.held.has(e.code)) this.justPressed.add(e.code);
     this.held.add(e.code);
@@ -43,7 +75,7 @@ export class KeyboardSource {
   private onUp = (ev: Event): void => {
     const e = ev as KeyboardEvent;
     // Always release, even from a text field, so a key can't stick down.
-    if (this.isBound(e.code) && !isTextEntry(e.target) && !isButton(e.target)) e.preventDefault();
+    if (this.shouldBlock(e)) e.preventDefault();
     this.held.delete(e.code);
   };
 

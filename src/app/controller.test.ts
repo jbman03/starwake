@@ -70,6 +70,20 @@ describe('Controller', () => {
     expect(events.at(-1)).toEqual({ type: 'contextChanged', action: 'takeControl' });
   });
 
+  it('Tab moves focus in menus but is kept by the game while flying', async () => {
+    const { c, target } = await setup();
+    const tab = () => {
+      const e = Object.assign(new Event('keydown', { cancelable: true }), { code: 'Tab', repeat: false });
+      target.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    expect(tab()).toBe(false); // not flying: main menu / planet screen
+    c.startFlight();
+    expect(tab()).toBe(true);
+    c.pauseFlight();
+    expect(tab()).toBe(false);
+  });
+
   it('selectPlanet sets the target', async () => {
     const { c } = await setup();
     c.selectPlanet('merrow');

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BINDINGS } from './bindings';
-import { KeyboardSource } from './keyboard';
+import { KeyboardSource, type KeyContext } from './keyboard';
 
 function setup() {
   const target = new EventTarget();
@@ -120,6 +120,58 @@ describe('KeyboardSource', () => {
     button.dispatchEvent(e);
     expect(e.defaultPrevented).toBe(false);
     expect(src.poll('flight').pressed.has('firePrimary')).toBe(true);
+  });
+});
+
+describe('KeyboardSource default prevention by context', () => {
+  function inMenus(groups: KeyContext['groups'] = ['menus']) {
+    const ctx: KeyContext = { flying: false, groups };
+    const target = document.createElement('div');
+    document.body.append(target);
+    const src = new KeyboardSource(target, () => DEFAULT_BINDINGS, () => ctx);
+    const key = (code: string, on: Element = target) => {
+      const e = new KeyboardEvent('keydown', { code, cancelable: true, bubbles: true });
+      on.dispatchEvent(e);
+      return e;
+    };
+    return { ctx, src, target, key };
+  }
+
+  it('in menus, Tab and Space (flight keys) keep their defaults so focus can move', () => {
+    const { key } = inMenus();
+    expect(key('Tab').defaultPrevented).toBe(false);
+    expect(key('Space').defaultPrevented).toBe(false);
+    expect(key('ArrowUp').defaultPrevented).toBe(false);
+  });
+
+  it("in menus, the screen's own keys are blocked on the page but not on a focused control", () => {
+    const { target, key } = inMenus(['planet']);
+    expect(key('KeyR').defaultPrevented).toBe(true); // refuel
+    const button = document.createElement('button');
+    const link = document.createElement('a');
+    link.setAttribute('href', '#x');
+    target.append(button, link);
+    expect(key('KeyR', button).defaultPrevented).toBe(false);
+    expect(key('KeyL', link).defaultPrevented).toBe(false);
+  });
+
+  it('Tab is never blocked in menus, even when bound to a menu action', () => {
+    const ctx: KeyContext = { flying: false, groups: ['menus'] };
+    const bindings = { ...DEFAULT_BINDINGS, back: ['Escape', 'Tab'] as [string, string] };
+    const target = document.createElement('div');
+    new KeyboardSource(target, () => bindings, () => ctx);
+    const e = new KeyboardEvent('keydown', { code: 'Tab', cancelable: true, bubbles: true });
+    target.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(false);
+  });
+
+  it('switching to flying blocks the flight keys again', () => {
+    const { ctx, key } = inMenus();
+    expect(key('Tab').defaultPrevented).toBe(false);
+    ctx.flying = true;
+    expect(key('Tab').defaultPrevented).toBe(true);
+    expect(key('Space').defaultPrevented).toBe(true);
+    expect(key('KeyR').defaultPrevented).toBe(true); // nearestHostile is a flight key too
   });
 });
 

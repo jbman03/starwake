@@ -78,7 +78,11 @@ export class Controller {
   ) {
     this.world = world;
     this.prevShip = world.ship;
-    this.keyboard = new KeyboardSource(keyTarget, () => this.settings.bindings);
+    this.keyboard = new KeyboardSource(
+      keyTarget,
+      () => this.settings.bindings,
+      () => (this.flying ? { flying: true, groups: ['flight'] } : { flying: false, groups: this.uiInput?.groups ?? ['menus'] }),
+    );
     this.touch = new TouchSource(() => this.settings.touch.steering);
   }
 
