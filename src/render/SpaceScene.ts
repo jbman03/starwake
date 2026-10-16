@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { Controller } from '../app/controller';
 import type { SystemDef } from '../data/schemas';
 import type { InputMode } from '../input/mode';
+import { getInsets } from '../input/insets';
 import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { JUMP_DURATION } from '../sim/world';
@@ -82,7 +83,7 @@ export class SpaceScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const v =
       this.inputMode.mode === 'touch'
-        ? computeLayout(width, height, this.controller.settings.touch).view
+        ? computeLayout(width, height, this.controller.settings.touch, getInsets()).view
         : { x: 0, y: 0, w: width, h: height };
     return { x: Math.round(v.x), y: Math.round(v.y), w: Math.round(v.w), h: Math.round(v.h) };
   }

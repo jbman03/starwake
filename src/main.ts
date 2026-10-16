@@ -9,7 +9,7 @@ import { createGame, planetImages, whenGameReady } from './render/game';
 import { loadSettings } from './save/settings';
 import { PilotStore } from './save/store';
 import { createUi } from './ui/context';
-import { showCrash, showDataError, showUpdatePrompt } from './ui/overlays';
+import { hideUpdatePrompt, showCrash, showDataError, showUpdatePrompt } from './ui/overlays';
 import { mountRails } from './ui/rails';
 
 // Installed first so nothing that goes wrong later can leave a blank screen.
@@ -62,15 +62,25 @@ async function boot(): Promise<void> {
   controller.on('landed', buzz);
   controller.on('jumped', buzz);
 
-  // Updates never interrupt a flight: a new version waits for the next landing or menu.
+  // Updates never interrupt a flight, and never show at the pause/map menus (Restart there would
+  // discard progress): only on a planet screen or the main menu. Takeoff withdraws the banner.
   const restart: { run: (() => void) | null } = { run: null };
   const gate = createUpdateGate({
-    canShow: () => !controller.isFlying,
-    show: () => showUpdatePrompt(() => restart.run?.()),
+    canShow: () => controller.landedPlanetId !== null || controller.pilot === null,
+    show: () =>
+      showUpdatePrompt(
+        () => restart.run?.(),
+        () => gate.dismissed(),
+      ),
+    hide: hideUpdatePrompt,
   });
   controller.on('flying', (e) => {
-    if (!e.flying) gate.flush();
+    if (e.flying) gate.suspend();
   });
+  controller.on('landed', () => gate.flush());
+  controller.on('towed', () => gate.flush());
+  // Covers loading a pilot (lands without an event) and quitting to the main menu.
+  setInterval(() => gate.flush(), 1000);
   void registerPwa(() => gate.notify(), restart);
 
   const game = createGame(document.getElementById('game')!, controller, inputMode);

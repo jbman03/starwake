@@ -9,6 +9,15 @@ export interface Rect {
   h: number;
 }
 
+/** Safe-area insets in px (phone notch, rounded corners, home indicator). */
+export interface Insets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+export const NO_INSETS: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
+
 export interface Layout {
   /** Where the game is drawn (the Phaser camera viewport). */
   view: Rect;
@@ -20,6 +29,8 @@ export interface Layout {
   clear: Rect;
   /** True when the rails sit over the view's edges instead of beside it. */
   overlayRails: boolean;
+  /** The insets this layout was computed with. Each rail rect already includes its edge's inset. */
+  insets: Insets;
 }
 
 export type Steering = Settings['touch']['steering'];
@@ -44,24 +55,41 @@ const ASPECT = 16 / 9;
  * Otherwise: the view is the whole screen and the rails overlay its outer 18% strips.
  * `mirror` swaps the rails (for left-handed play).
  */
-export function computeLayout(w: number, h: number, s: Pick<Settings['touch'], 'mirror'>): Layout {
+export function computeLayout(
+  w: number,
+  h: number,
+  s: Pick<Settings['touch'], 'mirror'>,
+  insets: Insets = NO_INSETS,
+): Layout {
   let left: Rect, right: Rect, view: Rect, clear: Rect;
-  const overlayRails = !(w / h > ASPECT);
+  // The rails grow by their edge's inset, so the view never sits under a notch or under a rail.
+  const availW = Math.max(0, w - insets.left - insets.right);
+  const overlayRails = !(availW / h > ASPECT);
   if (!overlayRails) {
-    const railW = Math.min(w / 2, Math.max(MIN_RAIL_WIDTH, (w - h * ASPECT) / 2));
-    view = { x: railW, y: 0, w: w - 2 * railW, h };
-    left = { x: 0, y: 0, w: railW, h };
-    right = { x: w - railW, y: 0, w: railW, h };
+    const railW = Math.min(availW / 2, Math.max(MIN_RAIL_WIDTH, (availW - h * ASPECT) / 2));
+    const lw = railW + insets.left;
+    const rw = railW + insets.right;
+    view = { x: lw, y: 0, w: w - lw - rw, h };
+    left = { x: 0, y: 0, w: lw, h };
+    right = { x: w - rw, y: 0, w: rw, h };
     clear = { ...view };
   } else {
-    const railW = w * OVERLAY_RAIL_FRACTION;
+    const railW = availW * OVERLAY_RAIL_FRACTION;
+    const lw = railW + insets.left;
+    const rw = railW + insets.right;
     view = { x: 0, y: 0, w, h };
-    left = { x: 0, y: 0, w: railW, h };
-    right = { x: w - railW, y: 0, w: railW, h };
-    clear = { x: railW, y: 0, w: w - 2 * railW, h };
+    left = { x: 0, y: 0, w: lw, h };
+    right = { x: w - rw, y: 0, w: rw, h };
+    clear = { x: lw, y: 0, w: w - lw - rw, h };
   }
+  // Mirrored: the stick rail takes the right side. Rect widths stay tied to the physical edge.
   if (s.mirror) [left, right] = [right, left];
-  return { view, leftRail: left, rightRail: right, clear, overlayRails };
+  return { view, leftRail: left, rightRail: right, clear, overlayRails, insets };
+}
+
+/** The safe-area inset on the screen edge a rail touches (rails on the left edge start at x = 0). */
+export function railInset(rail: Rect, insets: Insets): number {
+  return rail.x === 0 ? insets.left : insets.right;
 }
 
 /** True when the rectangles overlap with positive area (shared edges don't count). */
@@ -97,9 +125,11 @@ const MAX_STICK = 140;
  * Stick rail: HUD, Stop, joystick. Button rail: radar, Target, Missile, [Thrust], Fire.
  */
 export function railMetrics(layout: Layout, s: Pick<Settings['touch'], 'buttonSize'>, steering: Steering): RailMetrics {
+  const { insets } = layout;
   const h = layout.leftRail.h;
-  const inner = Math.min(layout.leftRail.w, layout.rightRail.w) - 2 * PAD;
-  const usable = h - 2 * PAD;
+  // Each rail's inset side is padding, not usable width; top and bottom insets are padding too.
+  const inner = Math.min(layout.leftRail.w - railInset(layout.leftRail, insets), layout.rightRail.w - railInset(layout.rightRail, insets)) - 2 * PAD;
+  const usable = h - insets.top - insets.bottom - 2 * PAD;
   const plain = steering === 'classic' ? 3 : 2; // Target, Missile (+ Thrust)
   const rightGaps = (plain + 1) * GAP; // radar + plain + fire = plain + 2 items
 

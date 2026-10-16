@@ -67,6 +67,53 @@ describe('rectsIntersect', () => {
   });
 });
 
+describe('computeLayout with safe-area insets', () => {
+  const insets = { top: 0, right: 47, bottom: 21, left: 47 };
+
+  it('rails include their edge inset and never intersect the view (844x390)', () => {
+    for (const mirror of [false, true]) {
+      const l = computeLayout(844, 390, touch({ mirror }), insets);
+      expect(rectsIntersect(l.leftRail, l.view)).toBe(false);
+      expect(rectsIntersect(l.rightRail, l.view)).toBe(false);
+      const [physLeft, physRight] = [l.leftRail, l.rightRail].sort((a, b) => a.x - b.x);
+      expect(physLeft.x).toBe(0);
+      expect(physLeft.w).toBe(120 + 47);
+      expect(physRight.x + physRight.w).toBe(844);
+      expect(l.view.x).toBe(167);
+      expect(l.view.w).toBe(844 - 2 * 167);
+    }
+  });
+
+  it('overlay mode: clear excludes the inset-grown rails', () => {
+    const l = computeLayout(800, 600, touch(), { top: 0, right: 40, bottom: 0, left: 30 });
+    expect(rectsIntersect(l.leftRail, l.clear)).toBe(false);
+    expect(rectsIntersect(l.rightRail, l.clear)).toBe(false);
+  });
+
+  it('stacks fit inside the rails minus the insets, every size and steering', () => {
+    for (const mirror of [false, true]) {
+      for (const size of ['S', 'M', 'L'] as const) {
+        for (const steering of ['point', 'classic'] as const) {
+          const l = computeLayout(844, 390, touch({ mirror }), insets);
+          const m = railMetrics(l, touch({ buttonSize: size }), steering);
+          const inner = Math.min(l.leftRail.w, l.rightRail.w) - 47 - 2 * m.pad;
+          const usable = 390 - insets.top - insets.bottom - 2 * m.pad;
+          expect(m.leftStackHeight).toBeLessThanOrEqual(usable);
+          expect(m.rightStackHeight).toBeLessThanOrEqual(usable);
+          expect(m.fire).toBeLessThanOrEqual(inner);
+          expect(m.stick).toBeLessThanOrEqual(inner);
+        }
+      }
+    }
+  });
+
+  it('zero insets reproduce the plain layout', () => {
+    expect(computeLayout(844, 390, touch(), { top: 0, right: 0, bottom: 0, left: 0 })).toEqual(
+      computeLayout(844, 390, touch()),
+    );
+  });
+});
+
 describe('railMetrics', () => {
   it('uses the S/M/L base size when there is room; Fire is 1.4×', () => {
     for (const size of ['S', 'M', 'L'] as const) {

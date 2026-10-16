@@ -69,16 +69,10 @@ test.describe('phone (touch, landscape)', () => {
     await expect(page.getByTestId('context-button')).toHaveText('⬇ LAND ON HALCYON');
     await waitForLayout(page, 844, 390);
 
-    // Carry-overs: Pause is a 44px touch target, and rails/context button honor the safe-area insets.
+    // Carry-overs: Pause is a 44px touch target, and (safe-area insets are unit-tested in touch.test.ts).
     const pauseBox = await page.getByRole('button', { name: 'Pause' }).boundingBox();
     expect(pauseBox!.width).toBeGreaterThanOrEqual(44);
     expect(pauseBox!.height).toBeGreaterThanOrEqual(44);
-    const insets = await page.evaluate(() => ({
-      rail: document.querySelector<HTMLElement>('[data-rail="stick"]')!.style.padding,
-      ctx: document.querySelector<HTMLElement>('[data-testid="context-button"]')!.style.bottom,
-    }));
-    expect(insets.rail).toContain('env(safe-area-inset-left');
-    expect(insets.ctx).toContain('env(safe-area-inset-bottom');
     await checkNoOverlap(page);
     await page.screenshot({ path: '.superpowers/sdd/2026-10-15-starwake-foundation/task-11-screenshot.png' });
 

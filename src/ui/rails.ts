@@ -3,7 +3,8 @@ import type { Controller } from '../app/controller';
 import type { GameData } from '../data/schemas';
 import type { ActionId } from '../input/actions';
 import type { InputMode } from '../input/mode';
-import { computeLayout, railMetrics, stickFromOffset, type Layout, type Rect } from '../input/touch';
+import { getInsets } from '../input/insets';
+import { computeLayout, railMetrics, stickFromOffset, type Insets, type Layout, type Rect } from '../input/touch';
 import { hudInfo } from '../render/hudInfo';
 import type { ContextAction } from '../sim/context';
 import { jumpDestination, pickLandTarget } from '../sim/rules';
@@ -42,6 +43,8 @@ export interface RailsOptions {
   inputMode: InputMode;
   /** Screen size; defaults to the window. */
   size?: () => { w: number; h: number };
+  /** Safe-area insets; defaults to the measured ones. */
+  insets?: () => Insets;
   /** Run update() every animation frame (default true). Tests call update() themselves. */
   autoUpdate?: boolean;
 }
@@ -61,24 +64,14 @@ const placeRect = (node: HTMLElement, r: Rect) => {
   node.style.height = px(r.h);
 };
 /**
- * Place a rail. The rail touching a screen edge grows by that edge's safe-area inset (phone
- * notch, rounded corners) and pads its content by the same amount, so controls are never clipped.
+ * Place a rail at its layout rect. The inset on the rail's screen edge is already part of the
+ * rect (the view starts beyond it); it is padded inward so controls stay clear of the notch.
  */
-const placeRail = (node: HTMLElement, r: Rect, screenW: number, pad: number) => {
-  const atRight = r.x > 0 && r.x + r.w >= screenW;
-  const inset = `env(safe-area-inset-${atRight ? 'right' : 'left'}, 0px)`;
-  node.style.left = px(r.x);
-  node.style.top = px(r.y);
-  node.style.height = px(r.h);
-  node.style.width = `calc(${px(r.w)} + ${inset})`;
-  // The right rail grows leftwards (it can't grow past the screen edge).
-  node.style.marginLeft = atRight ? `calc(-1 * ${inset})` : '';
-  const p = px(pad);
-  node.style.padding =
-    `calc(${p} + env(safe-area-inset-top, 0px)) ` +
-    `calc(${p} + ${atRight ? inset : '0px'}) ` +
-    `calc(${p} + env(safe-area-inset-bottom, 0px)) ` +
-    `calc(${p} + ${atRight ? '0px' : inset})`;
+const placeRail = (node: HTMLElement, r: Rect, layout: Layout, pad: number) => {
+  const { insets } = layout;
+  const atRight = r.x > 0;
+  placeRect(node, r);
+  node.style.padding = `${pad + insets.top}px ${pad + (atRight ? insets.right : 0)}px ${pad + insets.bottom}px ${pad + (atRight ? 0 : insets.left)}px`;
 };
 const square = (node: HTMLElement, size: number) => {
   node.style.width = px(size);
@@ -223,7 +216,7 @@ export function mountRails(opts: RailsOptions): Rails {
 
   const applyLayout = (w: number, h: number, layout: Layout) => {
     const s = controller.settings.touch;
-    const key = `${w}x${h}|${s.mirror}|${s.buttonSize}|${s.steering}`;
+    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}`;
     if (key === lastKey) return;
     lastKey = key;
     const m = railMetrics(layout, s, s.steering);
@@ -231,8 +224,8 @@ export function mountRails(opts: RailsOptions): Rails {
     layer.dataset.view = JSON.stringify(layout.view);
     layer.dataset.clear = JSON.stringify(layout.clear);
     layer.classList.toggle('sw-touch-overlay', layout.overlayRails);
-    placeRail(stickRail, layout.leftRail, w, m.pad);
-    placeRail(buttonRail, layout.rightRail, w, m.pad);
+    placeRail(stickRail, layout.leftRail, layout, m.pad);
+    placeRail(buttonRail, layout.rightRail, layout, m.pad);
     for (const rail of [stickRail, buttonRail]) rail.style.gap = px(m.gap);
     hud.style.height = px(m.hud);
     for (const b of [stop, targetBtn, missile, thrust]) square(b, m.button);
@@ -246,7 +239,7 @@ export function mountRails(opts: RailsOptions): Rails {
     if (thrust.hidden) touch.release('thrust');
     // Bottom-center of the view.
     contextBtn.style.left = px(layout.view.x + layout.view.w / 2);
-    contextBtn.style.bottom = `calc(${px(h - (layout.view.y + layout.view.h) + 12)} + env(safe-area-inset-bottom, 0px))`;
+    contextBtn.style.bottom = px(h - (layout.view.y + layout.view.h) + 12 + layout.insets.bottom);
     contextBtn.style.maxWidth = px(Math.max(0, layout.clear.w - 16));
   };
 
@@ -264,7 +257,7 @@ export function mountRails(opts: RailsOptions): Rails {
     shown = true;
     layer.hidden = false;
     const { w, h } = size();
-    applyLayout(w, h, computeLayout(w, h, controller.settings.touch));
+    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()));
     layer.style.setProperty('--sw-touch-opacity', String(controller.settings.touch.opacity));
 
     const { world, data } = controller;

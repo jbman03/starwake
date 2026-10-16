@@ -82,8 +82,8 @@ export function showDataError(e: DataError): void {
   );
 }
 
-/** Small non-blocking banner: "Update available. Restart?" */
-export function showUpdatePrompt(onRestart: () => void): void {
+/** Small non-blocking banner: "Update available. Restart?" `onDismiss` runs on Restart or Later. */
+export function showUpdatePrompt(onRestart: () => void, onDismiss: () => void = () => {}): void {
   if (document.querySelector('.sw-update')) return;
   const bar = el('div', { class: 'sw-panel sw-update', attrs: { role: 'status', 'data-testid': 'update-prompt' } });
   bar.append(
@@ -92,11 +92,20 @@ export function showUpdatePrompt(onRestart: () => void): void {
       'Restart',
       () => {
         bar.remove();
+        onDismiss();
         onRestart();
       },
       { class: 'sw-btn-primary' },
     ),
-    button('Later', () => bar.remove()),
+    button('Later', () => {
+      bar.remove();
+      onDismiss();
+    }),
   );
   document.body.append(bar);
+}
+
+/** Remove the update banner if it is open (flight started). */
+export function hideUpdatePrompt(): void {
+  document.querySelector('.sw-update')?.remove();
 }
