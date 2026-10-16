@@ -12,6 +12,8 @@ import {
   departFrom,
   interruptAutopilot,
   JUMP_ARRIVAL_INSET,
+  JUMP_DURATION,
+  jumpHeading,
   newWorld,
   stepWorld,
 } from './world';
@@ -308,6 +310,30 @@ describe('stepWorld: jumping', () => {
     expect(w.ship.fuel).toBe(200);
     const done = run(w, 2, OPTS, (_x, ev) => ev.length > 0);
     expect(done.world.timeSec - w.timeSec).toBeCloseTo(1, 6);
+  });
+
+  it('while jumping the ship turns to face the destination at its turn rate', () => {
+    const calder = data.systems.calder.mapPos;
+    const vesk = data.systems.vesk.mapPos;
+    const want = Math.atan2(vesk.y - calder.y, vesk.x - calder.x);
+    // Start a quarter turn off the destination.
+    let w = at(newWorld(data), { x: 2100, y: 0 }, { heading: want - Math.PI / 2 });
+    expect(jumpHeading(w, data, 'vesk')).toBeCloseTo(want, 9);
+    w = stepWorld(w, data, frame(['jump']), DT, OPTS).world;
+    const maxStep = (data.ships[w.shipId].turnRate * Math.PI) / 180 * DT;
+    let prev = w.ship.heading;
+    let faced = false;
+    for (let i = 0; i < 60 && w.jump; i++) {
+      w = stepWorld(w, data, frame(), DT, OPTS).world;
+      if (!w.jump) break;
+      const step = Math.abs(Math.atan2(Math.sin(w.ship.heading - prev), Math.cos(w.ship.heading - prev)));
+      expect(step).toBeLessThanOrEqual(maxStep + 1e-9);
+      prev = w.ship.heading;
+      if (Math.abs(Math.atan2(Math.sin(w.ship.heading - want), Math.cos(w.ship.heading - want))) < 1e-6) faced = true;
+    }
+    // 90° at the shuttle's turn rate fits inside the 1 s jump.
+    expect(90 / data.ships[w.shipId].turnRate).toBeLessThan(JUMP_DURATION);
+    expect(faced).toBe(true);
   });
 
   it('actions are ignored while jumping', () => {

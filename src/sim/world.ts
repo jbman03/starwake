@@ -100,6 +100,14 @@ export function applyTow(world: WorldState, data: GameData): { world: WorldState
   return { world: moved, events: [{ type: 'towed', planetId }] };
 }
 
+/** Heading toward the destination system's map position (the jump point's direction). */
+export function jumpHeading(world: WorldState, data: GameData, toSystemId: string): number {
+  const from = data.systems[world.systemId];
+  const to = data.systems[toSystemId];
+  const dir = from && to ? sub(to.mapPos, from.mapPos) : ZERO;
+  return len(dir) === 0 ? world.ship.heading : angleOf(dir);
+}
+
 function arriveFromJump(world: WorldState, data: GameData, toSystemId: string): WorldState {
   const from = data.systems[world.systemId];
   const to = data.systems[toSystemId];
@@ -173,10 +181,12 @@ export function stepWorld(
   const events: SimEvent[] = [];
   let w: WorldState = { ...world, timeSec: world.timeSec + dt };
 
-  // In hyperspace: coast, ignore every action.
+  // In hyperspace: coast while turning to face the destination at the ship's turn rate;
+  // ignore every action.
   if (w.jump) {
     const t = w.jump.t + dt;
-    const coasted = { ...w, ship: stepShip(w.ship, def, { thrust: false, turn: 0 }, dt) };
+    const face: FlightInput = { thrust: false, turn: 0, targetHeading: jumpHeading(w, data, w.jump.toSystemId) };
+    const coasted = { ...w, ship: stepShip(w.ship, def, face, dt) };
     if (t >= JUMP_DURATION - 1e-9) {
       const toSystemId = w.jump.toSystemId;
       events.push({ type: 'jumped', toSystemId });
@@ -270,7 +280,10 @@ export function stepWorld(
     }
   }
 
-  // A jump started this tick: hold still in the flight sense, let the ship coast.
-  const ship = stepShip(w.ship, def, w.jump ? { thrust: false, turn: 0 } : flight, dt);
+  // A jump started this tick: no thrust, the ship coasts and starts turning toward the destination.
+  const jumpFlight: FlightInput | null = w.jump
+    ? { thrust: false, turn: 0, targetHeading: jumpHeading(w, data, w.jump.toSystemId) }
+    : null;
+  const ship = stepShip(w.ship, def, jumpFlight ?? flight, dt);
   return { world: { ...w, ship }, events };
 }
