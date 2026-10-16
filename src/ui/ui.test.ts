@@ -4,7 +4,7 @@ import { DEFAULT_BINDINGS } from '../input/bindings';
 import { confirmDialog, dialogOpen, formatCredits, hotkeyFor, keyLabel, promptDialog } from './dom';
 import { cleanPilotName } from './mainMenu';
 import { starMapSvg } from './mapPlaceholder';
-import { fuelText } from './planetScreen';
+import { fuelText } from '../sim/fuel';
 
 describe('ui helpers', () => {
   it('keyLabel shortens key codes', () => {
@@ -28,8 +28,8 @@ describe('ui helpers', () => {
   });
 
   it('fuelText and formatCredits', () => {
-    expect(fuelText(300, 100)).toBe('Fuel: 3 jumps');
-    expect(fuelText(199, 100)).toBe('Fuel: 1 jump');
+    expect(fuelText(3)).toBe('Fuel: 3 jumps');
+    expect(fuelText(1)).toBe('Fuel: 1 jump');
     expect(formatCredits(10000)).toBe('10,000 cr');
   });
 

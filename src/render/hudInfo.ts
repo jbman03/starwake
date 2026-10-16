@@ -1,13 +1,13 @@
 /** HUD text and colors, free of Phaser so the HTML touch HUD (src/ui/rails.ts) can share it. */
 import type { GameData } from '../data/schemas';
+import { fuelText, jumpsOf } from '../sim/fuel';
 import type { WorldState } from '../sim/types';
 import { dist } from '../sim/vec';
 
 export const FUEL_COLORS = { normal: '#9fe7a0', low: '#ffb347', empty: '#ff5a4f' } as const;
 
 export function fuelJumps(world: WorldState, data: GameData): number {
-  const per = data.config.fuelPerJump;
-  return per > 0 ? Math.floor(world.ship.fuel / per) : Infinity;
+  return jumpsOf(world.ship.fuel, data.config.fuelPerJump);
 }
 
 export function fuelColor(jumps: number): string {
@@ -27,7 +27,7 @@ export function hudInfo(world: WorldState, data: GameData): HudInfo {
   const t = world.targetPlanetId ? data.planets[world.targetPlanetId] : undefined;
   return {
     system: data.systems[world.systemId]?.name ?? world.systemId,
-    fuel: `Fuel: ${jumps} jumps`,
+    fuel: fuelText(jumps),
     fuelColor: fuelColor(jumps),
     target: t && t.systemId === world.systemId ? `Target: ${t.name}  ${Math.round(dist(t.pos, world.ship.pos))}` : 'Target: none',
   };

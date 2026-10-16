@@ -1,3 +1,4 @@
+import { fuelText, jumpsOf } from '../sim/fuel';
 import type { RefuelQuote } from '../sim/rules';
 import type { UiContext } from './context';
 import { button, el, formatCredits, hotkeyFor } from './dom';
@@ -7,11 +8,6 @@ const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
   noFuelSold: 'No fuel is sold here.',
   noCredits: 'Not enough credits to buy fuel.',
 };
-
-export function fuelText(fuel: number, perJump: number): string {
-  const jumps = perJump > 0 ? Math.floor(fuel / perJump) : Infinity;
-  return `Fuel: ${jumps} ${jumps === 1 ? 'jump' : 'jumps'}`;
-}
 
 /**
  * EV-style planet screen: picture, name, kind and tech tier, description, then credits, fuel
@@ -60,7 +56,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     const w = controller.world;
     stats.replaceChildren(
       el('div', { class: 'sw-stat', text: `Credits: ${formatCredits(w.credits)}` }),
-      el('div', { class: 'sw-stat', text: fuelText(w.ship.fuel, data.config.fuelPerJump) }),
+      el('div', { class: 'sw-stat', text: fuelText(jumpsOf(w.ship.fuel, data.config.fuelPerJump)) }),
     );
     const q = controller.refuelQuote();
     const canRefuel = !!q && q.units > 0;
