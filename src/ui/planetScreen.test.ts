@@ -9,12 +9,12 @@ import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { showPlanetScreen } from './planetScreen';
 
-async function setup(credits: number, fuel: number, bindings = DEFAULT_SETTINGS.bindings) {
+async function setup(credits: number, fuel: number, bindings = DEFAULT_SETTINGS.bindings, portId = 'halcyon') {
   const data = await loadGameData();
   const settings = { ...DEFAULT_SETTINGS, bindings };
   const c = new Controller(data, settings, new EventTarget());
   const w = newWorld(data);
-  c.beginSession({ ...w, credits, ship: { ...w.ship, fuel } }, { id: 'p', name: 'P' }, 'halcyon');
+  c.beginSession({ ...w, credits, ship: { ...w.ship, fuel } }, { id: 'p', name: 'P' }, portId);
   const root = document.createElement('div');
   document.body.append(root);
   const calls: { map: { onClose?: () => void }[]; planet: string[]; onPress?: (p: Set<string>) => void } = { map: [], planet: [] };
@@ -36,7 +36,7 @@ async function setup(credits: number, fuel: number, bindings = DEFAULT_SETTINGS.
       map: (opts?: { onClose?: () => void }) => calls.map.push(opts ?? {}),
     },
   } as UiContext;
-  showPlanetScreen(ctx, 'halcyon');
+  showPlanetScreen(ctx, portId);
   return { root, c, calls };
 }
 
@@ -60,7 +60,7 @@ describe('planet screen', () => {
     const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
     expect(map.textContent).toBe('Star MapN');
     const labels = [...root.querySelectorAll('button')].map((b) => b.querySelector('.sw-btn-label')?.textContent);
-    expect(labels.indexOf('Star Map')).toBe(labels.indexOf('Leave') - 1);
+    expect(labels.indexOf('Star Map')).toBe(labels.indexOf('Leave') - 2);
     map.click();
     expect(calls.map).toHaveLength(1);
     calls.map[0].onClose!();
@@ -74,5 +74,40 @@ describe('planet screen', () => {
     const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
     expect(map.textContent).toBe('Star Map');
     expect(map.querySelector('.sw-key')).toBeNull();
+  });
+
+  const labels = (root: HTMLElement) => [...root.querySelectorAll('.sw-actions .sw-btn-label')].map((l) => l.textContent);
+  const find = (root: HTMLElement, text: string) => [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith(text))!;
+
+  it('Halcyon offers every service, in order, with hotkey chips, plus date and cargo', async () => {
+    const { root } = await setup(1000, 150);
+    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Refuel — 300 cr', 'Star Map', 'Mission Log', 'Leave']);
+    const chips = [...root.querySelectorAll('.sw-actions .sw-key')].map((k) => k.textContent);
+    expect(chips).toEqual(['C', 'M', 'R', 'N', 'K', 'L']);
+    expect(root.textContent).toContain('1 Mar 3207');
+    expect(root.textContent).toContain('Cargo: 20/20 t');
+  });
+
+  it('a refuel-only port shows only Refuel, Star Map, Mission Log and Leave', async () => {
+    const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'haywain');
+    expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Star Map', 'Mission Log', 'Leave']);
+  });
+
+  it('Commodity Exchange opens the exchange; Done returns to the planet screen', async () => {
+    const { root, calls } = await setup(1000, 300);
+    find(root, 'Commodity Exchange').click();
+    expect(root.querySelector('[data-testid="exchange"]')).not.toBeNull();
+    find(root, 'Done').click();
+    expect(calls.planet).toEqual(['halcyon']);
+  });
+
+  it('Mission Computer and Mission Log show a coming-soon notice', async () => {
+    const { root, calls } = await setup(1000, 300);
+    const status = () => root.querySelector('.sw-status')!.textContent;
+    find(root, 'Mission Computer').click();
+    expect(status()).toBe('Coming in the next update');
+    root.querySelector('.sw-status')!.textContent = '';
+    calls.onPress!(new Set(['missionLog']));
+    expect(status()).toBe('Coming in the next update');
   });
 });
