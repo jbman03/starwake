@@ -11,6 +11,8 @@ import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { LONG_PRESS_MS, showExchange } from './exchange';
 
+const down = (button = 0) => new PointerEvent('pointerdown', { bubbles: true, button, isPrimary: true });
+
 async function setup(credits = 100_000) {
   const data = await loadGameData();
   const c = new Controller(data, DEFAULT_SETTINGS, new EventTarget());
@@ -87,7 +89,7 @@ describe('commodity exchange', () => {
     vi.useFakeTimers();
     const { btn, held, keys } = await setup();
     const b = btn('Buy 10');
-    b.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    b.dispatchEvent(down());
     vi.advanceTimersByTime(LONG_PRESS_MS - 10);
     expect(held(keys[0])).toBe('0 t');
     vi.advanceTimersByTime(20);
@@ -96,7 +98,7 @@ describe('commodity exchange', () => {
     b.click();
     expect(held(keys[0])).toBe('1 t');
     // a quick tap is a normal 10 t click
-    b.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    b.dispatchEvent(down());
     vi.advanceTimersByTime(100);
     b.dispatchEvent(new Event('pointerup', { bubbles: true }));
     b.click();
@@ -163,5 +165,64 @@ describe('commodity exchange', () => {
     btn('Done').click();
     expect(state.closed).toBe(1);
     expect(root.children).toHaveLength(0);
+  });
+
+  it('clears the reason line when the selection changes', async () => {
+    const { btn, q, row, keys } = await setup();
+    btn('Sell 10').click();
+    expect(q('exchange-message')).toBe('You have none to sell');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown' }));
+    expect(q('exchange-message')).toBe('');
+    btn('Sell 10').click();
+    row(keys[2]).click();
+    expect(q('exchange-message')).toBe('');
+  });
+
+  it('a right-button hold does nothing', async () => {
+    vi.useFakeTimers();
+    const { btn, held, keys } = await setup();
+    const b = btn('Buy 10');
+    b.dispatchEvent(down(2));
+    vi.advanceTimersByTime(LONG_PRESS_MS * 2);
+    expect(held(keys[0])).toBe('0 t');
+  });
+
+  it('a long press ended by pointercancel does not swallow a later keyboard click', async () => {
+    vi.useFakeTimers();
+    const { btn, held, keys } = await setup();
+    const b = btn('Buy 10');
+    b.dispatchEvent(down());
+    vi.advanceTimersByTime(LONG_PRESS_MS + 10);
+    expect(held(keys[0])).toBe('1 t');
+    b.dispatchEvent(new Event('pointercancel', { bubbles: true }));
+    vi.advanceTimersByTime(5);
+    b.click();
+    expect(held(keys[0])).toBe('11 t');
+  });
+
+  it('unmounting clears a pending long-press timer', async () => {
+    vi.useFakeTimers();
+    const { btn, held, state, c, keys } = await setup();
+    btn('Buy 10').dispatchEvent(down());
+    state.cleanup!();
+    vi.advanceTimersByTime(LONG_PRESS_MS * 2);
+    expect(c.world.cargo[keys[0]]).toBeUndefined();
+    void held;
+  });
+
+  it('in debt, Buy says "Not enough credits" but Sell still works', async () => {
+    const { btn, q, c, held, keys } = await setup(-400);
+    c.beginSession({ ...c.world, cargo: { [keys[0]]: 5 } }, { id: 'p', name: 'P' }, 'halcyon');
+    btn('Buy 10').click();
+    expect(q('exchange-message')).toBe('Not enough credits');
+    btn('Sell 10').click();
+    expect(held(keys[0])).toBe('0 t');
+    expect(q('exchange-message')).toContain('Sold 5 t');
+  });
+
+  it('Buy and Sell carry the 1 t hint', async () => {
+    const { btn } = await setup();
+    expect(btn('Buy 10').title).toBe('Shift-click or hold for 1 t');
+    expect(btn('Sell 10').title).toBe('Shift-click or hold for 1 t');
   });
 });

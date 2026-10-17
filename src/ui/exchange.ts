@@ -70,6 +70,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
   };
 
   const select = (id: string) => {
+    if (id !== selected) say(''); // the last reason belonged to the previous row
     selected = id;
     render();
   };
@@ -120,7 +121,9 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
       timer = undefined;
     };
     const b = button(label, () => {}, { hotkey });
-    b.addEventListener('pointerdown', () => {
+    b.title = 'Shift-click or hold for 1 t';
+    b.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.isPrimary === false) return; // primary button or touch only
       longFired = false;
       stop();
       timer = setTimeout(() => {
@@ -129,7 +132,13 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
         trade(kind, 1);
       }, LONG_PRESS_MS);
     });
-    for (const ev of ['pointerup', 'pointerleave', 'pointercancel'] as const) b.addEventListener(ev, stop);
+    // The click (if any) follows pointerup in the same task; afterwards a leftover flag must not
+    // swallow a later keyboard activation.
+    const end = () => {
+      stop();
+      if (longFired) setTimeout(() => (longFired = false), 0);
+    };
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel'] as const) b.addEventListener(ev, end);
     b.addEventListener('click', (e) => {
       if (longFired) {
         longFired = false; // the long press already moved its ton
