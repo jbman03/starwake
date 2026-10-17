@@ -151,6 +151,22 @@ describe('showStarMap', () => {
     expect(root.querySelectorAll('.sw-map-route-ok')).toHaveLength(1);
   });
 
+  it('keyboard selection keeps focus on the chosen system', () => {
+    const { root, sys } = setup();
+    for (const key of ['Enter', ' ']) {
+      sys('tessaly').focus();
+      expect(document.activeElement).toBe(sys('tessaly'));
+      sys('tessaly').dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+      expect(root.querySelector('[data-testid="map-info"]')!.textContent).toContain('Tessaly');
+      expect(document.activeElement).toBe(sys('tessaly'));
+      expect(sys('tessaly').classList.contains('sw-map-selected')).toBe(true);
+    }
+    // Set course re-renders too; a focused system keeps focus through it.
+    sys('minster').focus();
+    [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Set course'))!.click();
+    expect(document.activeElement).toBe(sys('minster'));
+  });
+
   it('unknown systems show Unexplored and cannot be plotted', () => {
     const { root, btn, sys } = setup();
     sys('skerry').dispatchEvent(new MouseEvent('click', { bubbles: true }));

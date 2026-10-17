@@ -120,8 +120,18 @@ export function createHotkeyEditor(ctx: UiContext): HotkeyEditor {
 
   function row(action: ActionId): HTMLElement {
     const conflict = state.kind === 'conflict' && state.action === action ? state : null;
+    // No key at all (e.g. a new action whose default clashed with a saved key): say so plainly.
+    const unbound = controller.settings.bindings[action].every((c) => c === null);
+    const marker = unbound
+      ? el('button', {
+          class: 'sw-unbound',
+          text: 'Unbound — click to set',
+          attrs: { type: 'button', 'data-testid': `unbound-${action}` },
+          onClick: () => setState({ kind: 'capture', action, slot: 0 }),
+        })
+      : null;
     return el('div', { class: 'sw-hotkey-row' }, [
-      el('div', { class: 'sw-hotkey-name', text: ACTION_LABEL[action] }),
+      el('div', { class: 'sw-hotkey-name' }, [ACTION_LABEL[action], marker]),
       slotCell(action, 0),
       slotCell(action, 1),
       conflict

@@ -9,9 +9,9 @@ import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { showPlanetScreen } from './planetScreen';
 
-async function setup(credits: number, fuel: number) {
+async function setup(credits: number, fuel: number, bindings = DEFAULT_SETTINGS.bindings) {
   const data = await loadGameData();
-  const settings = { ...DEFAULT_SETTINGS };
+  const settings = { ...DEFAULT_SETTINGS, bindings };
   const c = new Controller(data, settings, new EventTarget());
   const w = newWorld(data);
   c.beginSession({ ...w, credits, ship: { ...w.ship, fuel } }, { id: 'p', name: 'P' }, 'halcyon');
@@ -67,5 +67,12 @@ describe('planet screen', () => {
     expect(calls.planet).toEqual(['halcyon']);
     calls.onPress!(new Set(['openMap']));
     expect(calls.map).toHaveLength(2);
+  });
+
+  it('an unbound Star Map action shows no key chip', async () => {
+    const { root } = await setup(1000, 300, { ...DEFAULT_SETTINGS.bindings, openMap: [null, null] });
+    const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
+    expect(map.textContent).toBe('Star Map');
+    expect(map.querySelector('.sw-key')).toBeNull();
   });
 });

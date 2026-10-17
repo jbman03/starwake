@@ -273,6 +273,8 @@
 .sw-hotkey-group-title { margin: 14px 0 6px; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sw-dim); }
 .sw-hotkey-row { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr); gap: 6px; align-items: center; padding: 3px 0; }
 .sw-hotkey-name { font-size: 15px; }
+.sw-unbound { display: block; margin-top: 2px; min-height: 44px; padding: 2px 6px; font: inherit; font-size: 12px; color: #ffb347; background: none; border: 1px dashed #8a6a3a; border-radius: 3px; cursor: pointer; text-align: left; }
+.sw-unbound:hover { border-color: #ffb347; }
 .sw-slot-cell { display: flex; gap: 4px; min-width: 0; }
 .sw-slot { flex: 1; min-width: 0; justify-content: center; }
 .sw-slot-capturing { border-color: var(--sw-accent); }

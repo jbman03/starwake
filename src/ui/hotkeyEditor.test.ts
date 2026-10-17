@@ -31,6 +31,24 @@ describe('hotkey editor sections', () => {
   });
 });
 
+describe('hotkey editor unbound actions', () => {
+  it('marks an action with no keys as unbound; clicking the marker captures a key', () => {
+    const settings = { ...DEFAULT_SETTINGS, bindings: { ...resetBindings(), openMap: [null, null] as [null, null] } };
+    const ctx = { root: document.body, controller: { settings } } as unknown as UiContext;
+    const ed = createHotkeyEditor(ctx);
+    document.body.append(ed.node);
+    const markers = [...ed.node.querySelectorAll<HTMLButtonElement>('[data-testid^="unbound-"]')];
+    expect(markers.map((m) => m.dataset.testid)).toEqual(['unbound-openMap']);
+    expect(markers[0].textContent).toBe('Unbound — click to set');
+    markers[0].click();
+    press('KeyY');
+    expect(settings.bindings.openMap).toEqual(['KeyY', null]);
+    expect(ed.node.querySelector('[data-testid="unbound-openMap"]')).toBeNull();
+    ed.dispose();
+    document.body.replaceChildren();
+  });
+});
+
 describe('hotkey editor Escape invariant errors', () => {
   it('shows an inline error when capture would remove Escape from pause', () => {
     const { ed, settings } = setup();

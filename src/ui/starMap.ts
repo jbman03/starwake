@@ -311,6 +311,9 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void } = {})
         return svg('line', { x1: p.x, y1: p.y, x2: q.x, y2: q.y, class: dim ? 'sw-map-lane sw-map-lane-dim' : 'sw-map-lane' });
       }),
     );
+    // Nodes are rebuilt on every render; remember which system had keyboard focus.
+    const focused = (document.activeElement as Element | null)?.closest?.('[data-system]');
+    const focusedId = focused && nodesLayer.contains(focused) ? focused.getAttribute('data-system') : null;
     nodeGroups.length = 0;
     nodesLayer.replaceChildren(
       ...model.nodes.map((n) => {
@@ -345,6 +348,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void } = {})
         return g;
       }),
     );
+    if (focusedId) nodesLayer.querySelector<SVGGElement>(`[data-system="${focusedId}"]`)?.focus();
   }
 
   function render(): void {
