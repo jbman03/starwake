@@ -37,6 +37,18 @@ describe('contextLabel', () => {
 });
 
 describe('mountRails', () => {
+  it('the HUD shows the plotted course under the target line, and hides it with no course', async () => {
+    const { c, rails, parent } = await setup();
+    c.startFlight();
+    rails.update();
+    const course = parent.querySelector<HTMLElement>('[data-testid="rail-course"]')!;
+    expect(course.hidden).toBe(true);
+    c.plotRoute('mirren');
+    rails.update();
+    expect(course.hidden).toBe(false);
+    expect(course.textContent).toBe('Course: Vesk (2 jumps)');
+  });
+
   it('shows rails only in touch mode during a session', async () => {
     const { c, rails, inputMode, parent } = await setup('keyboard');
     c.startFlight();

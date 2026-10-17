@@ -40,3 +40,12 @@ describe('hudInfo', () => {
     expect(hudInfo(newWorld(data), data).fuel).toBe('Fuel: 3 jumps');
   });
 });
+
+describe('hudInfo nextHop', () => {
+  it('is null with no course and names the next hop with the jumps left on a course', () => {
+    const w = newWorld(data);
+    expect(hudInfo(w, data).nextHop).toBeNull();
+    expect(hudInfo({ ...w, route: ['vesk', 'lastlight'] }, data).nextHop).toBe('Course: Vesk (2 jumps)');
+    expect(hudInfo({ ...w, route: ['tessaly'] }, data).nextHop).toBe('Course: Tessaly (1 jump)');
+  });
+});

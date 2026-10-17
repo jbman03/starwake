@@ -114,6 +114,8 @@ export function mountRails(opts: RailsOptions): Rails {
   const sysName = el('span', { class: 'sw-rail-sys' });
   const fuel = el('div', { class: 'sw-rail-line' });
   const target = el('div', { class: 'sw-rail-line sw-rail-dim' });
+  const course = el('div', { class: 'sw-rail-line sw-rail-course', attrs: { 'data-testid': 'rail-course' } });
+  course.hidden = true;
   const pause = holdButton('pause', 'II', 'pause', 'Pause', 'sw-rail-pause');
   const bar = (name: string, cls: string) =>
     el('div', { class: 'sw-rail-bar' }, [el('span', { text: name }), el('i', { class: cls })]);
@@ -123,6 +125,7 @@ export function mountRails(opts: RailsOptions): Rails {
     bar('Armor', 'sw-bar-armor'),
     fuel,
     target,
+    course,
   ]);
   // Pause sits inside the HUD box; it is checked through the HUD's box, so it isn't listed twice.
   pause.removeAttribute('data-rail-control');
@@ -280,6 +283,8 @@ export function mountRails(opts: RailsOptions): Rails {
     fuel.textContent = info.fuel;
     fuel.style.color = info.fuelColor;
     target.textContent = info.target;
+    course.textContent = info.nextHop ?? '';
+    course.hidden = info.nextHop === null;
 
     const label = controller.isFlying ? contextLabel(controller.currentContext(), world, data) : null;
     if (label !== lastLabel) {

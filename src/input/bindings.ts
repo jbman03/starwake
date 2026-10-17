@@ -18,9 +18,16 @@ export const DEFAULT_BINDINGS: Bindings = {
   jump: ['KeyJ', null],
   autopilot: ['KeyG', null],
   map: ['KeyM', null],
+  flightMissionLog: ['KeyK', null],
   pause: ['Escape', null],
+  openExchange: ['KeyC', null],
+  openMissions: ['KeyM', null],
   refuel: ['KeyR', null],
+  openMap: ['KeyN', null],
+  missionLog: ['KeyK', null],
   leave: ['KeyL', 'Escape'],
+  buyGoods: ['KeyB', null],
+  sellGoods: ['KeyS', null],
   back: ['Escape', null],
 };
 

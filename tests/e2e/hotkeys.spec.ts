@@ -16,6 +16,8 @@ async function openControls(page: Page) {
 }
 
 test('rebinding hotkeys: live and persisted', async ({ page }) => {
+  // Flies, then reloads and boots the game again: slow under a full parallel run in software rendering.
+  test.setTimeout(60_000);
   const errors = trackErrors(page);
   await newPilot(page);
   await leavePlanet(page);

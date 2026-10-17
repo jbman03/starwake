@@ -4,7 +4,6 @@ import { DEFAULT_BINDINGS } from '../input/bindings';
 import { confirmDialog, dialogOpen, formatCredits, hotkeyFor, keyLabel, promptDialog } from './dom';
 import { SaveError } from '../save/pilot';
 import { cleanPilotName, saveErrorText } from './mainMenu';
-import { starMapSvg } from './mapPlaceholder';
 import { fuelText } from '../sim/fuel';
 
 describe('ui helpers', () => {
@@ -41,15 +40,6 @@ describe('ui helpers', () => {
     expect(formatCredits(10000)).toBe('10,000 cr');
   });
 
-  it('starMapSvg draws each link once and marks the current system', () => {
-    const systems = [
-      { id: 'a', name: 'A', mapPos: { x: 0, y: 0 }, jumpDistance: 1, government: 'g', links: ['b'], starRadius: 1 },
-      { id: 'b', name: 'B', mapPos: { x: 100, y: 50 }, jumpDistance: 1, government: 'g', links: ['a'], starRadius: 1 },
-    ];
-    const svg = starMapSvg(systems, 'b');
-    expect(svg.querySelectorAll('line')).toHaveLength(1);
-    expect(svg.querySelector('.sw-map-here')?.textContent).toContain('You are here');
-  });
 });
 
 describe('dialogs', () => {

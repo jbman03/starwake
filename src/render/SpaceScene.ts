@@ -109,6 +109,7 @@ export class SpaceScene extends Phaser.Scene {
       return { x: c.x, y: c.y, w: c.width, h: c.height };
     };
     hook.hudBanner = () => this.hud.bannerText();
+    hook.hudCourse = () => this.hud.courseText();
     hook.planetScreenPos = (id) => {
       const p = this.controller.data.planets[id];
       if (!p || p.systemId !== this.builtSystemId) return null;

@@ -71,4 +71,13 @@ describe('settings', () => {
     expect(s.bindings.back).toEqual(resetBindings().back);
     expect(s.bindings.thrust).toEqual(['KeyW', null]);
   });
+  it('a newly added action does not take a key the stored bindings already use in its group', () => {
+    // Settings saved before the star map action existed, with refuel moved to N.
+    localStorage.setItem(KEY, JSON.stringify({ bindings: { refuel: ['KeyN', null], thrust: ['KeyB', null] } }));
+    const s = loadSettings();
+    expect(s.bindings.refuel).toEqual(['KeyN', null]);
+    expect(s.bindings.openMap).toEqual([null, null]);
+    expect(s.bindings.buyGoods).toEqual(['KeyB', null]); // other group: no clash
+    expect(s.bindings.openExchange).toEqual(['KeyC', null]);
+  });
 });

@@ -17,18 +17,27 @@ async function setup(credits: number, fuel: number) {
   c.beginSession({ ...w, credits, ship: { ...w.ship, fuel } }, { id: 'p', name: 'P' }, 'halcyon');
   const root = document.createElement('div');
   document.body.append(root);
+  const calls: { map: { onClose?: () => void }[]; planet: string[]; onPress?: (p: Set<string>) => void } = { map: [], planet: [] };
   const ctx = {
     root,
     controller: c,
     store: {} as PilotStore,
     inputMode: new InputMode(new EventTarget(), () => settings.bindings, 'keyboard'),
     planetImage: () => null,
-    mount: (node: HTMLElement) => root.replaceChildren(node),
+    mount: (node: HTMLElement, opts: { onPress?: (p: Set<string>) => void } = {}) => {
+      root.replaceChildren(node);
+      calls.onPress = opts.onPress;
+    },
     unmount: () => root.replaceChildren(),
-    go: { mainMenu() {}, planet() {}, pause() {}, map() {} },
+    go: {
+      mainMenu() {},
+      planet: (id: string) => calls.planet.push(id),
+      pause() {},
+      map: (opts?: { onClose?: () => void }) => calls.map.push(opts ?? {}),
+    },
   } as UiContext;
   showPlanetScreen(ctx, 'halcyon');
-  return { root, c };
+  return { root, c, calls };
 }
 
 describe('planet screen', () => {
@@ -44,5 +53,19 @@ describe('planet screen', () => {
     const { root } = await setup(1000, 150);
     expect(root.textContent).toContain('Fuel: 1 jump');
     expect(root.textContent).not.toContain('1 jumps');
+  });
+
+  it('Star Map (button or N) opens the map, which returns to this planet screen', async () => {
+    const { root, calls } = await setup(1000, 300);
+    const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
+    expect(map.textContent).toBe('Star MapN');
+    const labels = [...root.querySelectorAll('button')].map((b) => b.querySelector('.sw-btn-label')?.textContent);
+    expect(labels.indexOf('Star Map')).toBe(labels.indexOf('Leave') - 1);
+    map.click();
+    expect(calls.map).toHaveLength(1);
+    calls.map[0].onClose!();
+    expect(calls.planet).toEqual(['halcyon']);
+    calls.onPress!(new Set(['openMap']));
+    expect(calls.map).toHaveLength(2);
   });
 });

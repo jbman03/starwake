@@ -15,6 +15,22 @@ function setup() {
 const press = (code: string) => window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true }));
 const slot = (id: string) => document.querySelector<HTMLButtonElement>(`[data-testid="${id}"]`)!;
 
+describe('hotkey editor sections', () => {
+  it('lists every group, including Exchange, with each action in it', () => {
+    const { ed } = setup();
+    const titles = [...ed.node.querySelectorAll('.sw-hotkey-group-title')].map((h) => h.textContent);
+    expect(titles).toEqual(['Flight', 'Planet screen', 'Exchange', 'Menus']);
+    const exchange = ed.node.querySelector('[aria-label="Exchange"]')!;
+    expect(exchange.textContent).toContain('Buy goods');
+    expect(exchange.textContent).toContain('Sell goods');
+    expect(slot('slot-buyGoods-0').textContent).toContain('B');
+    expect(ed.node.querySelector('[aria-label="Planet screen"]')!.textContent).toContain('Star map');
+    expect(ed.node.querySelector('[aria-label="Flight"]')!.textContent).toContain('Mission log');
+    ed.dispose();
+    document.body.replaceChildren();
+  });
+});
+
 describe('hotkey editor Escape invariant errors', () => {
   it('shows an inline error when capture would remove Escape from pause', () => {
     const { ed, settings } = setup();

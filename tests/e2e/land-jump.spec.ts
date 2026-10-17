@@ -33,8 +33,8 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
     .poll(async () => (await pilots(page))[0].savedAt > before[0].savedAt, { timeout: 5000 })
     .toBe(true);
 
-  // Leave via the button; no target remains, so G autopilots to the jump point. The star map
-  // can't plot courses yet, so plot one to Vesk through the test hook.
+  // Leave via the button; no target remains, so G autopilots to the jump point. The course to
+  // Vesk is plotted through the test hook (starmap.spec.ts plots one on the star map).
   await page.getByRole('button', { name: /^Leave/ }).click();
   await expect(planet).toBeHidden();
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);
@@ -73,12 +73,12 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   await expect(pause).toBeHidden();
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);
 
-  // M opens the map; M closes it.
+  // M opens the map (on the current system, now Vesk); M closes it.
   await page.keyboard.press('KeyM');
   const map = page.getByTestId('star-map');
   await expect(map).toBeVisible();
-  await expect(map).toContainText('Vesk');
-  await expect(map).toContainText('You are here');
+  await expect(map.getByTestId('map-info')).toContainText('Vesk');
+  await expect(map.getByTestId('map-route')).toHaveText('You are here');
   await page.keyboard.press('KeyM');
   await expect(map).toBeHidden();
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);

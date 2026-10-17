@@ -1,5 +1,5 @@
-import { ACTION_IDS } from '../input/actions';
-import { ensureEscapeInvariant, resetBindings, type Bindings, type Slot } from '../input/bindings';
+import { ACTION_IDS, type ActionId } from '../input/actions';
+import { ensureEscapeInvariant, findConflict, resetBindings, type Bindings, type Slot } from '../input/bindings';
 
 export interface Settings {
   bindings: Bindings;
@@ -38,9 +38,16 @@ const isSlot = (v: unknown): v is Slot => v === null || typeof v === 'string';
 function mergeBindings(raw: unknown): Bindings {
   const out = resetBindings();
   if (!isObj(raw)) return out;
+  const fresh: ActionId[] = [];
   for (const id of ACTION_IDS) {
     const v = raw[id];
     if (Array.isArray(v) && v.length === 2 && isSlot(v[0]) && isSlot(v[1])) out[id] = [v[0], v[1]];
+    else fresh.push(id);
+  }
+  // Actions added since these settings were saved keep their default keys only where the pilot
+  // hasn't already put that key on another action in the same group.
+  for (const id of fresh) {
+    out[id] = out[id].map((code) => (code !== null && findConflict(out, id, code) ? null : code)) as [Slot, Slot];
   }
   return ensureEscapeInvariant(out);
 }

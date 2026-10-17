@@ -16,17 +16,25 @@ export const ACTION_IDS = [
   'jump',
   'autopilot',
   'map',
+  'flightMissionLog',
   'pause',
   // planet
+  'openExchange',
+  'openMissions',
   'refuel',
+  'openMap',
+  'missionLog',
   'leave',
+  // commodity exchange
+  'buyGoods',
+  'sellGoods',
   // menus
   'back',
 ] as const;
 
 export type ActionId = (typeof ACTION_IDS)[number];
 
-export type ActionGroup = 'flight' | 'planet' | 'menus';
+export type ActionGroup = 'flight' | 'planet' | 'exchange' | 'menus';
 
 export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   thrust: 'flight',
@@ -43,9 +51,16 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   jump: 'flight',
   autopilot: 'flight',
   map: 'flight',
+  flightMissionLog: 'flight',
   pause: 'flight',
+  openExchange: 'planet',
+  openMissions: 'planet',
   refuel: 'planet',
+  openMap: 'planet',
+  missionLog: 'planet',
   leave: 'planet',
+  buyGoods: 'exchange',
+  sellGoods: 'exchange',
   back: 'menus',
 };
 
@@ -64,8 +79,15 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   jump: 'Hyperspace jump',
   autopilot: 'Autopilot',
   map: 'Star map',
+  flightMissionLog: 'Mission log',
   pause: 'Pause',
+  openExchange: 'Commodity exchange',
+  openMissions: 'Mission computer',
   refuel: 'Refuel',
+  openMap: 'Star map',
+  missionLog: 'Mission log',
   leave: 'Leave',
+  buyGoods: 'Buy goods',
+  sellGoods: 'Sell goods',
   back: 'Back',
 };

@@ -20,6 +20,16 @@ export interface HudInfo {
   fuel: string;
   fuelColor: string;
   target: string;
+  /** "Course: Vesk (2 jumps)" while a course is plotted, else null. */
+  nextHop: string | null;
+}
+
+/** HUD line for a plotted course: the next hop and the jumps left to its end, or null. */
+export function nextHopText(world: WorldState, data: GameData): string | null {
+  const next = world.route[0];
+  if (next === undefined) return null;
+  const n = world.route.length;
+  return `Course: ${data.systems[next]?.name ?? next} (${n} ${n === 1 ? 'jump' : 'jumps'})`;
 }
 
 /** HUD text shared by the desktop panel and the touch-mode rail HUD. */
@@ -31,6 +41,7 @@ export function hudInfo(world: WorldState, data: GameData): HudInfo {
     fuel: fuelText(jumps),
     fuelColor: fuelColor(jumps),
     target: t && t.systemId === world.systemId ? `Target: ${t.name}  ${Math.round(dist(t.pos, world.ship.pos))}` : 'Target: none',
+    nextHop: nextHopText(world, data),
   };
 }
 

@@ -9,6 +9,7 @@ import { button, confirmDialog, el } from './dom';
 const GROUPS: { id: ActionGroup; title: string }[] = [
   { id: 'flight', title: 'Flight' },
   { id: 'planet', title: 'Planet screen' },
+  { id: 'exchange', title: 'Exchange' },
   { id: 'menus', title: 'Menus' },
 ];
 

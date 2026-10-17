@@ -115,7 +115,7 @@ export interface RailMetrics {
 
 const PAD = 8;
 const GAP = 8;
-const HUD_HEIGHT = 112; // room for the 44px Pause button, two bars and two text lines
+const HUD_HEIGHT = 144; // room for the 44px Pause button, two bars, fuel, target and a two-line course
 const MAX_RADAR = 84;
 const MAX_STICK = 140;
 

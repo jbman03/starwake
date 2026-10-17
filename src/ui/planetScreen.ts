@@ -11,7 +11,7 @@ const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
 
 /**
  * EV-style planet screen: picture, name, kind and tech tier, description, then credits, fuel
- * and a column of buttons (Refuel, Leave). Hotkeys come from the `planet` binding group.
+ * and a column of buttons (Refuel, Star Map, Leave). Hotkeys come from the `planet` binding group.
  */
 export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: string): void {
   const { controller } = ctx;
@@ -47,6 +47,8 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     if (q && q.units > 0) status.textContent = `Bought ${q.units} fuel for ${formatCredits(q.cost)}.`;
     render();
   };
+  // The map returns here (a fresh planet screen) when it closes.
+  const openMap = () => ctx.go.map({ onClose: () => ctx.go.planet(planetId) });
   const leave = () => {
     controller.leavePlanet();
     ctx.unmount();
@@ -65,8 +67,9 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       disabled: !canRefuel,
     });
     const reason = !canRefuel && q?.reason ? el('p', { class: 'sw-reason', text: REFUEL_REASON[q.reason] }) : null;
+    const mapBtn = button('Star Map', openMap, { hotkey: hotkeyFor(bindings, 'openMap') });
     const leaveBtn = button('Leave', leave, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'leave') });
-    actions.replaceChildren(refuelBtn, ...(reason ? [reason] : []), leaveBtn);
+    actions.replaceChildren(refuelBtn, ...(reason ? [reason] : []), mapBtn, leaveBtn);
   }
   render();
 
@@ -86,6 +89,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     groups: ['planet'],
     onPress: (pressed) => {
       if (pressed.has('leave')) leave();
+      else if (pressed.has('openMap')) openMap();
       else if (pressed.has('refuel') && (controller.refuelQuote()?.units ?? 0) > 0) refuel();
     },
     cleanup: offSaved,
