@@ -12,6 +12,10 @@ export interface Progress {
   startCredits: number;
   /** Where the ship was when step 6 first saw it flying. */
   startPos?: Vec2;
+  /** System the ship was in when startPos was recorded. */
+  startSystem?: string;
+  /** Started without a buy-low port (steps 1-4 skipped): the trade is only a destination. */
+  fallback?: boolean;
   /** Profit frozen when the last step is reached. */
   profit?: number;
 }
@@ -45,6 +49,8 @@ function parse(raw: string): Progress | null {
   };
   const pos = v.startPos as Record<string, unknown> | undefined;
   if (pos && isNum(pos.x) && isNum(pos.y)) p.startPos = { x: pos.x, y: pos.y };
+  if (isStr(v.startSystem)) p.startSystem = v.startSystem;
+  if (v.fallback === true) p.fallback = true;
   if (isNum(v.profit)) p.profit = v.profit;
   return p;
 }

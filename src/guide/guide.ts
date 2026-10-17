@@ -1,6 +1,5 @@
 import type { GameData } from '../data/schemas';
 import type { ActionId } from '../input/actions';
-import type { Bindings } from '../input/bindings';
 import type { WorldState } from '../sim/types';
 import { clearProgress, loadProgress, saveProgress, STEP_COUNT, type Progress } from './progress';
 import { STEPS, type GuideState } from './steps';
@@ -15,8 +14,6 @@ export interface GuideHost {
 
 export interface GuideDeps {
   mode(): 'keyboard' | 'touch';
-  /** The player's bindings (the UI layer's `key` is usually built from these). */
-  bindings(): Bindings;
   /** Label of the player's key for an action (e.g. hotkeyFor); keeps this module UI-free. */
   key(action: ActionId): string;
   /** Defaults to localStorage; storage failures never break the guide. */
@@ -73,6 +70,7 @@ export class Guide {
     const target = here ?? pickTargetNear(w, this.data);
     if (!target) return false;
     this.p = { step: here ? 1 : LEAVE_STEP, done: false, target, startCredits: w.credits };
+    if (!here) this.p.fallback = true;
     this.persist();
     this.emit();
     return true;
@@ -94,7 +92,10 @@ export class Guide {
     this.emit();
   }
 
-  /** Feed the latest snapshot; advances through every step it already satisfies. */
+  /**
+   * Feed the latest snapshot; advances through every step it already satisfies. Call it on every
+   * screen change (and whenever the world changes), or steps will lag.
+   */
   update(state: GuideState): void {
     this.last = state;
     const p = this.p;
@@ -102,15 +103,24 @@ export class Guide {
     const before = p.step;
     let changed = false;
     while (p.step < STEP_COUNT) {
-      if (p.step === 6 && state.screen === 'flight' && !p.startPos) {
-        p.startPos = { x: state.world.ship.pos.x, y: state.world.ship.pos.y };
-        changed = true;
+      if (p.step === 6) {
+        // A start position left over from an earlier flight (landed, or jumped) is stale.
+        if (p.startPos && (state.screen !== 'flight' || p.startSystem !== state.world.systemId)) {
+          p.startPos = undefined;
+          p.startSystem = undefined;
+          changed = true;
+        }
+        if (!p.startPos && state.screen === 'flight') {
+          p.startPos = { x: state.world.ship.pos.x, y: state.world.ship.pos.y };
+          p.startSystem = state.world.systemId;
+          changed = true;
+        }
       }
       if (!STEPS[p.step - 1].done({ ...state, startPos: p.startPos }, p.target, p)) break;
       p.step++;
       changed = true;
     }
-    if (p.step === STEP_COUNT && before < STEP_COUNT) p.profit = state.world.credits - p.startCredits;
+    if (p.step === STEP_COUNT && before < STEP_COUNT && !p.fallback) p.profit = state.world.credits - p.startCredits;
     if (changed) {
       this.persist();
       this.emit();
@@ -127,6 +137,7 @@ export class Guide {
       mode: this.deps.mode(),
       key: (a) => this.deps.key(a),
       profit: p.profit,
+      fallback: p.fallback,
       data: this.data,
       planetName: this.data.planets[planetId ?? this.data.config.startPlanetId]?.name,
     });

@@ -24,6 +24,8 @@ export interface TextCtx {
   data: GameData;
   /** Name of the planet the player is on, for the welcome line. */
   planetName?: string;
+  /** The guide started without a buy-low port, so the player never bought anything. */
+  fallback?: boolean;
 }
 
 export interface StepDef {
@@ -113,10 +115,13 @@ export const STEPS: readonly StepDef[] = [
   {
     id: 'sell',
     text: (c) =>
-      touch(c)
+      c.fallback
+        ? `Open the exchange at ${portName(c)} and check the prices: ${goodName(c)} sells High here.`
+        : touch(c)
         ? `Open the exchange and Sell all your ${goodName(c)}.`
         : `Open the exchange (${c.key('openExchange')}) and Sell all your ${goodName(c)}.`,
-    done: (s, t) => held(s, t) === 0,
+    // Without a purchase there is nothing to sell: opening the exchange here is the lesson.
+    done: (s, t, p) => (p.fallback ? s.screen === 'exchange' && s.landedPlanetId === t.port : held(s, t) === 0),
   },
   {
     id: 'finish',

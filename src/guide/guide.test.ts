@@ -22,7 +22,7 @@ const label = (b: Bindings, a: keyof Bindings): string => (b[a][0] ?? '?').repla
 function setup(storage: Storage = memory(), mode: 'keyboard' | 'touch' = 'keyboard', bindings = resetBindings()) {
   const host: GuideHost = { world: newWorld(data, 1), landedPlanetId: 'halcyon', pilot: { id: 'p1' } };
   const make = () =>
-    new Guide(host, data, { mode: () => mode, bindings: () => bindings, key: (a) => label(bindings, a), storage });
+    new Guide(host, data, { mode: () => mode, key: (a) => label(bindings, a), storage });
   return { host, make, guide: make() };
 }
 const state = (w: WorldState, screen: GuideState['screen'], landed: string | null = null): GuideState => ({
@@ -235,6 +235,21 @@ describe('Guide', () => {
     expect(guide.current()?.text).toContain("You're set up to trade.");
   });
 
+  it('clears a stale step-6 start when the player lands or jumps', () => {
+    const { guide, host } = setup();
+    guide.start();
+    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
+    guide.update(state(moved(w, 0), 'flight')); // start recorded at x=0
+    guide.update(state(w, 'planet', 'halcyon')); // landed again
+    guide.update(state(moved(w, 900), 'flight')); // relaunched far away: new start
+    expect(guide.current()?.step).toBe(6);
+    guide.update(state({ ...moved(w, 900), systemId: 'aurelle' }, 'flight')); // jumped: new start again
+    expect(guide.current()?.step).toBe(6);
+    guide.update(state({ ...moved(w, 1300), systemId: 'aurelle' }, 'flight'));
+    expect(guide.current()?.step).toBe(7);
+  });
+
   describe('no trade at the current port', () => {
     it('starts at step 5 with the nearest port trade', () => {
       const { host, make } = setup();
@@ -244,6 +259,26 @@ describe('Guide', () => {
       expect(g.start()).toBe(true);
       expect(g.current()?.step).toBe(5);
       expect(g.target()).not.toBeNull();
+    });
+    it('fallback: step 10 is about checking prices, no silent completion, neutral ending', () => {
+      const { host, make } = setup();
+      host.landedPlanetId = 'tollgate';
+      host.world = { ...host.world, systemId: 'minster' };
+      const g = make();
+      g.start();
+      const tg = g.target();
+      if (!tg) throw new Error('no target');
+      const w = host.world;
+      g.update(state(w, 'flight'));
+      g.update(state(moved(w, 400), 'flight'));
+      g.update(state({ ...moved(w, 400), route: [tg.system] }, 'flight'));
+      g.update(state({ ...w, systemId: tg.system }, 'flight'));
+      g.update(state({ ...w, systemId: tg.system }, 'planet', tg.port));
+      expect(g.current()?.step).toBe(10); // empty hold must not auto-complete it
+      expect(g.current()?.text).toContain('check the prices');
+      g.update(state({ ...w, systemId: tg.system, credits: w.credits + 500 }, 'exchange', tg.port));
+      expect(g.current()?.step).toBe(11);
+      expect(g.current()?.text).toContain("You're set up to trade.");
     });
     it('returns false when no trade exists', () => {
       const { host, make } = setup();
