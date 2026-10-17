@@ -109,6 +109,12 @@ export interface RailMetrics {
   hud: number;
   /** Joystick diameter. */
   stick: number;
+  /** Height of the guide hint's text under the HUD; 0 with no hint. */
+  hint: number;
+  /** Size of the Stop button (the button size, or smaller to make room for Skip guide). */
+  stop: number;
+  /** Size of the Skip guide button beside Stop; 0 with no hint. */
+  skip: number;
   leftStackHeight: number;
   rightStackHeight: number;
 }
@@ -118,13 +124,30 @@ const GAP = 8;
 const HUD_HEIGHT = 178; // room for the 44px Pause button, two bars, fuel, credits, cargo, target and a two-line course
 const MAX_RADAR = 84;
 const MAX_STICK = 140;
+/** The rail hint wraps to at most this many lines of the HUD's 11 px font... */
+export const HINT_LINES = 3;
+/** ...each this tall (11 px × 1.2 line height, rounded up). */
+export const HINT_LINE_HEIGHT = 14;
+/** Skip guide sits beside Stop: a 44 px touch target, this far from it. */
+const SKIP_SIZE = 44;
+export const ROW_GAP = 4;
+/** While a hint shows, Stop shrinks (never below 44 px) before the stick goes under this. */
+export const MIN_HINT_STICK = 56;
+const MIN_STOP = 44;
 
 /**
  * Pixel sizes for the rail controls: the S/M/L base size, shrunk only as far as needed so both
  * stacks fit inside their rails (height and width).
  * Stick rail: HUD, Stop, joystick. Button rail: radar, Target, Missile, [Thrust], Fire.
+ * With `hint` (the First Flight guide is showing), the stick rail also holds the hint's text under
+ * the HUD (HINT_LINES lines) and a Skip guide button beside Stop; only Stop and the stick give way.
  */
-export function railMetrics(layout: Layout, s: Pick<Settings['touch'], 'buttonSize'>, steering: Steering): RailMetrics {
+export function railMetrics(
+  layout: Layout,
+  s: Pick<Settings['touch'], 'buttonSize'>,
+  steering: Steering,
+  hint = false,
+): RailMetrics {
   const { insets } = layout;
   const h = layout.leftRail.h;
   // Each rail's inset side is padding, not usable width; top and bottom insets are padding too.
@@ -142,7 +165,18 @@ export function railMetrics(layout: Layout, s: Pick<Settings['touch'], 'buttonSi
   button = Math.floor(button);
   const fire = button * FIRE_SCALE;
   radar = Math.floor(radar);
-  const stick = Math.floor(Math.max(0, Math.min(inner, MAX_STICK, usable - HUD_HEIGHT - button - 2 * GAP)));
+  const hintH = hint ? HINT_LINES * HINT_LINE_HEIGHT : 0;
+  const skip = hint ? SKIP_SIZE : 0;
+  // Stop shares its row with Skip guide while a hint shows.
+  let stop = hint ? Math.min(button, inner - ROW_GAP - SKIP_SIZE) : button;
+  const above = HUD_HEIGHT + GAP + (hint ? hintH + GAP : 0);
+  const stickFor = (row: number) => Math.floor(Math.max(0, Math.min(inner, MAX_STICK, usable - above - row - GAP)));
+  let stick = stickFor(Math.max(stop, skip));
+  if (hint && stick < MIN_HINT_STICK) {
+    stop = Math.max(MIN_STOP, stop - (MIN_HINT_STICK - stick));
+    stick = stickFor(Math.max(stop, skip));
+  }
+  stop = Math.floor(stop);
   return {
     pad: PAD,
     gap: GAP,
@@ -151,7 +185,10 @@ export function railMetrics(layout: Layout, s: Pick<Settings['touch'], 'buttonSi
     radar,
     hud: HUD_HEIGHT,
     stick,
-    leftStackHeight: HUD_HEIGHT + GAP + button + GAP + stick,
+    hint: hintH,
+    stop,
+    skip,
+    leftStackHeight: above + Math.max(stop, skip) + GAP + stick,
     rightStackHeight: radar + rightGaps + plain * button + fire,
   };
 }

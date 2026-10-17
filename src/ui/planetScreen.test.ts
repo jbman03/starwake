@@ -61,7 +61,7 @@ describe('planet screen', () => {
     const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
     expect(map.textContent).toBe('Star MapN');
     const labels = [...root.querySelectorAll('button')].map((b) => b.querySelector('.sw-btn-label')?.textContent);
-    expect(labels.indexOf('Star Map')).toBe(labels.indexOf('Leave') - 2);
+    expect(labels.indexOf('Star Map')).toBe(labels.indexOf('Leave') - 3);
     map.click();
     expect(calls.map).toHaveLength(1);
     calls.map[0].onClose!();
@@ -82,16 +82,16 @@ describe('planet screen', () => {
 
   it('Halcyon offers every service, in order, with hotkey chips, plus date and cargo', async () => {
     const { root } = await setup(1000, 150);
-    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Refuel — 300 cr', 'Star Map', 'Mission Log', 'Leave']);
+    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Refuel — 300 cr', 'Star Map', 'Mission Log', 'How to Play', 'Leave']);
     const chips = [...root.querySelectorAll('.sw-actions .sw-key')].map((k) => k.textContent);
-    expect(chips).toEqual(['C', 'M', 'R', 'N', 'K', 'L']);
+    expect(chips).toEqual(['C', 'M', 'R', 'N', 'K', 'H', 'L']);
     expect(root.textContent).toContain('1 Mar 3207');
     expect(root.textContent).toContain('Cargo: 20/20 t');
   });
 
   it('a refuel-only port shows only Refuel, Star Map, Mission Log and Leave', async () => {
     const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'haywain');
-    expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Star Map', 'Mission Log', 'Leave']);
+    expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Star Map', 'Mission Log', 'How to Play', 'Leave']);
   });
 
   it('Commodity Exchange opens the exchange; Done returns to the planet screen', async () => {
@@ -112,6 +112,17 @@ describe('planet screen', () => {
     const c = await setup(1000, 300);
     c.calls.onPress!(new Set(['missionLog']));
     expect(c.root.querySelector('[data-testid="mission-log"]')).toBeTruthy();
+  });
+
+  it('How to Play (button or H) opens the reference; Back returns to this planet screen', async () => {
+    const a = await setup(1000, 300);
+    find(a.root, 'How to Play').click();
+    expect(a.root.querySelector('[data-testid="how-to-play"]')).toBeTruthy();
+    find(a.root, 'Back').click();
+    expect(a.calls.planet).toEqual(['halcyon']);
+    const b = await setup(1000, 300);
+    b.calls.onPress!(new Set(['howToPlay']));
+    expect(b.root.querySelector('[data-testid="how-to-play"]')).toBeTruthy();
   });
 });
 

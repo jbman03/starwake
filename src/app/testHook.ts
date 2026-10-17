@@ -14,6 +14,8 @@ export interface StarwakeTestHook {
   hudBanner?: () => string | null;
   /** Set by SpaceScene: the desktop HUD course line, or null when hidden. */
   hudCourse?: () => string | null;
+  /** Set by SpaceScene: the desktop HUD's guide hint and its skip control's screen box, or null when hidden. */
+  hudGuide?: () => { text: string; skip: { x: number; y: number; w: number; h: number } } | null;
   /** Set by SpaceScene: a planet's on-screen position, or null if not in the current system. */
   planetScreenPos?: (planetId: string) => { x: number; y: number } | null;
 }

@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../app/controller';
 import { loadGameData } from '../data/load';
+import { Guide } from '../guide/guide';
 import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import type { WorldState } from '../sim/types';
@@ -77,6 +78,18 @@ describe('mountRails', () => {
     expect(c.landedPlanetId).toBe('halcyon');
     rails.update();
     expect(btn.hidden).toBe(true);
+  });
+
+  it('with a course set near the planet the button offers AUTOPILOT, not LAND; targeting a planet gives LAND ON <PORT>', async () => {
+    const { c, rails, parent } = await setup();
+    c.startFlight();
+    c.plotRoute('vesk');
+    rails.update();
+    const btn = parent.querySelector<HTMLButtonElement>('[data-testid="context-button"]')!;
+    expect(btn.textContent).toBe('⇱ AUTOPILOT TO JUMP POINT');
+    c.selectPlanet('merrow');
+    rails.update();
+    expect(btn.textContent).toBe('⬇ LAND ON MERROW');
   });
 
   it('with no destination in open space, the context button offers PLOT COURSE and opens the map', async () => {
@@ -170,5 +183,59 @@ describe('mountRails', () => {
     c.settings.touch.mirror = true;
     rails.update();
     expect(stickRail.style.left).toBe('724px');
+  });
+
+  it('while the guide runs, the stick rail shows its hint under the HUD and a 44 px Skip guide beside Stop', async () => {
+    const { c, rails, parent, data } = await setup();
+    c.startFlight();
+    rails.update();
+    const stick = parent.querySelector<HTMLElement>('[data-control="stick"]')!;
+    const hintText = parent.querySelector<HTMLElement>('[data-testid="rail-guide"]')!;
+    const skip = parent.querySelector<HTMLButtonElement>('[data-control="guide-skip"]')!;
+    const stickWithout = parseFloat(stick.style.width);
+    expect(hintText.hidden).toBe(true);
+    expect(skip.hidden).toBe(true);
+
+    const m = new Map<string, string>();
+    const storage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) } as Storage;
+    c.guide = new Guide(c, data, { mode: () => 'touch', key: () => '?', storage });
+    expect(c.guide.start()).toBe(true);
+    rails.update();
+    expect(hintText.hidden).toBe(false);
+    expect(hintText.textContent).toBe(c.guide.current()!.text);
+    expect(hintText.closest('[data-rail="stick"]')).not.toBeNull();
+    expect(skip.hidden).toBe(false);
+    expect(skip.textContent).toBe('Skip guide');
+    expect(parseFloat(skip.style.height)).toBeGreaterThanOrEqual(44);
+    expect(parseFloat(skip.style.width)).toBeGreaterThanOrEqual(44);
+    expect(parseFloat(stick.style.width)).toBeLessThan(stickWithout); // the rail made room
+
+    const asked: string[] = [];
+    c.on('guideSkip', (e) => asked.push(e.type));
+    skip.dispatchEvent(new Event('pointerdown')); // a finger landing on it (or sliding off Stop) is not a skip
+    expect(asked).toEqual([]);
+    skip.click();
+    expect(asked).toEqual(['guideSkip']);
+
+    c.guide.skip();
+    rails.update();
+    expect(hintText.hidden).toBe(true);
+    expect(skip.hidden).toBe(true);
+    expect(parseFloat(stick.style.width)).toBe(stickWithout);
+  });
+
+  it('the final "Nice trade" card is not shown in the rail (the screens show it)', async () => {
+    const { c, rails, parent, data } = await setup();
+    c.startFlight();
+    const m = new Map<string, string>();
+    const storage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) } as Storage;
+    const target = { good: 'food', system: 'tessaly', port: 'vanterre' };
+    m.set('starwake.guide.p', JSON.stringify({ step: 11, done: false, target, startCredits: 0, profit: 5 }));
+    c.guide = new Guide(c, data, { mode: () => 'touch', key: () => '?', storage });
+    c.guide.start();
+    expect(c.guide.current()?.step).toBe(11);
+    rails.update();
+    expect(parent.querySelector<HTMLElement>('[data-testid="rail-guide"]')!.hidden).toBe(true);
+    expect(parent.querySelector<HTMLElement>('[data-control="guide-skip"]')!.hidden).toBe(true);
   });
 });

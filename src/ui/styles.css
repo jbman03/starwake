@@ -288,6 +288,18 @@
   .sw-hotkey-name { grid-column: 1 / -1; }
 }
 
+/* ---- how to play ---- */
+.sw-htp { display: flex; flex-direction: column; overflow: hidden; }
+.sw-htp-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 8px; }
+.sw-htp-p { margin: 0; font-size: 15px; line-height: 1.45; color: #c9d3de; }
+.sw-htp-row { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 4px 10px; padding: 4px 0; font-size: 14px; border-bottom: 1px solid #1c2735; overflow-wrap: anywhere; }
+.sw-htp-head { color: var(--sw-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.sw-htp-keys { color: var(--sw-accent); }
+.sw-htp-phone { color: var(--sw-dim); }
+.sw-htp .sw-reason { margin: 0 0 6px; }
+.sw-htp .sw-tabs { flex-wrap: wrap; }
+.sw-htp .sw-tabs > .sw-tab { flex: 1 1 auto; }
+
 /* Fatal screens (crash, bad data) and the update banner live on <body>, above everything. */
 .sw-fatal {
   position: fixed;
@@ -388,4 +400,26 @@
   .sw-mc-title { font-size: 14px; margin-bottom: 2px; }
   .sw-mc .sw-ex-news:empty { display: none; }
   .sw-mc .sw-ex-message { font-size: 13px; min-height: 0; margin: 0; }
+}
+
+/* ---- First Flight guide callout (inside a screen's panel, above its buttons) ---- */
+.sw-guide {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border: 1px solid #4c6a92;
+  border-left: 3px solid var(--sw-accent);
+  border-radius: 3px;
+  background: #121f31;
+}
+.sw-guide[hidden] { display: none; }
+.sw-guide-body { flex: 1 1 160px; min-width: 0; }
+.sw-guide-step { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sw-dim); }
+.sw-guide-text { margin: 2px 0 0; font-size: 14px; line-height: 1.35; color: #eef3f9; overflow-wrap: anywhere; }
+.sw-guide > .sw-guide-skip { width: auto; flex: 0 0 auto; margin-left: auto; justify-content: center; padding: 6px 12px; font-size: 13px; color: var(--sw-dim); }
+@media (max-height: 500px) {
+  .sw-guide { padding: 4px 8px; }
+  .sw-guide-text { font-size: 13px; line-height: 1.3; }
 }

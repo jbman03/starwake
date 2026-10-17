@@ -9,6 +9,15 @@ const PANEL_W = 210;
 const PANEL_H = 164;
 /** Extra panel height for the course line. */
 const COURSE_H = 22;
+/** Space between the status panel and the guide hint under it. */
+const GUIDE_GAP = 8;
+
+/** The First Flight guide's hint for the HUD, or null when the guide isn't running. */
+export interface HudGuide {
+  text: string;
+  /** Label of the skip control ("Skip guide", or "Dismiss" on the last card). */
+  skip: string;
+}
 
 /**
  * Flight HUD drawn by the main camera, fixed to its viewport. Keyboard mode: status panel
@@ -30,12 +39,17 @@ export class Hud {
   /** Autopilot route banner, top-center (keyboard mode; the rails draw it in touch mode). */
   private banner: Phaser.GameObjects.Text;
   private messageAge = Infinity;
+  /** First Flight guide hint: a box under the status panel, within the panel's width. */
+  private guideBox: Phaser.GameObjects.Graphics;
+  private guideText: Phaser.GameObjects.Text;
+  private guideSkip: Phaser.GameObjects.Text;
+  private guideKey = '';
   private statics: Phaser.GameObjects.GameObject[] = [];
   private touchMode = false;
   private viewW = 0;
   private viewH = 0;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, onGuideSkip: () => void = () => {}) {
     const text = (x: number, y: number, size: number, color = '#cfd8e3') =>
       scene.add.text(x, y, '', { fontFamily: FONT, fontSize: `${size}px`, color }).setScrollFactor(0).setDepth(1000);
 
@@ -61,6 +75,19 @@ export class Hud {
       .setScrollFactor(0)
       .setDepth(1000)
       .setVisible(false);
+    this.guideBox = scene.add.graphics().setScrollFactor(0).setDepth(999).setVisible(false);
+    this.guideText = scene.add
+      .text(20, 0, '', { fontFamily: FONT, fontSize: '13px', color: '#eef3f9', lineSpacing: 2, wordWrap: { width: PANEL_W - 20, useAdvancedWrap: true } })
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setVisible(false);
+    this.guideSkip = scene.add
+      .text(20, 0, '', { fontFamily: FONT, fontSize: '12px', color: '#7fb2ff', padding: { x: 0, y: 4 } })
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setVisible(false)
+      .setInteractive({ useHandCursor: true });
+    this.guideSkip.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => onGuideSkip());
     this.setLayout(scene.scale.width, scene.scale.height, false);
   }
 
@@ -102,9 +129,37 @@ export class Hud {
     return this.course.visible ? this.course.text : null;
   }
 
+  /** The guide hint's text and the skip control's screen box when showing (e2e checks), else null. */
+  guideInfo(): { text: string; skip: { x: number; y: number; w: number; h: number } } | null {
+    if (!this.guideText.visible) return null;
+    const b = this.guideSkip.getBounds();
+    return { text: this.guideText.text, skip: { x: b.x, y: b.y, w: b.width, h: b.height } };
+  }
+
   /** The route banner's text when it is showing (e2e checks), else null. */
   bannerText(): string | null {
     return this.banner.visible ? this.banner.text : null;
+  }
+
+  /** The hint box under the status panel (the touch rail draws its own in touch mode). */
+  private drawGuide(guide: HudGuide | null): void {
+    const key = guide ? `${this.panelH}|${guide.skip}|${guide.text}` : '';
+    if (key === this.guideKey) return;
+    this.guideKey = key;
+    for (const o of [this.guideBox, this.guideText, this.guideSkip]) o.setVisible(guide !== null);
+    if (!guide) return;
+    const top = 10 + this.panelH + GUIDE_GAP;
+    this.guideText.setText(guide.text).setPosition(20, top + 8);
+    this.guideSkip.setText(`${guide.skip} ›`).setPosition(20, top + 8 + this.guideText.height + 2);
+    const h = this.guideText.height + this.guideSkip.height + 18;
+    const g = this.guideBox;
+    g.clear();
+    g.fillStyle(0x121f31, 0.9);
+    g.fillRoundedRect(10, top, PANEL_W, h, 6);
+    g.lineStyle(1, 0x4c6a92, 1);
+    g.strokeRoundedRect(10, top, PANEL_W, h, 6);
+    g.fillStyle(0x7fb2ff, 1);
+    g.fillRect(10, top + 4, 3, h - 8);
   }
 
   showMessage(text: string): void {
@@ -112,7 +167,7 @@ export class Hud {
     this.messageAge = 0;
   }
 
-  update(world: WorldState, data: GameData, dtSec: number): void {
+  update(world: WorldState, data: GameData, dtSec: number, guide: HudGuide | null = null): void {
     if (!this.touchMode) {
       const info = hudInfo(world, data);
       this.system.setText(info.system);
@@ -123,6 +178,7 @@ export class Hud {
       this.course.setText(info.nextHop ?? '').setVisible(info.nextHop !== null);
       this.drawPanel(info.nextHop === null ? PANEL_H : PANEL_H + COURSE_H);
     }
+    this.drawGuide(this.touchMode ? null : guide);
     const route = this.touchMode ? null : routeBannerText(world, data);
     if (route === null) this.banner.setVisible(false);
     else if (!this.banner.visible || this.banner.text !== route) this.banner.setText(route).setVisible(true);

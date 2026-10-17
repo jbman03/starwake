@@ -1,4 +1,5 @@
 import type { GameData } from '../data/schemas';
+import type { Guide } from '../guide/guide';
 import type { ActionGroup, ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
@@ -41,7 +42,11 @@ export type ControllerEvent =
   /** Flight started or stopped (planet screen, menus, pause). */
   | { type: 'flying'; flying: boolean }
   /** Result of the autosave started by a landing. */
-  | { type: 'saved'; ok: boolean; error?: string };
+  | { type: 'saved'; ok: boolean; error?: string }
+  /** A pilot session began (beginSession) or ended (endSession). */
+  | { type: 'session'; active: boolean }
+  /** The flight HUD or rail asked to skip the First Flight guide (the UI confirms). */
+  | { type: 'guideSkip' };
 
 export type ControllerEventType = ControllerEvent['type'];
 type EventOf<T extends ControllerEventType> = Extract<ControllerEvent, { type: T }>;
@@ -90,6 +95,8 @@ export class Controller {
   pilot: PilotMeta | null = null;
   /** Autosave target; null disables saving. */
   store: SaveSink | null = null;
+  /** The First Flight guide for this session, set by the UI layer (src/ui/context.ts); null without a session. */
+  guide: Guide | null = null;
   /**
    * Jobs finished by the landing that opened the planet screen, until that screen shows them
    * (it mounts after `missionsCompleted` fires, so it collects them with takeCompletion()).
@@ -164,6 +171,7 @@ export class Controller {
     this.pilot = { ...pilot };
     // No autosave: a fresh load would only rotate away the older backup. New pilots call save().
     this.landAt(planetId, false);
+    this.emit({ type: 'session', active: true });
   }
 
   /** Back to the main menu: forget the pilot and stop the sim. */
@@ -174,6 +182,12 @@ export class Controller {
     this.lastPlanetId = null;
     this.completion = null;
     this.notices = [];
+    this.emit({ type: 'session', active: false });
+  }
+
+  /** Ask the UI to confirm skipping the guide (the HUD and rail have no dialogs of their own). */
+  requestGuideSkip(): void {
+    this.emit({ type: 'guideSkip' });
   }
 
   /** The pilot as of the most recent landing, or null with no session. */

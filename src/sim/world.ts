@@ -123,7 +123,8 @@ export function setRoute(
       ? routeBetween(data, world.systemId, toSystemId, (id) => charted.has(id))
       : null;
   if (!route) return { world, ok: false, reason: 'noRoute' };
-  return { world: { ...world, route }, ok: true };
+  // Setting a course means leaving: drop the planet target so the context button offers Jump.
+  return { world: { ...world, route, targetPlanetId: null }, ok: true };
 }
 
 /** Enter `systemId`: it becomes known and its neighbours seen. The date is advanceDays' job. */
@@ -213,7 +214,9 @@ function nextTargetId(world: WorldState, data: GameData): string | null {
   const sorted = planetsByDistance(world, data);
   if (sorted.length === 0) return null;
   const idx = sorted.findIndex((p) => p.id === world.targetPlanetId);
-  return sorted[(idx + 1) % sorted.length].id; // idx -1 → nearest
+  // No target → nearest; past the last planet → no target, so phones can clear it (the
+  // context button only offers Jump/Autopilot when nothing is targeted).
+  return idx === sorted.length - 1 ? null : sorted[idx + 1].id;
 }
 
 function currentTarget(world: WorldState, data: GameData): PlanetDef | null {

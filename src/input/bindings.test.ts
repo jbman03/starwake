@@ -28,6 +28,8 @@ describe('bindings', () => {
       ['flightMissionLog', 'flight', 'KeyK'],
       ['buyGoods', 'exchange', 'KeyB'],
       ['sellGoods', 'exchange', 'KeyS'],
+      ['howToPlay', 'planet', 'KeyH'],
+      ['menuHowToPlay', 'menus', 'KeyH'],
     ];
     for (const [id, group, key] of expected) {
       expect(ACTION_IDS).toContain(id);

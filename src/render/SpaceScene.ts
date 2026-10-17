@@ -7,7 +7,8 @@ import { pointerTypeOf } from '../input/pointer';
 import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { JUMP_DURATION } from '../sim/world';
-import { Hud } from './hud';
+import { skipLabel } from '../guide/guide';
+import { Hud, type HudGuide } from './hud';
 import {
   makePlanetTexture,
   makeShipTextures,
@@ -65,7 +66,7 @@ export class SpaceScene extends Phaser.Scene {
     this.ship = this.add.image(0, 0, `ship:${world.shipId}`, shipFrame(world.ship.heading)).setDepth(10);
     this.bracket = this.add.graphics().setDepth(5);
     this.fx = this.add.graphics().setDepth(20);
-    this.hud = new Hud(this);
+    this.hud = new Hud(this, () => this.controller.requestGuideSkip());
 
     this.buildSystem(world.systemId);
 
@@ -110,6 +111,7 @@ export class SpaceScene extends Phaser.Scene {
     };
     hook.hudBanner = () => this.hud.bannerText();
     hook.hudCourse = () => this.hud.courseText();
+    hook.hudGuide = () => this.hud.guideInfo();
     hook.planetScreenPos = (id) => {
       const p = this.controller.data.planets[id];
       if (!p || p.systemId !== this.builtSystemId) return null;
@@ -167,7 +169,15 @@ export class SpaceScene extends Phaser.Scene {
 
     this.drawBracket(world.targetPlanetId);
     this.drawJumpFx(x, y);
-    this.hud.update(world, data, dt);
+    this.hud.update(world, data, dt, this.guideHint());
+  }
+
+  /** The First Flight guide's current hint for the HUD, or null. */
+  private guideHint(): HudGuide | null {
+    const guide = this.controller.guide;
+    const c = guide?.current();
+    if (!c) return null;
+    return { text: c.text, skip: skipLabel(c) };
   }
 
   private drawBracket(targetId: string | null): void {

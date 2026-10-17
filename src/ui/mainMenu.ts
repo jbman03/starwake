@@ -2,8 +2,10 @@ import { SaveError, worldFromPilot } from '../save/pilot';
 import { importPilot } from '../save/transfer';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
+import { replayWhere } from './guideHint';
+import { showHowToPlay } from './howToPlay';
 import { showSettings } from './settingsScreen';
-import { button, confirmDialog, el, promptDialog } from './dom';
+import { button, confirmDialog, el, hotkeyFor, promptDialog } from './dom';
 import { randomPilotName } from '../save/pilotNames';
 
 export const NAME_MAX = 24;
@@ -93,6 +95,21 @@ export function showMainMenu(ctx: UiContext): void {
       notice = `Couldn't save the new pilot: ${err instanceof Error ? err.message : String(err)}`;
     }
     ctx.go.planet(planetId, notice);
+    await offerGuide();
+  }
+
+  /** New pilots are asked once whether to take the First Flight guide (Settings can replay it). */
+  async function offerGuide(): Promise<void> {
+    const guide = controller.guide;
+    if (!guide) return;
+    const yes = await confirmDialog(root, {
+      title: 'Take the guided first flight? (about 5 minutes)',
+      message: `One trade from start to finish: buy low here, fly, sell high. You can replay it later from ${replayWhere(controller.settings.bindings)}.`,
+      confirm: 'Start guide',
+      cancel: 'Skip',
+    });
+    // The pilot may have quit meanwhile; only start the guide this session still owns.
+    if (yes && controller.guide === guide) guide.start();
   }
 
   async function load(id: string): Promise<void> {
@@ -149,12 +166,15 @@ export function showMainMenu(ctx: UiContext): void {
     })();
   });
 
+  const openHowToPlay = () => showHowToPlay(ctx, { onClose: () => showMainMenu(ctx) });
+
   const screen = el('div', { class: 'sw-screen sw-main-menu', attrs: { 'data-testid': 'main-menu' } }, [
     el('div', { class: 'sw-panel sw-menu sw-menu-wide' }, [
       el('h1', { class: 'sw-logo', text: 'STARWAKE' }),
       el('div', { class: 'sw-actions sw-actions-row' }, [
         button('New Pilot', guarded(newPilot), { class: 'sw-btn-primary' }),
         button('Import pilot', () => file.click()),
+        button('How to Play', openHowToPlay, { hotkey: hotkeyFor(controller.settings.bindings, 'menuHowToPlay') }),
         button('Settings', () => showSettings(ctx, { mode: ctx.inputMode.mode, onClose: () => showMainMenu(ctx) })),
       ]),
       list,
@@ -163,6 +183,11 @@ export function showMainMenu(ctx: UiContext): void {
     ]),
   ]);
 
-  ctx.mount(screen);
+  ctx.mount(screen, {
+    groups: ['menus'],
+    onPress: (pressed) => {
+      if (pressed.has('menuHowToPlay')) openHowToPlay();
+    },
+  });
   void refresh().catch((err) => say(`Couldn't read saved pilots: ${err instanceof Error ? err.message : String(err)}`));
 }

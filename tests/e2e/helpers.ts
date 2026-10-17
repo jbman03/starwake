@@ -21,8 +21,11 @@ export async function clearPilots(page: Page): Promise<void> {
   );
 }
 
-/** Main menu → New Pilot → name → planet screen at the start planet. */
-export async function newPilot(page: Page, name = 'Test Pilot'): Promise<void> {
+/**
+ * Main menu → New Pilot → name → planet screen at the start planet. The First Flight guide offer
+ * that follows is answered Skip unless `guide` is true (then Start guide).
+ */
+export async function newPilot(page: Page, name = 'Test Pilot', guide = false): Promise<void> {
   await page.goto('/?test');
   await clearPilots(page);
   await page.reload();
@@ -31,6 +34,11 @@ export async function newPilot(page: Page, name = 'Test Pilot'): Promise<void> {
   await input.fill(name);
   await page.getByRole('button', { name: 'Create' }).click();
   await expect(page.getByTestId('planet-screen')).toBeVisible();
+  const offer = page.getByRole('dialog', { name: /Take the guided first flight/ });
+  await expect(offer).toBeVisible();
+  await expect(offer).toContainText('replay it later from Settings → General or How to Play (H).');
+  await offer.getByRole('button', { name: guide ? 'Start guide' : 'Skip' }).click();
+  await expect(offer).toBeHidden();
 }
 
 /** From the planet screen, press Leave and wait for flight to resume. */

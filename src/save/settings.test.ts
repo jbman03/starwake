@@ -80,4 +80,16 @@ describe('settings', () => {
     expect(s.bindings.buyGoods).toEqual(['KeyB', null]); // other group: no clash
     expect(s.bindings.openExchange).toEqual(['KeyC', null]);
   });
+  it('settings saved before How to Play existed get H for it, unless H is taken in that group', () => {
+    localStorage.setItem(KEY, JSON.stringify({ bindings: { thrust: ['KeyW', null] } }));
+    const a = loadSettings();
+    expect(a.bindings.howToPlay).toEqual(['KeyH', null]);
+    expect(a.bindings.menuHowToPlay).toEqual(['KeyH', null]);
+    // The pilot had already moved Refuel (planet group) to H.
+    localStorage.setItem(KEY, JSON.stringify({ bindings: { refuel: ['KeyH', null] } }));
+    const b = loadSettings();
+    expect(b.bindings.refuel).toEqual(['KeyH', null]);
+    expect(b.bindings.howToPlay).toEqual([null, null]);
+    expect(b.bindings.menuHowToPlay).toEqual(['KeyH', null]); // menus group: no clash
+  });
 });
