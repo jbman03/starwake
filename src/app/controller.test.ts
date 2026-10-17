@@ -231,6 +231,41 @@ describe('Controller', () => {
     expect(c.world.credits).toBe(data.config.startCredits - data.config.towFee);
   });
 
+  const dueToday = (id: string, title: string) => ({
+    id, typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 0, passengers: 0, pay: 500,
+    paidUpfront: false, deadlineDay: 0, title, description: '', cargoName: 'x',
+  });
+
+  it('missions failed during a tow wait for the planet screen instead of the hidden HUD', async () => {
+    const { c, data, events } = await setup();
+    const w = newWorld(data, 1);
+    c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 }, missions: [dueToday('a', 'Job A'), dueToday('b', 'Job B')] },
+      { id: 'p1', name: 'Ava' }, 'tallow-rock');
+    c.leavePlanet();
+    expect(c.callTow()).toBe(true);
+    expect(c.world.missions).toEqual([]);
+    expect(events.filter((e) => e.type === 'message')).toEqual([]);
+    expect(c.takeNotices()).toEqual([
+      'Mission failed: Job A — the deadline passed.',
+      'Mission failed: Job B — the deadline passed.',
+    ]);
+    expect(c.takeNotices()).toEqual([]);
+  });
+
+  it('several failures from one jump become a single HUD message', async () => {
+    const { c, data, events } = await setup();
+    const w = newWorld(data, 1);
+    c.beginSession({ ...w, missions: [dueToday('a', 'Job A'), dueToday('b', 'Job B')] }, { id: 'p1', name: 'Ava' }, 'halcyon');
+    c.leavePlanet();
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 0.99 } };
+    c.update(0.1);
+    expect(events.filter((e) => e.type === 'jumped')).toHaveLength(1);
+    expect(events.filter((e) => e.type === 'message')).toEqual([
+      { type: 'message', text: 'Mission failed: Job A — the deadline passed. Mission failed: Job B — the deadline passed.' },
+    ]);
+    expect(c.takeNotices()).toEqual([]);
+  });
+
   it('a tow into debt autosaves a valid pilot that loads back without the backup', async () => {
     const { c, data, events } = await setup();
     const store = new PilotStore(createStore('ctl-tow-debt', 'kv'));

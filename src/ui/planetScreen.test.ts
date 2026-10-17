@@ -7,6 +7,7 @@ import type { PilotStore } from '../save/store';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
+import { createUi } from './context';
 import { showPlanetScreen } from './planetScreen';
 
 async function setup(credits: number, fuel: number, bindings = DEFAULT_SETTINGS.bindings, portId = 'halcyon') {
@@ -111,5 +112,29 @@ describe('planet screen', () => {
     const c = await setup(1000, 300);
     c.calls.onPress!(new Set(['missionLog']));
     expect(c.root.querySelector('[data-testid="mission-log"]')).toBeTruthy();
+  });
+});
+
+describe('planet screen after a tow', () => {
+  it('shows every mission the tow failed', async () => {
+    const data = await loadGameData();
+    const c = new Controller(data, DEFAULT_SETTINGS, new EventTarget());
+    const w = newWorld(data, 1);
+    const due = (id: string, title: string) => ({
+      id, typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 0, passengers: 0, pay: 500,
+      paidUpfront: false, deadlineDay: 0, title, description: '', cargoName: 'x',
+    });
+    c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 }, missions: [due('a', 'Job A'), due('b', 'Job B')] },
+      { id: 'p', name: 'P' }, 'tallow-rock');
+    const root = document.createElement('div');
+    document.body.append(root);
+    createUi(root, c, {} as PilotStore, () => null, new InputMode(new EventTarget(), () => DEFAULT_SETTINGS.bindings, 'keyboard'));
+    c.leavePlanet();
+    expect(c.callTow()).toBe(true);
+    const screen = root.querySelector('[data-testid="planet-screen"]')!;
+    expect(screen).toBeTruthy();
+    expect(screen.textContent).toContain('Mission failed: Job A — the deadline passed.');
+    expect(screen.textContent).toContain('Mission failed: Job B — the deadline passed.');
+    root.remove();
   });
 });

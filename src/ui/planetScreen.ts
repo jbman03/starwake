@@ -46,7 +46,9 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   const stats = el('div', { class: 'sw-stats' });
   const actions = el('div', { class: 'sw-actions' });
   const status = el('p', { class: 'sw-status', attrs: { 'aria-live': 'polite' } });
-  if (notice) status.textContent = notice;
+  // Messages from a tow that brought us here (e.g. failed missions) join any caller's notice.
+  const notices = [...(notice ? [notice] : []), ...controller.takeNotices()];
+  if (notices.length > 0) status.textContent = notices.join(' ');
 
   const services = new Set(planet.services);
   const openExchange = () => showExchange(ctx, planetId, () => ctx.go.planet(planetId));

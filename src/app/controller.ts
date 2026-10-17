@@ -95,6 +95,11 @@ export class Controller {
    * (it mounts after `missionsCompleted` fires, so it collects them with takeCompletion()).
    */
   private completion: { missions: Mission[]; pay: number } | null = null;
+  /**
+   * Messages raised while the ship was being towed (e.g. missions failed on the way). The HUD is
+   * hidden behind the planet screen by then, so that screen collects them with takeNotices().
+   */
+  private notices: string[] = [];
   /** Settles when the most recent autosave finishes (never rejects). */
   lastSave: Promise<void> = Promise.resolve();
 
@@ -168,6 +173,7 @@ export class Controller {
     this.landedPlanetId = null;
     this.lastPlanetId = null;
     this.completion = null;
+    this.notices = [];
   }
 
   /** The pilot as of the most recent landing, or null with no session. */
@@ -293,6 +299,13 @@ export class Controller {
     return c;
   }
 
+  /** Messages from the tow that opened the planet screen, once (see `notices`). */
+  takeNotices(): string[] {
+    const n = this.notices;
+    this.notices = [];
+    return n;
+  }
+
   // ---- trade and jobs (landed only; none of these save) -------------------
 
   buy(commodityId: string, tons: number): BuyResult {
@@ -399,12 +412,22 @@ export class Controller {
     if (ui && pressed.size > 0) ui.handler(pressed);
   }
 
+  /**
+   * Route one batch of sim events. Messages are gathered first: after a tow they become planet
+   * screen notices (queued before `towed` opens that screen); otherwise they are joined into one
+   * HUD message so several failures from one jump don't overwrite each other.
+   */
   private handleEvents(events: SimEvent[]): void {
+    const messages = events.flatMap((e) => (e.type === 'message' ? [e.text] : []));
+    const towed = events.some((e) => e.type === 'towed');
+    if (towed) this.notices.push(...messages);
     for (const e of events) {
+      if (e.type === 'message') continue;
       if (e.type === 'landed' || e.type === 'towed') this.landAt(e.planetId);
       else if (e.type === 'jumped') this.prevShip = this.world.ship; // no interpolation across systems
       this.emit(e);
     }
+    if (!towed && messages.length > 0) this.emit({ type: 'message', text: messages.join(' ') });
   }
 
   private landAt(planetId: string, autosave = true): void {
