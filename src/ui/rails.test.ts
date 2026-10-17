@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../app/controller';
 import { loadGameData } from '../data/load';
+import { Guide } from '../guide/guide';
 import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import type { WorldState } from '../sim/types';
@@ -170,5 +171,42 @@ describe('mountRails', () => {
     c.settings.touch.mirror = true;
     rails.update();
     expect(stickRail.style.left).toBe('724px');
+  });
+
+  it('while the guide runs, the stick rail shows its hint under the HUD and a 44 px Skip guide beside Stop', async () => {
+    const { c, rails, parent, data } = await setup();
+    c.startFlight();
+    rails.update();
+    const stick = parent.querySelector<HTMLElement>('[data-control="stick"]')!;
+    const hintText = parent.querySelector<HTMLElement>('[data-testid="rail-guide"]')!;
+    const skip = parent.querySelector<HTMLButtonElement>('[data-control="guide-skip"]')!;
+    const stickWithout = parseFloat(stick.style.width);
+    expect(hintText.hidden).toBe(true);
+    expect(skip.hidden).toBe(true);
+
+    const m = new Map<string, string>();
+    const storage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) } as Storage;
+    c.guide = new Guide(c, data, { mode: () => 'touch', key: () => '?', storage });
+    expect(c.guide.start()).toBe(true);
+    rails.update();
+    expect(hintText.hidden).toBe(false);
+    expect(hintText.textContent).toBe(c.guide.current()!.text);
+    expect(hintText.closest('[data-rail="stick"]')).not.toBeNull();
+    expect(skip.hidden).toBe(false);
+    expect(skip.textContent).toBe('Skip guide');
+    expect(parseFloat(skip.style.height)).toBeGreaterThanOrEqual(44);
+    expect(parseFloat(skip.style.width)).toBeGreaterThanOrEqual(44);
+    expect(parseFloat(stick.style.width)).toBeLessThan(stickWithout); // the rail made room
+
+    const asked: string[] = [];
+    c.on('guideSkip', (e) => asked.push(e.type));
+    skip.dispatchEvent(new Event('pointerdown'));
+    expect(asked).toEqual(['guideSkip']);
+
+    c.guide.skip();
+    rails.update();
+    expect(hintText.hidden).toBe(true);
+    expect(skip.hidden).toBe(true);
+    expect(parseFloat(stick.style.width)).toBe(stickWithout);
   });
 });

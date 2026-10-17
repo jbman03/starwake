@@ -3,6 +3,7 @@ import { cargoFree, maxBuy } from '../sim/cargo';
 import { displayLevel, localNews, priceOf } from '../sim/economy';
 import type { UiContext } from './context';
 import { button, el, formatCredits, hotkeyFor } from './dom';
+import { guideCard } from './guideHint';
 
 /** Press-and-hold time (ms) on Buy/Sell before it moves 1 t instead of 10. */
 export const LONG_PRESS_MS = 450;
@@ -155,6 +156,8 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
   const sellAll = button('Sell all', () => trade('sell', 'all'));
   const done = button('Done', close, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'back') });
 
+  const hint = guideCard(controller, ctx.root);
+
   const table = el('table', { class: 'sw-ex-table', attrs: { 'data-testid': 'exchange-table' } }, [
     el('thead', {}, [
       el('tr', {}, [
@@ -175,6 +178,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
       news,
       detail,
       message,
+      hint.node,
       el('div', { class: 'sw-ex-actions' }, [buyBtn.b, sellBtn.b, buyMax, sellAll, done]),
     ]),
   ]);
@@ -205,7 +209,9 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
       window.removeEventListener('keyup', onKeyUp);
       buyBtn.stop();
       sellBtn.stop();
+      hint.dispose();
     },
+    guide: 'exchange',
   });
   render();
 }

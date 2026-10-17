@@ -4,6 +4,7 @@ import { rumor } from '../sim/economy';
 import { canAccept, MAX_MISSIONS, type MissionOffer } from '../sim/missions';
 import type { UiContext } from './context';
 import { button, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
+import { guideCard } from './guideHint';
 import { ACCEPT_REASON, deadlineText, destinationText, loadText, payText } from './missionText';
 
 /**
@@ -109,12 +110,14 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
     list.querySelector('.sw-mc-selected')?.scrollIntoView?.({ block: 'nearest' });
   }
 
+  const hint = guideCard(controller, ctx.root);
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-mc-screen', attrs: { 'data-testid': 'mission-computer' } }, [
     el('div', { class: 'sw-panel sw-mc' }, [
       el('h1', { class: 'sw-title', text: `${port.name} · Mission Computer` }),
       stats,
       rumorLine,
       el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason, message])]),
+      hint.node,
       el('div', { class: 'sw-ex-actions' }, [acceptBtn, doneBtn]),
     ]),
   ]);
@@ -138,7 +141,11 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
     onPress: (pressed) => {
       if (pressed.has('back')) close();
     },
-    cleanup: () => window.removeEventListener('keydown', onKey),
+    cleanup: () => {
+      window.removeEventListener('keydown', onKey);
+      hint.dispose();
+    },
+    guide: 'missions',
   });
   render();
 }

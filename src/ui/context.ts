@@ -2,7 +2,9 @@ import type { Controller } from '../app/controller';
 import type { ActionGroup, ActionId } from '../input/actions';
 import type { InputMode } from '../input/mode';
 import type { PilotStore } from '../save/store';
+import { Guide } from '../guide/guide';
 import { dialogOpen } from './dom';
+import { confirmSkipGuide, guideKey, guideState, type GuideScreen } from './guideHint';
 import { showMainMenu } from './mainMenu';
 import { showMissionLog } from './missionLog';
 import { showPauseMenu } from './pauseMenu';
@@ -15,7 +17,12 @@ export interface MountOpts {
   onPress?: (pressed: Set<ActionId>) => void;
   /** Called when the screen is replaced or closed. */
   cleanup?: () => void;
+  /** Which screen this is, for the First Flight guide (anything else counts as 'other'). */
+  guide?: GuideScreen;
 }
+
+/** How often (ms) the guide re-reads the world while a session runs (flight, trades). */
+export const GUIDE_TICK_MS = 250;
 
 export interface UiContext {
   root: HTMLElement;
@@ -46,14 +53,21 @@ export function createUi(
   planetImage: (planetId: string) => string | null,
   inputMode: InputMode,
 ): UiContext {
-  let current: { node: HTMLElement; cleanup?: () => void; offInput?: () => void } | null = null;
+  let current: { node: HTMLElement; cleanup?: () => void; offInput?: () => void; guide: GuideScreen | 'other' } | null = null;
 
-  const unmount = () => {
+  /** Feed the guide what the player is looking at now. */
+  const feedGuide = () => controller.guide?.update(guideState(controller, current ? current.guide : null));
+
+  const close = () => {
     if (!current) return;
     current.offInput?.();
     current.cleanup?.();
     current.node.remove();
     current = null;
+  };
+  const unmount = () => {
+    close();
+    feedGuide();
   };
 
   const ctx: UiContext = {
@@ -63,7 +77,7 @@ export function createUi(
     inputMode,
     planetImage,
     mount(screen, opts = {}) {
-      unmount();
+      close(); // no guide update for the moment in between screens
       const { groups, onPress } = opts;
       const offInput =
         groups && onPress
@@ -72,7 +86,8 @@ export function createUi(
             })
           : undefined;
       root.append(screen);
-      current = { node: screen, cleanup: opts.cleanup, offInput };
+      current = { node: screen, cleanup: opts.cleanup, offInput, guide: opts.guide ?? 'other' };
+      feedGuide();
     },
     unmount,
     go: {
@@ -82,6 +97,36 @@ export function createUi(
       map: (opts) => showStarMap(ctx, opts),
     },
   };
+
+  // ---- First Flight guide: one per session, fed on every screen change and on a timer ----------
+  let tick: ReturnType<typeof setInterval> | undefined;
+  const endGuide = () => {
+    if (tick !== undefined) clearInterval(tick);
+    tick = undefined;
+    controller.guide = null;
+  };
+  controller.on('session', (e) => {
+    endGuide();
+    if (!e.active) return;
+    const guide = new Guide(controller, controller.data, {
+      mode: () => inputMode.mode,
+      key: guideKey(() => controller.settings.bindings, () => controller.landedPlanetId !== null),
+    });
+    controller.guide = guide;
+    if (guide.resumable()) guide.start();
+    tick = setInterval(feedGuide, GUIDE_TICK_MS);
+  });
+  controller.on('flying', feedGuide);
+  // From the flight HUD or rail: pause while the confirm is open, then fly on.
+  controller.on('guideSkip', () => {
+    const guide = controller.guide;
+    if (!guide?.current() || dialogOpen()) return;
+    const wasFlying = controller.isFlying;
+    if (wasFlying) controller.pauseFlight();
+    void confirmSkipGuide(root, guide).then(() => {
+      if (wasFlying && !current && controller.pilot) controller.startFlight();
+    });
+  });
 
   controller.on('landed', (e) => ctx.go.planet(e.planetId));
   controller.on('towed', (e) => ctx.go.planet(e.planetId));

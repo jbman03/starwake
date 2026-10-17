@@ -5,6 +5,7 @@ import type { RefuelQuote } from '../sim/rules';
 import type { UiContext } from './context';
 import { alertDialog, button, el, formatCredits, hotkeyFor } from './dom';
 import { showExchange } from './exchange';
+import { guideCard } from './guideHint';
 import { showMissionComputer } from './missionComputer';
 import { showMissionLog } from './missionLog';
 
@@ -46,6 +47,8 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   const stats = el('div', { class: 'sw-stats' });
   const actions = el('div', { class: 'sw-actions' });
   const status = el('p', { class: 'sw-status', attrs: { 'aria-live': 'polite' } });
+  // The guide's callout sits above the buttons, inline: dialogs (mission pay) still open on top of it.
+  const hint = guideCard(controller, ctx.root);
   // Messages from a tow that brought us here (e.g. failed missions) join any caller's notice.
   const notices = [...(notice ? [notice] : []), ...controller.takeNotices()];
   if (notices.length > 0) status.textContent = notices.join(' ');
@@ -105,7 +108,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     el('div', { class: 'sw-panel sw-planet-frame' }, [
       picture,
       info,
-      el('div', { class: 'sw-planet-side' }, [stats, actions, status]),
+      el('div', { class: 'sw-planet-side' }, [stats, hint.node, actions, status]),
     ]),
   ]);
 
@@ -123,7 +126,11 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       else if (pressed.has('openMap')) openMap();
       else if (pressed.has('refuel') && services.has('refuel') && (controller.refuelQuote()?.units ?? 0) > 0) refuel();
     },
-    cleanup: offSaved,
+    cleanup: () => {
+      offSaved();
+      hint.dispose();
+    },
+    guide: 'planet',
   });
 
   // Jobs finished by the landing that brought us here (the event fired before this screen existed). Opened after

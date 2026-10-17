@@ -10,6 +10,7 @@ import type { ContextAction } from '../sim/context';
 import { jumpDestination, pickLandTarget } from '../sim/rules';
 import type { WorldState } from '../sim/types';
 import { el } from './dom';
+import { skipLabel } from './guideHint';
 
 /** Opacity of Fire, Missile and the stick while the autopilot flies. */
 export const AUTOPILOT_DIM = 0.2;
@@ -136,6 +137,23 @@ export function mountRails(opts: RailsOptions): Rails {
   // Pause sits inside the HUD box; it is checked through the HUD's box, so it isn't listed twice.
   pause.removeAttribute('data-rail-control');
   const stop = holdButton('stop', 'STOP', 'autoStop', 'Auto-stop');
+  // First Flight guide: its hint under the HUD and Skip guide beside Stop, only while it runs.
+  const guideText = el('div', {
+    class: 'sw-rail-guide',
+    attrs: { 'data-testid': 'rail-guide', role: 'status', 'data-rail-control': '', 'data-control': 'guide-hint' },
+  });
+  guideText.hidden = true;
+  const guideSkip = el('button', {
+    class: 'sw-rail-btn sw-rail-skip',
+    text: 'Skip guide',
+    attrs: { type: 'button', 'data-rail-control': '', 'data-control': 'guide-skip' },
+  }) as HTMLButtonElement;
+  guideSkip.hidden = true;
+  guideSkip.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    controller.requestGuideSkip();
+  });
+  const spacer = el('div', { class: 'sw-rail-spacer' });
   const knob = el('div', { class: 'sw-stick-knob' });
   const stick = el(
     'div',
@@ -144,8 +162,9 @@ export function mountRails(opts: RailsOptions): Rails {
   );
   const stickRail = el('div', { class: 'sw-rail', attrs: { 'data-rail': 'stick' } }, [
     hud,
-    el('div', { class: 'sw-rail-spacer' }),
-    stop,
+    guideText,
+    spacer,
+    el('div', { class: 'sw-rail-row' }, [stop, guideSkip]),
     stick,
   ]);
 
@@ -165,9 +184,10 @@ export function mountRails(opts: RailsOptions): Rails {
   const missile = holdButton('missile', 'MSL', 'fireSecondary', 'Fire missile');
   const thrust = holdButton('thrust', 'THR', 'thrust', 'Thrust');
   const fire = holdButton('fire', 'FIRE', 'firePrimary', 'Fire', 'sw-rail-fire');
+  const buttonSpacer = el('div', { class: 'sw-rail-spacer' });
   const buttonRail = el('div', { class: 'sw-rail', attrs: { 'data-rail': 'buttons' } }, [
     radar,
-    el('div', { class: 'sw-rail-spacer' }),
+    buttonSpacer,
     targetBtn,
     missile,
     thrust,
@@ -229,13 +249,14 @@ export function mountRails(opts: RailsOptions): Rails {
   let lastKey = '';
   let lastLabel: string | null = null;
   let lastRoute: string | null = null;
+  let lastHint: string | null = null;
 
-  const applyLayout = (w: number, h: number, layout: Layout) => {
+  const applyLayout = (w: number, h: number, layout: Layout, hintOn: boolean) => {
     const s = controller.settings.touch;
-    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}`;
+    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}|${hintOn}`;
     if (key === lastKey) return;
     lastKey = key;
-    const m = railMetrics(layout, s, s.steering);
+    const m = railMetrics(layout, s, s.steering, hintOn);
     layer.dataset.size = `${w}x${h}`;
     layer.dataset.view = JSON.stringify(layout.view);
     layer.dataset.clear = JSON.stringify(layout.clear);
@@ -243,8 +264,15 @@ export function mountRails(opts: RailsOptions): Rails {
     placeRail(stickRail, layout.leftRail, layout, m.pad);
     placeRail(buttonRail, layout.rightRail, layout, m.pad);
     for (const rail of [stickRail, buttonRail]) rail.style.gap = px(m.gap);
+    // The spacer is flexible room, not an item: cancel the extra gap the flex layout gives it.
+    for (const sp of [spacer, buttonSpacer]) sp.style.marginTop = px(-m.gap);
     hud.style.height = px(m.hud);
-    for (const b of [stop, targetBtn, missile, thrust]) square(b, m.button);
+    guideText.style.height = px(m.hint);
+    guideText.hidden = !hintOn;
+    guideSkip.hidden = !hintOn;
+    if (hintOn) square(guideSkip, m.skip);
+    square(stop, m.stop);
+    for (const b of [targetBtn, missile, thrust]) square(b, m.button);
     square(fire, m.fire);
     square(stick, m.stick);
     square(radar, m.radar);
@@ -277,7 +305,15 @@ export function mountRails(opts: RailsOptions): Rails {
     shown = true;
     layer.hidden = false;
     const { w, h } = size();
-    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()));
+    const guide = controller.guide;
+    const hint = guide?.current() ?? null;
+    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null);
+    if ((hint?.text ?? null) !== lastHint) {
+      lastHint = hint?.text ?? null;
+      guideText.textContent = lastHint ?? '';
+      guideText.title = lastHint ?? '';
+      if (guide) guideSkip.textContent = skipLabel(guide);
+    }
     layer.style.setProperty('--sw-touch-opacity', String(controller.settings.touch.opacity));
 
     const { world, data } = controller;

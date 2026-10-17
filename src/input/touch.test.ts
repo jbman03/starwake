@@ -4,7 +4,11 @@ import {
   BUTTON_SIZES,
   computeLayout,
   FIRE_SCALE,
+  HINT_LINE_HEIGHT,
+  HINT_LINES,
+  MIN_HINT_STICK,
   MIN_RAIL_WIDTH,
+  ROW_GAP,
   railMetrics,
   rectsIntersect,
   stickFromOffset,
@@ -139,6 +143,52 @@ describe('railMetrics', () => {
         }
       }
     }
+  });
+});
+
+describe('railMetrics with a guide hint', () => {
+  const phones = [[844, 390], [932, 430], [780, 360], [667, 375]] as const;
+
+  it('reserves three lines and puts a 44 px Skip beside Stop; the stick and Stop still fit on every phone', () => {
+    for (const [w, h] of phones) {
+      for (const mirror of [false, true]) {
+        for (const size of ['S', 'M', 'L'] as const) {
+          for (const steering of ['point', 'classic'] as const) {
+            const l = computeLayout(w, h, touch({ mirror }));
+            const m = railMetrics(l, touch({ buttonSize: size }), steering, true);
+            const inner = l.leftRail.w - 2 * m.pad;
+            const at = `${w}×${h} ${size} ${steering}`;
+            expect(m.hint, at).toBeGreaterThanOrEqual(HINT_LINES * HINT_LINE_HEIGHT);
+            expect(m.skip, at).toBeGreaterThanOrEqual(44);
+            expect(m.stop, at).toBeGreaterThanOrEqual(44);
+            expect(m.stop + ROW_GAP + m.skip, at).toBeLessThanOrEqual(inner);
+            expect(m.stick, at).toBeGreaterThanOrEqual(MIN_HINT_STICK);
+            expect(m.leftStackHeight, at).toBe(m.hud + m.gap + m.hint + m.gap + Math.max(m.stop, m.skip) + m.gap + m.stick);
+            expect(m.leftStackHeight, at).toBeLessThanOrEqual(h - 2 * m.pad);
+          }
+        }
+      }
+    }
+  });
+
+  it('without a hint the rail is exactly as before (no hint, no Skip, Stop = button size)', () => {
+    for (const [w, h] of phones) {
+      const l = computeLayout(w, h, touch());
+      const m = railMetrics(l, touch(), 'point');
+      expect(railMetrics(l, touch(), 'point', false)).toEqual(m);
+      expect(m.hint).toBe(0);
+      expect(m.skip).toBe(0);
+      expect(m.stop).toBe(m.button);
+      expect(m.leftStackHeight).toBe(m.hud + m.gap + m.button + m.gap + m.stick);
+    }
+  });
+
+  it('the hint takes room only from the stick rail: the button rail is unchanged', () => {
+    const l = computeLayout(780, 360, touch());
+    const a = railMetrics(l, touch(), 'classic');
+    const b = railMetrics(l, touch(), 'classic', true);
+    expect(b.stick).toBeLessThan(a.stick);
+    expect([b.button, b.fire, b.radar, b.rightStackHeight]).toEqual([a.button, a.fire, a.radar, a.rightStackHeight]);
   });
 });
 

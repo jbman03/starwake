@@ -5,6 +5,7 @@ import type { WorldState } from '../sim/types';
 import { setRoute } from '../sim/world';
 import type { UiContext } from './context';
 import { button, el, hotkeyFor } from './dom';
+import { guideCard } from './guideHint';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 /** Unknown systems: a plain grey outline, whatever their owner. */
@@ -398,6 +399,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
   const zoomButton = (label: string, text: string, onClick: () => void) =>
     el('button', { class: 'sw-btn sw-map-zoombtn', text, attrs: { type: 'button', 'aria-label': label }, onClick });
 
+  const hint = guideCard(controller, ctx.root);
   const screen = el('div', { class: 'sw-screen sw-overlay sw-starmap-screen', attrs: { 'data-testid': 'star-map' } }, [
     el('div', { class: 'sw-panel sw-starmap' }, [
       el('div', { class: 'sw-starmap-view' }, [
@@ -415,6 +417,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
         el('h1', { class: 'sw-title', text: 'Star Map' }),
         info,
         routeText,
+        hint.node,
         el('div', { class: 'sw-actions' }, [el('div', { class: 'sw-actions sw-actions-row' }, [setBtn, clearBtn]), closeBtn]),
       ]),
     ]),
@@ -427,7 +430,11 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
     onPress: (pressed) => {
       if (pressed.has(closeAction) || pressed.has('back')) close();
     },
-    cleanup: () => window.removeEventListener('resize', onResize),
+    cleanup: () => {
+      window.removeEventListener('resize', onResize);
+      hint.dispose();
+    },
+    guide: 'map',
   });
   render();
 }

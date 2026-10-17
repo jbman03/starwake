@@ -93,6 +93,21 @@ export function showMainMenu(ctx: UiContext): void {
       notice = `Couldn't save the new pilot: ${err instanceof Error ? err.message : String(err)}`;
     }
     ctx.go.planet(planetId, notice);
+    await offerGuide();
+  }
+
+  /** New pilots are asked once whether to take the First Flight guide (Settings can replay it). */
+  async function offerGuide(): Promise<void> {
+    const guide = controller.guide;
+    if (!guide) return;
+    const yes = await confirmDialog(root, {
+      title: 'Take the guided first flight? (about 5 minutes)',
+      message: 'One trade from start to finish: buy low here, fly, sell high. You can replay it later from Settings → General.',
+      confirm: 'Start guide',
+      cancel: 'Skip',
+    });
+    // The pilot may have quit meanwhile; only start the guide this session still owns.
+    if (yes && controller.guide === guide) guide.start();
   }
 
   async function load(id: string): Promise<void> {

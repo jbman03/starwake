@@ -55,6 +55,24 @@ function slider(label: string, min: number, max: number, get: () => number, set:
   ]);
 }
 
+/** Settings → General → Replay first flight: restarts the guide for the loaded pilot. */
+function replayField(ctx: UiContext): HTMLElement {
+  const guide = ctx.controller.guide;
+  const note = el('p', { class: 'sw-reason', attrs: { 'aria-live': 'polite' } });
+  const replay = button(
+    'Replay first flight',
+    () => {
+      const g = ctx.controller.guide;
+      note.textContent = g?.restart()
+        ? `The guide starts again at step ${g.current()?.step ?? 1}. Its hints appear on your screens and in flight.`
+        : 'The guide has no trade to show from here.';
+    },
+    { disabled: !guide },
+  );
+  if (!guide) note.textContent = 'Load a pilot first';
+  return el('div', { class: 'sw-field' }, [el('div', { class: 'sw-field-label', text: 'First flight guide' }), replay, note]);
+}
+
 /** Settings: Controls (keyboard mode), Touch (touch mode) and General. Every change is saved at once. */
 export function showSettings(ctx: UiContext, opts: { mode: SettingsMode; onClose?: () => void }): void {
   const { controller } = ctx;
@@ -90,6 +108,7 @@ export function showSettings(ctx: UiContext, opts: { mode: SettingsMode; onClose
         { value: 'high', text: 'High' },
       ], () => s.quality, (v) => ((s.quality = v), persist())),
       toggle('Auto-land on arrival', () => s.autoLandOnArrival, (v) => ((s.autoLandOnArrival = v), persist())),
+      replayField(ctx),
     ]),
   };
 
