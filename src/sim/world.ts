@@ -106,7 +106,9 @@ export function advanceDays(world: WorldState, data: GameData, n: number): { wor
 
 /**
  * Plot a course to `toSystemId`: fewest hops, through known or seen systems only. The destination
- * must itself be known or seen. On failure the world is returned unchanged.
+ * must itself be known or seen. Exception: when it is the destination system of an active
+ * mission, the course may use any lane (the job's client supplies the charts). On failure the
+ * world is returned unchanged.
  */
 export function setRoute(
   world: WorldState,
@@ -114,7 +116,12 @@ export function setRoute(
   toSystemId: string,
 ): { world: WorldState; ok: boolean; reason?: 'noRoute' } {
   const charted = new Set([...world.known, ...world.seen]);
-  const route = charted.has(toSystemId) ? routeBetween(data, world.systemId, toSystemId, (id) => charted.has(id)) : null;
+  const missionTarget = world.missions.some((m) => data.planets[m.destId]?.systemId === toSystemId);
+  const route = missionTarget
+    ? routeBetween(data, world.systemId, toSystemId, () => true)
+    : charted.has(toSystemId)
+      ? routeBetween(data, world.systemId, toSystemId, (id) => charted.has(id))
+      : null;
   if (!route) return { world, ok: false, reason: 'noRoute' };
   return { world: { ...world, route }, ok: true };
 }

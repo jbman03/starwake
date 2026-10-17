@@ -6,6 +6,7 @@ import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import type { PilotStore } from '../save/store';
 import type { Mission, WorldState } from '../sim/types';
+import { accept } from '../sim/missions';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { mapModel, routeSummary, showStarMap, systemDetails } from './starMap';
@@ -13,6 +14,21 @@ import { mapModel, routeSummary, showStarMap, systemDetails } from './starMap';
 const data = testData();
 const world = (): WorldState => newWorld(data, 1);
 const lane = (a: string, b: string) => (l: [string, string]) => (l[0] === a && l[1] === b) || (l[0] === b && l[1] === a);
+
+describe('mission destinations in uncharted space', () => {
+  it('an accepted job charts its system: no longer a blank circle, and a route is offered', () => {
+    const w = world();
+    const port = Object.values(data.planets).find((p) => p.systemId === 'brackwater')!;
+    expect(mapModel(w, data).nodes.find((n) => n.id === 'brackwater')!.state).toBe('unknown');
+    expect(routeSummary(w, data, 'brackwater').route).toBeNull();
+    const o = { offerId: 'o1', typeId: 'dump', originId: 'halcyon', destId: port.id, tons: 1, passengers: 0, pay: 400,
+      paidUpfront: true, deadlineDay: null, title: 'T', description: '', cargoName: 'waste' };
+    const taken = accept(w, data, o);
+    const node = mapModel(taken, data).nodes.find((n) => n.id === 'brackwater')!;
+    expect(node).toMatchObject({ state: 'seen', name: data.systems.brackwater.name, flag: true });
+    expect(routeSummary(taken, data, 'brackwater').route?.at(-1)).toBe('brackwater');
+  });
+});
 
 describe('mapModel', () => {
   it('fills known systems, outlines seen ones and blanks unknown ones (no name, grey)', () => {

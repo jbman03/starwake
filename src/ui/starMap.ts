@@ -83,7 +83,10 @@ export interface RouteSummary {
 
 const jumps = (n: number) => `${n} ${n === 1 ? 'jump' : 'jumps'}`;
 
-/** Fewest-hops route over charted systems, with "N jumps · fuel needed N · you have M" (in jumps). */
+/**
+ * Fewest-hops route as setRoute plots it (charted systems, or any lane to a mission's system),
+ * with "N jumps · fuel needed N · you have M" (in jumps).
+ */
 export function routeSummary(world: WorldState, data: GameData, toId: string): RouteSummary {
   const reachable = fuelCheck(world.ship.fuel, 0, data.config).reachable;
   if (toId === world.systemId) return { route: [], text: 'You are here', short: false, reachable };

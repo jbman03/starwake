@@ -263,7 +263,7 @@ export class Controller {
     return true;
   }
 
-  /** Plot a course to a known or seen system (works landed or in flight). `ok` is false if there's no route. */
+  /** Plot a course (see setRoute; works landed or in flight). `ok` is false if there's no route. */
   plotRoute(systemId: string): { ok: boolean; reason?: 'noRoute' } {
     const r = setRoute(this.world, this.data, systemId);
     this.world = r.world;

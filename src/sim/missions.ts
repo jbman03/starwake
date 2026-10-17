@@ -113,13 +113,19 @@ export function canAccept(world: WorldState, data: GameData, offer: MissionOffer
   return { ok: true };
 }
 
-/** Take the job: reserves hold space and berths; pays now when the job is paid up front. */
+/**
+ * Take the job: reserves hold space and berths; pays now when the job is paid up front. The
+ * destination's system is charted as seen (unless already known) so the star map can show it.
+ */
 export function accept(world: WorldState, data: GameData, offer: MissionOffer): WorldState {
   if (world.takenOffers.includes(offer.offerId) || world.missions.some((m) => m.id === offer.offerId)) return world;
   if (!canAccept(world, data, offer).ok) return world;
   const { offerId, ...rest } = offer;
+  const destSystem = data.planets[offer.destId]?.systemId;
+  const charts = destSystem !== undefined && !world.known.includes(destSystem) && !world.seen.includes(destSystem);
   return {
     ...world,
+    seen: charts ? [...world.seen, destSystem] : world.seen,
     credits: world.credits + (offer.paidUpfront ? offer.pay : 0),
     missions: [...world.missions, { id: offerId, ...rest }],
     takenOffers: [...world.takenOffers, offerId],

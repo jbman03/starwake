@@ -3,6 +3,8 @@ import { testData } from '../data/testData';
 import type { ActionId } from '../input/actions';
 import type { FrameInput, SimEvent, WorldState } from './types';
 import type { GameData } from '../data/schemas';
+import { hopDistance } from './galaxy';
+import { accept, offersAt } from './missions';
 import {
   advanceDays,
   applyRefuel,
@@ -647,5 +649,39 @@ describe('advanceDays', () => {
     const r = applyTow(w, dry);
     expect(r.world.day).toBe(w.day + 3);
     expect(r.events).toEqual([{ type: 'towed', planetId: 'halcyon' }]);
+  });
+});
+
+describe('setRoute to a mission destination', () => {
+  /** Seed 1, day 0: Halcyon posts a garbage run to The Midden in Brackwater, which starts uncharted. */
+  const garbage = () => {
+    const w = newWorld(data, 1);
+    const o = offersAt(w, data, 'halcyon').find((x) => x.typeId === 'dump' && sysOfPlanet(x.destId) === 'brackwater')!;
+    return { w, o };
+  };
+  const sysOfPlanet = (id: string) => data.planets[id].systemId;
+
+  it('accepting a job to an uncharted system lets you plot a course there', () => {
+    const { w, o } = garbage();
+    expect(o).toBeDefined();
+    expect(w.known.includes('brackwater') || w.seen.includes('brackwater')).toBe(false);
+    expect(setRoute(w, data, 'brackwater').ok).toBe(false);
+    const taken = accept(w, data, o);
+    const r = setRoute(taken, data, 'brackwater');
+    expect(r.ok).toBe(true);
+    expect(r.world.route.at(-1)).toBe('brackwater');
+    expect(r.world.route.length).toBe(hopDistance(data, w.systemId, 'brackwater'));
+  });
+
+  it('routes through any lane only for an active mission target', () => {
+    // Only calder known and thistle seen: every path to thistle crosses unknown systems.
+    const w = { ...newWorld(data, 1), known: ['calder'], seen: ['thistle'] };
+    expect(setRoute(w, data, 'thistle').ok).toBe(false);
+    const port = Object.values(data.planets).find((p) => p.systemId === 'thistle')!;
+    const m = { id: 'm', typeId: 'delivery', originId: 'halcyon', destId: port.id, tons: 0, passengers: 0, pay: 1,
+      paidUpfront: false, deadlineDay: null, title: '', description: '', cargoName: '' };
+    const r = setRoute({ ...w, missions: [m] }, data, 'thistle');
+    expect(r.ok).toBe(true);
+    expect(r.world.route.at(-1)).toBe('thistle');
   });
 });

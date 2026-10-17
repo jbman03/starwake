@@ -167,6 +167,28 @@ describe('canAccept / accept', () => {
   });
 });
 
+describe('accept charts the destination', () => {
+  const realOffer = (destId: string) => offer({ destId });
+  it('adds an uncharted destination system to seen, keeping known and seen disjoint', () => {
+    const w = at(0);
+    const port = Object.values(data.planets).find((p) => p.systemId === 'brackwater')!;
+    expect(w.seen).not.toContain('brackwater');
+    const taken = accept(w, data, realOffer(port.id));
+    expect(taken.seen).toContain('brackwater');
+    expect(taken.known.filter((id) => taken.seen.includes(id))).toEqual([]);
+  });
+
+  it('leaves a known or already-seen destination system alone', () => {
+    const w = at(0);
+    const knownPort = Object.values(data.planets).find((p) => w.known.includes(p.systemId))!;
+    const seenPort = Object.values(data.planets).find((p) => w.seen.includes(p.systemId))!;
+    const a = accept(w, data, realOffer(knownPort.id));
+    expect(a.known).toEqual(w.known);
+    expect(a.seen).toEqual(w.seen);
+    expect(accept(w, data, { ...realOffer(seenPort.id), offerId: 'o2' }).seen).toEqual(w.seen);
+  });
+});
+
 describe('taken offers', () => {
   it('stays hidden and unacceptable after accept then abandon on the same day', () => {
     const w = at(2);
