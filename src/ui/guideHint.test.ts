@@ -10,7 +10,8 @@ import type { PilotStore } from '../save/store';
 import { newWorld } from '../sim/world';
 import { createUi } from './context';
 import { showExchange } from './exchange';
-import { mountGuideHint } from './guideHint';
+import { mountGuideHint, replayWhere } from './guideHint';
+import { DEFAULT_BINDINGS, rebind } from '../input/bindings';
 import { showMissionComputer } from './missionComputer';
 import { showSettings } from './settingsScreen';
 
@@ -163,6 +164,7 @@ describe('skip and replay', () => {
     skip().click();
     const dialog = root.querySelector('[role="dialog"]')!;
     expect(dialog.textContent).toContain('Skip the guide?');
+    expect(dialog.textContent).toContain('replay it any time from Settings → General or How to Play (H).');
     [...dialog.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!.click();
     await vi.advanceTimersByTimeAsync(0);
     expect(c.guide!.current()?.step).toBe(1);
@@ -215,6 +217,12 @@ describe('skip and replay', () => {
     expect(c.guide!.current()?.step).toBe(1);
     expect(loadProgress(c.pilot!.id)).toMatchObject({ step: 1, done: false });
     expect(root.textContent).toContain('The guide starts again');
+  });
+
+  it('replayWhere names both places, with the How to Play key the player has', () => {
+    expect(replayWhere(DEFAULT_BINDINGS)).toBe('Settings → General or How to Play (H)');
+    expect(replayWhere(rebind(DEFAULT_BINDINGS, 'howToPlay', 0, 'KeyY'))).toBe('Settings → General or How to Play (Y)');
+    expect(replayWhere(rebind(DEFAULT_BINDINGS, 'howToPlay', 0, null))).toBe('Settings → General or How to Play');
   });
 
   it('Replay first flight is disabled with a reason when no pilot is loaded', async () => {

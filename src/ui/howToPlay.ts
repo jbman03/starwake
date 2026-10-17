@@ -1,6 +1,8 @@
 import { ACTION_GROUP, ACTION_IDS, ACTION_LABEL, type ActionGroup, type ActionId } from '../input/actions';
+import type { GameData } from '../data/schemas';
 import type { Bindings } from '../input/bindings';
 import { keyName } from '../input/keyNames';
+import { MAX_MISSIONS } from '../sim/missions';
 import type { UiContext } from './context';
 import { button, el, hotkeyFor } from './dom';
 
@@ -82,13 +84,16 @@ export function controlRows(bindings: Bindings): { title: string; rows: ControlR
 
 type Block = { heading: string; text: string };
 
-/** The four text tabs. Key names follow the player's bindings. */
-export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindings): Block[] {
+/** The four text tabs. Key names follow the player's bindings; numbers come from the data. */
+export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindings, data: GameData): Block[] {
   const k = (a: ActionId) => hotkeyFor(bindings, a) ?? 'unbound';
+  const ship = data.ships[data.config.startShipId];
+  const perJump = data.config.fuelPerJump;
+  const tank = Math.floor(ship.fuelCapacity / perJump);
   switch (tab) {
     case 'flying':
       return [
-        { heading: 'Steer and brake', text: `Up thrusts, Left and Right turn, Down reverses. ${k('autoStop')} turns you around and brakes to a stop. On a phone, push the stick to fly and tap STOP to brake.` },
+        { heading: 'Steer and brake', text: `${k('thrust')} thrusts, ${k('turnLeft')} and ${k('turnRight')} turn, ${k('reverse')} reverses. ${k('autoStop')} turns you around and brakes to a stop. On a phone, push the stick to fly and tap STOP to brake.` },
         { heading: 'Targets', text: `${k('nextTarget')} picks the next planet or station to target and ${k('faceTarget')} turns you to face it. ${k('autopilot')} flies to the targeted planet, or out to the jump point when nothing is targeted; press it again, or any steering key, to take over.` },
         { heading: 'Weapons', text: 'Weapons and combat arrive in a later update. The fire keys are bindable already but do nothing yet.' },
         { heading: 'Landing', text: `Target a planet or station, fly close, slow right down, then press ${k('land')}. On a phone, tap the planet or the LAND ON button.` },
@@ -97,23 +102,23 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
     case 'trade':
       return [
         { heading: 'Buy low, sell high', text: 'Each exchange shows a price level for every good: Low, Med or High. Buy where a good is Low, fly to a port where it is High, and sell.' },
-        { heading: 'Buying and selling', text: `Select a good, then ${k('buyGoods')} buys and ${k('sellGoods')} sells 10 t at a time; hold Shift or long-press the button for 1 t. Buy max and Sell all fill or empty the line. Your hold fits 20 t.` },
+        { heading: 'Buying and selling', text: `Select a good, then ${k('buyGoods')} buys and ${k('sellGoods')} sells 10 t at a time; hold Shift or long-press the button for 1 t. Buy max and Sell all fill or empty the line. Your hold fits ${ship.cargo} t.` },
         { heading: 'Prices move', text: 'Prices drift from day to day. News events cause a surplus or shortage at one port. Your own trading counts too: heavy buying pushes a price up, heavy selling pushes it down, and both ease back over a few days.' },
         { heading: 'Credits', text: 'Trading never takes your credits below zero. A pilot in debt (after a tow) can sell but not buy.' },
       ];
     case 'missions':
       return [
-        { heading: 'Taking a job', text: `The Mission Computer (${k('openMissions')}) lists jobs posted at the port: deliveries, rush deliveries, passenger trips and garbage runs. Each shows its destination, pay and any deadline. You can hold up to 8 jobs; cargo and passengers use your hold and berths.` },
+        { heading: 'Taking a job', text: `The Mission Computer (${k('openMissions')}) lists jobs posted at the port: deliveries, rush deliveries, passenger trips and garbage runs. Each shows its destination, pay and any deadline. You can hold up to ${MAX_MISSIONS} jobs; cargo and passengers use your hold and berths.` },
         { heading: 'Getting paid', text: 'Land at the destination port before the deadline. Most jobs pay on landing; some pay an advance up front. A job that runs past its deadline fails.' },
         { heading: 'Mission Log', text: `The Mission Log (${k('missionLog')} on a planet, ${k('flightMissionLog')} in flight) lists your active jobs. Show on map marks a job's destination on the star map.` },
         { heading: 'Abandoning', text: 'You can give up a job from the log. Nothing is paid and the cargo is freed. If it paid an advance, the advance is taken back, so you need enough credits to return it.' },
       ];
     case 'travel':
       return [
-        { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses 100 fuel and takes one day. The shuttle's tank holds three jumps' worth. With nothing targeted, ${k('autopilot')} flies you out to the jump point.` },
+        { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses ${perJump} fuel and takes one day. The shuttle's tank holds ${tank} jumps' worth. With nothing targeted, ${k('autopilot')} flies you out to the jump point.` },
         { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE or the radar.` },
         { heading: 'Refuelling', text: `Ports with a fuel pump let you refuel (${k('refuel')}); fuel is charged per unit. Check your fuel before you leave, since not every port sells it.` },
-        { heading: 'Stranded?', text: 'With less than one jump of fuel and no fuel for sale in the system, you can call a tow from the pause menu or the CALL TOW button. It costs 500 cr, which can leave you in debt. The tow takes you to the nearest port with fuel, uses days on the way, and jobs that pass their deadline fail.' },
+        { heading: 'Stranded?', text: `With less than one jump of fuel and no fuel for sale in the system, you can call a tow from the pause menu or the CALL TOW button. It costs ${data.config.towFee} cr, which can leave you in debt. The tow takes you to the nearest port with fuel, uses days on the way, and jobs that pass their deadline fail.` },
       ];
   }
 }
@@ -190,7 +195,7 @@ export function showHowToPlay(ctx: UiContext, opts: { onClose: () => void; tab?:
         }),
       ),
     );
-    body.replaceChildren(active === 'controls' ? controlsPanel(bindings()) : textPanel(tabText(active, bindings())));
+    body.replaceChildren(active === 'controls' ? controlsPanel(bindings()) : textPanel(tabText(active, bindings(), ctx.controller.data)));
     body.scrollTop = 0;
   };
   paint();

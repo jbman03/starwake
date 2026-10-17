@@ -36,6 +36,7 @@ export async function newPilot(page: Page, name = 'Test Pilot', guide = false): 
   await expect(page.getByTestId('planet-screen')).toBeVisible();
   const offer = page.getByRole('dialog', { name: /Take the guided first flight/ });
   await expect(offer).toBeVisible();
+  await expect(offer).toContainText('replay it later from Settings → General or How to Play (H).');
   await offer.getByRole('button', { name: guide ? 'Start guide' : 'Skip' }).click();
   await expect(offer).toBeHidden();
 }

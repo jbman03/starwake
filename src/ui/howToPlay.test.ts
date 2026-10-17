@@ -11,7 +11,9 @@ import { newWorld } from '../sim/world';
 import type { ContextAction } from '../sim/context';
 import { createUi } from './context';
 import { contextLabel, mountRails } from './rails';
-import { controlRows, HOW_TO_PLAY_TABS, PHONE_CONTROLS, showHowToPlay } from './howToPlay';
+import { controlRows, HOW_TO_PLAY_TABS, PHONE_CONTROLS, showHowToPlay, tabText } from './howToPlay';
+import { MAX_MISSIONS } from '../sim/missions';
+import type { GameData } from '../data/schemas';
 
 let seq = 0;
 
@@ -88,6 +90,37 @@ describe('How to Play', () => {
     expect(root.querySelector('[data-testid="keys-thrust"]')!.textContent).toBe('W');
     expect(root.querySelector('[data-testid="keys-land"]')!.textContent).toBe('L / Q');
     expect(root.querySelector('[data-testid="keys-jump"]')!.textContent).toBe('Unbound');
+  });
+
+  it('Flying tab names the steering keys from bindings', async () => {
+    const data = await loadGameData();
+    const text = (b: typeof DEFAULT_SETTINGS.bindings) => tabText('flying', b, data).map((x) => x.text).join(' ');
+    expect(text(DEFAULT_SETTINGS.bindings)).toContain('↑ thrusts, ← and → turn, ↓ reverses.');
+    let b = rebind(DEFAULT_SETTINGS.bindings, 'thrust', 0, 'KeyW');
+    b = rebind(b, 'turnLeft', 0, 'KeyA');
+    b = rebind(b, 'turnRight', 0, 'KeyD');
+    b = rebind(b, 'reverse', 0, 'KeyS');
+    expect(text(b)).toContain('W thrusts, A and D turn, S reverses.');
+    expect(text(b)).not.toContain('Up thrusts');
+  });
+
+  it('numbers come from the data, not literals', async () => {
+    const real = await loadGameData();
+    const ship = real.ships[real.config.startShipId];
+    const data = {
+      ...real,
+      config: { ...real.config, fuelPerJump: 75, towFee: 650 },
+      ships: { ...real.ships, [ship.id]: { ...ship, cargo: 35, fuelCapacity: 300 } },
+    } as GameData;
+    const all = (['flying', 'trade', 'missions', 'travel'] as const)
+      .flatMap((t) => tabText(t, DEFAULT_SETTINGS.bindings, data))
+      .map((x) => x.text)
+      .join(' ');
+    expect(all).toContain('Your hold fits 35 t.');
+    expect(all).toContain('Each jump uses 75 fuel');
+    expect(all).toContain("holds 4 jumps' worth");
+    expect(all).toContain('It costs 650 cr');
+    expect(all).toContain(`You can hold up to ${MAX_MISSIONS} jobs`);
   });
 
   it("text tabs use the pilot's own keys", async () => {

@@ -8,6 +8,11 @@ import { button, confirmDialog, el, hotkeyFor } from './dom';
 /** The screens the guide can tell apart (GuideState.screen minus flight and other). */
 export type GuideScreen = 'planet' | 'exchange' | 'missions' | 'map';
 
+/** Where the guide can be replayed from, for the skip and offer dialogs. */
+export function replayWhere(bindings: Bindings): string {
+  const k = hotkeyFor(bindings, 'howToPlay');
+  return `Settings → General or How to Play${k ? ` (${k})` : ''}`;
+}
 
 /**
  * Key labels for hint text, from the player's bindings. On a planet the star map is the planet
@@ -33,7 +38,7 @@ export function guideState(controller: Controller, screen: GuideScreen | 'other'
  * Skip (asking first) or, on the final card, dismiss. Resolves true when the guide ended.
  * Never touches flight: callers in flight pause and resume around it.
  */
-export async function confirmSkipGuide(parent: HTMLElement, guide: Guide): Promise<boolean> {
+export async function confirmSkipGuide(parent: HTMLElement, guide: Guide, bindings: Bindings): Promise<boolean> {
   if (!guide.current()) return false;
   if (isFinalStep(guide.current())) {
     guide.skip();
@@ -41,7 +46,7 @@ export async function confirmSkipGuide(parent: HTMLElement, guide: Guide): Promi
   }
   const ok = await confirmDialog(parent, {
     title: 'Skip the guide?',
-    message: 'You can replay it any time from Settings → General → Replay first flight.',
+    message: `You can replay it any time from ${replayWhere(bindings)}.`,
     confirm: 'Skip guide',
     cancel: 'Cancel',
   });
@@ -81,6 +86,8 @@ export function guideCard(controller: Controller, parent: HTMLElement): { node: 
   node.hidden = true;
   const guide = controller.guide;
   if (!guide) return { node, dispose: () => {} };
-  const dispose = mountGuideHint(node, guide, { onSkip: () => void confirmSkipGuide(parent, guide) });
+  const dispose = mountGuideHint(node, guide, {
+    onSkip: () => void confirmSkipGuide(parent, guide, controller.settings.bindings),
+  });
   return { node, dispose };
 }

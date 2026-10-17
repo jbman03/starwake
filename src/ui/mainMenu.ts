@@ -2,6 +2,7 @@ import { SaveError, worldFromPilot } from '../save/pilot';
 import { importPilot } from '../save/transfer';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
+import { replayWhere } from './guideHint';
 import { showHowToPlay } from './howToPlay';
 import { showSettings } from './settingsScreen';
 import { button, confirmDialog, el, hotkeyFor, promptDialog } from './dom';
@@ -103,7 +104,7 @@ export function showMainMenu(ctx: UiContext): void {
     if (!guide) return;
     const yes = await confirmDialog(root, {
       title: 'Take the guided first flight? (about 5 minutes)',
-      message: 'One trade from start to finish: buy low here, fly, sell high. You can replay it later from Settings → General.',
+      message: `One trade from start to finish: buy low here, fly, sell high. You can replay it later from ${replayWhere(controller.settings.bindings)}.`,
       confirm: 'Start guide',
       cancel: 'Skip',
     });

@@ -123,7 +123,7 @@ export function createUi(
     if (!guide?.current() || dialogOpen()) return;
     const wasFlying = controller.isFlying;
     if (wasFlying) controller.pauseFlight();
-    void confirmSkipGuide(root, guide).then(() => {
+    void confirmSkipGuide(root, guide, controller.settings.bindings).then(() => {
       if (wasFlying && !current && controller.pilot) controller.startFlight();
     });
   });
