@@ -8,7 +8,9 @@ import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import type { PilotStore } from '../save/store';
 import { newWorld } from '../sim/world';
+import type { ContextAction } from '../sim/context';
 import { createUi } from './context';
+import { contextLabel, mountRails } from './rails';
 import { controlRows, HOW_TO_PLAY_TABS, PHONE_CONTROLS, showHowToPlay } from './howToPlay';
 
 let seq = 0;
@@ -164,5 +166,74 @@ describe('How to Play entry points', () => {
     expect(root.querySelector('[data-testid="how-to-play"]')).not.toBeNull();
     btn('Back').click();
     expect(root.querySelector('[data-testid="pause-menu"]')).not.toBeNull();
+  });
+});
+
+describe('phone column matches the real touch controls', () => {
+  it('every capitalised control it names is on a rail button or in a context button label', async () => {
+    const data = await loadGameData();
+    const settings = { ...DEFAULT_SETTINGS, touch: { ...DEFAULT_SETTINGS.touch, steering: 'classic' as const } };
+    const c = new Controller(data, settings, new EventTarget());
+    c.pilot = { id: 'p', name: 'P' };
+    const parent = document.createElement('div');
+    document.body.append(parent);
+    mountRails({
+      parent,
+      controller: c,
+      inputMode: new InputMode(new EventTarget(), () => settings.bindings, 'touch'),
+      size: () => ({ w: 844, h: 390 }),
+      autoUpdate: false,
+    });
+    const rail = new Set([...parent.querySelectorAll('[data-control]')].map((e) => e.textContent ?? ''));
+    for (const t of ['STOP', 'FIRE', 'MSL', 'TGT', 'THR', 'II']) expect(rail, t).toContain(t);
+    const w = newWorld(data);
+    const labels = (['land', 'plotCourse', 'autopilotOut', 'jump', 'takeControl', 'tow'] as ContextAction[])
+      .map((a) => contextLabel(a, { ...w, route: ['vesk'] }, data) ?? '')
+      .join(' | ');
+    for (const text of Object.values(PHONE_CONTROLS)) {
+      for (const token of text.match(/\b[A-Z]{2,}(?: [A-Z]{2,})*\b/g) ?? []) {
+        const ok = rail.has(token) || labels.includes(token);
+        expect(ok, `"${token}" in "${text}" is not a real control`).toBe(true);
+      }
+    }
+    // Controls with no phone equivalent say so; the weapons rows are flagged as not working yet.
+    expect(PHONE_CONTROLS.nearestHostile).toBe('None on phone');
+    expect(PHONE_CONTROLS.faceTarget).toBe('None on phone');
+    expect(PHONE_CONTROLS.nextTarget).toBe('TGT');
+  });
+});
+
+describe('weapons are marked as not working yet', () => {
+  it('Flying tab does not teach the fire keys; Controls marks those rows coming soon', async () => {
+    const { ctx, root } = await setup();
+    showHowToPlay(ctx, { onClose: () => {} });
+    const flying = root.querySelector('[role="tabpanel"]')!.textContent!;
+    expect(flying).toContain('Weapons and combat arrive in a later update');
+    expect(flying).not.toContain('fires your main weapon');
+    tabButton(root, 'Controls').click();
+    for (const id of ['firePrimary', 'fireSecondary', 'nearestHostile']) {
+      expect(root.querySelector(`[data-action="${id}"]`)!.textContent).toContain('(coming soon)');
+    }
+    expect(root.querySelector('[data-action="thrust"]')!.textContent).not.toContain('coming soon');
+  });
+
+  it('autopilot wording covers a targeted planet and the jump point', async () => {
+    const { ctx, root } = await setup();
+    showHowToPlay(ctx, { onClose: () => {} });
+    expect(root.querySelector('[role="tabpanel"]')!.textContent).toContain('flies to the targeted planet, or out to the jump point when nothing is targeted');
+  });
+
+  it('the replay note names where to look, by opener', async () => {
+    const a = await setup();
+    showHowToPlay(a.ctx, { onClose: () => {} });
+    (a.btn('Replay first flight') as HTMLButtonElement).click();
+    expect(a.root.textContent).toContain('Go back to the planet to see it.');
+    document.body.replaceChildren();
+    const b = await setup();
+    b.c.leavePlanet();
+    b.c.pauseFlight();
+    showHowToPlay(b.ctx, { onClose: () => {} });
+    (b.btn('Replay first flight') as HTMLButtonElement).click();
+    expect(b.root.textContent).toContain('Resume flight to see it.');
   });
 });

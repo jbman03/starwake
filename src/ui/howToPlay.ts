@@ -24,7 +24,7 @@ const GROUPS: { id: ActionGroup; title: string }[] = [
 
 /** What the same action is on a phone. Every action needs an entry (the compiler checks). */
 export const PHONE_CONTROLS: Record<ActionId, string> = {
-  thrust: 'Stick',
+  thrust: 'Stick (or THR in classic steering)',
   turnLeft: 'Stick',
   turnRight: 'Stick',
   reverse: 'Stick',
@@ -32,11 +32,11 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   firePrimary: 'FIRE',
   fireSecondary: 'MSL',
   nextTarget: 'TGT',
-  nearestHostile: 'TGT',
-  faceTarget: 'Stick (point to steer)',
-  land: 'Bottom button, or tap the planet',
-  jump: 'Bottom button',
-  autopilot: 'Bottom button',
+  nearestHostile: 'None on phone',
+  faceTarget: 'None on phone',
+  land: 'LAND ON (planet) button, or tap the planet',
+  jump: 'JUMP TO (system) button',
+  autopilot: 'AUTOPILOT TO JUMP POINT button; TAKE CONTROL stops it',
   map: 'Tap the radar, or PLOT COURSE',
   flightMissionLog: 'Pause (II), then Mission Log',
   pause: 'II button',
@@ -53,12 +53,17 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   menuHowToPlay: 'Tap the button',
 };
 
+/** Actions the game accepts and binds but that do nothing yet (no combat in this version). */
+export const COMING_SOON: readonly ActionId[] = ['firePrimary', 'fireSecondary', 'nearestHostile'];
+
 export interface ControlRow {
   action: ActionId;
   label: string;
   /** Friendly names of the bound keys (both slots, empty ones left out). */
   keys: string[];
   phone: string;
+  /** True when the action does nothing yet. */
+  soon: boolean;
 }
 
 /** The Controls tab's rows, from the action list and the current bindings. */
@@ -70,6 +75,7 @@ export function controlRows(bindings: Bindings): { title: string; rows: ControlR
       label: ACTION_LABEL[id],
       keys: bindings[id].filter((c): c is string => c !== null).map(keyName),
       phone: PHONE_CONTROLS[id],
+      soon: COMING_SOON.includes(id),
     })),
   }));
 }
@@ -83,8 +89,9 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
     case 'flying':
       return [
         { heading: 'Steer and brake', text: `Up thrusts, Left and Right turn, Down reverses. ${k('autoStop')} turns you around and brakes to a stop. On a phone, push the stick to fly and tap STOP to brake.` },
-        { heading: 'Weapons and targets', text: `${k('firePrimary')} fires your main weapon and ${k('fireSecondary')} your missile. ${k('nextTarget')} picks the next target, ${k('nearestHostile')} the nearest hostile, ${k('faceTarget')} turns you to face it.` },
-        { heading: 'Landing', text: `Target a planet or station, fly close, slow right down, then press ${k('land')}. On a phone, tap the planet or the bottom button.` },
+        { heading: 'Targets', text: `${k('nextTarget')} picks the next planet or station to target and ${k('faceTarget')} turns you to face it. ${k('autopilot')} flies to the targeted planet, or out to the jump point when nothing is targeted; press it again, or any steering key, to take over.` },
+        { heading: 'Weapons', text: 'Weapons and combat arrive in a later update. The fire keys are bindable already but do nothing yet.' },
+        { heading: 'Landing', text: `Target a planet or station, fly close, slow right down, then press ${k('land')}. On a phone, tap the planet or the LAND ON button.` },
         { heading: 'Pause', text: `${k('pause')} pauses the game and opens the pause menu, where you can save, change settings or quit.` },
       ];
     case 'trade':
@@ -98,15 +105,15 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
       return [
         { heading: 'Taking a job', text: `The Mission Computer (${k('openMissions')}) lists jobs posted at the port: deliveries, rush deliveries, passenger trips and garbage runs. Each shows its destination, pay and any deadline. You can hold up to 8 jobs; cargo and passengers use your hold and berths.` },
         { heading: 'Getting paid', text: 'Land at the destination port before the deadline. Most jobs pay on landing; some pay an advance up front. A job that runs past its deadline fails.' },
-        { heading: 'Mission Log', text: `The Mission Log (${k('missionLog')} on a planet, ${k('flightMissionLog')} in flight) lists your active jobs and shows them on the star map.` },
+        { heading: 'Mission Log', text: `The Mission Log (${k('missionLog')} on a planet, ${k('flightMissionLog')} in flight) lists your active jobs. Show on map marks a job's destination on the star map.` },
         { heading: 'Abandoning', text: 'You can give up a job from the log. Nothing is paid and the cargo is freed. If it paid an advance, the advance is taken back, so you need enough credits to return it.' },
       ];
     case 'travel':
       return [
-        { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses 100 fuel and takes one day. The shuttle's tank holds three jumps' worth. ${k('autopilot')} flies you out to the jump point.` },
+        { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses 100 fuel and takes one day. The shuttle's tank holds three jumps' worth. With nothing targeted, ${k('autopilot')} flies you out to the jump point.` },
         { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE or the radar.` },
         { heading: 'Refuelling', text: `Ports with a fuel pump let you refuel (${k('refuel')}); fuel is charged per unit. Check your fuel before you leave, since not every port sells it.` },
-        { heading: 'Stranded?', text: 'With less than one jump of fuel and no fuel for sale in the system, you can call a tow from the pause menu or the bottom button. It costs 500 cr, which can leave you in debt. The tow takes you to the nearest port with fuel, uses days on the way, and jobs that pass their deadline fail.' },
+        { heading: 'Stranded?', text: 'With less than one jump of fuel and no fuel for sale in the system, you can call a tow from the pause menu or the CALL TOW button. It costs 500 cr, which can leave you in debt. The tow takes you to the nearest port with fuel, uses days on the way, and jobs that pass their deadline fail.' },
       ];
   }
 }
@@ -125,7 +132,7 @@ function controlsPanel(bindings: Bindings): HTMLElement {
         ]),
         ...g.rows.map((r) =>
           el('div', { class: 'sw-htp-row', attrs: { 'data-action': r.action } }, [
-            el('span', { class: 'sw-htp-action', text: r.label }),
+            el('span', { class: 'sw-htp-action', text: r.soon ? `${r.label} (coming soon)` : r.label }),
             el('span', { class: 'sw-htp-keys', attrs: { 'data-testid': `keys-${r.action}` }, text: r.keys.length ? r.keys.join(' / ') : 'Unbound' }),
             el('span', { class: 'sw-htp-phone', text: r.phone }),
           ]),
@@ -144,7 +151,7 @@ function textPanel(blocks: Block[]): HTMLElement {
 }
 
 /** Replay first flight: restarts the guide for the loaded pilot (step 1 here if landed, else the flight steps). */
-function replay(ctx: UiContext): { button: HTMLButtonElement; note: HTMLElement } {
+function replay(ctx: UiContext, seeIt: string): { button: HTMLButtonElement; note: HTMLElement } {
   const note = el('p', { class: 'sw-reason', attrs: { 'aria-live': 'polite' } });
   const enabled = !!ctx.controller.guide;
   const btn = button(
@@ -152,7 +159,7 @@ function replay(ctx: UiContext): { button: HTMLButtonElement; note: HTMLElement 
     () => {
       const g = ctx.controller.guide;
       note.textContent = g?.restart()
-        ? `The guide starts again at step ${g.current()?.step ?? 1}. Close this screen to see it.`
+        ? `The guide starts again at step ${g.current()?.step ?? 1}. ${seeIt}`
         : 'The guide has no trade to show from here.';
     },
     { disabled: !enabled },
@@ -188,7 +195,8 @@ export function showHowToPlay(ctx: UiContext, opts: { onClose: () => void; tab?:
   };
   paint();
 
-  const r = replay(ctx);
+  // Where Back leads: a planet screen when landed, the pause menu or main menu otherwise.
+  const r = replay(ctx, ctx.controller.landedPlanetId ? 'Go back to the planet to see it.' : 'Resume flight to see it.');
   const screen = el('div', { class: 'sw-screen sw-overlay', attrs: { 'data-testid': 'how-to-play' } }, [
     el('div', { class: 'sw-panel sw-menu sw-menu-wide sw-settings sw-htp' }, [
       el('h1', { class: 'sw-title', text: 'How to Play' }),
