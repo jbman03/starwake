@@ -77,6 +77,7 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     seen: map.seen,
     pressure: {},
     events: [],
+    takenOffers: [],
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
 }
@@ -92,6 +93,8 @@ export function advanceDays(world: WorldState, data: GameData, n: number): { wor
   for (let i = 0; i < n; i++) {
     w = { ...w, day: w.day + 1 };
     w = economyDay(w, data);
+    const day = w.day;
+    w = { ...w, takenOffers: w.takenOffers.filter((id) => Number(id.split(':').slice(-2)[0]) >= day) };
     const overdue = failOverdue(w);
     w = overdue.world;
     for (const m of overdue.failed) {

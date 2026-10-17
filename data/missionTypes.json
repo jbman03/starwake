@@ -2,7 +2,7 @@
   { "id": "ferry", "name": "Ferry passengers", "hops": [1, 4], "tons": [0, 0], "passengers": [1, 4], "deadline": { "perHop": 3, "plus": 0 },
     "basePay": 600, "perHop": 900, "perTon": 0, "perPassenger": 400, "urgency": 1.0, "paidUpfront": false, "toDumpSite": false,
     "titleTemplate": "Passage to {dest}",
-    "textTemplate": "{pax} travelers with patched coats and good manners ask to be taken to {dest} in the {system} system within {days} days. They offer {pay} credits." },
+    "textTemplate": "A party of {pax}, patched coats and good manners, asks to be taken to {dest} in the {system} system within {days} days. They offer {pay} credits." },
   { "id": "rush", "name": "Rush delivery", "hops": [1, 2], "tons": [1, 5], "passengers": [0, 0], "deadline": { "perHop": 1, "plus": 1 },
     "basePay": 400, "perHop": 500, "perTon": 300, "perPassenger": 0, "urgency": 1.5, "paidUpfront": false, "toDumpSite": false,
     "titleTemplate": "Rush: {cargo} to {dest}",

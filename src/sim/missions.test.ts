@@ -157,6 +157,38 @@ describe('canAccept / accept', () => {
   });
 });
 
+describe('taken offers', () => {
+  it('stays hidden and unacceptable after accept then abandon on the same day', () => {
+    const w = at(2);
+    const o = offersAt(w, data, home.id)[0];
+    const once = accept(w, data, o);
+    const back = abandon(once, o.offerId);
+    expect(offersAt(back, data, home.id).map((x) => x.offerId)).not.toContain(o.offerId);
+    const again = accept(back, data, o);
+    expect(again.missions).toEqual([]);
+    expect(again.credits).toBe(back.credits);
+  });
+
+  it('keeps the offer of a completed mission hidden', () => {
+    const w = at(2);
+    const o = offersAt(w, data, home.id)[0];
+    const done = completeAt(accept(w, data, o), o.destId).world;
+    expect(done.missions).toEqual([]);
+    expect(offersAt(done, data, home.id).map((x) => x.offerId)).not.toContain(o.offerId);
+  });
+
+  it('prunes entries from earlier days when the day advances', () => {
+    const w = { ...at(2), takenOffers: ['p:1:0', 'p:2:3', 'p:3:1', 'a:b:2:4'] };
+    expect(advanceDays(w, data, 1).world.takenOffers).toEqual(['p:3:1']);
+  });
+
+  it('reads ferry text for one passenger without "1 travelers"', () => {
+    const f = sweep(40).map((s) => s.offer).find((o) => o.typeId === 'ferry' && o.passengers === 1)!;
+    expect(f.description).toContain('A party of 1,');
+    expect(f.description).not.toContain('1 travelers');
+  });
+});
+
 describe('completeAt / failOverdue / abandon', () => {
   it('completes every mission to the port, sums pay, keeps trade goods', () => {
     const base = withMissions(

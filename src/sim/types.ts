@@ -66,6 +66,8 @@ export interface WorldState {
   /** Market pressure by "port:commodity"; an absent key means 1. */
   pressure: Record<string, number>;
   events: MarketEvent[];
+  /** Offer ids already accepted, so a taken job cannot be taken again the same day. */
+  takenOffers: string[];
 }
 
 export type SimEvent =

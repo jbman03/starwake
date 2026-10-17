@@ -102,7 +102,7 @@ export function offersAt(world: WorldState, data: GameData, portId: string): Mis
     if (!made) break; // no type has a destination from here
     offers.push(made);
   }
-  const taken = new Set(world.missions.map((m) => m.id));
+  const taken = new Set([...world.missions.map((m) => m.id), ...world.takenOffers]);
   return offers.filter((o) => !taken.has(o.offerId));
 }
 
@@ -115,13 +115,14 @@ export function canAccept(world: WorldState, data: GameData, offer: MissionOffer
 
 /** Take the job: reserves hold space and berths; pays now when the job is paid up front. */
 export function accept(world: WorldState, data: GameData, offer: MissionOffer): WorldState {
-  if (world.missions.some((m) => m.id === offer.offerId)) return world;
+  if (world.takenOffers.includes(offer.offerId) || world.missions.some((m) => m.id === offer.offerId)) return world;
   if (!canAccept(world, data, offer).ok) return world;
   const { offerId, ...rest } = offer;
   return {
     ...world,
     credits: world.credits + (offer.paidUpfront ? offer.pay : 0),
     missions: [...world.missions, { id: offerId, ...rest }],
+    takenOffers: [...world.takenOffers, offerId],
   };
 }
 
