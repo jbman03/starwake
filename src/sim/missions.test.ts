@@ -35,6 +35,16 @@ const offer = (over: Partial<MissionOffer> = {}): MissionOffer => ({
   paidUpfront: false, deadlineDay: null, title: 'T', description: '', cargoName: 'x', ...over,
 });
 
+describe('offer text', () => {
+  it('writes pay with a thousands separator, as the UI does', () => {
+    const big = sweep().filter(({ offer }) => offer.pay >= 1000 && offer.description.includes('credits'));
+    expect(big.length).toBeGreaterThan(0);
+    for (const { offer } of big) {
+      expect(offer.description).toContain(`${offer.pay.toLocaleString('en-US')} credits`);
+    }
+  });
+});
+
 describe('offersAt', () => {
   it('is deterministic per seed, port and day, and differs the next day', () => {
     const a = offersAt(at(3), data, home.id);
@@ -107,7 +117,7 @@ describe('offersAt', () => {
         expect(o.deadlineDay).toBe(t.deadline ? 5 + t.deadline.perHop * hops + t.deadline.plus : null);
         expect(o.title).not.toMatch(/[{}]/);
         expect(o.description).not.toMatch(/[{}]/);
-        expect(o.description).toContain(String(o.pay));
+        expect(o.description).toContain(o.pay.toLocaleString('en-US'));
         expect(o.title).toContain(data.planets[o.destId].name);
       }
     }

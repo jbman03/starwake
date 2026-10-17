@@ -59,9 +59,7 @@ export function showPauseMenu(ctx: UiContext): void {
           controller.callTow();
         })
       : null,
-    button('Mission Log', () => showMissionLog(ctx, () => showPauseMenu(ctx)), {
-      hotkey: hotkeyFor(controller.settings.bindings, 'flightMissionLog'),
-    }),
+    button('Mission Log', () => showMissionLog(ctx, () => showPauseMenu(ctx))),
     button('Settings', () => showSettings(ctx, { mode: ctx.inputMode.mode, onClose: () => showPauseMenu(ctx) })),
     button('Export pilot', exportCurrent),
     button('Quit to main menu', () => void quit(), { class: 'sw-btn-danger' }),

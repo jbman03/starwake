@@ -79,7 +79,7 @@ export function offersAt(world: WorldState, data: GameData, portId: string): Mis
         dest: target.name,
         system: data.systems[target.systemId].name,
         cargo: cargoName,
-        pay,
+        pay: pay.toLocaleString('en-US'),
         tons,
         pax: passengers,
         days: days ?? '',

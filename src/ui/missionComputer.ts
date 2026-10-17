@@ -3,7 +3,7 @@ import { berthsFree, cargoFree } from '../sim/cargo';
 import { rumor } from '../sim/economy';
 import { canAccept, MAX_MISSIONS, type MissionOffer } from '../sim/missions';
 import type { UiContext } from './context';
-import { button, el, formatCredits, hotkeyFor } from './dom';
+import { button, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
 import { ACCEPT_REASON, deadlineText, destinationText, loadText, payText } from './missionText';
 
 /**
@@ -122,6 +122,7 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
   // Arrows belong to the flight group, which the UI poll doesn't read: handle them here. Enter on
   // a focused button belongs to that button (it also fires a click).
   const onKey = (e: KeyboardEvent) => {
+    if (dialogOpen()) return; // keys belong to the dialog
     if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
       e.preventDefault();
       move(e.code === 'ArrowUp' ? -1 : 1);

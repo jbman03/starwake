@@ -202,6 +202,23 @@ describe('mission log', () => {
   });
 });
 
+describe('pause menu and dialogs', () => {
+  it('the pause menu Mission Log button has no hotkey chip (the pause menu does not handle K)', async () => {
+    const { ctx, btn } = await setup();
+    showPauseMenu(ctx);
+    expect(btn('Mission Log').querySelector('.sw-key')).toBeNull();
+  });
+
+  it('arrows do not move the log selection behind the Abandon dialog', async () => {
+    const { ctx, root, btn, rows } = await setup((w) => ({ ...w, missions: [job(), job({ id: 'j2', title: 'Second job' })] }));
+    showMissionLog(ctx, () => {});
+    btn('Abandon').click();
+    expect(root.querySelector('.sw-dialog')).toBeTruthy();
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown' }));
+    expect(rows()[0].getAttribute('aria-selected')).toBe('true');
+  });
+});
+
 describe('completion dialog', () => {
   it('lists each completed mission and the total paid when the planet screen opens after a landing', async () => {
     const m1 = job({ id: 'a', destId: 'halcyon', title: 'Deliver rations to Halcyon', pay: 700 });

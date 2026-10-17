@@ -1,7 +1,7 @@
 import { formatDate } from '../sim/calendar';
 import { MAX_MISSIONS } from '../sim/missions';
 import type { UiContext } from './context';
-import { button, confirmDialog, el, hotkeyFor } from './dom';
+import { button, confirmDialog, dialogOpen, el, hotkeyFor } from './dom';
 import { deadlineText, destinationText, loadText, payText } from './missionText';
 
 /**
@@ -118,6 +118,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
   ]);
 
   const onKey = (e: KeyboardEvent) => {
+    if (dialogOpen()) return; // keys belong to the dialog
     if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown') return;
     e.preventDefault();
     move(e.code === 'ArrowUp' ? -1 : 1);
