@@ -70,8 +70,17 @@ test.describe('desktop', () => {
 
     // Autopilot out and jump, once per hop.
     while ((await page.evaluate(() => window.__starwake!.world().route.length)) > 0) {
+      const pos0 = await page.evaluate(() => ({ ...window.__starwake!.world().ship.pos }));
       await page.keyboard.press('KeyG');
-      await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'autopilot');
+      // The ship must actually start moving (a fast autopilot state can't be missed this way).
+      await page.waitForFunction(
+        (p) => {
+          const q = window.__starwake!.world().ship.pos;
+          return Math.hypot(q.x - p.x, q.y - p.y) > 5;
+        },
+        pos0,
+        { timeout: 10_000 },
+      );
       await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'none', null, { timeout: 30_000 });
       const day = await page.evaluate(() => window.__starwake!.world().day);
       await page.keyboard.press('KeyJ');
@@ -79,9 +88,18 @@ test.describe('desktop', () => {
     }
     expect(await page.evaluate(() => window.__starwake!.world().systemId)).toBe(systemId);
 
-    // Land at the port and sell everything.
-    await page.evaluate((id) => window.__starwake!.controller.tapPlanet(id, 'touch'), portId);
+    // Land with the real controls: Tab to the port, then L autopilots in and lands.
+    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    for (let i = 0; i < 12 && (await page.evaluate(() => window.__starwake!.world().targetPlanetId)) !== portId; i++) {
+      await page.keyboard.press('Tab');
+      await page.waitForTimeout(50);
+    }
+    expect(await page.evaluate(() => window.__starwake!.world().targetPlanetId)).toBe(portId);
+    await page.keyboard.press('KeyL');
     await expect(page.getByTestId('planet-screen')).toBeVisible({ timeout: 40_000 });
+    await expect(page.getByTestId('planet-screen')).toContainText(
+      await page.evaluate((id) => window.__starwake!.data.planets[id].name, portId),
+    );
     await page.keyboard.press('KeyC');
     await expect(ex).toBeVisible();
     await ex.locator(`[data-good="${good}"]`).click();
@@ -90,6 +108,7 @@ test.describe('desktop', () => {
 
     const w = await page.evaluate(() => window.__starwake!.world());
     expect(w.cargo).toEqual({});
+    expect(w.credits).toBeGreaterThan(credits1); // the gain comes from the sale
     expect(w.credits).toBeGreaterThan(credits0); // no refuelling happened, so no fuel spend to subtract
     expect(errors).toEqual([]);
   });
