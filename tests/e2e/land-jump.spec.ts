@@ -39,7 +39,7 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   await expect(planet).toBeHidden();
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);
   expect(await page.evaluate(() => window.__starwake!.world().targetPlanetId)).toBeNull();
-  expect(await page.evaluate(() => window.__starwake!.controller.plotRoute('vesk'))).toBe(true);
+  expect(await page.evaluate(() => window.__starwake!.controller.plotRoute('vesk').ok)).toBe(true);
   await page.waitForTimeout(100);
   await page.keyboard.press('KeyG');
   await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'autopilot');

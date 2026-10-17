@@ -362,7 +362,7 @@ describe('Controller.plotRoute', () => {
     c.startFlight();
     c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 2100, y: 0 }, vel: { x: 0, y: 0 } } };
     expect(c.currentContext()).toBeNull();
-    expect(c.plotRoute('vesk')).toBe(true);
+    expect(c.plotRoute('vesk')).toEqual({ ok: true });
     expect(c.world.route).toEqual(['vesk']);
     expect(c.currentContext()).toBe('jump');
   });
@@ -370,7 +370,7 @@ describe('Controller.plotRoute', () => {
   it('refuses an uncharted system and keeps the old course', async () => {
     const { c } = await setup();
     c.plotRoute('vesk');
-    expect(c.plotRoute('skerry')).toBe(false);
+    expect(c.plotRoute('skerry')).toEqual({ ok: false, reason: 'noRoute' });
     expect(c.world.route).toEqual(['vesk']);
   });
 });
@@ -392,5 +392,75 @@ describe('Controller flight events and input release', () => {
     c.touch.press('thrust');
     c.releaseInputs();
     expect(c.touch.poll('flight').actions.size).toBe(0);
+  });
+});
+
+describe('Controller trade, missions and routes', () => {
+  const deliver = (over = {}) => ({
+    offerId: 'o1', typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 1, passengers: 0, pay: 700,
+    paidUpfront: false, deadlineDay: null, title: 'T', description: '', cargoName: 'crates', ...over,
+  });
+
+  it('buy/sell update the world only when landed', async () => {
+    const { c } = await setup();
+    const before = c.world;
+    expect(c.buy('food', 10)).toMatchObject({ tons: 0, reason: 'notTraded' });
+    expect(c.sell('food', 10)).toMatchObject({ tons: 0, reason: 'notTraded' });
+    expect(c.offers()).toEqual([]);
+    expect(c.world).toBe(before);
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    const b = c.buy('food', 10);
+    expect(b.tons).toBeGreaterThan(0);
+    expect(c.world.cargo.food).toBe(b.tons);
+    expect(c.world.credits).toBe(before.credits - b.cost);
+    const s = c.sell('food', b.tons);
+    expect(s.tons).toBe(b.tons);
+    expect(c.world.cargo.food ?? 0).toBe(0);
+  });
+
+  it('acceptMission uses current offers and reports a failed check', async () => {
+    const { c } = await setup();
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    const offers = c.offers();
+    expect(offers.length).toBeGreaterThanOrEqual(3);
+    expect(c.acceptMission('nope')).toMatchObject({ ok: false });
+    c.world = { ...c.world, missions: Array.from({ length: 8 }, (_, i) => ({ ...deliver(), id: `x${i}` })) };
+    expect(c.acceptMission(offers[0].offerId)).toEqual({ ok: false, reason: 'tooMany' });
+    c.world = { ...c.world, missions: [] };
+    expect(c.acceptMission(offers[0].offerId)).toEqual({ ok: true });
+    expect(c.world.missions).toHaveLength(1);
+    c.abandonMission(offers[0].offerId);
+    expect(c.world.missions).toHaveLength(0);
+  });
+
+  it('landing at the destination emits missionsCompleted before the autosave, and the save has the pay', async () => {
+    const { c } = await setup();
+    const order: string[] = [];
+    const saved: PilotSave[] = [];
+    c.store = { save: async (p) => void (order.push('save'), saved.push(p)) };
+    c.on('missionsCompleted', () => order.push('completed'));
+    const done: { missions: unknown[]; pay: number }[] = [];
+    c.on('missionsCompleted', (e) => done.push(e));
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    const credits = c.world.credits;
+    c.world = { ...c.world, missions: [{ ...deliver(), id: 'j1' }] };
+    c.leavePlanet();
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { ...c.data.planets.halcyon.pos }, vel: { x: 0, y: 0 } } };
+    // A tow lands at the nearest port; fly to merrow via the same landAt path.
+    (c as unknown as { landAt(id: string): void }).landAt('merrow');
+    await c.lastSave;
+    expect(order).toEqual(['completed', 'save']);
+    expect(done[0].pay).toBe(700);
+    expect(c.world.missions).toHaveLength(0);
+    expect(saved[0].credits).toBe(credits + 700);
+    expect(saved[0].missions).toEqual([]);
+  });
+
+  it('plotRoute returns the setRoute result; clearRoute empties the course', async () => {
+    const { c } = await setup();
+    expect(c.plotRoute('vesk')).toEqual({ ok: true });
+    expect(c.world.route).toEqual(['vesk']);
+    c.clearRoute();
+    expect(c.world.route).toEqual([]);
   });
 });

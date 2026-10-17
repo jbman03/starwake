@@ -5,9 +5,11 @@ import { TouchSource } from '../input/touch';
 import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import type { Settings } from '../save/settings';
 import { contextAction, type ContextAction } from '../sim/context';
+import { buy, sell, type BuyResult, type SellResult } from '../sim/cargo';
+import { abandon, accept, canAccept, completeAt, offersAt, type AcceptCheck, type MissionOffer } from '../sim/missions';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { FixedStepper } from '../sim/stepper';
-import type { FrameInput, ShipState, SimEvent, WorldState } from '../sim/types';
+import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
 import {
   applyRefuel,
   applyTow,
@@ -23,6 +25,8 @@ export type ControllerEvent =
   | SimEvent
   | { type: 'contextChanged'; action: ContextAction }
   /** A flight key asked for a menu; flight is already paused. */
+  /** Jobs finished by the landing that just happened; emitted before the autosave. */
+  | { type: 'missionsCompleted'; missions: Mission[]; pay: number }
   | { type: 'menu'; action: 'pause' | 'map' }
   /** Flight started or stopped (planet screen, menus, pause). */
   | { type: 'flying'; flying: boolean }
@@ -253,12 +257,51 @@ export class Controller {
     return true;
   }
 
-  /** Plot a course to a known or seen system (works landed or in flight). False if there's no route. */
-  plotRoute(systemId: string): boolean {
+  /** Plot a course to a known or seen system (works landed or in flight). `ok` is false if there's no route. */
+  plotRoute(systemId: string): { ok: boolean; reason?: 'noRoute' } {
     const r = setRoute(this.world, this.data, systemId);
     this.world = r.world;
     this.checkContext();
-    return r.ok;
+    return r.ok ? { ok: true } : { ok: false, reason: r.reason };
+  }
+
+  clearRoute(): void {
+    this.world = { ...this.world, route: [] };
+    this.checkContext();
+  }
+
+  // ---- trade and jobs (landed only; none of these save) -------------------
+
+  buy(commodityId: string, tons: number): BuyResult {
+    if (!this.landedPlanetId) return { world: this.world, tons: 0, cost: 0, reason: 'notTraded' };
+    const r = buy(this.world, this.data, this.landedPlanetId, commodityId, tons);
+    this.world = r.world;
+    return r;
+  }
+
+  sell(commodityId: string, tons: number): SellResult {
+    if (!this.landedPlanetId) return { world: this.world, tons: 0, revenue: 0, reason: 'notTraded' };
+    const r = sell(this.world, this.data, this.landedPlanetId, commodityId, tons);
+    this.world = r.world;
+    return r;
+  }
+
+  /** Today's jobs at the planet we're landed on; none when not landed. */
+  offers(): MissionOffer[] {
+    return this.landedPlanetId ? offersAt(this.world, this.data, this.landedPlanetId) : [];
+  }
+
+  acceptMission(offerId: string): AcceptCheck | { ok: false; reason: 'gone' } {
+    const offer = this.offers().find((o) => o.offerId === offerId);
+    if (!offer) return { ok: false, reason: 'gone' };
+    const check = canAccept(this.world, this.data, offer);
+    if (!check.ok) return check;
+    this.world = accept(this.world, this.data, offer);
+    return { ok: true };
+  }
+
+  abandonMission(id: string): void {
+    this.world = abandon(this.world, id);
   }
 
   selectPlanet(id: string | null): void {
@@ -335,6 +378,12 @@ export class Controller {
     this.lastPlanetId = planetId;
     this.prevShip = this.world.ship;
     this.alpha = 0;
+    // Pay lands in the world first so the autosave below includes it.
+    const done = completeAt(this.world, planetId);
+    if (done.completed.length > 0) {
+      this.world = done.world;
+      this.emit({ type: 'missionsCompleted', missions: done.completed, pay: done.pay });
+    }
     if (autosave) this.autosave();
   }
 
