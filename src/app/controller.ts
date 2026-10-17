@@ -383,9 +383,10 @@ export class Controller {
         actions: new Set([...keys.actions, ...touch.actions]),
         pressed: new Set([...keys.pressed, ...touch.pressed]),
       };
+      // No star map in hyperspace: the course can't change mid-jump, so the press is ignored.
       const menu = polled.pressed.has('pause')
         ? 'pause'
-        : polled.pressed.has('map')
+        : polled.pressed.has('map') && !this.world.jump
           ? 'map'
           : polled.pressed.has('flightMissionLog')
             ? 'missionLog'

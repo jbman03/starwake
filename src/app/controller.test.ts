@@ -83,6 +83,17 @@ describe('Controller', () => {
     expect(events.at(-1)).toEqual({ type: 'contextChanged', action: null });
   });
 
+  it('the map key is ignored during a jump', async () => {
+    const { c, target, events } = await setup();
+    c.startFlight();
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 0 } };
+    target.dispatchEvent(keyEvent('keydown', 'KeyM'));
+    c.update(1 / 60);
+    expect(c.isFlying).toBe(true);
+    expect(events.some((e) => e.type === 'menu')).toBe(false);
+    expect(c.world.jump).not.toBeNull();
+  });
+
   it('Tab moves focus in menus but is kept by the game while flying', async () => {
     const { c, target } = await setup();
     const tab = () => {
@@ -467,11 +478,10 @@ describe('Controller trade, missions and routes', () => {
   });
 
   it('acceptMission uses current offers and reports a failed check', async () => {
-    const { c } = await setup();
-    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    const { c, data } = await setup();
+    c.beginSession(newWorld(data, 1), { id: 'p1', name: 'Ava' }, 'halcyon'); // fixed seed: same offers every run
     const offers = c.offers();
     expect(offers.length).toBeGreaterThanOrEqual(3);
-    // The world seed is random, so pick an offer the empty shuttle can always take.
     const pick = offers.find((o) => canAccept(c.world, c.data, o).ok)!;
     expect(pick).toBeDefined();
     expect(c.acceptMission('nope')).toMatchObject({ ok: false });

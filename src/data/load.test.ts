@@ -132,6 +132,14 @@ describe('game data', () => {
     expect(failure(r).issues).toContain('events.json → bumper-harvest.commodity: unknown commodity "spice"');
   });
 
+  it('event days must be positive whole numbers', () => {
+    for (const days of [[0, 4], [2.5, 4], [3, 4.5], [-1, 2]]) {
+      const r = raw();
+      r.events[0].days = days;
+      expect(failure(r).issues.some((i) => i.startsWith('events.json → bumper-harvest.days')), JSON.stringify(days)).toBe(true);
+    }
+  });
+
   it('unknown knownAtStart system fails', () => {
     const r = raw();
     r.config.knownAtStart = ['ghost'];

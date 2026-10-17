@@ -66,7 +66,10 @@ export const EventSchema = z.object({
   commodity: id,
   effect: z.enum(['surplus', 'shortage']),
   strength: z.number().positive(),
-  days: range,
+  /** Event length is drawn with randInt, so whole days only, at least 1. */
+  days: z
+    .tuple([z.number().int().positive(), z.number().int().positive()])
+    .refine(([a, b]) => a <= b, { message: 'expected [min, max] with min <= max' }),
 });
 
 export const MissionTypeSchema = z.object({
