@@ -3,6 +3,7 @@ import { autopilotInput, autoStopInput, faceInput, reverseInput } from './assist
 import { stepShip } from './flight';
 import { economyDay } from './economy';
 import { hopDistance, revealOnArrival, routeBetween } from './galaxy';
+import { failOverdue } from './missions';
 import { hashString } from './random';
 import {
   canJump,
@@ -91,7 +92,11 @@ export function advanceDays(world: WorldState, data: GameData, n: number): { wor
   for (let i = 0; i < n; i++) {
     w = { ...w, day: w.day + 1 };
     w = economyDay(w, data);
-    // Mission deadlines go here.
+    const overdue = failOverdue(w);
+    w = overdue.world;
+    for (const m of overdue.failed) {
+      events.push({ type: 'message', text: `Mission failed: ${m.title} — the deadline passed.` });
+    }
   }
   return { world: w, events };
 }
