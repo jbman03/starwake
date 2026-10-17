@@ -35,6 +35,15 @@ export interface StepDef {
 }
 
 export const FLY_DISTANCE = 300;
+/**
+ * Longest touch hint (steps 1–10), in characters, so it wraps to at most 3 lines in the phone
+ * rail. Measured once in Chromium: the rail's text column is 98 px of 11 px Trebuchet MS
+ * (14 px lines); "To Cinderfall: fly clear, tap Jump. Repeat." (43 chars, the longest system
+ * name) fills exactly 3 lines, and 53-char hint sentences need 4. Names in data are mixed-case
+ * words, so ordinary text averages ~5.5 px a character; all-caps would need a lower cap.
+ * The final card (step 11) is never shown in the rail.
+ */
+export const TOUCH_HINT_MAX_CHARS = 44;
 export const BUY_TONS = 10;
 
 const goodName = (c: TextCtx): string => c.data.commodities[c.target.good]?.name ?? c.target.good;
@@ -48,14 +57,16 @@ export const STEPS: readonly StepDef[] = [
   {
     id: 'open-exchange',
     text: (c) =>
-      `Welcome to ${c.planetName ?? 'Starwake'}. Open the Commodity Exchange${touch(c) ? '.' : ` (${c.key('openExchange')}).`}`,
+      touch(c)
+        ? 'Welcome! Tap Commodity Exchange.'
+        : `Welcome to ${c.planetName ?? 'Starwake'}. Open the Commodity Exchange (${c.key('openExchange')}).`,
     done: (s) => s.screen === 'exchange',
   },
   {
     id: 'buy',
     text: (c) =>
       touch(c)
-        ? `${goodName(c)} is Low here. Tap Buy to load ${BUY_TONS} t.`
+        ? `Buy ${BUY_TONS} t of ${goodName(c)}: Low here.`
         : `${goodName(c)} is Low here. Buy ${BUY_TONS} t (${c.key('buyGoods')}).`,
     done: (s, t) => held(s, t) >= BUY_TONS,
   },
@@ -63,14 +74,16 @@ export const STEPS: readonly StepDef[] = [
     id: 'open-missions',
     text: (c) =>
       touch(c)
-        ? 'Close the exchange and open the Mission Computer.'
+        ? 'Tap Done, then Mission Computer.'
         : `Close the exchange (${c.key('back')}) and open the Mission Computer (${c.key('openMissions')}).`,
     done: (s) => s.screen === 'missions',
   },
   {
     id: 'close-missions',
     text: (c) =>
-      `Jobs pay when you land at their destination. Accept one if you like, then close${touch(c) ? '.' : ` (${c.key('back')}).`}`,
+      touch(c)
+        ? 'Jobs pay on arrival. Take one, or tap Done.'
+        : `Jobs pay when you land at their destination. Accept one if you like, then close (${c.key('back')}).`,
     done: (s) => s.screen !== 'missions',
   },
   {
@@ -89,9 +102,9 @@ export const STEPS: readonly StepDef[] = [
   {
     id: 'plot-course',
     text: (c) =>
-      `${
-        touch(c) ? 'Tap the radar or PLOT COURSE' : `Open the Star Map (${c.key('map')})`
-      } and set a course to ${systemName(c)} — ${goodName(c)} sells High there.`,
+      touch(c)
+        ? `Tap the radar. Set course to ${systemName(c)}.`
+        : `Open the Star Map (${c.key('map')}) and set a course to ${systemName(c)} — ${goodName(c)} sells High there.`,
     // Already in the system counts: a course is moot once you are there.
     done: (s, t) =>
       s.world.route[s.world.route.length - 1] === t.system || (s.world.systemId === t.system && !s.world.jump),
@@ -100,7 +113,7 @@ export const STEPS: readonly StepDef[] = [
     id: 'jump',
     text: (c) =>
       touch(c)
-        ? `Fly clear of the star, then use the bottom button to Jump. Repeat until you arrive in ${systemName(c)}.`
+        ? `To ${systemName(c)}: fly clear, tap Jump. Repeat.`
         : `Fly clear of the star (${c.key('autopilot')} autopilot) and Jump (${c.key('jump')}). Repeat until you arrive in ${systemName(c)}.`,
     done: (s, t) => s.world.systemId === t.system && !s.world.jump,
   },
@@ -115,10 +128,12 @@ export const STEPS: readonly StepDef[] = [
   {
     id: 'sell',
     text: (c) =>
-      c.fallback
+      touch(c)
+        ? c.fallback
+          ? `Exchange: ${goodName(c)} sells High.`
+          : `Exchange: Sell all ${goodName(c)}.`
+        : c.fallback
         ? `Open the exchange at ${portName(c)} and check the prices: ${goodName(c)} sells High here.`
-        : touch(c)
-        ? `Open the exchange and Sell all your ${goodName(c)}.`
         : `Open the exchange (${c.key('openExchange')}) and Sell all your ${goodName(c)}.`,
     // Without a purchase there is nothing to sell: opening the exchange here is the lesson.
     done: (s, t, p) => (p.fallback ? s.screen === 'exchange' && s.landedPlanetId === t.port : held(s, t) === 0),

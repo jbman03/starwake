@@ -7,6 +7,7 @@ import { pointerTypeOf } from '../input/pointer';
 import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { JUMP_DURATION } from '../sim/world';
+import { skipLabel } from '../guide/guide';
 import { Hud, type HudGuide } from './hud';
 import {
   makePlanetTexture,
@@ -176,7 +177,7 @@ export class SpaceScene extends Phaser.Scene {
     const guide = this.controller.guide;
     const c = guide?.current();
     if (!c) return null;
-    return { text: c.text, skip: c.step === c.total ? 'Dismiss' : 'Skip guide' };
+    return { text: c.text, skip: skipLabel(c) };
   }
 
   private drawBracket(targetId: string | null): void {

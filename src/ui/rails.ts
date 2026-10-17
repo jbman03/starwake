@@ -10,7 +10,7 @@ import type { ContextAction } from '../sim/context';
 import { jumpDestination, pickLandTarget } from '../sim/rules';
 import type { WorldState } from '../sim/types';
 import { el } from './dom';
-import { skipLabel } from './guideHint';
+import { isFinalStep, skipLabel } from '../guide/guide';
 
 /** Opacity of Fire, Missile and the stick while the autopilot flies. */
 export const AUTOPILOT_DIM = 0.2;
@@ -149,7 +149,8 @@ export function mountRails(opts: RailsOptions): Rails {
     attrs: { type: 'button', 'data-rail-control': '', 'data-control': 'guide-skip' },
   }) as HTMLButtonElement;
   guideSkip.hidden = true;
-  guideSkip.addEventListener('pointerdown', (e) => {
+  // A click (finger lifted on it), not pointerdown: Stop is 4 px away, and a thumb sliding off cancels.
+  guideSkip.addEventListener('click', (e) => {
     e.preventDefault();
     controller.requestGuideSkip();
   });
@@ -305,14 +306,15 @@ export function mountRails(opts: RailsOptions): Rails {
     shown = true;
     layer.hidden = false;
     const { w, h } = size();
-    const guide = controller.guide;
-    const hint = guide?.current() ?? null;
+    // The final card belongs to the screens it is reached on; the rail shows steps 1–10 only.
+    const current = controller.guide?.current() ?? null;
+    const hint = isFinalStep(current) ? null : current;
     applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null);
     if ((hint?.text ?? null) !== lastHint) {
       lastHint = hint?.text ?? null;
       guideText.textContent = lastHint ?? '';
       guideText.title = lastHint ?? '';
-      if (guide) guideSkip.textContent = skipLabel(guide);
+      guideSkip.textContent = skipLabel(hint);
     }
     layer.style.setProperty('--sw-touch-opacity', String(controller.settings.touch.opacity));
 

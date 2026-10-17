@@ -4,7 +4,7 @@ import { resetBindings } from '../input/bindings';
 import type { WorldState } from '../sim/types';
 import { newWorld } from '../sim/world';
 import type { Progress } from './progress';
-import { STEPS, type GuideState, type TextCtx } from './steps';
+import { STEPS, TOUCH_HINT_MAX_CHARS, type GuideState, type TextCtx } from './steps';
 
 const data = testData();
 const t = { good: 'food', system: 'tessaly', port: 'vanterre' };
@@ -92,11 +92,32 @@ describe('step text', () => {
   it('switches to phone wording', () => {
     const c = ctx({ mode: 'touch' });
     expect(STEPS[5].text(c)).toBe('Push the stick to fly, STOP to brake.');
-    expect(STEPS[6].text(c)).toContain('Tap the radar or PLOT COURSE');
-    expect(STEPS[7].text(c)).toContain('bottom button');
+    expect(STEPS[6].text(c)).toBe('Tap the radar. Set course to Tessaly.');
+    expect(STEPS[7].text(c)).toBe('To Tessaly: fly clear, tap Jump. Repeat.');
     expect(STEPS[8].text(c)).toBe('Tap Vanterre to land.');
     for (const s of STEPS) expect(s.text(c)).not.toMatch(/\(\S{1,6}\)/);
   });
+  it('every touch hint the rail can show fits its 3 lines, even with the longest names in the data', () => {
+    const longest = (rec: Record<string, { id: string; name: string }>) =>
+      Object.values(rec).reduce((a, b) => (b.name.length > a.name.length ? b : a));
+    const good = longest(data.commodities);
+    const system = longest(data.systems);
+    const port = longest(data.planets);
+    const target = { good: good.id, system: system.id, port: port.id };
+    for (const fallback of [false, true]) {
+      const c = ctx({ mode: 'touch', target, fallback, planetName: port.name, profit: 1_234_567 });
+      for (const s of STEPS.slice(0, 10)) {
+        const text = s.text(c);
+        expect(text.length, `${s.id}: "${text}"`).toBeLessThanOrEqual(TOUCH_HINT_MAX_CHARS);
+      }
+    }
+    // The key facts lead: the destination is in the step 7 and 8 rail text.
+    const c = ctx({ mode: 'touch', target });
+    expect(STEPS[6].text(c)).toContain(system.name);
+    expect(STEPS[7].text(c)).toContain(system.name);
+    expect(STEPS[8].text(c)).toContain(port.name);
+  });
+
   it('reports profit, or a neutral line when not positive', () => {
     expect(STEPS[10].text(ctx({ profit: 1234 }))).toContain('Nice trade! You made 1,234 cr.');
     expect(STEPS[10].text(ctx({ profit: 0 }))).toContain("You're set up to trade.");

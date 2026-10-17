@@ -22,6 +22,15 @@ export interface GuideDeps {
 
 const LEAVE_STEP = 5;
 
+/** A hint as Guide.current() returns it. */
+export type GuideHint = { text: string; step: number; total: number };
+
+/** True on the last ("Nice trade") card, which is dismissed rather than skipped. */
+export const isFinalStep = (c: GuideHint | null | undefined): boolean => !!c && c.step === c.total;
+
+/** Label of every hint's skip control: "Dismiss" on the final card, else "Skip guide". */
+export const skipLabel = (c: GuideHint | null | undefined): string => (isFinalStep(c) ? 'Dismiss' : 'Skip guide');
+
 /**
  * Runtime for the First Flight walkthrough. It never subscribes to anything: the UI layer calls
  * update() with a fresh snapshot whenever something changes. It never acts for the player.
@@ -128,7 +137,7 @@ export class Guide {
   }
 
   /** The hint to show, or null when not started or finished/skipped. */
-  current(): { text: string; step: number; total: number } | null {
+  current(): GuideHint | null {
     const p = this.p;
     if (!p || p.done) return null;
     const planetId = this.last?.landedPlanetId ?? this.host.landedPlanetId;

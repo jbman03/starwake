@@ -200,7 +200,9 @@ describe('mountRails', () => {
 
     const asked: string[] = [];
     c.on('guideSkip', (e) => asked.push(e.type));
-    skip.dispatchEvent(new Event('pointerdown'));
+    skip.dispatchEvent(new Event('pointerdown')); // a finger landing on it (or sliding off Stop) is not a skip
+    expect(asked).toEqual([]);
+    skip.click();
     expect(asked).toEqual(['guideSkip']);
 
     c.guide.skip();
@@ -208,5 +210,20 @@ describe('mountRails', () => {
     expect(hintText.hidden).toBe(true);
     expect(skip.hidden).toBe(true);
     expect(parseFloat(stick.style.width)).toBe(stickWithout);
+  });
+
+  it('the final "Nice trade" card is not shown in the rail (the screens show it)', async () => {
+    const { c, rails, parent, data } = await setup();
+    c.startFlight();
+    const m = new Map<string, string>();
+    const storage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) } as Storage;
+    const target = { good: 'food', system: 'tessaly', port: 'vanterre' };
+    m.set('starwake.guide.p', JSON.stringify({ step: 11, done: false, target, startCredits: 0, profit: 5 }));
+    c.guide = new Guide(c, data, { mode: () => 'touch', key: () => '?', storage });
+    c.guide.start();
+    expect(c.guide.current()?.step).toBe(11);
+    rails.update();
+    expect(parent.querySelector<HTMLElement>('[data-testid="rail-guide"]')!.hidden).toBe(true);
+    expect(parent.querySelector<HTMLElement>('[data-control="guide-skip"]')!.hidden).toBe(true);
   });
 });

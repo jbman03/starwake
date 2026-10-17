@@ -1,19 +1,13 @@
 import type { Controller } from '../app/controller';
-import type { Guide } from '../guide/guide';
+import { isFinalStep, skipLabel, type Guide } from '../guide/guide';
 import type { GuideState } from '../guide/steps';
 import type { ActionId } from '../input/actions';
 import type { Bindings } from '../input/bindings';
-import { STEP_COUNT } from '../guide/progress';
 import { button, confirmDialog, el, hotkeyFor } from './dom';
 
 /** The screens the guide can tell apart (GuideState.screen minus flight and other). */
 export type GuideScreen = 'planet' | 'exchange' | 'missions' | 'map';
 
-/** True on the last ("Nice trade") card, which is dismissed rather than skipped. */
-const isFinal = (guide: Guide): boolean => guide.current()?.step === STEP_COUNT;
-
-/** Label on the hint's skip control. */
-export const skipLabel = (guide: Guide): string => (isFinal(guide) ? 'Dismiss' : 'Skip guide');
 
 /**
  * Key labels for hint text, from the player's bindings. On a planet the star map is the planet
@@ -41,7 +35,7 @@ export function guideState(controller: Controller, screen: GuideScreen | 'other'
  */
 export async function confirmSkipGuide(parent: HTMLElement, guide: Guide): Promise<boolean> {
   if (!guide.current()) return false;
-  if (isFinal(guide)) {
+  if (isFinalStep(guide.current())) {
     guide.skip();
     return true;
   }
@@ -73,9 +67,9 @@ export function mountGuideHint(container: HTMLElement, guide: Guide, opts: { onS
     const c = guide.current();
     container.hidden = c === null;
     if (!c) return;
-    step.textContent = c.step === c.total ? 'First flight · done' : `First flight · Step ${c.step} of ${c.total}`;
+    step.textContent = isFinalStep(c) ? 'First flight · done' : `First flight · Step ${c.step} of ${c.total}`;
     text.textContent = c.text;
-    skip.querySelector('.sw-btn-label')!.textContent = skipLabel(guide);
+    skip.querySelector('.sw-btn-label')!.textContent = skipLabel(c);
   };
   render();
   return guide.on('change', render);

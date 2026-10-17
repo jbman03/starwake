@@ -219,7 +219,8 @@ test.describe('phone (touch, landscape)', () => {
     const view = JSON.parse((await rails.getAttribute('data-view'))!) as Rect;
     const hint = page.getByTestId('rail-guide');
     await expect(hint).toBeVisible();
-    await expect(hint).toHaveText(/STOP to brake|stick/);
+    // Never more than the 3 lines the rail reserves.
+    expect(await hint.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
     const stickRail = (await page.locator('[data-rail="stick"]').boundingBox())!;
     for (const sel of ['[data-testid="rail-guide"]', '[data-control="guide-skip"]', '[data-control="stop"]', '[data-control="stick"]']) {
       const b = (await page.locator(sel).boundingBox())!;
@@ -256,8 +257,7 @@ test.describe('phone (touch, landscape)', () => {
       await page.getByRole('button', { name: /^Commodity Exchange/ }).tap();
       await screenFits(page, 'exchange');
       if (!bought) {
-        const name = (await screenHint(page)).split(' is Low here')[0];
-        expect(await screenHint(page)).toBe(`${name} is Low here. Tap Buy to load 10 t.`);
+        const name = (await screenHint(page)).match(/^Buy 10 t of (.+): Low here\.$/)![1];
         const good = (await idOf(page, 'commodities', name))!;
         await page.getByTestId('exchange').locator(`[data-good="${good}"]`).tap();
         await page.getByRole('button', { name: /^Buy 10/ }).tap();
@@ -292,6 +292,22 @@ test.describe('phone (touch, landscape)', () => {
       await page.getByTestId('star-map').getByRole('button', { name: /^Close/ }).tap();
       await page.waitForFunction(() => window.__starwake!.controller.isFlying);
     }
+
+    // Step 7: push the stick until the ship has flown 300 px; the rail then names the destination.
+    await page.setViewportSize({ width: 844, height: 390 });
+    const stick = page.locator('[data-control="stick"]');
+    const sb = (await stick.boundingBox())!;
+    const at = { pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: sb.x + sb.width / 2, clientY: sb.y + 2 };
+    await stick.dispatchEvent('pointerdown', at);
+    await stick.dispatchEvent('pointermove', at);
+    await expect.poll(() => step(page), { timeout: 30_000 }).toBe(7);
+    await stick.dispatchEvent('pointerup', at);
+    const systemName = await page.evaluate(() => {
+      const { controller, data } = window.__starwake!;
+      return data.systems[controller.guide!.target()!.system].name;
+    });
+    await expect(page.getByTestId('rail-guide')).toHaveText(`Tap the radar. Set course to ${systemName}.`);
+    await railHintFits(page, 844, 390);
 
     // Skip guide in the rail asks first (flight pauses meanwhile), then the rail gives the room back.
     await page.locator('[data-control="guide-skip"]').tap();
