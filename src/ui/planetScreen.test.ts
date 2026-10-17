@@ -101,13 +101,15 @@ describe('planet screen', () => {
     expect(calls.planet).toEqual(['halcyon']);
   });
 
-  it('Mission Computer and Mission Log show a coming-soon notice', async () => {
-    const { root, calls } = await setup(1000, 300);
-    const status = () => root.querySelector('.sw-status')!.textContent;
-    find(root, 'Mission Computer').click();
-    expect(status()).toBe('Coming in the next update');
-    root.querySelector('.sw-status')!.textContent = '';
-    calls.onPress!(new Set(['missionLog']));
-    expect(status()).toBe('Coming in the next update');
+  it('Mission Computer (button or M) and Mission Log (K) open their screens', async () => {
+    const a = await setup(1000, 300);
+    find(a.root, 'Mission Computer').click();
+    expect(a.root.querySelector('[data-testid="mission-computer"]')).toBeTruthy();
+    const b = await setup(1000, 300);
+    b.calls.onPress!(new Set(['openMissions']));
+    expect(b.root.querySelector('[data-testid="mission-computer"]')).toBeTruthy();
+    const c = await setup(1000, 300);
+    c.calls.onPress!(new Set(['missionLog']));
+    expect(c.root.querySelector('[data-testid="mission-log"]')).toBeTruthy();
   });
 });

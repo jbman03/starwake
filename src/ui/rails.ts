@@ -113,6 +113,8 @@ export function mountRails(opts: RailsOptions): Rails {
   // ---- stick rail ----------------------------------------------------------
   const sysName = el('span', { class: 'sw-rail-sys' });
   const fuel = el('div', { class: 'sw-rail-line' });
+  const credits = el('div', { class: 'sw-rail-line sw-rail-dim', attrs: { 'data-testid': 'rail-credits' } });
+  const cargo = el('div', { class: 'sw-rail-line sw-rail-dim', attrs: { 'data-testid': 'rail-cargo' } });
   const target = el('div', { class: 'sw-rail-line sw-rail-dim' });
   const course = el('div', { class: 'sw-rail-line sw-rail-course', attrs: { 'data-testid': 'rail-course' } });
   course.hidden = true;
@@ -124,6 +126,8 @@ export function mountRails(opts: RailsOptions): Rails {
     bar('Shields', 'sw-bar-shield'),
     bar('Armor', 'sw-bar-armor'),
     fuel,
+    credits,
+    cargo,
     target,
     course,
   ]);
@@ -282,6 +286,8 @@ export function mountRails(opts: RailsOptions): Rails {
     sysName.textContent = info.system;
     fuel.textContent = info.fuel;
     fuel.style.color = info.fuelColor;
+    credits.textContent = info.credits;
+    cargo.textContent = info.cargo;
     target.textContent = info.target;
     course.textContent = info.nextHop ?? '';
     course.hidden = info.nextHop === null;

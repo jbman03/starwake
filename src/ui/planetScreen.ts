@@ -3,8 +3,10 @@ import { cargoFree } from '../sim/cargo';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import type { RefuelQuote } from '../sim/rules';
 import type { UiContext } from './context';
-import { button, el, formatCredits, hotkeyFor } from './dom';
+import { alertDialog, button, el, formatCredits, hotkeyFor } from './dom';
 import { showExchange } from './exchange';
+import { showMissionComputer } from './missionComputer';
+import { showMissionLog } from './missionLog';
 
 const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
   full: 'Fuel tank is full.',
@@ -47,13 +49,9 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   if (notice) status.textContent = notice;
 
   const services = new Set(planet.services);
-  const comingSoon = () => {
-    status.textContent = 'Coming in the next update';
-  };
   const openExchange = () => showExchange(ctx, planetId, () => ctx.go.planet(planetId));
-  // Placeholders until the mission computer and log exist; only these two handlers change then.
-  const openMissions = comingSoon;
-  const openMissionLog = comingSoon;
+  const openMissions = () => showMissionComputer(ctx, planetId, () => ctx.go.planet(planetId));
+  const openMissionLog = () => showMissionLog(ctx, () => ctx.go.planet(planetId));
 
   const refuel = () => {
     const q = controller.refuel();
@@ -125,4 +123,13 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     },
     cleanup: offSaved,
   });
+
+  // Jobs finished by the landing that brought us here (the event fired before this screen existed). Opened after
+  // mounting so the dialog sits above the screen.
+  const done = controller.takeCompletion();
+  if (done) {
+    const lines = done.missions.map((m) => `Mission complete: ${m.title}`);
+    if (done.pay > 0) lines.push(`Paid ${Math.round(done.pay).toLocaleString('en-US')} cr.`);
+    void alertDialog(ctx.root, { title: done.missions.length === 1 ? 'Mission complete' : 'Missions complete', message: lines.join('\n') });
+  }
 }

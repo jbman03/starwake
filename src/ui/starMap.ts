@@ -146,9 +146,9 @@ const points = (ids: string[], data: GameData) => ids.map((id) => `${data.system
  * grey outline = unknown) joined by the lanes you know of. Zoom with the buttons, wheel or
  * pinch; drag to pan (both change the SVG viewBox). Select a system for its info and route,
  * then Set course. Flight is paused while it's open; closing runs `onClose` (default: resume
- * flight). Opened from a planet it listens to the planet group (N or Esc close it).
+ * flight). `initialSelection` pre-selects a system. Opened from a planet it listens to the planet group (N or Esc close it).
  */
-export function showStarMap(ctx: UiContext, opts: { onClose?: () => void } = {}): void {
+export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initialSelection?: string } = {}): void {
   const { controller } = ctx;
   const { data } = controller;
   const fromPlanet = controller.landedPlanetId !== null;
@@ -281,7 +281,10 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void } = {})
   );
 
   // ---- side panel ----------------------------------------------------------
-  let selected = controller.world.route.at(-1) ?? controller.world.systemId;
+  let selected =
+    (opts.initialSelection && data.systems[opts.initialSelection] ? opts.initialSelection : undefined) ??
+    controller.world.route.at(-1) ??
+    controller.world.systemId;
   const info = el('div', { class: 'sw-map-info', attrs: { 'data-testid': 'map-info', 'aria-live': 'polite' } });
   const routeText = el('p', { class: 'sw-map-routetext', attrs: { 'data-testid': 'map-route' } });
   const setBtn = button('Set course', () => {

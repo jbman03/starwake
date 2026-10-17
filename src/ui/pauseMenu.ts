@@ -1,5 +1,6 @@
 import { exportFileName, exportPilot } from '../save/transfer';
 import type { UiContext } from './context';
+import { showMissionLog } from './missionLog';
 import { showSettings } from './settingsScreen';
 import { button, confirmDialog, el, formatCredits, hotkeyFor } from './dom';
 
@@ -58,6 +59,9 @@ export function showPauseMenu(ctx: UiContext): void {
           controller.callTow();
         })
       : null,
+    button('Mission Log', () => showMissionLog(ctx, () => showPauseMenu(ctx)), {
+      hotkey: hotkeyFor(controller.settings.bindings, 'flightMissionLog'),
+    }),
     button('Settings', () => showSettings(ctx, { mode: ctx.inputMode.mode, onClose: () => showPauseMenu(ctx) })),
     button('Export pilot', exportCurrent),
     button('Quit to main menu', () => void quit(), { class: 'sw-btn-danger' }),

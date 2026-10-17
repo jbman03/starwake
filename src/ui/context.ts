@@ -4,6 +4,7 @@ import type { InputMode } from '../input/mode';
 import type { PilotStore } from '../save/store';
 import { dialogOpen } from './dom';
 import { showMainMenu } from './mainMenu';
+import { showMissionLog } from './missionLog';
 import { showPauseMenu } from './pauseMenu';
 import { showPlanetScreen } from './planetScreen';
 import { showStarMap } from './starMap';
@@ -33,7 +34,7 @@ export interface UiContext {
     planet(planetId: string, notice?: string): void;
     pause(): void;
     /** Star map; closing it runs `onClose` (default: resume flight). */
-    map(opts?: { onClose?: () => void }): void;
+    map(opts?: { onClose?: () => void; initialSelection?: string }): void;
   };
 }
 
@@ -84,6 +85,10 @@ export function createUi(
 
   controller.on('landed', (e) => ctx.go.planet(e.planetId));
   controller.on('towed', (e) => ctx.go.planet(e.planetId));
-  controller.on('menu', (e) => (e.action === 'pause' ? ctx.go.pause() : ctx.go.map()));
+  controller.on('menu', (e) => {
+    if (e.action === 'pause') ctx.go.pause();
+    else if (e.action === 'map') ctx.go.map();
+    else showMissionLog(ctx, () => controller.startFlight()); // flight is paused, as for the map
+  });
   return ctx;
 }

@@ -6,7 +6,7 @@ import { hudInfo, routeBannerText } from './hudInfo';
 const MESSAGE_SECONDS = 3;
 const FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
 const PANEL_W = 210;
-const PANEL_H = 120;
+const PANEL_H = 164;
 /** Extra panel height for the course line. */
 const COURSE_H = 22;
 
@@ -20,6 +20,8 @@ export class Hud {
   private panel: Phaser.GameObjects.Graphics;
   private fuel: Phaser.GameObjects.Text;
   private system: Phaser.GameObjects.Text;
+  private credits: Phaser.GameObjects.Text;
+  private cargo: Phaser.GameObjects.Text;
   private target: Phaser.GameObjects.Text;
   /** "Course: Vesk (2 jumps)" under the target line while a course is plotted. */
   private course: Phaser.GameObjects.Text;
@@ -42,8 +44,10 @@ export class Hud {
     this.system = text(20, 16, 15, '#e8eef5');
     this.statics.push(text(20, 42, 12, '#8fa0b5').setText('Shields'), text(20, 58, 12, '#8fa0b5').setText('Armor'));
     this.fuel = text(20, 82, 13);
-    this.target = text(20, 104, 13, '#b8c4d2');
-    this.course = text(20, 126, 13, '#9fe7a0').setVisible(false);
+    this.credits = text(20, 104, 13, '#e8d9a8');
+    this.cargo = text(20, 126, 13, '#b8c4d2');
+    this.target = text(20, 148, 13, '#b8c4d2');
+    this.course = text(20, 170, 13, '#9fe7a0').setVisible(false);
     this.message = text(0, 0, 15, '#ffffff').setOrigin(0.5, 1);
     this.banner = scene.add
       .text(0, 14, '', {
@@ -66,7 +70,7 @@ export class Hud {
     this.viewW = viewW;
     this.viewH = viewH;
     this.touchMode = touchMode;
-    for (const o of [this.panel, this.system, this.fuel, this.target, ...this.statics]) {
+    for (const o of [this.panel, this.system, this.fuel, this.credits, this.cargo, this.target, ...this.statics]) {
       (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(!touchMode);
     }
     if (touchMode) this.course.setVisible(false);
@@ -113,6 +117,8 @@ export class Hud {
       const info = hudInfo(world, data);
       this.system.setText(info.system);
       this.fuel.setText(info.fuel).setColor(info.fuelColor);
+      this.credits.setText(info.credits);
+      this.cargo.setText(info.cargo);
       this.target.setText(info.target);
       this.course.setText(info.nextHop ?? '').setVisible(info.nextHop !== null);
       this.drawPanel(info.nextHop === null ? PANEL_H : PANEL_H + COURSE_H);

@@ -27,7 +27,7 @@ export type ControllerEvent =
   /** Jobs finished by the landing that just happened; emitted before the autosave. */
   | { type: 'missionsCompleted'; missions: Mission[]; pay: number }
   /** A flight key asked for a menu; flight is already paused. */
-  | { type: 'menu'; action: 'pause' | 'map' }
+  | { type: 'menu'; action: 'pause' | 'map' | 'missionLog' }
   /** Flight started or stopped (planet screen, menus, pause). */
   | { type: 'flying'; flying: boolean }
   /** Result of the autosave started by a landing. */
@@ -80,6 +80,11 @@ export class Controller {
   pilot: PilotMeta | null = null;
   /** Autosave target; null disables saving. */
   store: SaveSink | null = null;
+  /**
+   * Jobs finished by the landing that opened the planet screen, until that screen shows them
+   * (it mounts after `missionsCompleted` fires, so it collects them with takeCompletion()).
+   */
+  private completion: { missions: Mission[]; pay: number } | null = null;
   /** Settles when the most recent autosave finishes (never rejects). */
   lastSave: Promise<void> = Promise.resolve();
 
@@ -152,6 +157,7 @@ export class Controller {
     this.pilot = null;
     this.landedPlanetId = null;
     this.lastPlanetId = null;
+    this.completion = null;
   }
 
   /** The pilot as of the most recent landing, or null with no session. */
@@ -270,6 +276,13 @@ export class Controller {
     this.checkContext();
   }
 
+  /** The landing's completed jobs, once: the planet screen shows them and they are cleared. */
+  takeCompletion(): { missions: Mission[]; pay: number } | null {
+    const c = this.completion;
+    this.completion = null;
+    return c;
+  }
+
   // ---- trade and jobs (landed only; none of these save) -------------------
 
   buy(commodityId: string, tons: number): BuyResult {
@@ -335,7 +348,13 @@ export class Controller {
         actions: new Set([...keys.actions, ...touch.actions]),
         pressed: new Set([...keys.pressed, ...touch.pressed]),
       };
-      const menu = polled.pressed.has('pause') ? 'pause' : polled.pressed.has('map') ? 'map' : null;
+      const menu = polled.pressed.has('pause')
+        ? 'pause'
+        : polled.pressed.has('map')
+          ? 'map'
+          : polled.pressed.has('flightMissionLog')
+            ? 'missionLog'
+            : null;
       if (menu) {
         this.pauseFlight();
         this.emit({ type: 'menu', action: menu });
@@ -382,6 +401,7 @@ export class Controller {
     const done = completeAt(this.world, planetId);
     if (done.completed.length > 0) {
       this.world = done.world;
+      this.completion = { missions: done.completed, pay: done.pay };
       this.emit({ type: 'missionsCompleted', missions: done.completed, pay: done.pay });
     }
     if (autosave) this.autosave();
