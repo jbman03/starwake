@@ -41,6 +41,21 @@ describe('prices', () => {
     expect(priceOf(w, data, none.id, 'glowmoss')).toBeNull();
   });
 
+  it('priceOf combines level, event, pressure and noise exactly', () => {
+    const port = portWith('food');
+    const level = port.market!.food;
+    const base: WorldState = { ...newWorld(data, 77), day: 13 };
+    const ev: MarketEvent = { templateId: 'x', portId: port.id, commodityId: 'food', startDay: 12, days: 8, strength: 1.6 };
+    const w: WorldState = { ...base, pressure: { [`${port.id}:food`]: 0.88 }, events: [ev] };
+    const expected = Math.round(
+      data.commodities.food.basePrice * LEVEL_MULT[level] * 1.6 * 0.88 * dailyNoise(77, port.id, 'food', 13),
+    );
+    expect(priceOf(w, data, port.id, 'food')).toBe(expected);
+    // Each factor matters on its own.
+    expect(priceOf({ ...w, events: [] }, data, port.id, 'food')).not.toBe(expected);
+    expect(priceOf({ ...w, pressure: {} }, data, port.id, 'food')).not.toBe(expected);
+  });
+
   it('displayLevel thresholds', () => {
     expect(displayLevel(85, 100)).toBe('low');
     expect(displayLevel(86, 100)).toBe('med');
@@ -74,11 +89,17 @@ describe('pressure', () => {
     expect(economyDay(w, data).pressure['p:food']).toBeCloseTo(0.91);
   });
 
-  it('drops the key once back near 1', () => {
-    let w = applyPressure(newWorld(data, 1), 'p', 'food', 1);
-    expect(w.pressure['p:food']).toBeCloseTo(1.003);
-    w = economyDay(w, data);
-    expect(w.pressure['p:food']).toBeUndefined();
+  it.each([
+    [1.003, undefined],
+    [1.006, undefined], // recovers to 1.0045, then deleted
+    [1.01, 1.0075], // recovers to 1.0075, still kept
+    [1.03, 1.0225],
+    [0.994, undefined],
+  ])('recovery from %f leaves %s', (start, expected) => {
+    const w = { ...newWorld(data, 1), pressure: { 'p:food': start } };
+    const after = economyDay(w, data).pressure['p:food'];
+    if (expected === undefined) expect(after).toBeUndefined();
+    else expect(after).toBeCloseTo(expected, 6);
   });
 });
 
@@ -96,6 +117,58 @@ describe('economyDay events', () => {
       for (const e of w.events) expect(w.day).toBeLessThan(e.startDay + e.days);
     }
     expect(spawned).toBeGreaterThan(5);
+  });
+
+  it('across many seeds keeps the cap, uniqueness and market restriction', () => {
+    for (let seed = 1; seed <= 10; seed++) {
+      let w = newWorld(data, seed * 1013);
+      for (let i = 0; i < 120; i++) {
+        w = advanceDays(w, data, 1).world;
+        expect(w.events.length).toBeLessThanOrEqual(4);
+        const keys = w.events.map((e) => `${e.portId}:${e.commodityId}`);
+        expect(new Set(keys).size).toBe(keys.length);
+        for (const e of w.events) expect(data.planets[e.portId].market?.[e.commodityId]).toBeTruthy();
+      }
+    }
+  });
+
+  it('never adds a fifth event when four are active', () => {
+    const tpl = Object.values(data.events)[0];
+    const ports = Object.values(data.planets).filter((p) => p.market?.[tpl.commodity]);
+    const events: MarketEvent[] = ['a', 'b', 'c', 'd'].map((id) => ({
+      templateId: tpl.id,
+      portId: ports[0].id,
+      commodityId: `${id}-good`,
+      startDay: 0,
+      days: 1000,
+      strength: 1.5,
+    }));
+    for (let seed = 1; seed <= 100; seed++) {
+      const w = { ...newWorld(data, seed), day: seed, events };
+      expect(economyDay(w, data).events).toHaveLength(4);
+    }
+  });
+
+  it('adds nothing when every eligible port+good is already occupied', () => {
+    const tpl = Object.values(data.events)[0];
+    const port = Object.values(data.planets).find((p) => p.market?.[tpl.commodity])!;
+    const small = {
+      ...data,
+      events: { [tpl.id]: tpl },
+      planets: { [port.id]: { ...port, market: { [tpl.commodity]: 'med' as const } } },
+    };
+    const occupied: MarketEvent = {
+      templateId: tpl.id,
+      portId: port.id,
+      commodityId: tpl.commodity,
+      startDay: 0,
+      days: 1000,
+      strength: 1.5,
+    };
+    for (let seed = 1; seed <= 100; seed++) {
+      const w = { ...newWorld(data, seed), day: seed, events: [occupied] };
+      expect(economyDay(w, small).events).toEqual([occupied]);
+    }
   });
 
   it('is deterministic for a seed', () => {
@@ -124,12 +197,17 @@ describe('news and rumors', () => {
   it('rumor names the other port, is deterministic, and ignores the local port', () => {
     const w = world(far.id);
     const r = rumor(w, data, home.id);
-    expect(r).not.toBeNull();
-    {
-      expect(r!).toContain(far.name);
-      expect(r).toMatch(/short of|flooded with/);
-      expect(rumor(w, data, home.id)).toBe(r);
-    }
+    expect(r).toBe(`Traders say ${far.name} is flooded with ${data.commodities[tpl.commodity].name}.`);
+    expect(rumor(w, data, home.id)).toBe(r);
     expect(rumor(world(home.id), data, home.id)).toBeNull();
+  });
+
+  it('rumor uses "short of" for shortage events', () => {
+    const w = world(far.id);
+    const shortage = Object.values(data.events).find((e) => e.effect === 'shortage')!;
+    w.events = [{ ...w.events[0], templateId: shortage.id, commodityId: shortage.commodity }];
+    expect(rumor(w, data, home.id)).toBe(
+      `Traders say ${far.name} is short of ${data.commodities[shortage.commodity].name}.`,
+    );
   });
 });
