@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import { cargoFree } from './cargo';
 import { hopDistance } from './galaxy';
-import { MAX_MISSIONS, abandon, accept, canAccept, completeAt, failOverdue, offersAt, type MissionOffer } from './missions';
+import { MAX_MISSIONS, abandon, accept, canAbandon, canAccept, completeAt, failOverdue, offersAt, type MissionOffer } from './missions';
 import type { Mission, WorldState } from './types';
 import { advanceDays, newWorld } from './world';
 
@@ -277,14 +277,46 @@ describe('completeAt / failOverdue / abandon', () => {
     ]);
   });
 
-  it('abandon frees cargo, pays nothing, keeps upfront pay', () => {
+  it('abandon frees cargo, pays nothing, and returns an up-front advance', () => {
     const base = at(0);
     const taken = accept(base, data, offer({ tons: 15, passengers: 2, paidUpfront: true, pay: 300 }));
     expect(cargoFree(taken, data)).toBe(5);
+    expect(taken.credits).toBe(base.credits + 300);
     const gone = abandon(taken, 'o1');
     expect(gone.missions).toEqual([]);
     expect(cargoFree(gone, data)).toBe(20);
-    expect(gone.credits).toBe(base.credits + 300);
+    expect(gone.credits).toBe(base.credits);
     expect(abandon(gone, 'nope')).toBe(gone);
+  });
+
+  it('abandoning a job paid on delivery costs nothing', () => {
+    const taken = accept(at(0), data, offer({ pay: 900 }));
+    expect(abandon(taken, 'o1').credits).toBe(taken.credits);
+  });
+
+  it('an accept -> abandon garbage cycle leaves credits unchanged', () => {
+    let w = at(0);
+    const start = w.credits;
+    for (let day = 0; day < 6; day++) {
+      w = { ...w, day };
+      for (const o of offersAt(w, data, home.id).filter((x) => x.paidUpfront)) {
+        w = abandon(accept(w, data, o), o.offerId);
+        expect(w.credits).toBe(start);
+        expect(w.missions).toEqual([]);
+      }
+    }
+  });
+
+  it('a pilot who cannot refund the advance cannot abandon', () => {
+    const taken = accept(at(0), data, offer({ paidUpfront: true, pay: 300 }));
+    const broke = { ...taken, credits: 299 };
+    expect(canAbandon(broke, 'o1')).toEqual({ ok: false, reason: 'cantRefund' });
+    expect(abandon(broke, 'o1')).toBe(broke);
+    expect(canAbandon({ ...taken, credits: 300 }, 'o1')).toEqual({ ok: true });
+    expect(abandon({ ...taken, credits: 300 }, 'o1').credits).toBe(0);
+    // Jobs paid on delivery can always be dropped, even in debt.
+    const later = { ...accept(at(0), data, offer({ pay: 300 })), credits: -50 };
+    expect(canAbandon(later, 'o1')).toEqual({ ok: true });
+    expect(abandon(later, 'o1').missions).toEqual([]);
   });
 });

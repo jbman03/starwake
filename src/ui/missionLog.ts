@@ -1,13 +1,14 @@
 import { formatDate } from '../sim/calendar';
 import { MAX_MISSIONS } from '../sim/missions';
 import type { UiContext } from './context';
-import { button, confirmDialog, dialogOpen, el, hotkeyFor } from './dom';
+import { button, confirmDialog, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
 import { deadlineText, destinationText, loadText, payText } from './missionText';
 
 /**
  * The pilot's active jobs: a list (left) and the selected one's destination, deadline with days
  * left, load and pay (right). "Show on map" opens the star map on the destination's system;
- * "Abandon" asks first (cargo and berths are freed, no pay). Opened from the planet screen, the
+ * "Abandon" asks first (cargo and berths are freed, no pay; an up-front advance is handed back, so
+ * Abandon is disabled with the reason when the pilot can't refund it). Opened from the planet screen, the
  * pause menu or in flight; Esc, the log key or Done runs `onClose`.
  */
 export function showMissionLog(ctx: UiContext, onClose: () => void): void {
@@ -25,6 +26,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
   const stats = el('div', { class: 'sw-ex-stats', attrs: { 'data-testid': 'log-stats' } });
   const list = el('div', { class: 'sw-mc-list', attrs: { role: 'listbox', 'aria-label': 'Active missions', 'data-testid': 'log-list' } });
   const detail = el('div', { class: 'sw-mc-detail', attrs: { 'data-testid': 'log-detail' } });
+  const reason = el('p', { class: 'sw-ex-message sw-ex-bad', attrs: { 'data-testid': 'log-reason', 'aria-live': 'polite' } });
 
   const mapBtn = button('Show on map', () => showOnMap());
   const abandonBtn = button('Abandon', () => void abandon(), { class: 'sw-btn-danger' });
@@ -49,10 +51,11 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
 
   async function abandon(): Promise<void> {
     const m = controller.world.missions[index];
-    if (!m) return;
+    if (!m || !controller.canAbandonMission(m.id).ok) return;
+    const money = m.paidUpfront ? `The advance of ${formatCredits(m.pay)} will be returned.` : 'You will not be paid.';
     const ok = await confirmDialog(ctx.root, {
       title: 'Abandon this mission?',
-      message: `${m.title} — its cargo and berths are freed and you will not be paid.`,
+      message: `${m.title} — its cargo and berths are freed. ${money}`,
       confirm: 'Abandon',
       danger: true,
     });
@@ -104,7 +107,9 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
       );
     }
     mapBtn.disabled = !m;
-    abandonBtn.disabled = !m;
+    const refundable = !m || controller.canAbandonMission(m.id).ok;
+    abandonBtn.disabled = !m || !refundable;
+    reason.textContent = m && !refundable ? `Can't refund the advance (${formatCredits(m.pay)})` : '';
     list.querySelector('.sw-mc-selected')?.scrollIntoView?.({ block: 'nearest' });
   }
 
@@ -112,7 +117,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
     el('div', { class: 'sw-panel sw-mc' }, [
       el('h1', { class: 'sw-title', text: 'Mission Log' }),
       stats,
-      el('div', { class: 'sw-mc-body' }, [list, detail]),
+      el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason])]),
       el('div', { class: 'sw-ex-actions' }, [mapBtn, abandonBtn, doneBtn]),
     ]),
   ]);

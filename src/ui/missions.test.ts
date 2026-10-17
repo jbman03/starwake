@@ -19,7 +19,7 @@ import { showPlanetScreen } from './planetScreen';
 async function setup(patch: (w: ReturnType<typeof newWorld>) => ReturnType<typeof newWorld> = (w) => w) {
   const data = await loadGameData();
   const c = new Controller(data, DEFAULT_SETTINGS, new EventTarget());
-  c.beginSession(patch({ ...newWorld(data), credits: 5000 }), { id: 'p', name: 'P' }, 'halcyon');
+  c.beginSession(patch({ ...newWorld(data, 1), credits: 5000 }), { id: 'p', name: 'P' }, 'halcyon');
   const root = document.createElement('div');
   document.body.append(root);
   const state: { onPress?: (p: Set<ActionId>) => void; closed: number; maps: { initialSelection?: string; onClose?: () => void }[] } = {
@@ -180,6 +180,40 @@ describe('mission log', () => {
     expect(c.world.missions.length).toBe(0);
     expect(cargoFree(c.world, c.data)).toBe(before + 4);
     expect(rows().length).toBe(0);
+  });
+
+  it('the confirm says a delivery job will not be paid', async () => {
+    const { ctx, root, btn } = await setup((w) => ({ ...w, missions: [job()] }));
+    showMissionLog(ctx, () => {});
+    btn('Abandon').click();
+    const text = root.querySelector('.sw-dialog')!.textContent!;
+    expect(text).toContain('You will not be paid.');
+    expect(text).not.toContain('advance');
+  });
+
+  it('abandoning an up-front job returns the advance', async () => {
+    const { ctx, c, root, btn } = await setup((w) => ({ ...w, missions: [job({ paidUpfront: true, pay: 1200 })] }));
+    showMissionLog(ctx, () => {});
+    const credits = c.world.credits;
+    btn('Abandon').click();
+    const dialog = root.querySelector<HTMLElement>('.sw-dialog')!;
+    expect(dialog.textContent).toContain('The advance of 1,200 cr will be returned.');
+    expect(dialog.textContent).not.toContain('You will not be paid');
+    btn('Abandon', dialog).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(c.world.missions).toEqual([]);
+    expect(c.world.credits).toBe(credits - 1200);
+  });
+
+  it('a pilot who cannot refund the advance sees Abandon disabled with the reason', async () => {
+    const { ctx, c, q, btn } = await setup((w) => ({ ...w, credits: 1199, missions: [job({ paidUpfront: true, pay: 1200 })] }));
+    showMissionLog(ctx, () => {});
+    expect(btn('Abandon').disabled).toBe(true);
+    expect(q('log-reason').textContent).toBe("Can't refund the advance (1,200 cr)");
+    c.world = { ...c.world, credits: 1200 };
+    showMissionLog(ctx, () => {});
+    expect(btn('Abandon').disabled).toBe(false);
+    expect(q('log-reason').textContent).toBe('');
   });
 
   it('Show on map opens the map on the destination system; closing it brings the log back', async () => {

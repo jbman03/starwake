@@ -6,7 +6,17 @@ import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import type { Settings } from '../save/settings';
 import { contextAction, type ContextAction } from '../sim/context';
 import { buy, sell, type BuyResult, type SellResult } from '../sim/cargo';
-import { abandon, accept, canAccept, completeAt, offersAt, type AcceptCheck, type MissionOffer } from '../sim/missions';
+import {
+  abandon,
+  accept,
+  canAbandon,
+  canAccept,
+  completeAt,
+  offersAt,
+  type AbandonCheck,
+  type AcceptCheck,
+  type MissionOffer,
+} from '../sim/missions';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { FixedStepper } from '../sim/stepper';
 import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
@@ -313,6 +323,12 @@ export class Controller {
     return { ok: true };
   }
 
+  /** Whether the job can be dropped now (an up-front advance must be refundable). */
+  canAbandonMission(id: string): AbandonCheck {
+    return canAbandon(this.world, id);
+  }
+
+  /** Drop a job; an up-front advance is handed back. No-op when canAbandonMission says no. */
   abandonMission(id: string): void {
     this.world = abandon(this.world, id);
   }

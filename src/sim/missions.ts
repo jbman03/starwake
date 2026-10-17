@@ -153,8 +153,25 @@ export function failOverdue(world: WorldState): { world: WorldState; failed: Mis
   return { world: { ...world, missions: world.missions.filter((m) => !late(m)) }, failed };
 }
 
-/** Give up a mission: cargo and berths are freed, nothing is paid, upfront pay is kept. */
+export type AbandonCheck = { ok: true } | { ok: false; reason: 'cantRefund' };
+
+/** A job paid up front can only be dropped by a pilot who can hand the advance back. */
+export function canAbandon(world: WorldState, missionId: string): AbandonCheck {
+  const m = world.missions.find((x) => x.id === missionId);
+  if (m?.paidUpfront && world.credits < m.pay) return { ok: false, reason: 'cantRefund' };
+  return { ok: true };
+}
+
+/**
+ * Give up a mission: cargo and berths are freed and nothing is paid; an up-front advance is
+ * returned. Unchanged when the mission is unknown or the advance can't be refunded.
+ */
 export function abandon(world: WorldState, missionId: string): WorldState {
-  if (!world.missions.some((m) => m.id === missionId)) return world;
-  return { ...world, missions: world.missions.filter((m) => m.id !== missionId) };
+  const m = world.missions.find((x) => x.id === missionId);
+  if (!m || !canAbandon(world, missionId).ok) return world;
+  return {
+    ...world,
+    credits: world.credits - (m.paidUpfront ? m.pay : 0),
+    missions: world.missions.filter((x) => x.id !== missionId),
+  };
 }
