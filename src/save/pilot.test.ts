@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import { newWorld } from '../sim/world';
+import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { CURRENT_SAVE_VERSION, pilotFromWorld, SaveError, upgradeSave, worldFromPilot } from './pilot';
 
@@ -48,18 +49,23 @@ describe('pilot', () => {
   });
 
   it('round-trips the v2 world fields', () => {
+    const base = newWorld(data, 99);
+    // Chart with an extra visited system (vesk) and the matching seen list.
+    const chart = revealOnArrival(base.known, base.seen, data, 'vesk');
     const w = {
-      ...newWorld(data, 99), day: 12, cargo: { food: 5 }, route: ['vesk'], pressure: { 'halcyon:food': 0.9 },
+      ...base, day: 12, cargo: { food: 5 }, route: ['mirren'], pressure: { 'halcyon:food': 0.9 },
+      known: chart.known, seen: chart.seen,
+      events: [{ templateId: Object.keys(data.events)[0], portId: 'halcyon', commodityId: 'food', startDay: 10, days: 5, strength: 1.6 }],
       takenOffers: ['x:3:1'], missions: [{
         id: 'm1', typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 2, passengers: 0, pay: 300,
         paidUpfront: false, deadlineDay: 20, title: 'T', description: 'd', cargoName: 'crates',
       }],
     };
+    expect(w.known).toContain('vesk');
     const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
-    for (const k of ['day', 'seed', 'cargo', 'missions', 'route', 'known', 'pressure', 'events', 'takenOffers'] as const) {
+    for (const k of ['day', 'seed', 'cargo', 'missions', 'route', 'known', 'seen', 'pressure', 'events', 'takenOffers'] as const) {
       expect(back[k]).toEqual(w[k]);
     }
-    expect(new Set(back.seen)).toEqual(new Set(w.seen));
   });
 
   it('upgrades a v1 save saved at vesk-outpost (Review Focus 4)', () => {

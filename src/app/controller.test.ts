@@ -6,6 +6,7 @@ import type { PilotSave } from '../save/pilot';
 import { worldFromPilot } from '../save/pilot';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import { PilotStore } from '../save/store';
+import { canAccept } from '../sim/missions';
 import { newWorld } from '../sim/world';
 import { Controller, type ControllerEvent } from './controller';
 
@@ -423,13 +424,16 @@ describe('Controller trade, missions and routes', () => {
     c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
     const offers = c.offers();
     expect(offers.length).toBeGreaterThanOrEqual(3);
+    // The world seed is random, so pick an offer the empty shuttle can always take.
+    const pick = offers.find((o) => canAccept(c.world, c.data, o).ok)!;
+    expect(pick).toBeDefined();
     expect(c.acceptMission('nope')).toMatchObject({ ok: false });
     c.world = { ...c.world, missions: Array.from({ length: 8 }, (_, i) => ({ ...deliver(), id: `x${i}` })) };
-    expect(c.acceptMission(offers[0].offerId)).toEqual({ ok: false, reason: 'tooMany' });
+    expect(c.acceptMission(pick.offerId)).toEqual({ ok: false, reason: 'tooMany' });
     c.world = { ...c.world, missions: [] };
-    expect(c.acceptMission(offers[0].offerId)).toEqual({ ok: true });
+    expect(c.acceptMission(pick.offerId)).toEqual({ ok: true });
     expect(c.world.missions).toHaveLength(1);
-    c.abandonMission(offers[0].offerId);
+    c.abandonMission(pick.offerId);
     expect(c.world.missions).toHaveLength(0);
   });
 
@@ -444,9 +448,7 @@ describe('Controller trade, missions and routes', () => {
     c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
     const credits = c.world.credits;
     c.world = { ...c.world, missions: [{ ...deliver(), id: 'j1' }] };
-    c.leavePlanet();
-    c.world = { ...c.world, ship: { ...c.world.ship, pos: { ...c.data.planets.halcyon.pos }, vel: { x: 0, y: 0 } } };
-    // A tow lands at the nearest port; fly to merrow via the same landAt path.
+    // Same path a landed or towed sim event takes (handleEvents -> landAt).
     (c as unknown as { landAt(id: string): void }).landAt('merrow');
     await c.lastSave;
     expect(order).toEqual(['completed', 'save']);

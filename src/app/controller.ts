@@ -24,9 +24,9 @@ import {
 export type ControllerEvent =
   | SimEvent
   | { type: 'contextChanged'; action: ContextAction }
-  /** A flight key asked for a menu; flight is already paused. */
   /** Jobs finished by the landing that just happened; emitted before the autosave. */
   | { type: 'missionsCompleted'; missions: Mission[]; pay: number }
+  /** A flight key asked for a menu; flight is already paused. */
   | { type: 'menu'; action: 'pause' | 'map' }
   /** Flight started or stopped (planet screen, menus, pause). */
   | { type: 'flying'; flying: boolean }
