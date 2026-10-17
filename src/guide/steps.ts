@@ -62,6 +62,9 @@ const buyPortName = (c: TextCtx): string => (c.buyPort ? (c.data.planets[c.buyPo
 
 /** Step 7's text; step 8 shows it again while no course leads to the target (spec 2.2). */
 function plotText(c: TextCtx): string {
+  if (c.screen === 'map') {
+    return touch(c) ? `Tap ${systemName(c)}, then Set course.` : `Pick ${systemName(c)}, then Set course.`;
+  }
   if (touch(c)) {
     const how = c.screen === 'planet' ? 'Tap Star Map.' : 'Tap the radar.';
     return `${how} Set course to ${systemName(c)}.`;
@@ -157,7 +160,7 @@ export const STEPS: readonly StepDef[] = [
     id: 'land',
     text: (c) =>
       touch(c)
-        ? `Tap ${portName(c)} to land.`
+        ? `Tap TGT until ${portName(c)}, then LAND.`
         : `Land at ${portName(c)} (${c.key('nextTarget')} to target, ${c.key('land')} to land).`,
     done: (s, t) => s.landedPlanetId === t.port,
   },

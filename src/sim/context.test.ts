@@ -105,6 +105,43 @@ describe('contextAction', () => {
     expect(contextAction(w, data)).toBe('jump');
   });
 
+  it('a targeted planet means land at any range (same as pressing L)', () => {
+    const far = at({ ...newWorld(data), targetPlanetId: 'halcyon' }, { x: -2100, y: 0 });
+    expect(contextAction(far, data)).toBe('land');
+    // Even with a course set and the jump available.
+    expect(contextAction({ ...far, route: ['vesk'] }, data)).toBe('land');
+    // takeControl and tow still win.
+    const auto: WorldState = { ...far, assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
+    expect(contextAction(auto, data)).toBe('takeControl');
+    const stranded = at({ ...newWorld(data), systemId: 'vesk', targetPlanetId: 'halcyon' }, { x: -600, y: -700 }, 0);
+    expect(contextAction(stranded, data)).toBe('tow');
+  });
+
+  it('executing land on a far targeted planet autopilots in and lands, like the L key', () => {
+    let w = at({ ...newWorld(data), targetPlanetId: 'halcyon' }, { x: -2100, y: 0 });
+    const input = { actions: new Set<never>(), pressed: new Set(['land']) as never };
+    const none = { actions: new Set<never>(), pressed: new Set<never>() };
+    let landed = false;
+    for (let i = 0; i < 60 * 240 && !landed; i++) {
+      const r = stepWorld(w, data, i === 0 ? input : none, 1 / 60, { autoLandOnArrival: true });
+      w = r.world;
+      landed = r.events.some((e) => e.type === 'landed' && e.planetId === 'halcyon');
+    }
+    expect(landed).toBe(true);
+  });
+
+  it('a course set with no target leaves instead of offering land near a planet', () => {
+    const h = data.planets.halcyon;
+    const near = at({ ...newWorld(data), route: ['vesk'] }, { x: h.pos.x, y: h.pos.y - 300 });
+    expect(contextAction(near, data)).toBe('autopilotOut');
+    expect(contextAction(at({ ...newWorld(data), route: ['vesk'] }, { x: -2100, y: 0 }), data)).toBe('jump');
+    // Without fuel for a jump the course cannot be flown: fall back to land.
+    const dry = at({ ...newWorld(data), route: ['vesk'] }, { x: h.pos.x, y: h.pos.y - 300 }, 0);
+    expect(contextAction(dry, data)).toBe('land');
+    // With another assist running the old proximity rule applies.
+    expect(contextAction({ ...near, assist: { kind: 'autoStop' } }, data)).toBe('land');
+  });
+
   it('null while jumping', () => {
     const w = { ...at(newWorld(data), { x: 2100, y: 0 }), jump: { toSystemId: 'vesk', t: 0.5 } };
     expect(contextAction(w, data)).toBeNull();

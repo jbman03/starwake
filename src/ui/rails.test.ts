@@ -80,6 +80,18 @@ describe('mountRails', () => {
     expect(btn.hidden).toBe(true);
   });
 
+  it('with a course set near the planet the button offers AUTOPILOT, not LAND; targeting a planet gives LAND ON <PORT>', async () => {
+    const { c, rails, parent } = await setup();
+    c.startFlight();
+    c.plotRoute('vesk');
+    rails.update();
+    const btn = parent.querySelector<HTMLButtonElement>('[data-testid="context-button"]')!;
+    expect(btn.textContent).toBe('⇱ AUTOPILOT TO JUMP POINT');
+    c.selectPlanet('merrow');
+    rails.update();
+    expect(btn.textContent).toBe('⬇ LAND ON MERROW');
+  });
+
   it('with no destination in open space, the context button offers PLOT COURSE and opens the map', async () => {
     const { c, rails, parent } = await setup();
     const menus: string[] = [];
