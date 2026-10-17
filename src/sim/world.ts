@@ -80,12 +80,18 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
 }
 
 /**
- * Daily effects of `n` days passing, called after `world.day` has already advanced by `n`
- * (one per jump, the hop count per tow). An identity for now; the economy and mission
- * deadlines hook in here.
+ * Let `n` days pass (one per jump, the hop count per tow): each day bumps `world.day`, then
+ * applies that day's effects. This is the only place the date moves; the economy and mission
+ * deadlines hook into the per-day step.
  */
-export function advanceDays(world: WorldState, _data: GameData, _n: number): { world: WorldState; events: SimEvent[] } {
-  return { world, events: [] };
+export function advanceDays(world: WorldState, _data: GameData, n: number): { world: WorldState; events: SimEvent[] } {
+  const events: SimEvent[] = [];
+  let w = world;
+  for (let i = 0; i < n; i++) {
+    w = { ...w, day: w.day + 1 };
+    // Per-day effects (economy, mission deadlines) go here.
+  }
+  return { world: w, events };
 }
 
 /**
@@ -103,9 +109,9 @@ export function setRoute(
   return { world: { ...world, route }, ok: true };
 }
 
-/** Enter `systemId` after `days` days of travel: the date moves on and the system is explored. */
-function enterSystem(world: WorldState, data: GameData, systemId: string, days: number): WorldState {
-  return { ...world, day: world.day + days, ...revealOnArrival(world.known, world.seen, data, systemId) };
+/** Enter `systemId`: it becomes known and its neighbours seen. The date is advanceDays' job. */
+function enterSystem(world: WorldState, data: GameData, systemId: string): WorldState {
+  return { ...world, ...revealOnArrival(world.known, world.seen, data, systemId) };
 }
 
 export function interruptAutopilot(world: WorldState): WorldState {
@@ -154,7 +160,7 @@ export function applyTow(world: WorldState, data: GameData): { world: WorldState
   );
   let route = moved.route.slice(moved.route.indexOf(toSystemId) + 1); // indexOf -1 keeps it whole
   if (route.length > 0 && !data.systems[toSystemId].links.includes(route[0])) route = [];
-  const entered = enterSystem({ ...moved, route }, data, toSystemId, days);
+  const entered = enterSystem({ ...moved, route }, data, toSystemId);
   const after = advanceDays(entered, data, days);
   return { world: after.world, events: [{ type: 'towed', planetId }, ...after.events] };
 }
@@ -251,10 +257,9 @@ export function stepWorld(
       events.push({ type: 'jumped', toSystemId });
       let arrived = arriveFromJump(coasted, data, toSystemId);
       if (arrived.route[0] === toSystemId) arrived = { ...arrived, route: arrived.route.slice(1) };
-      arrived = enterSystem(arrived, data, toSystemId, 1);
-      events.push({ type: 'arrived', systemId: toSystemId, day: arrived.day });
+      arrived = enterSystem(arrived, data, toSystemId);
       const after = advanceDays(arrived, data, 1);
-      events.push(...after.events);
+      events.push(...after.events, { type: 'arrived', systemId: toSystemId, day: after.world.day });
       return { world: after.world, events };
     }
     return { world: { ...coasted, jump: { ...w.jump, t } }, events };

@@ -614,8 +614,38 @@ describe('applyTow: time and routes', () => {
 });
 
 describe('advanceDays', () => {
-  it('is an identity for now', () => {
-    const w = newWorld(data, 1);
-    expect(advanceDays(w, data, 3)).toEqual({ world: w, events: [] });
+  it('owns the date: n days advance day by n', () => {
+    const w = { ...newWorld(data, 1), day: 4 };
+    const r = advanceDays(w, data, 3);
+    expect(r.world.day).toBe(w.day + 3);
+    expect(r.events).toEqual([]);
+    expect(advanceDays(w, data, 0).world.day).toBe(4);
+  });
+
+  it("a jump's arrived event carries the post-advance day", () => {
+    const first = jumpOnce(toVesk());
+    expect(first.events.find((e) => e.type === 'arrived')).toEqual({ type: 'arrived', systemId: 'vesk', day: 1 });
+    expect(first.world.day).toBe(1);
+  });
+
+  it('a 3-hop tow ends 3 days later and emits towed', () => {
+    const dry: GameData = {
+      ...data,
+      planets: Object.fromEntries(
+        Object.entries(data.planets).map(([id, p]) => {
+          if (id === 'halcyon') return [id, p];
+          const { fuelPrice: _drop, ...rest } = p;
+          return [id, rest];
+        }),
+      ),
+    };
+    const w: WorldState = {
+      ...newWorld(data, 1),
+      systemId: 'brackwater',
+      ship: { pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, heading: 0, fuel: 0 },
+    };
+    const r = applyTow(w, dry);
+    expect(r.world.day).toBe(w.day + 3);
+    expect(r.events).toEqual([{ type: 'towed', planetId: 'halcyon' }]);
   });
 });
