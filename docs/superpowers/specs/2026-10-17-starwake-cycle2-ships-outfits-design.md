@@ -134,6 +134,16 @@ rebindable actions `openShipyard` and `openOutfitter` (planet group).
   in flight.
 - **Outfits:** original vector icons, one per category with a tier accent.
 
+### 4.4 Mission destination on the map (owner request)
+In the **Mission Computer** and the **Mission Log**, when a mission is highlighted,
+pressing the **Map** key (the existing `openMap` binding) or a **Show on map** button
+opens the star map centred on that mission's destination, with the destination marked
+and the shortest route from the current system drawn as a preview (jump count shown).
+The preview does not change the plotted course; the map offers **Set course** to plot it.
+Closing the map returns to the same screen with the same mission still highlighted.
+Unknown destinations are still marked (the mission names them). Works with touch (the
+button) and keyboard (the key).
+
 ## 5. PC sidebar HUD
 
 In keyboard mode a right-hand sidebar (about 200 px) replaces the top-left status
@@ -158,7 +168,9 @@ used.
   trade-in and net cost; ship purchase blocks; save v2 → v3 migration and unknown
   outfit ids; the too-close message in PC, rebound and touch forms; data validation
   of the new files (stock per tier, every shipyard world has stock).
-- **E2E (Playwright):** buy an outfit and a ship on desktop and see the new stats; the
+- **E2E (Playwright):** highlight a mission and press the Map key: the map shows its
+  destination and route, Set course plots it, closing returns to the mission;
+  buy an outfit and a ship on desktop and see the new stats; the
   sidebar shows on desktop and is absent in touch; shops are usable at phone size
   844×390 with nothing off-screen.
 - Existing suites stay green.
