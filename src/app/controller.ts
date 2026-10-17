@@ -232,11 +232,17 @@ export class Controller {
     return contextAction(this.world, this.data);
   }
 
-  /** Perform the context button's action (used by touch controls). No-op unless flying. */
+  /**
+   * Perform the context button's action (used by touch controls). No-op unless flying.
+   * `plotCourse` opens the star map the way the map key does (flight pauses; closing resumes it).
+   */
   doContextAction(): void {
     if (!this.flying) return;
     const action = this.currentContext();
-    if (action === 'takeControl') this.world = interruptAutopilot(this.world);
+    if (action === 'plotCourse') {
+      this.pauseFlight();
+      this.emit({ type: 'menu', action: 'map' });
+    } else if (action === 'takeControl') this.world = interruptAutopilot(this.world);
     else if (action === 'tow') this.callTow();
     else if (action === 'land') this.queued.add('land');
     else if (action === 'autopilotOut') this.world = autopilotToJumpPoint(this.world);

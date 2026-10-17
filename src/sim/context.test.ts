@@ -30,19 +30,37 @@ describe('contextAction', () => {
   it('land at 600 px but not at 601 px', () => {
     const h = data.planets.halcyon;
     expect(contextAction(at(newWorld(data), { x: h.pos.x, y: h.pos.y - 600 }), data)).toBe('land');
-    expect(contextAction(at(newWorld(data), { x: h.pos.x, y: h.pos.y - 601 }), data)).toBe('autopilotOut');
+    expect(contextAction(at(newWorld(data), { x: h.pos.x, y: h.pos.y - 601 }), data)).toBe('plotCourse');
+    expect(contextAction(at({ ...newWorld(data), route: ['vesk'] }, { x: h.pos.x, y: h.pos.y - 601 }), data)).toBe('autopilotOut');
   });
 
   it('jump when outside the jump distance with fuel and a destination', () => {
     expect(contextAction(at({ ...newWorld(data), route: ['vesk'] }, { x: -2100, y: 0 }), data)).toBe('jump');
   });
 
-  it('no jump without a destination', () => {
-    expect(contextAction(at(newWorld(data), { x: -2100, y: 0 }), data)).toBeNull();
+  it('no jump without a destination: plot a course instead (Calder has 4 links)', () => {
+    expect(contextAction(at(newWorld(data), { x: -2100, y: 0 }), data)).toBe('plotCourse');
   });
 
-  it('autopilotOut in empty space too close to jump, with fuel', () => {
-    expect(contextAction(at(newWorld(data), { x: -1000, y: -1000 }), data)).toBe('autopilotOut');
+  it('autopilotOut in empty space too close to jump, with fuel and a destination', () => {
+    expect(contextAction(at({ ...newWorld(data), route: ['vesk'] }, { x: -1000, y: -1000 }), data)).toBe('autopilotOut');
+  });
+
+  it('plotCourse beats autopilotOut when no destination can be chosen', () => {
+    expect(contextAction(at(newWorld(data), { x: -1000, y: -1000 }), data)).toBe('plotCourse');
+    // A stale course whose next hop isn't linked from here counts as no destination.
+    expect(contextAction(at({ ...newWorld(data), route: ['skerry'] }, { x: -1000, y: -1000 }), data)).toBe('plotCourse');
+  });
+
+  it('no plotCourse with a single link (it is the destination), near a planet, or with an assist or jump', () => {
+    const w = at(newWorld(data), { x: -1000, y: -1000 });
+    const oneLink = { ...data, systems: { ...data.systems, calder: { ...data.systems.calder, links: ['vesk'] } } };
+    expect(contextAction(w, oneLink)).toBe('autopilotOut');
+    const h = data.planets.halcyon;
+    expect(contextAction(at(newWorld(data), { x: h.pos.x, y: h.pos.y - 600 }), data)).toBe('land');
+    expect(contextAction({ ...w, assist: { kind: 'autoStop' } }, data)).toBeNull();
+    expect(contextAction({ ...w, assist: { kind: 'face' } }, data)).toBeNull();
+    expect(contextAction({ ...w, jump: { toSystemId: 'vesk', t: 0.2 } }, data)).toBeNull();
   });
 
   it('land beats autopilotOut when a planet is in range', () => {
@@ -51,7 +69,7 @@ describe('contextAction', () => {
   });
 
   it('no autopilotOut without fuel for a jump, without links, or with another assist active', () => {
-    const w = at(newWorld(data), { x: -1000, y: -1000 });
+    const w = at({ ...newWorld(data), route: ['vesk'] }, { x: -1000, y: -1000 });
     expect(contextAction({ ...w, ship: { ...w.ship, fuel: data.config.fuelPerJump - 1 } }, data)).toBeNull();
     const noLinks = { ...data, systems: { ...data.systems, calder: { ...data.systems.calder, links: [] } } };
     expect(contextAction(w, noLinks)).toBeNull();
@@ -59,9 +77,9 @@ describe('contextAction', () => {
     expect(contextAction({ ...w, assist: { kind: 'face' } }, data)).toBeNull();
   });
 
-  it('autopilotOut is offered without a destination; it flies radially out', () => {
+  it('the jump-point autopilot without a destination flies radially out (plotCourse is offered)', () => {
     let w = at(newWorld(data), { x: -1000, y: -1000 });
-    expect(contextAction(w, data)).toBe('autopilotOut');
+    expect(contextAction(w, data)).toBe('plotCourse');
     w = autopilotToJumpPoint(w);
     const input = { actions: new Set<never>(), pressed: new Set<never>() };
     for (let i = 0; i < 60 * 120 && w.assist.kind === 'autopilot'; i++) {
@@ -70,7 +88,7 @@ describe('contextAction', () => {
     expect(w.assist.kind).toBe('none');
     expect(dist(w.ship.pos, { x: 0, y: 0 })).toBeGreaterThanOrEqual(data.systems.calder.jumpDistance);
     expect(Math.atan2(w.ship.pos.y, w.ship.pos.x)).toBeCloseTo(Math.atan2(-1000, -1000), 1);
-    expect(contextAction(w, data)).toBeNull();
+    expect(contextAction(w, data)).toBe('plotCourse');
     expect(contextAction({ ...w, route: ['vesk'] }, data)).toBe('jump');
   });
 

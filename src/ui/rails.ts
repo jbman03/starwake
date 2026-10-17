@@ -23,6 +23,8 @@ export function contextLabel(action: ContextAction, world: WorldState, data: Gam
       const id = pickLandTarget(world, data, false);
       return id ? `⬇ LAND ON ${data.planets[id].name.toUpperCase()}` : null;
     }
+    case 'plotCourse':
+      return '🗺 PLOT COURSE';
     case 'autopilotOut':
       return '⇱ AUTOPILOT TO JUMP POINT';
     case 'jump': {

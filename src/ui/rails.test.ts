@@ -30,6 +30,7 @@ describe('contextLabel', () => {
     expect(contextLabel('jump', { ...w, route: ['tessaly', 'aurelle'] }, data)).toBe('JUMP TO TESSALY');
     expect(contextLabel('jump', w, data)).toBeNull();
     expect(contextLabel('autopilotOut', w, data)).toBe('⇱ AUTOPILOT TO JUMP POINT');
+    expect(contextLabel('plotCourse', w, data)).toBe('🗺 PLOT COURSE');
     expect(contextLabel('takeControl', w, data)).toBe('✋ TAKE CONTROL');
     expect(contextLabel('tow', w, data)).toBe(`CALL TOW (${data.config.towFee} cr)`);
     expect(contextLabel(null, w, data)).toBeNull();
@@ -78,10 +79,25 @@ describe('mountRails', () => {
     expect(btn.hidden).toBe(true);
   });
 
+  it('with no destination in open space, the context button offers PLOT COURSE and opens the map', async () => {
+    const { c, rails, parent } = await setup();
+    const menus: string[] = [];
+    c.on('menu', (e) => menus.push(e.action));
+    c.startFlight();
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: -1000, y: -1000 } } };
+    rails.update();
+    const btn = parent.querySelector<HTMLButtonElement>('[data-testid="context-button"]')!;
+    expect(btn.hidden).toBe(false);
+    expect(btn.textContent).toBe('🗺 PLOT COURSE');
+    btn.dispatchEvent(new Event('pointerdown'));
+    expect(menus).toEqual(['map']);
+    expect(c.isFlying).toBe(false);
+  });
+
   it('in open space too close to jump, the context button autopilots out to the jump point', async () => {
     const { c, rails, parent } = await setup();
     c.startFlight();
-    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: -1000, y: -1000 } } };
+    c.world = { ...c.world, route: ['vesk'], ship: { ...c.world.ship, pos: { x: -1000, y: -1000 } } };
     rails.update();
     const btn = parent.querySelector<HTMLButtonElement>('[data-testid="context-button"]')!;
     expect(btn.hidden).toBe(false);
