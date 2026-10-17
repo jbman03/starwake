@@ -56,9 +56,18 @@ describe('guide session wiring', () => {
   it('loading a pilot with an unfinished guide resumes it silently at the same step', async () => {
     const { data, c } = await setup({ session: false });
     const target = pickTarget(newWorld(data, 1), data, 'halcyon')!;
-    saveProgress('resume-me', { step: 7, done: false, target, startCredits: 1000 });
-    c.beginSession(newWorld(data, 1), { id: 'resume-me', name: 'R' }, 'halcyon');
+    saveProgress('resume-me', { step: 7, done: false, target, startCredits: 1000, buyPort: 'halcyon' });
+    const holding = { ...newWorld(data, 1), cargo: { [target.good]: 10 } };
+    c.beginSession(holding, { id: 'resume-me', name: 'R' }, 'halcyon');
     expect(c.guide?.current()?.step).toBe(7);
+  });
+
+  it('loading a pilot whose purchase was never saved rewinds the guide to the Buy step', async () => {
+    const { data, c } = await setup({ session: false });
+    const target = pickTarget(newWorld(data, 1), data, 'halcyon')!;
+    saveProgress('rewind-me', { step: 7, done: false, target, startCredits: 1000, buyPort: 'halcyon' });
+    c.beginSession(newWorld(data, 1), { id: 'rewind-me', name: 'R' }, 'halcyon'); // empty hold
+    expect(c.guide?.current()?.step).toBe(2);
   });
 
   it('a fresh pilot has no guide running until it is started', async () => {
@@ -100,7 +109,8 @@ describe('guide hints in screen panels', () => {
   it('mission computer: the hint sits above Accept/Done; closing it advances', async () => {
     const { c, ctx, hint, root, data } = await setup();
     const target = pickTarget(newWorld(data, 1), data, 'halcyon')!;
-    saveProgress(c.pilot!.id, { step: 3, done: false, target, startCredits: 1000 });
+    saveProgress(c.pilot!.id, { step: 3, done: false, target, startCredits: 1000, buyPort: 'halcyon' });
+    c.world = { ...c.world, cargo: { [target.good]: 10 } };
     c.guide!.start();
     showMissionComputer(ctx, 'halcyon', () => ctx.go.planet('halcyon'));
     const h = hint()!;
@@ -114,13 +124,24 @@ describe('guide hints in screen panels', () => {
   it('star map: the hint sits in the side column above its buttons', async () => {
     const { c, ctx, hint, root, data } = await setup();
     const target = pickTarget(newWorld(data, 1), data, 'halcyon')!;
-    saveProgress(c.pilot!.id, { step: 7, done: false, target, startCredits: 1000 });
+    saveProgress(c.pilot!.id, { step: 7, done: false, target, startCredits: 1000, buyPort: 'halcyon' });
+    c.world = { ...c.world, cargo: { [target.good]: 10 } };
     c.guide!.start();
     ctx.go.map({ onClose: () => ctx.go.planet('halcyon') });
     const h = hint()!;
     expect(h.closest('.sw-starmap-side')).not.toBeNull();
     expect(h.textContent).toContain(`set a course to ${data.systems[target.system].name}`);
     expect(before(h, root.querySelector('.sw-starmap-side .sw-actions')!)).toBe(true);
+  });
+
+  it('planet screen: the Star Map key in the hint is the planet one (N), not the flight M', async () => {
+    const { c, ctx, hint, data } = await setup();
+    const target = pickTarget(newWorld(data, 1), data, 'halcyon')!;
+    saveProgress(c.pilot!.id, { step: 7, done: false, target, startCredits: 1000, buyPort: 'halcyon' });
+    c.world = { ...c.world, cargo: { [target.good]: 10 } };
+    c.guide!.start();
+    ctx.go.planet('halcyon');
+    expect(hint()!.textContent).toContain('Open the Star Map (N)');
   });
 
   it('no hint is shown when the guide is not running', async () => {

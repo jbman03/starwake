@@ -2,7 +2,7 @@ import type { GameData } from '../data/schemas';
 import type { ActionId } from '../input/actions';
 import type { WorldState } from '../sim/types';
 import { clearProgress, loadProgress, saveProgress, STEP_COUNT, type Progress } from './progress';
-import { STEPS, type GuideState } from './steps';
+import { BUY_TONS, STEPS, type GuideState } from './steps';
 import { pickTarget, pickTargetNear, type GuideTarget } from './target';
 
 /** The slice of Controller the guide reads. Controller satisfies it. */
@@ -51,7 +51,36 @@ export class Guide {
     const p = id ? loadProgress(id, this.deps.storage) : null;
     if (!p) return null;
     const t = p.target;
-    return this.data.commodities[t.good] && this.data.systems[t.system] && this.data.planets[t.port] ? p : null;
+    if (!this.data.commodities[t.good] || !this.data.systems[t.system] || !this.data.planets[t.port]) return null;
+    if (p.buyPort && !this.data.planets[p.buyPort]) p.buyPort = undefined;
+    if (!p.fallback && !p.buyPort) {
+      // Saved before buyPort was stored: the port this trade is picked from, if we can tell.
+      const same = (g: GuideTarget | null) => !!g && g.good === t.good && g.system === t.system && g.port === t.port;
+      const ports = [this.host.landedPlanetId, this.data.config.startPlanetId];
+      const port = ports.find((pid) => pid && same(pickTarget(this.host.world, this.data, pid)));
+      if (port) p.buyPort = port;
+      else p.fallback = true;
+    }
+    return p;
+  }
+
+  /**
+   * Keep the guide honest about the hold: guide progress is saved every step but the pilot only on
+   * landing, so a reload (or a sale) can leave steps 3–9 without the good. Back at the buy port the
+   * guide rewinds to Buy; anywhere else it switches to fallback (check prices at {port}).
+   */
+  private reconcile(world: WorldState, landedPlanetId: string | null): boolean {
+    const p = this.p;
+    if (!p || p.done || p.fallback || p.step < 3 || p.step > 9) return false;
+    if ((world.cargo[p.target.good] ?? 0) >= BUY_TONS) return false;
+    if (p.buyPort && landedPlanetId === p.buyPort) {
+      p.step = 2;
+      p.startPos = undefined;
+      p.startSystem = undefined;
+    } else {
+      p.fallback = true;
+    }
+    return true;
   }
 
   /** True when this pilot has an unfinished guide saved. */
@@ -70,6 +99,8 @@ export class Guide {
     const saved = this.saved();
     if (saved && !saved.done) {
       this.p = saved;
+      this.reconcile(this.host.world, this.host.landedPlanetId);
+      this.persist();
       this.emit();
       return true;
     }
@@ -79,7 +110,8 @@ export class Guide {
     const target = here ?? pickTargetNear(w, this.data);
     if (!target) return false;
     this.p = { step: here ? 1 : LEAVE_STEP, done: false, target, startCredits: w.credits };
-    if (!here) this.p.fallback = true;
+    if (here && landed) this.p.buyPort = landed;
+    else this.p.fallback = true;
     this.persist();
     this.emit();
     return true;
@@ -110,7 +142,7 @@ export class Guide {
     const p = this.p;
     if (!p || p.done) return;
     const before = p.step;
-    let changed = false;
+    let changed = this.reconcile(state.world, state.landedPlanetId);
     while (p.step < STEP_COUNT) {
       if (p.step === 6) {
         // A start position left over from an earlier flight (landed, or jumped) is stale.

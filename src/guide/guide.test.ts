@@ -4,6 +4,7 @@ import { resetBindings, type Bindings } from '../input/bindings';
 import type { WorldState } from '../sim/types';
 import { newWorld } from '../sim/world';
 import { Guide, type GuideHost } from './guide';
+import { loadProgress, saveProgress } from './progress';
 import type { GuideState } from './steps';
 import { pickTarget } from './target';
 
@@ -98,6 +99,7 @@ describe('Guide', () => {
     guide.update(state(w, 'exchange', 'halcyon'));
     guide.update(state(w, 'missions', 'halcyon'));
     expect(guide.current()?.step).toBe(4);
+    host.world = w; // the reloaded pilot still holds the cargo
     const again = make();
     expect(again.resumable()).toBe(true);
     expect(again.start()).toBe(true);
@@ -111,27 +113,89 @@ describe('Guide', () => {
     const w = { ...host.world, cargo: { [target.good]: 10 } };
     for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
     guide.update(state(w, 'flight'));
+    host.world = w;
     const again = make();
     again.start();
     again.update(state(moved(w, 400), 'flight'));
     expect(again.current()?.step).toBe(7);
   });
 
-  it('sold early: step 10 completes as soon as it is reached', () => {
+  it('records the port the good was bought at', () => {
+    const storage = memory();
+    const { guide } = setup(storage);
+    guide.start();
+    expect(loadProgress('p1', storage)?.buyPort).toBe('halcyon');
+  });
+
+  it('sold back before leaving: the hold no longer has the good, so it rewinds to the Buy step', () => {
     const { guide, host } = setup();
     guide.start();
     let w = { ...host.world, cargo: { [target.good]: 10 } };
     guide.update(state(w, 'exchange', 'halcyon'));
     expect(guide.current()?.step).toBe(3);
-    w = { ...w, cargo: {} }; // sold before the mission steps
-    guide.update(state(w, 'missions', 'halcyon'));
-    guide.update(state(w, 'planet', 'halcyon'));
+    w = { ...w, cargo: {} };
+    guide.update(state(w, 'exchange', 'halcyon'));
+    expect(guide.current()?.step).toBe(2);
+    expect(guide.current()?.text).toContain('Buy 10 t (B)');
+  });
+
+  it('reload at step 7 with the purchase not saved, landed at the buy port: rewinds to step 2', () => {
+    const storage = memory();
+    const { guide, host, make } = setup(storage);
+    guide.start();
+    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
     guide.update(state(w, 'flight'));
-    guide.update(state(moved(w, 500), 'flight'));
-    guide.update(state({ ...w, systemId: target.system }, 'flight'));
-    expect(guide.current()?.step).toBe(9);
+    guide.update(state(moved(w, 400), 'flight'));
+    expect(guide.current()?.step).toBe(7);
+    // The pilot was saved before buying: the reloaded hold is empty, back at Halcyon.
+    const again = make();
+    expect(again.start()).toBe(true);
+    expect(again.current()?.step).toBe(2);
+    expect(loadProgress('p1', storage)).toMatchObject({ step: 2 });
+    expect(loadProgress('p1', storage)?.fallback).toBeUndefined();
+    expect(loadProgress('p1', storage)?.startPos).toBeUndefined();
+  });
+
+  it('hold emptied away from the buy port: switches to fallback and teaches checking prices', () => {
+    const storage = memory();
+    const { guide, host } = setup(storage);
+    guide.start();
+    let w = { ...host.world, cargo: { [target.good]: 10 } };
+    for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
+    guide.update(state(w, 'flight'));
+    guide.update(state(moved(w, 400), 'flight'));
+    expect(guide.current()?.step).toBe(7);
+    w = { ...moved(w, 400), cargo: {} }; // jettisoned, or sold somewhere else
+    guide.update(state(w, 'flight'));
+    expect(guide.current()?.step).toBe(7);
+    expect(loadProgress('p1', storage)?.fallback).toBe(true);
+    guide.update(state({ ...w, route: [target.system] }, 'flight'));
+    guide.update(state({ ...w, route: [], systemId: target.system }, 'flight'));
     guide.update(state({ ...w, systemId: target.system }, 'planet', target.port));
+    expect(guide.current()?.step).toBe(10); // empty hold: no instant completion
+    expect(guide.current()?.text).toContain('check the prices');
+    guide.update(state({ ...w, systemId: target.system, credits: w.credits + 999 }, 'exchange', target.port));
     expect(guide.current()?.step).toBe(11);
+    expect(guide.current()?.text).toContain("You're set up to trade.");
+  });
+
+  it('older progress without buyPort: the buy port comes from the target, else fallback', () => {
+    const storage = memory();
+    const { host, make } = setup(storage);
+    saveProgress('p1', { step: 7, done: false, target, startCredits: 1000 }, storage);
+    const a = make();
+    a.start();
+    expect(a.current()?.step).toBe(2); // Halcyon is where this trade buys: rewound
+    expect(loadProgress('p1', storage)?.buyPort).toBe('halcyon');
+
+    const odd = { ...target, good: 'luxury' }; // no port the player knows buys this cheap here
+    saveProgress('p1', { step: 7, done: false, target: odd, startCredits: 1000 }, storage);
+    host.world = { ...host.world, cargo: { [odd.good]: 10 } };
+    const b = make();
+    b.start();
+    expect(b.current()?.step).toBe(7);
+    expect(loadProgress('p1', storage)?.fallback).toBe(true);
   });
 
   it('jumping to a different system leaves step 8 waiting', () => {

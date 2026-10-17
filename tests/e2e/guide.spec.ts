@@ -143,7 +143,7 @@ test.describe('desktop', () => {
     expect(errors).toEqual([]);
   });
 
-  test('a reload mid-guide resumes at the same step; Skip guide asks first', async ({ page }) => {
+  test('a reload mid-guide resumes honestly: the unsaved purchase rewinds to Buy; Skip guide asks first', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = trackErrors(page);
     await newPilot(page, 'Resumer', true);
@@ -169,15 +169,16 @@ test.describe('desktop', () => {
     await page.getByRole('button', { name: 'Load' }).click();
     await expect(page.getByTestId('planet-screen')).toBeVisible();
     await expect(page.getByRole('dialog')).toHaveCount(0); // resumed silently, no offer
-    expect(await step(page)).toBe(7);
+    // The pilot was last saved before the purchase (saves happen on landing): the hold is empty
+    // again at Halcyon, so the guide rewinds to the Buy step instead of claiming a sale later.
+    expect(await page.evaluate((g) => window.__starwake!.world().cargo[g] ?? 0, good)).toBe(0);
+    expect(await step(page)).toBe(2);
     expect(await page.evaluate(() => window.__starwake!.controller.guide!.target())).toEqual(before);
-    // On a planet the star map is N, not the flight key M.
-    expect(await screenHint(page)).toMatch(/^Open the Star Map \(N\) and set a course to /);
 
     await page.getByTestId('guide-skip').click();
     const dialog = page.getByRole('dialog', { name: 'Skip the guide?' });
     await dialog.getByRole('button', { name: 'Cancel' }).click();
-    expect(await step(page)).toBe(7);
+    expect(await step(page)).toBe(2);
     await page.getByTestId('guide-skip').click();
     await dialog.getByRole('button', { name: 'Skip guide' }).click();
     await expect(page.locator('[data-testid="guide-hint"]:visible')).toHaveCount(0);

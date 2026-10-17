@@ -20,6 +20,7 @@ const p: Progress = {
   target: { good: 'food', system: 'tessaly', port: 'vanterre' },
   startCredits: 10000,
   startPos: { x: 1, y: 2 },
+  buyPort: 'halcyon',
 };
 
 describe('progress', () => {
@@ -29,6 +30,14 @@ describe('progress', () => {
     expect(s.getItem('starwake.guide.a')).not.toBeNull();
     expect(loadProgress('a', s)).toEqual(p);
     expect(loadProgress('b', s)).toBeNull();
+  });
+  it('accepts older progress saved before buyPort existed', () => {
+    const s = memory();
+    const { buyPort: _, ...old } = p;
+    s.setItem('starwake.guide.a', JSON.stringify(old));
+    const got = loadProgress('a', s);
+    expect(got).toEqual(old);
+    expect(got?.buyPort).toBeUndefined();
   });
   it('clears', () => {
     const s = memory();

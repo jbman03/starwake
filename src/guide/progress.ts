@@ -18,6 +18,11 @@ export interface Progress {
   fallback?: boolean;
   /** Profit frozen when the last step is reached. */
   profit?: number;
+  /**
+   * Port the good is bought at (step 1's port). Missing in fallback, and in progress saved before
+   * it existed (the guide then works it out from the target, or falls back).
+   */
+  buyPort?: string;
 }
 
 export const STEP_COUNT = 11;
@@ -52,6 +57,7 @@ function parse(raw: string): Progress | null {
   if (isStr(v.startSystem)) p.startSystem = v.startSystem;
   if (v.fallback === true) p.fallback = true;
   if (isNum(v.profit)) p.profit = v.profit;
+  if (isStr(v.buyPort)) p.buyPort = v.buyPort;
   return p;
 }
 
