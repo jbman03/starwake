@@ -1,6 +1,7 @@
 import type { GameData, PlanetDef } from '../data/schemas';
 import { autopilotInput, autoStopInput, faceInput, reverseInput } from './assists';
 import { stepShip } from './flight';
+import { economyDay } from './economy';
 import { hopDistance, revealOnArrival, routeBetween } from './galaxy';
 import { hashString } from './random';
 import {
@@ -84,12 +85,13 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
  * applies that day's effects. This is the only place the date moves; the economy and mission
  * deadlines hook into the per-day step.
  */
-export function advanceDays(world: WorldState, _data: GameData, n: number): { world: WorldState; events: SimEvent[] } {
+export function advanceDays(world: WorldState, data: GameData, n: number): { world: WorldState; events: SimEvent[] } {
   const events: SimEvent[] = [];
   let w = world;
   for (let i = 0; i < n; i++) {
     w = { ...w, day: w.day + 1 };
-    // Per-day effects (economy, mission deadlines) go here.
+    w = economyDay(w, data);
+    // Mission deadlines go here.
   }
   return { world: w, events };
 }
