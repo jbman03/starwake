@@ -231,8 +231,24 @@ describe('stepWorld: manual flight and assists', () => {
     expect(second).not.toBe('halcyon');
     w = stepWorld(w, data, frame(['nextTarget']), DT, OPTS).world;
     expect([second, 'halcyon']).not.toContain(w.targetPlanetId);
+    // After the last planet the target clears, so a phone player can get back to Jump.
+    w = stepWorld(w, data, frame(['nextTarget']), DT, OPTS).world;
+    expect(w.targetPlanetId).toBeNull();
     w = stepWorld(w, data, frame(['nextTarget']), DT, OPTS).world;
     expect(w.targetPlanetId).toBe('halcyon');
+  });
+
+  it('plotting a course clears the planet target', () => {
+    let w = newWorld(data);
+    w = stepWorld(w, data, frame(['nextTarget']), DT, OPTS).world;
+    expect(w.targetPlanetId).toBe('halcyon');
+    const r = setRoute(w, data, 'vesk');
+    expect(r.ok).toBe(true);
+    expect(r.world.targetPlanetId).toBeNull();
+    // A failed plot leaves the target alone.
+    const bad = setRoute(w, data, 'no-such-system');
+    expect(bad.ok).toBe(false);
+    expect(bad.world.targetPlanetId).toBe('halcyon');
   });
 
   it('faceTarget turns toward the target', () => {
