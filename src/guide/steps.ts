@@ -31,7 +31,7 @@ export interface TextCtx {
 export interface StepDef {
   id: string;
   text(ctx: TextCtx): string;
-  done(s: GuideState, t: GuideTarget, p: Progress): boolean;
+  done(s: GuideState, t: GuideTarget, p: Progress, data: GameData): boolean;
 }
 
 export const FLY_DISTANCE = 300;
@@ -76,7 +76,11 @@ export const STEPS: readonly StepDef[] = [
       touch(c)
         ? 'Tap Done, then Mission Computer.'
         : `Close the exchange (${c.key('back')}) and open the Mission Computer (${c.key('openMissions')}).`,
-    done: (s) => s.screen === 'missions',
+    // Optional (spec 2.2): taking off, or a port with no Mission Computer, skips the job steps.
+    done: (s, _t, _p, data) =>
+      s.screen === 'missions' ||
+      s.screen === 'flight' ||
+      !(s.landedPlanetId && data.planets[s.landedPlanetId]?.services.includes('missions')),
   },
   {
     id: 'close-missions',

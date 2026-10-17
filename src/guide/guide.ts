@@ -125,7 +125,7 @@ export class Guide {
           changed = true;
         }
       }
-      if (!STEPS[p.step - 1].done({ ...state, startPos: p.startPos }, p.target, p)) break;
+      if (!STEPS[p.step - 1].done({ ...state, startPos: p.startPos }, p.target, p, this.data)) break;
       p.step++;
       changed = true;
     }

@@ -16,7 +16,7 @@ const st = (over: Partial<GuideState> & { w?: Partial<WorldState> } = {}): Guide
   landedPlanetId: 'halcyon',
   ...over,
 });
-const done = (i: number, s: GuideState): boolean => STEPS[i - 1].done(s, t, p);
+const done = (i: number, s: GuideState): boolean => STEPS[i - 1].done(s, t, p, data);
 
 describe('step completion predicates', () => {
   it('has 11 steps', () => expect(STEPS).toHaveLength(11));
@@ -30,12 +30,17 @@ describe('step completion predicates', () => {
     expect(done(2, st({ w: { cargo: { food: 9 } } }))).toBe(false);
     expect(done(2, st({ w: { cargo: { metal: 50 } } }))).toBe(false);
   });
-  it('3 mission computer opened', () => {
+  it('3 mission computer opened, or skipped: in flight, or at a port without one', () => {
     expect(done(3, st({ screen: 'missions' }))).toBe(true);
     expect(done(3, st({ screen: 'exchange' }))).toBe(false);
+    expect(done(3, st({ screen: 'planet' }))).toBe(false);
+    expect(done(3, st({ screen: 'flight', landedPlanetId: null }))).toBe(true);
+    expect(done(3, st({ screen: 'exchange', landedPlanetId: 'merrow' }))).toBe(true); // no missions service
+    expect(done(3, st({ screen: 'planet', landedPlanetId: 'pell' }))).toBe(true);
   });
   it('4 mission computer closed', () => {
     expect(done(4, st({ screen: 'planet' }))).toBe(true);
+    expect(done(4, st({ screen: 'flight', landedPlanetId: null }))).toBe(true);
     expect(done(4, st({ screen: 'missions' }))).toBe(false);
   });
   it('5 in flight', () => {

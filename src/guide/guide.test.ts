@@ -149,6 +149,33 @@ describe('Guide', () => {
     expect(guide.current()?.text).toContain(data.systems[target.system].name);
   });
 
+  it('mission steps are optional: leaving at step 3 flows on to step 6 in flight', () => {
+    const { guide, host } = setup();
+    guide.start();
+    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    guide.update(state(w, 'exchange', 'halcyon'));
+    guide.update(state(w, 'planet', 'halcyon'));
+    expect(guide.current()?.step).toBe(3); // Halcyon has a Mission Computer: still suggested
+    guide.update(state(w, 'flight'));
+    expect(guide.current()?.step).toBe(6);
+    guide.update(state(moved(w, 400), 'flight'));
+    expect(guide.current()?.step).toBe(7);
+  });
+
+  it('replay at a port without a Mission Computer (Merrow) skips steps 3 and 4', () => {
+    const { host, make } = setup();
+    host.landedPlanetId = 'merrow';
+    const g = make();
+    expect(g.start()).toBe(true);
+    expect(g.current()?.step).toBe(1);
+    const good = g.target()!.good;
+    g.update(state(host.world, 'exchange', 'merrow'));
+    expect(g.current()?.step).toBe(2);
+    g.update(state({ ...host.world, cargo: { [good]: 10 } }, 'exchange', 'merrow'));
+    expect(g.current()?.step).toBe(5);
+    expect(g.current()?.text).toBe('Leave the planet (L).');
+  });
+
   it('skip marks it done, persists, and hides the hint', () => {
     const { guide, make } = setup();
     guide.start();
