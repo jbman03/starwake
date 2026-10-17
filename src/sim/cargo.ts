@@ -43,7 +43,7 @@ function priceAfter(world: WorldState, data: GameData, portId: string, commodity
 
 /**
  * Most tons buyable right now: limited by free hold and by credits at the post-impact price
- * (buying n t costs n × the price after n t of pressure). 0 if not traded.
+ * (buying n t costs n Ã— the price after n t of pressure). 0 if not traded.
  */
 export function maxBuy(world: WorldState, data: GameData, portId: string, commodityId: string): number {
   const price = priceOf(world, data, portId, commodityId);
