@@ -47,7 +47,7 @@ test.describe('desktop', () => {
     // 2: buy the named good.
     const ex = page.getByTestId('exchange');
     await expect(ex).toBeVisible();
-    const buy = (await screenHint(page)).match(/^(.+) is Low here\. Buy 10 t \(B\)\.$/);
+    const buy = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 10 t \(B\)\.$/);
     expect(buy).not.toBeNull();
     const good = (await idOf(page, 'commodities', buy![1]))!;
     expect(good).not.toBeNull();
@@ -60,6 +60,7 @@ test.describe('desktop', () => {
     await expect.poll(() => screenHint(page)).toBe('Close the exchange (Esc) and open the Mission Computer (M).');
     await page.keyboard.press('Escape');
     await expect(planet).toBeVisible();
+    expect(await screenHint(page)).toBe('Open the Mission Computer (M).'); // Esc is Leave here
     await page.keyboard.press('KeyM');
     await expect(page.getByTestId('mission-computer')).toBeVisible();
     expect(await screenHint(page)).toContain('Jobs pay when you land at their destination.');
@@ -80,7 +81,7 @@ test.describe('desktop', () => {
     await page.keyboard.up('ArrowUp');
 
     // 7: plot the course the hint names.
-    const plot = (await hudHint(page, /Star Map/)).match(/set a course to (.+) — (.+) sells High there\.$/);
+    const plot = (await hudHint(page, /Star Map/)).match(/set a course to (.+)\. (.+) pays well there\.$/);
     expect(plot).not.toBeNull();
     expect(await hudHint(page, /Star Map/)).toContain('Open the Star Map (M)');
     const system = (await idOf(page, 'systems', plot![1]))!;
@@ -148,7 +149,8 @@ test.describe('desktop', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Resumer', true);
     await page.keyboard.press('KeyC');
-    const good = (await idOf(page, 'commodities', (await screenHint(page)).split(' is Low here')[0]))!;
+    const goodName = (await screenHint(page)).split(' is cheap here')[0];
+    const good = (await idOf(page, 'commodities', goodName))!;
     await page.getByTestId('exchange').locator(`[data-good="${good}"]`).click();
     await page.keyboard.press('KeyB');
     await expect.poll(() => step(page)).toBe(3);
@@ -174,6 +176,7 @@ test.describe('desktop', () => {
     expect(await page.evaluate((g) => window.__starwake!.world().cargo[g] ?? 0, good)).toBe(0);
     expect(await step(page)).toBe(2);
     expect(await page.evaluate(() => window.__starwake!.controller.guide!.target())).toEqual(before);
+    expect(await screenHint(page)).toBe(`Open the exchange (C) and buy 10 t of ${goodName}.`);
 
     await page.getByTestId('guide-skip').click();
     const dialog = page.getByRole('dialog', { name: 'Skip the guide?' });
@@ -258,7 +261,7 @@ test.describe('phone (touch, landscape)', () => {
       await page.getByRole('button', { name: /^Commodity Exchange/ }).tap();
       await screenFits(page, 'exchange');
       if (!bought) {
-        const name = (await screenHint(page)).match(/^Buy 10 t of (.+): Low here\.$/)![1];
+        const name = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 10 t\.$/)![1];
         const good = (await idOf(page, 'commodities', name))!;
         await page.getByTestId('exchange').locator(`[data-good="${good}"]`).tap();
         await page.getByRole('button', { name: /^Buy 10/ }).tap();

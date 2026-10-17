@@ -84,18 +84,29 @@ describe('step completion predicates', () => {
 describe('step text', () => {
   const ctx = (over: Partial<TextCtx> = {}): TextCtx => {
     const b = resetBindings();
-    return { target: t, mode: 'keyboard', key: (a) => b[a][0] ?? '?', data, ...over };
+    return {
+      target: t,
+      mode: 'keyboard',
+      key: (a) => b[a][0] ?? '?',
+      data,
+      screen: 'planet',
+      landedPlanetId: 'halcyon',
+      buyPort: 'halcyon',
+      routeOk: true,
+      ...over,
+    };
   };
+  const flying = { screen: 'flight', landedPlanetId: null } as const;
   it('names the good, system and port from data', () => {
     expect(STEPS[1].text(ctx())).toContain('Food');
     expect(STEPS[6].text(ctx())).toContain('Tessaly');
     expect(STEPS[8].text(ctx())).toContain('Vanterre');
   });
   it('uses the supplied key labels', () => {
-    expect(STEPS[1].text(ctx({ key: (a) => (a === 'buyGoods' ? 'Q' : '?') }))).toContain('(Q)');
+    expect(STEPS[1].text(ctx({ screen: 'exchange', key: (a) => (a === 'buyGoods' ? 'Q' : '?') }))).toContain('(Q)');
   });
   it('switches to phone wording', () => {
-    const c = ctx({ mode: 'touch' });
+    const c = ctx({ mode: 'touch', ...flying });
     expect(STEPS[5].text(c)).toBe('Push the stick to fly, STOP to brake.');
     expect(STEPS[6].text(c)).toBe('Tap the radar. Set course to Tessaly.');
     expect(STEPS[7].text(c)).toBe('To Tessaly: fly clear, tap Jump. Repeat.');
@@ -109,18 +120,69 @@ describe('step text', () => {
     const system = longest(data.systems);
     const port = longest(data.planets);
     const target = { good: good.id, system: system.id, port: port.id };
-    for (const fallback of [false, true]) {
-      const c = ctx({ mode: 'touch', target, fallback, planetName: port.name, profit: 1_234_567 });
-      for (const s of STEPS.slice(0, 10)) {
-        const text = s.text(c);
-        expect(text.length, `${s.id}: "${text}"`).toBeLessThanOrEqual(TOUCH_HINT_MAX_CHARS);
-      }
-    }
+    const screens = ['planet', 'exchange', 'missions', 'map', 'flight', 'other'] as const;
+    for (const fallback of [false, true])
+      for (const screen of screens)
+        for (const landedPlanetId of [port.id, 'halcyon', null])
+          for (const routeOk of [true, false]) {
+            const c = ctx({ mode: 'touch', target, fallback, planetName: port.name, profit: 1_234_567, screen, landedPlanetId, routeOk, buyPort: port.id });
+            for (const s of STEPS.slice(0, 10)) {
+              const text = s.text(c);
+              expect(text.length, `${s.id} (${screen}, ${landedPlanetId}): "${text}"`).toBeLessThanOrEqual(TOUCH_HINT_MAX_CHARS);
+            }
+          }
     // The key facts lead: the destination is in the step 7 and 8 rail text.
-    const c = ctx({ mode: 'touch', target });
+    const c = ctx({ mode: 'touch', target, ...flying });
     expect(STEPS[6].text(c)).toContain(system.name);
     expect(STEPS[7].text(c)).toContain(system.name);
     expect(STEPS[8].text(c)).toContain(port.name);
+  });
+
+  describe('follows the screen and route', () => {
+    it('step 2 on the exchange: the good is cheap here, buy it', () => {
+      expect(STEPS[1].text(ctx({ screen: 'exchange' }))).toBe('Food is cheap here. Buy 10 t (KeyB).');
+      expect(STEPS[1].text(ctx({ screen: 'exchange', mode: 'touch' }))).toBe('Food is cheap here. Buy 10 t.');
+    });
+    it('step 2 off the exchange at the buy port: open the exchange first', () => {
+      expect(STEPS[1].text(ctx())).toBe('Open the exchange (KeyC) and buy 10 t of Food.');
+      expect(STEPS[1].text(ctx({ mode: 'touch' }))).toBe('Exchange: buy 10 t of Food.');
+    });
+    it('step 2 away from the buy port names it', () => {
+      for (const where of [{ landedPlanetId: 'merrow' }, flying]) {
+        expect(STEPS[1].text(ctx(where))).toBe('Open the exchange and buy 10 t of Food at Halcyon.');
+        expect(STEPS[1].text(ctx({ mode: 'touch', ...where }))).toBe('Buy Food at Halcyon.');
+      }
+    });
+    it('step 3 only says to close the exchange while it is open (on the planet Esc is Leave)', () => {
+      expect(STEPS[2].text(ctx({ screen: 'exchange' }))).toBe('Close the exchange (Escape) and open the Mission Computer (KeyM).');
+      expect(STEPS[2].text(ctx())).toBe('Open the Mission Computer (KeyM).');
+      expect(STEPS[2].text(ctx({ screen: 'exchange', mode: 'touch' }))).toBe('Tap Done, then Mission Computer.');
+      expect(STEPS[2].text(ctx({ mode: 'touch' }))).toBe('Tap Mission Computer.');
+    });
+    it('step 7 on a phone: Star Map button on the planet screen, the radar in flight', () => {
+      expect(STEPS[6].text(ctx({ mode: 'touch' }))).toBe('Tap Star Map. Set course to Tessaly.');
+      expect(STEPS[6].text(ctx({ mode: 'touch', ...flying }))).toBe('Tap the radar. Set course to Tessaly.');
+    });
+    it('step 8 without a course to the target shows the plotting text again', () => {
+      for (const mode of ['keyboard', 'touch'] as const) {
+        const off = ctx({ mode, ...flying, routeOk: false });
+        expect(STEPS[7].text(off)).toBe(STEPS[6].text(off));
+        expect(STEPS[7].text(ctx({ mode, ...flying }))).toMatch(/Jump/);
+      }
+    });
+    it('trade wording never contradicts the live Low/Med/High', () => {
+      const all = [
+        STEPS[1].text(ctx({ screen: 'exchange' })),
+        STEPS[1].text(ctx({ screen: 'exchange', mode: 'touch' })),
+        STEPS[6].text(ctx(flying)),
+        STEPS[9].text(ctx({ fallback: true })),
+        STEPS[9].text(ctx({ fallback: true, mode: 'touch' })),
+      ];
+      for (const text of all) expect(text).not.toMatch(/\b(Low|High)\b/);
+      expect(STEPS[6].text(ctx(flying))).toBe('Open the Star Map (KeyM) and set a course to Tessaly. Food pays well there.');
+      expect(STEPS[9].text(ctx({ fallback: true }))).toContain('Food pays well here');
+      expect(STEPS[9].text(ctx({ fallback: true, mode: 'touch' }))).toBe('Exchange: Food pays well.');
+    });
   });
 
   it('reports profit, or a neutral line when not positive', () => {

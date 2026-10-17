@@ -46,6 +46,17 @@ describe('Guide', () => {
     expect(guide.target()).toEqual(target);
   });
 
+  it('hint text reads the screen it is shown on', () => {
+    const { guide, host } = setup();
+    guide.start();
+    guide.update(state(host.world, 'exchange', 'halcyon'));
+    expect(guide.current()?.text).toMatch(/is cheap here\. Buy 10 t \(B\)\.$/);
+    guide.update(state(host.world, 'planet', 'halcyon'));
+    expect(guide.current()?.text).toMatch(/^Open the exchange \(C\) and buy 10 t of /);
+    guide.update(state(host.world, 'flight'));
+    expect(guide.current()?.text).toMatch(/ at Halcyon\.$/);
+  });
+
   it('walks the whole loop and reports profit', () => {
     const { guide, host } = setup();
     guide.start();
@@ -211,6 +222,9 @@ describe('Guide', () => {
     guide.update(state({ ...moved(w, 400), route: [], systemId: elsewhere }, 'flight'));
     expect(guide.current()?.step).toBe(8);
     expect(guide.current()?.text).toContain(data.systems[target.system].name);
+    expect(guide.current()?.text).toMatch(/^Open the Star Map \(M\) and set a course to /); // no course: plot again
+    guide.update(state({ ...moved(w, 400), route: [target.system], systemId: elsewhere }, 'flight'));
+    expect(guide.current()?.text).toMatch(/Jump \(J\)/);
   });
 
   it('mission steps are optional: leaving at step 3 flows on to step 6 in flight', () => {

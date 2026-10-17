@@ -26,6 +26,13 @@ export interface TextCtx {
   planetName?: string;
   /** The guide started without a buy-low port, so the player never bought anything. */
   fallback?: boolean;
+  /** What the player is looking at now: hints name only controls on this screen. */
+  screen: GuideState['screen'];
+  landedPlanetId: string | null;
+  /** Port the good is bought at (absent in fallback). */
+  buyPort?: string;
+  /** The plotted route ends in the target system (or the ship is there or jumping there). */
+  routeOk: boolean;
 }
 
 export interface StepDef {
@@ -51,6 +58,29 @@ const systemName = (c: TextCtx): string => c.data.systems[c.target.system]?.name
 const portName = (c: TextCtx): string => c.data.planets[c.target.port]?.name ?? c.target.port;
 const held = (s: GuideState, t: GuideTarget): number => s.world.cargo[t.good] ?? 0;
 const touch = (c: TextCtx): boolean => c.mode === 'touch';
+const buyPortName = (c: TextCtx): string => (c.buyPort ? (c.data.planets[c.buyPort]?.name ?? c.buyPort) : '');
+
+/** Step 7's text; step 8 shows it again while no course leads to the target (spec 2.2). */
+function plotText(c: TextCtx): string {
+  if (touch(c)) {
+    const how = c.screen === 'planet' ? 'Tap Star Map.' : 'Tap the radar.';
+    return `${how} Set course to ${systemName(c)}.`;
+  }
+  return `Open the Star Map (${c.key('map')}) and set a course to ${systemName(c)}. ${goodName(c)} pays well there.`;
+}
+
+/** Step 2's text: buy on the exchange, open it first, or go back to the buy port. */
+function buyText(c: TextCtx): string {
+  const good = goodName(c);
+  const atBuyPort = !c.buyPort || c.landedPlanetId === c.buyPort;
+  if (!atBuyPort) {
+    return touch(c) ? `Buy ${good} at ${buyPortName(c)}.` : `Open the exchange and buy ${BUY_TONS} t of ${good} at ${buyPortName(c)}.`;
+  }
+  if (c.screen !== 'exchange') {
+    return touch(c) ? `Exchange: buy ${BUY_TONS} t of ${good}.` : `Open the exchange (${c.key('openExchange')}) and buy ${BUY_TONS} t of ${good}.`;
+  }
+  return touch(c) ? `${good} is cheap here. Buy ${BUY_TONS} t.` : `${good} is cheap here. Buy ${BUY_TONS} t (${c.key('buyGoods')}).`;
+}
 
 /** The 11 First Flight steps (spec 2.2). Each completes by itself when the player does the thing. */
 export const STEPS: readonly StepDef[] = [
@@ -64,18 +94,20 @@ export const STEPS: readonly StepDef[] = [
   },
   {
     id: 'buy',
-    text: (c) =>
-      touch(c)
-        ? `Buy ${BUY_TONS} t of ${goodName(c)}: Low here.`
-        : `${goodName(c)} is Low here. Buy ${BUY_TONS} t (${c.key('buyGoods')}).`,
+    text: buyText,
     done: (s, t) => held(s, t) >= BUY_TONS,
   },
   {
     id: 'open-missions',
+    // Only the exchange is closed with Back; on the planet screen Esc is Leave.
     text: (c) =>
-      touch(c)
-        ? 'Tap Done, then Mission Computer.'
-        : `Close the exchange (${c.key('back')}) and open the Mission Computer (${c.key('openMissions')}).`,
+      c.screen === 'exchange'
+        ? touch(c)
+          ? 'Tap Done, then Mission Computer.'
+          : `Close the exchange (${c.key('back')}) and open the Mission Computer (${c.key('openMissions')}).`
+        : touch(c)
+        ? 'Tap Mission Computer.'
+        : `Open the Mission Computer (${c.key('openMissions')}).`,
     // Optional (spec 2.2): taking off, or a port with no Mission Computer, skips the job steps.
     done: (s, _t, _p, data) =>
       s.screen === 'missions' ||
@@ -105,18 +137,18 @@ export const STEPS: readonly StepDef[] = [
   },
   {
     id: 'plot-course',
-    text: (c) =>
-      touch(c)
-        ? `Tap the radar. Set course to ${systemName(c)}.`
-        : `Open the Star Map (${c.key('map')}) and set a course to ${systemName(c)} — ${goodName(c)} sells High there.`,
+    text: plotText,
     // Already in the system counts: a course is moot once you are there.
     done: (s, t) =>
       s.world.route[s.world.route.length - 1] === t.system || (s.world.systemId === t.system && !s.world.jump),
   },
   {
     id: 'jump',
+    // No course to the target (cleared, or plotted elsewhere): plot it again first.
     text: (c) =>
-      touch(c)
+      !c.routeOk
+        ? plotText(c)
+        : touch(c)
         ? `To ${systemName(c)}: fly clear, tap Jump. Repeat.`
         : `Fly clear of the star (${c.key('autopilot')} autopilot) and Jump (${c.key('jump')}). Repeat until you arrive in ${systemName(c)}.`,
     done: (s, t) => s.world.systemId === t.system && !s.world.jump,
@@ -134,10 +166,10 @@ export const STEPS: readonly StepDef[] = [
     text: (c) =>
       touch(c)
         ? c.fallback
-          ? `Exchange: ${goodName(c)} sells High.`
+          ? `Exchange: ${goodName(c)} pays well.`
           : `Exchange: Sell all ${goodName(c)}.`
         : c.fallback
-        ? `Open the exchange at ${portName(c)} and check the prices: ${goodName(c)} sells High here.`
+        ? `Open the exchange at ${portName(c)} and check the prices: ${goodName(c)} pays well here.`
         : `Open the exchange (${c.key('openExchange')}) and Sell all your ${goodName(c)}.`,
     // Without a purchase there is nothing to sell: opening the exchange here is the lesson.
     done: (s, t, p) => (p.fallback ? s.screen === 'exchange' && s.landedPlanetId === t.port : held(s, t) === 0),

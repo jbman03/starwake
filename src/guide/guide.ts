@@ -172,7 +172,9 @@ export class Guide {
   current(): GuideHint | null {
     const p = this.p;
     if (!p || p.done) return null;
-    const planetId = this.last?.landedPlanetId ?? this.host.landedPlanetId;
+    const landed = this.last ? this.last.landedPlanetId : this.host.landedPlanetId;
+    const world = this.last?.world ?? this.host.world;
+    const sys = p.target.system;
     const text = STEPS[p.step - 1].text({
       target: p.target,
       mode: this.deps.mode(),
@@ -180,7 +182,11 @@ export class Guide {
       profit: p.profit,
       fallback: p.fallback,
       data: this.data,
-      planetName: this.data.planets[planetId ?? this.data.config.startPlanetId]?.name,
+      planetName: this.data.planets[landed ?? this.data.config.startPlanetId]?.name,
+      screen: this.last?.screen ?? (landed ? 'planet' : 'flight'),
+      landedPlanetId: landed,
+      buyPort: p.buyPort,
+      routeOk: world.route[world.route.length - 1] === sys || (world.jump ? world.jump.toSystemId === sys : world.systemId === sys),
     });
     return { text, step: p.step, total: STEP_COUNT };
   }
