@@ -6,7 +6,7 @@ import type { ActionId } from '../input/actions';
 import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import type { PilotStore } from '../save/store';
-import { displayLevel, priceOf } from '../sim/economy';
+import { applyPressure, displayLevel, priceOf } from '../sim/economy';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { LONG_PRESS_MS, showExchange } from './exchange';
@@ -70,7 +70,8 @@ describe('commodity exchange', () => {
 
   it('Buy 10 moves 10 t: In hold and credits change', async () => {
     const { btn, held, c, data, q, keys } = await setup(5000);
-    const price = priceOf(c.world, data, 'halcyon', keys[0])!;
+    // Trades are priced after their own market impact (10 t bought = +3 % pressure).
+    const price = priceOf(applyPressure(c.world, 'halcyon', keys[0], 10), data, 'halcyon', keys[0])!;
     btn('Buy 10').click();
     expect(held(keys[0])).toBe('10 t');
     expect(c.world.credits).toBe(5000 - price * 10);
