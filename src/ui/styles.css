@@ -154,22 +154,70 @@
   .sw-planet-picture { width: min(220px, 60vw); margin: 0 auto; }
 }
 @media (max-height: 500px) {
-  .sw-menu, .sw-map { padding: 14px; }
+  .sw-menu { padding: 14px; }
   .sw-title { margin-bottom: 8px; }
   .sw-actions { gap: 6px; }
-  .sw-map-svg { height: 46vh; }
 }
 
 /* ---- star map ---- */
-.sw-map { width: min(760px, 100%); padding: 18px; }
-.sw-map-frame { border: 1px solid var(--sw-border); background: #02040a; margin-bottom: 12px; }
-.sw-map-svg { display: block; width: 100%; height: min(56vh, 420px); }
-.sw-map-link { stroke: #3d5675; stroke-width: 3; }
-.sw-map-dot { fill: #9fb4cc; }
-.sw-map-here .sw-map-dot { fill: var(--sw-good); }
-.sw-map-ring { fill: none; stroke: var(--sw-good); stroke-width: 2; }
-.sw-map-name { fill: var(--sw-text); font: 18px var(--sw-font); text-anchor: middle; }
-.sw-map-here-label { fill: var(--sw-good); font: 15px var(--sw-font); text-anchor: middle; }
+.sw-starmap-screen { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+.sw-starmap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 12px;
+  width: min(1180px, 100%);
+  height: min(720px, 100%);
+  padding: 12px;
+}
+.sw-starmap-view { position: relative; min-width: 0; min-height: 0; border: 1px solid var(--sw-border); background: #02040a; overflow: hidden; }
+.sw-starmap-svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.sw-starmap-svg:active { cursor: grabbing; }
+.sw-map-zoom { position: absolute; top: 6px; left: 6px; display: flex; flex-direction: column; gap: 6px; }
+.sw-map-zoombtn { width: 44px; height: 44px; padding: 0; justify-content: center; font-size: 20px; opacity: 0.9; }
+
+.sw-map-lane { stroke: #3d5675; stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.sw-map-lane-dim { stroke: #26354a; stroke-dasharray: 4 4; }
+.sw-map-course { fill: none; stroke: #4c7a54; stroke-width: 6px; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: 0.6; }
+.sw-map-route { fill: none; stroke-width: 3px; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.sw-map-route-ok { stroke: var(--sw-good); }
+.sw-map-route-short { stroke: var(--sw-danger); stroke-dasharray: 8 6; }
+
+.sw-map-sys { cursor: pointer; outline: none; }
+.sw-map-hit { fill: transparent; }
+.sw-map-dot { fill: #02040a; stroke-width: 2.5; }
+.sw-sys-unknown .sw-map-dot { stroke: #5a6472; stroke-width: 1.5; }
+.sw-map-ring { fill: none; stroke: #ffffff; stroke-width: 2; }
+.sw-map-sel { fill: none; stroke: var(--sw-accent); stroke-width: 2; stroke-dasharray: 4 3; }
+.sw-map-sys:focus-visible .sw-map-hit { stroke: var(--sw-accent); stroke-width: 1.5; }
+.sw-map-flag { fill: #ffd166; stroke: #ffd166; stroke-width: 1.5; stroke-linejoin: round; }
+.sw-map-name { fill: var(--sw-text); font: 13px var(--sw-font); text-anchor: middle; paint-order: stroke; stroke: #02040a; stroke-width: 3px; }
+.sw-sys-seen .sw-map-name { fill: var(--sw-dim); }
+
+.sw-starmap-side { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.sw-starmap-side .sw-title { margin: 0; }
+.sw-map-info { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 10px 12px; border: 1px solid var(--sw-border); border-radius: 3px; background: var(--sw-panel-2); font-size: 14px; }
+.sw-map-date { color: var(--sw-dim); font-size: 13px; }
+.sw-map-sysname { margin: 2px 0 8px; font-size: 19px; font-weight: 600; letter-spacing: 0.03em; }
+.sw-map-rows { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; margin: 0; }
+.sw-map-rows dt { color: var(--sw-dim); }
+.sw-map-rows dd { margin: 0; overflow-wrap: anywhere; }
+.sw-map-routetext { margin: 0; min-height: 1.3em; font-size: 14px; color: var(--sw-good); }
+.sw-map-routetext.sw-map-short { color: var(--sw-danger); }
+.sw-starmap-side .sw-actions-row > .sw-btn { flex: 1 1 0; min-width: 0; padding: 8px 6px; }
+
+/* Phone landscape: map fills the screen, a narrower side column scrolls its info. */
+@media (max-height: 500px) {
+  .sw-starmap { grid-template-columns: minmax(0, 1fr) 236px; gap: 8px; padding: 8px; height: 100%; }
+  .sw-starmap-side { gap: 6px; }
+  .sw-starmap-side .sw-title { font-size: 16px; }
+  .sw-map-info { padding: 6px 8px; font-size: 13px; }
+  .sw-map-sysname { font-size: 16px; margin: 0 0 4px; }
+  .sw-map-routetext { font-size: 13px; }
+}
+/* Narrow portrait: map on top, info below. */
+@media (max-width: 640px) {
+  .sw-starmap { grid-template-columns: 1fr; grid-template-rows: minmax(240px, 1fr) auto; height: auto; min-height: 100%; }
+}
 
 /* ---- dialogs ---- */
 .sw-dialog-backdrop {
@@ -185,7 +233,7 @@
 }
 .sw-dialog { width: min(400px, 100%); padding: 18px; }
 .sw-dialog-title { margin: 0 0 10px; font-size: 18px; }
-.sw-dialog p { margin: 0 0 10px; color: #c9d3de; line-height: 1.4; }
+.sw-dialog p { margin: 0 0 10px; color: #c9d3de; line-height: 1.4; white-space: pre-line; }
 .sw-dialog-actions { display: flex; gap: 8px; margin-top: 14px; }
 .sw-dialog-actions > .sw-btn { justify-content: center; }
 .sw-label { display: block; margin-bottom: 6px; font-size: 14px; color: var(--sw-dim); }
@@ -225,6 +273,8 @@
 .sw-hotkey-group-title { margin: 14px 0 6px; font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sw-dim); }
 .sw-hotkey-row { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr); gap: 6px; align-items: center; padding: 3px 0; }
 .sw-hotkey-name { font-size: 15px; }
+.sw-unbound { display: block; margin-top: 2px; min-height: 44px; padding: 2px 6px; font: inherit; font-size: 12px; color: #ffb347; background: none; border: 1px dashed #8a6a3a; border-radius: 3px; cursor: pointer; text-align: left; }
+.sw-unbound:hover { border-color: #ffb347; }
 .sw-slot-cell { display: flex; gap: 4px; min-width: 0; }
 .sw-slot { flex: 1; min-width: 0; justify-content: center; }
 .sw-slot-capturing { border-color: var(--sw-accent); }
@@ -280,3 +330,62 @@
   color: var(--sw-text);
 }
 .sw-update .sw-btn { width: auto; }
+
+/* ---- commodity exchange ---- */
+.sw-exchange { display: flex; flex-direction: column; gap: 8px; width: min(720px, 100%); max-height: 100%; padding: 16px; }
+.sw-exchange .sw-title { margin: 0; }
+.sw-ex-stats { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 14px; color: var(--sw-dim); }
+.sw-ex-tablewrap { min-height: 0; overflow-y: auto; border: 1px solid var(--sw-border); border-radius: 3px; background: var(--sw-panel-2); }
+.sw-ex-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.sw-ex-table th { position: sticky; top: 0; padding: 6px 10px; text-align: left; font-weight: 600; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--sw-dim); background: var(--sw-panel-2); }
+.sw-ex-table td { padding: 8px 10px; }
+.sw-ex-table th:nth-child(n + 2), .sw-ex-table td:nth-child(n + 2) { text-align: right; }
+.sw-ex-row { cursor: pointer; border-top: 1px solid #1c2735; }
+.sw-ex-row:hover { background: #172233; }
+.sw-ex-selected, .sw-ex-selected:hover { background: #21344d; box-shadow: inset 3px 0 0 var(--sw-accent); }
+.sw-ex-level-low { color: var(--sw-good); }
+.sw-ex-level-high { color: #ffb86e; }
+.sw-ex-news { margin: 0; min-height: 1.3em; font-size: 14px; color: var(--sw-accent); }
+.sw-ex-detail { margin: 0; min-height: 1.3em; font-size: 14px; color: #c9d3de; }
+.sw-ex-message { margin: 0; min-height: 1.3em; font-size: 14px; color: var(--sw-good); }
+.sw-ex-message.sw-ex-bad { color: var(--sw-danger); }
+.sw-ex-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sw-ex-actions > .sw-btn { width: auto; flex: 1 1 110px; min-width: 0; justify-content: center; padding: 8px 8px; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+@media (max-height: 500px) {
+  .sw-exchange { gap: 4px; padding: 8px 12px; }
+  .sw-exchange .sw-title { font-size: 15px; }
+  .sw-ex-table { font-size: 14px; }
+  .sw-ex-table td { padding: 4px 10px; }
+  .sw-ex-news:empty, .sw-ex-detail:empty { display: none; }
+  .sw-ex-news, .sw-ex-detail, .sw-ex-message { font-size: 13px; min-height: 1.1em; }
+  .sw-ex-actions { flex-wrap: nowrap; gap: 6px; }
+  .sw-ex-actions > .sw-btn { flex: 1 1 0; padding: 4px 4px; font-size: 14px; }
+  .sw-ex-actions .sw-key { display: none; }
+}
+
+/* ---- mission computer and mission log ---- */
+.sw-mc { display: flex; flex-direction: column; gap: 8px; width: min(900px, 100%); max-height: 100%; padding: 16px; }
+.sw-mc .sw-title { margin: 0; }
+.sw-mc-body { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 12px; min-height: 0; }
+.sw-mc-list { min-height: 120px; max-height: 52vh; overflow-y: auto; border: 1px solid var(--sw-border); border-radius: 3px; background: var(--sw-panel-2); }
+.sw-mc-row { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 44px; padding: 6px 10px; box-sizing: border-box; cursor: pointer; border-top: 1px solid #1c2735; font-size: 14px; }
+.sw-mc-row:first-child { border-top: 0; }
+.sw-mc-row:hover { background: #172233; }
+.sw-mc-selected, .sw-mc-selected:hover { background: #21344d; box-shadow: inset 3px 0 0 var(--sw-accent); }
+.sw-mc-rowpay { font-size: 12px; color: var(--sw-dim); }
+.sw-mc-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; }
+.sw-mc-detail { min-height: 0; max-height: 52vh; overflow-y: auto; overflow-wrap: anywhere; }
+.sw-mc-title { margin: 0 0 6px; font-size: 16px; color: var(--sw-accent); }
+.sw-mc-desc { margin: 0 0 8px; font-size: 14px; line-height: 1.4; color: #c9d3de; }
+.sw-mc-rows { margin: 0; }
+.sw-mc-rows dd { overflow-wrap: anywhere; }
+@media (max-height: 500px) {
+  .sw-mc { gap: 4px; padding: 8px 12px; }
+  .sw-mc .sw-title { font-size: 15px; }
+  .sw-mc-list, .sw-mc-detail { max-height: calc(100vh - 150px); min-height: 0; }
+  .sw-mc-row { font-size: 13px; padding: 2px 8px; }
+  .sw-mc-desc { font-size: 13px; margin-bottom: 4px; }
+  .sw-mc-title { font-size: 14px; margin-bottom: 2px; }
+  .sw-mc .sw-ex-news:empty { display: none; }
+  .sw-mc .sw-ex-message { font-size: 13px; min-height: 0; margin: 0; }
+}

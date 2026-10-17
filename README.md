@@ -43,8 +43,30 @@ Arrow keys fly: Up thrusts, Left/Right turn, Down reverses. Default hotkeys
 | L | Land (leave while landed) |
 | J | Hyperspace jump |
 | G | Autopilot |
-| M | Map |
+| C | Commodity exchange (on a planet) |
+| M | Mission computer (on a planet); star map (in flight) |
+| N | Star map (on a planet) |
+| K | Mission log |
+| B / S | Buy / sell in the exchange (10 t; hold Shift for 1 t) |
 | Esc | Pause / back |
+
+### How to play
+
+**Trading.** Each port's exchange lists its goods with a Low, Med or High
+price level. Buy where a good is Low, fly to a port where it is High, and sell.
+Prices drift day to day, shift with news events (a surplus or shortage at a
+port), and move with your own trading: heavy buying pushes the price up, heavy
+selling pushes it down, and both ease back toward normal over a few days. The
+shuttle carries 20 t. Credits never drop below zero from trading, and a pilot
+in debt (after a tow) can sell but not buy.
+
+**Missions.** The mission computer lists jobs posted at the port: cargo
+deliveries, rush deliveries, passenger ferrying and garbage dumping. Each shows its destination, pay and any
+deadline. Accept up to eight, then land at the destination port within the
+deadline; you are paid on landing (some jobs pay up front). The mission log (K)
+tracks active jobs, shows them on the star map, and lets you abandon one.
+Plan trips on the star map: pick a known system, set a course, then use
+autopilot (G) and jump (J) along the route. Each jump costs fuel and a day.
 
 ### Phone
 

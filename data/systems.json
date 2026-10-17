@@ -1,4 +1,24 @@
 [
-  { "id": "calder", "name": "Calder", "mapPos": { "x": 0, "y": 0 }, "jumpDistance": 2000, "links": ["vesk"], "starRadius": 120 },
-  { "id": "vesk", "name": "Vesk", "mapPos": { "x": 300, "y": -120 }, "jumpDistance": 1800, "links": ["calder"], "starRadius": 90 }
+  { "id": "calder", "name": "Calder", "mapPos": { "x": -200, "y": 140 }, "jumpDistance": 2000, "government": "concord", "links": ["vesk", "tessaly", "minster", "dunmore"], "starRadius": 120 },
+  { "id": "tessaly", "name": "Tessaly", "mapPos": { "x": -280, "y": -60 }, "jumpDistance": 2200, "government": "concord", "links": ["calder", "aurelle", "hollis", "minster"], "starRadius": 140 },
+  { "id": "aurelle", "name": "Aurelle", "mapPos": { "x": -430, "y": -190 }, "jumpDistance": 2400, "government": "concord", "links": ["tessaly", "corvana", "quillon", "minster"], "starRadius": 160 },
+  { "id": "minster", "name": "Minster", "mapPos": { "x": -520, "y": 20 }, "jumpDistance": 1900, "government": "concord", "links": ["aurelle", "tessaly", "calder", "mirren"], "starRadius": 110 },
+  { "id": "corvana", "name": "Corvana", "mapPos": { "x": -300, "y": -330 }, "jumpDistance": 2100, "government": "concord", "links": ["aurelle", "hollis", "quillon", "brannock"], "starRadius": 130 },
+  { "id": "quillon", "name": "Quillon", "mapPos": { "x": -560, "y": -340 }, "jumpDistance": 1800, "government": "concord", "links": ["aurelle", "corvana"], "starRadius": 100 },
+  { "id": "hollis", "name": "Hollis", "mapPos": { "x": -130, "y": -210 }, "jumpDistance": 2000, "government": "concord", "links": ["tessaly", "corvana", "wrenhold"], "starRadius": 115 },
+
+  { "id": "brannock", "name": "Brannock", "mapPos": { "x": -30, "y": -460 }, "jumpDistance": 1900, "government": "free-reach", "links": ["corvana", "thistle"], "starRadius": 100 },
+  { "id": "thistle", "name": "Thistle", "mapPos": { "x": 170, "y": -390 }, "jumpDistance": 1800, "government": "free-reach", "links": ["brannock", "wrenhold", "cinderfall"], "starRadius": 95 },
+  { "id": "wrenhold", "name": "Wrenhold", "mapPos": { "x": 120, "y": -160 }, "jumpDistance": 2000, "government": "free-reach", "links": ["hollis", "thistle", "oxbow"], "starRadius": 125 },
+  { "id": "cinderfall", "name": "Cinderfall", "mapPos": { "x": 340, "y": -270 }, "jumpDistance": 1700, "government": "free-reach", "links": ["thistle", "oxbow"], "starRadius": 150 },
+  { "id": "oxbow", "name": "Oxbow", "mapPos": { "x": 440, "y": -60 }, "jumpDistance": 1800, "government": "free-reach", "links": ["cinderfall", "wrenhold", "redwater"], "starRadius": 105 },
+  { "id": "redwater", "name": "Redwater", "mapPos": { "x": 390, "y": 140 }, "jumpDistance": 1900, "government": "free-reach", "links": ["oxbow", "saltmarsh", "skerry"], "starRadius": 135 },
+  { "id": "saltmarsh", "name": "Saltmarsh", "mapPos": { "x": 220, "y": 280 }, "jumpDistance": 1800, "government": "free-reach", "links": ["redwater", "dunmore", "brackwater"], "starRadius": 95 },
+  { "id": "dunmore", "name": "Dunmore", "mapPos": { "x": 30, "y": 300 }, "jumpDistance": 1900, "government": "free-reach", "links": ["calder", "saltmarsh", "lastlight"], "starRadius": 110 },
+
+  { "id": "vesk", "name": "Vesk", "mapPos": { "x": -260, "y": 360 }, "jumpDistance": 1800, "government": "independent", "links": ["calder", "mirren", "lastlight"], "starRadius": 90 },
+  { "id": "mirren", "name": "Mirren", "mapPos": { "x": -490, "y": 300 }, "jumpDistance": 1600, "government": "independent", "links": ["vesk", "minster"], "starRadius": 80 },
+  { "id": "lastlight", "name": "Lastlight", "mapPos": { "x": -40, "y": 530 }, "jumpDistance": 1700, "government": "independent", "links": ["vesk", "dunmore", "brackwater"], "starRadius": 75 },
+  { "id": "brackwater", "name": "Brackwater", "mapPos": { "x": 280, "y": 490 }, "jumpDistance": 1700, "government": "independent", "links": ["lastlight", "saltmarsh", "skerry"], "starRadius": 85 },
+  { "id": "skerry", "name": "Skerry", "mapPos": { "x": 530, "y": 340 }, "jumpDistance": 1600, "government": "independent", "links": ["redwater", "brackwater"], "starRadius": 70 }
 ]

@@ -4,9 +4,10 @@ import type { InputMode } from '../input/mode';
 import type { PilotStore } from '../save/store';
 import { dialogOpen } from './dom';
 import { showMainMenu } from './mainMenu';
-import { showMap } from './mapPlaceholder';
+import { showMissionLog } from './missionLog';
 import { showPauseMenu } from './pauseMenu';
 import { showPlanetScreen } from './planetScreen';
+import { showStarMap } from './starMap';
 
 export interface MountOpts {
   /** Action groups polled (once per frame, while the sim is paused) for this screen's hotkeys. */
@@ -32,7 +33,8 @@ export interface UiContext {
     mainMenu(): void;
     planet(planetId: string, notice?: string): void;
     pause(): void;
-    map(): void;
+    /** Star map; closing it runs `onClose` (default: resume flight). */
+    map(opts?: { onClose?: () => void; initialSelection?: string }): void;
   };
 }
 
@@ -77,12 +79,16 @@ export function createUi(
       mainMenu: () => showMainMenu(ctx),
       planet: (id, notice) => showPlanetScreen(ctx, id, notice),
       pause: () => showPauseMenu(ctx),
-      map: () => showMap(ctx),
+      map: (opts) => showStarMap(ctx, opts),
     },
   };
 
   controller.on('landed', (e) => ctx.go.planet(e.planetId));
   controller.on('towed', (e) => ctx.go.planet(e.planetId));
-  controller.on('menu', (e) => (e.action === 'pause' ? ctx.go.pause() : ctx.go.map()));
+  controller.on('menu', (e) => {
+    if (e.action === 'pause') ctx.go.pause();
+    else if (e.action === 'map') ctx.go.map();
+    else showMissionLog(ctx, () => controller.startFlight()); // flight is paused, as for the map
+  });
   return ctx;
 }

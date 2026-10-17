@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACTION_GROUP, ACTION_IDS } from './actions';
+import { ACTION_GROUP, ACTION_IDS, ACTION_LABEL, type ActionId } from './actions';
 import { DEFAULT_BINDINGS, findConflict, rebind, resetBindings, swapBinding } from './bindings';
 
 describe('bindings', () => {
@@ -17,6 +17,27 @@ describe('bindings', () => {
         expect(findConflict(DEFAULT_BINDINGS, id, code)).toBeNull();
       }
     }
+  });
+
+  it('binds the trade, mission and map actions to their default keys and groups', () => {
+    const expected: [string, string, string][] = [
+      ['openExchange', 'planet', 'KeyC'],
+      ['openMissions', 'planet', 'KeyM'],
+      ['openMap', 'planet', 'KeyN'],
+      ['missionLog', 'planet', 'KeyK'],
+      ['flightMissionLog', 'flight', 'KeyK'],
+      ['buyGoods', 'exchange', 'KeyB'],
+      ['sellGoods', 'exchange', 'KeyS'],
+    ];
+    for (const [id, group, key] of expected) {
+      expect(ACTION_IDS).toContain(id);
+      const a = id as ActionId;
+      expect(ACTION_GROUP[a]).toBe(group);
+      expect(DEFAULT_BINDINGS[a][0]).toBe(key);
+      expect(ACTION_LABEL[a].length).toBeGreaterThan(0);
+    }
+    // M opens the map in flight and the mission computer on the planet screen: different groups.
+    expect(ACTION_GROUP.map).not.toBe(ACTION_GROUP.openMissions);
   });
 
   it('allows R in both flight and planet', () => {

@@ -7,28 +7,38 @@ import type { PilotStore } from '../save/store';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
+import { createUi } from './context';
 import { showPlanetScreen } from './planetScreen';
 
-async function setup(credits: number, fuel: number) {
+async function setup(credits: number, fuel: number, bindings = DEFAULT_SETTINGS.bindings, portId = 'halcyon') {
   const data = await loadGameData();
-  const settings = { ...DEFAULT_SETTINGS };
+  const settings = { ...DEFAULT_SETTINGS, bindings };
   const c = new Controller(data, settings, new EventTarget());
   const w = newWorld(data);
-  c.beginSession({ ...w, credits, ship: { ...w.ship, fuel } }, { id: 'p', name: 'P' }, 'halcyon');
+  c.beginSession({ ...w, credits, ship: { ...w.ship, fuel } }, { id: 'p', name: 'P' }, portId);
   const root = document.createElement('div');
   document.body.append(root);
+  const calls: { map: { onClose?: () => void }[]; planet: string[]; onPress?: (p: Set<string>) => void } = { map: [], planet: [] };
   const ctx = {
     root,
     controller: c,
     store: {} as PilotStore,
     inputMode: new InputMode(new EventTarget(), () => settings.bindings, 'keyboard'),
     planetImage: () => null,
-    mount: (node: HTMLElement) => root.replaceChildren(node),
+    mount: (node: HTMLElement, opts: { onPress?: (p: Set<string>) => void } = {}) => {
+      root.replaceChildren(node);
+      calls.onPress = opts.onPress;
+    },
     unmount: () => root.replaceChildren(),
-    go: { mainMenu() {}, planet() {}, pause() {}, map() {} },
+    go: {
+      mainMenu() {},
+      planet: (id: string) => calls.planet.push(id),
+      pause() {},
+      map: (opts?: { onClose?: () => void }) => calls.map.push(opts ?? {}),
+    },
   } as UiContext;
-  showPlanetScreen(ctx, 'halcyon');
-  return { root, c };
+  showPlanetScreen(ctx, portId);
+  return { root, c, calls };
 }
 
 describe('planet screen', () => {
@@ -44,5 +54,87 @@ describe('planet screen', () => {
     const { root } = await setup(1000, 150);
     expect(root.textContent).toContain('Fuel: 1 jump');
     expect(root.textContent).not.toContain('1 jumps');
+  });
+
+  it('Star Map (button or N) opens the map, which returns to this planet screen', async () => {
+    const { root, calls } = await setup(1000, 300);
+    const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
+    expect(map.textContent).toBe('Star MapN');
+    const labels = [...root.querySelectorAll('button')].map((b) => b.querySelector('.sw-btn-label')?.textContent);
+    expect(labels.indexOf('Star Map')).toBe(labels.indexOf('Leave') - 2);
+    map.click();
+    expect(calls.map).toHaveLength(1);
+    calls.map[0].onClose!();
+    expect(calls.planet).toEqual(['halcyon']);
+    calls.onPress!(new Set(['openMap']));
+    expect(calls.map).toHaveLength(2);
+  });
+
+  it('an unbound Star Map action shows no key chip', async () => {
+    const { root } = await setup(1000, 300, { ...DEFAULT_SETTINGS.bindings, openMap: [null, null] });
+    const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
+    expect(map.textContent).toBe('Star Map');
+    expect(map.querySelector('.sw-key')).toBeNull();
+  });
+
+  const labels = (root: HTMLElement) => [...root.querySelectorAll('.sw-actions .sw-btn-label')].map((l) => l.textContent);
+  const find = (root: HTMLElement, text: string) => [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith(text))!;
+
+  it('Halcyon offers every service, in order, with hotkey chips, plus date and cargo', async () => {
+    const { root } = await setup(1000, 150);
+    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Refuel — 300 cr', 'Star Map', 'Mission Log', 'Leave']);
+    const chips = [...root.querySelectorAll('.sw-actions .sw-key')].map((k) => k.textContent);
+    expect(chips).toEqual(['C', 'M', 'R', 'N', 'K', 'L']);
+    expect(root.textContent).toContain('1 Mar 3207');
+    expect(root.textContent).toContain('Cargo: 20/20 t');
+  });
+
+  it('a refuel-only port shows only Refuel, Star Map, Mission Log and Leave', async () => {
+    const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'haywain');
+    expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Star Map', 'Mission Log', 'Leave']);
+  });
+
+  it('Commodity Exchange opens the exchange; Done returns to the planet screen', async () => {
+    const { root, calls } = await setup(1000, 300);
+    find(root, 'Commodity Exchange').click();
+    expect(root.querySelector('[data-testid="exchange"]')).not.toBeNull();
+    find(root, 'Done').click();
+    expect(calls.planet).toEqual(['halcyon']);
+  });
+
+  it('Mission Computer (button or M) and Mission Log (K) open their screens', async () => {
+    const a = await setup(1000, 300);
+    find(a.root, 'Mission Computer').click();
+    expect(a.root.querySelector('[data-testid="mission-computer"]')).toBeTruthy();
+    const b = await setup(1000, 300);
+    b.calls.onPress!(new Set(['openMissions']));
+    expect(b.root.querySelector('[data-testid="mission-computer"]')).toBeTruthy();
+    const c = await setup(1000, 300);
+    c.calls.onPress!(new Set(['missionLog']));
+    expect(c.root.querySelector('[data-testid="mission-log"]')).toBeTruthy();
+  });
+});
+
+describe('planet screen after a tow', () => {
+  it('shows every mission the tow failed', async () => {
+    const data = await loadGameData();
+    const c = new Controller(data, DEFAULT_SETTINGS, new EventTarget());
+    const w = newWorld(data, 1);
+    const due = (id: string, title: string) => ({
+      id, typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 0, passengers: 0, pay: 500,
+      paidUpfront: false, deadlineDay: 0, title, description: '', cargoName: 'x',
+    });
+    c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 }, missions: [due('a', 'Job A'), due('b', 'Job B')] },
+      { id: 'p', name: 'P' }, 'tallow-rock');
+    const root = document.createElement('div');
+    document.body.append(root);
+    createUi(root, c, {} as PilotStore, () => null, new InputMode(new EventTarget(), () => DEFAULT_SETTINGS.bindings, 'keyboard'));
+    c.leavePlanet();
+    expect(c.callTow()).toBe(true);
+    const screen = root.querySelector('[data-testid="planet-screen"]')!;
+    expect(screen).toBeTruthy();
+    expect(screen.textContent).toContain('Mission failed: Job A — the deadline passed.');
+    expect(screen.textContent).toContain('Mission failed: Job B — the deadline passed.');
+    root.remove();
   });
 });

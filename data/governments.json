@@ -1,0 +1,5 @@
+[
+  { "id": "concord", "name": "Concord of Lanterns", "color": "#4fa3d9", "description": "A loose league of lantern-lit worlds that keeps the lanes safe and the paperwork light." },
+  { "id": "independent", "name": "Independent Settlements", "color": "#c9b458", "description": "Frontier holdings that answer to no one and share what they have with any pilot who comes in peace." },
+  { "id": "free-reach", "name": "Free Reach Compact", "color": "#d9774f", "description": "A compact of traders and prospectors on the far rim, bound by handshake contracts." }
+]

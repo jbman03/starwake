@@ -1,6 +1,10 @@
 import type { GameData, PlanetDef } from '../data/schemas';
 import { autopilotInput, autoStopInput, faceInput, reverseInput } from './assists';
 import { stepShip } from './flight';
+import { economyDay } from './economy';
+import { hopDistance, revealOnArrival, routeBetween } from './galaxy';
+import { failOverdue } from './missions';
+import { hashString } from './random';
 import {
   canJump,
   canLand,
@@ -9,6 +13,7 @@ import {
   pickLandTarget,
   planetsByDistance,
   refuelQuote,
+  routeBroken,
   SYSTEM_CENTER,
   towDestination,
   type RefuelQuote,
@@ -31,6 +36,8 @@ export const STICK_THRUST = 0.6;
 
 export const MSG_TOO_CLOSE = 'Too close to the star to jump. Use autopilot (G) to fly out.';
 export const MSG_NO_FUEL = 'Not enough fuel to jump.';
+export const MSG_NO_DESTINATION = 'Choose a destination on the star map (M).';
+export const MSG_ROUTE_BROKEN = 'Course no longer valid — plot a new one on the star map.';
 
 const NONE: Assist = { kind: 'none' };
 const ZERO: Vec2 = { x: 0, y: 0 };
@@ -43,9 +50,15 @@ function parkAt(world: WorldState, data: GameData, planet: PlanetDef): ShipState
   return { pos: add(planet.pos, scale(dir, r)), vel: { ...ZERO }, heading: angleOf(dir), fuel: world.ship.fuel };
 }
 
-export function newWorld(data: GameData): WorldState {
-  const { startSystemId, startPlanetId, startShipId, startCredits } = data.config;
+/**
+ * A fresh pilot's world at the start planet on day 0. The core systems and the start system are
+ * known and their neighbours seen. `seed` defaults to the clock: the one non-deterministic input.
+ */
+export function newWorld(data: GameData, seed: number = hashString(Date.now())): WorldState {
+  const { startSystemId, startPlanetId, startShipId, startCredits, knownAtStart } = data.config;
   const def = data.ships[startShipId];
+  let map = { known: [] as string[], seen: [] as string[] };
+  for (const id of new Set([...knownAtStart, startSystemId])) map = revealOnArrival(map.known, map.seen, data, id);
   const base: WorldState = {
     systemId: startSystemId,
     shipId: startShipId,
@@ -55,8 +68,67 @@ export function newWorld(data: GameData): WorldState {
     assist: NONE,
     jump: null,
     timeSec: 0,
+    day: 0,
+    seed,
+    cargo: {},
+    missions: [],
+    route: [],
+    known: map.known,
+    seen: map.seen,
+    pressure: {},
+    events: [],
+    takenOffers: [],
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
+}
+
+/**
+ * Let `n` days pass (one per jump, the hop count per tow): each day bumps `world.day`, then
+ * applies that day's effects. This is the only place the date moves; the economy and mission
+ * deadlines hook into the per-day step.
+ */
+export function advanceDays(world: WorldState, data: GameData, n: number): { world: WorldState; events: SimEvent[] } {
+  const events: SimEvent[] = [];
+  let w = world;
+  for (let i = 0; i < n; i++) {
+    w = { ...w, day: w.day + 1 };
+    w = economyDay(w, data);
+    const day = w.day;
+    w = { ...w, takenOffers: w.takenOffers.filter((id) => Number(id.split(':').slice(-2)[0]) >= day) };
+    const overdue = failOverdue(w);
+    w = overdue.world;
+    for (const m of overdue.failed) {
+      events.push({ type: 'message', text: `Mission failed: ${m.title} — the deadline passed.` });
+    }
+  }
+  return { world: w, events };
+}
+
+/**
+ * Plot a course to `toSystemId`: fewest hops, through known or seen systems only. The destination
+ * must itself be known or seen. Exception: when it is the destination system of an active
+ * mission, the course may use any lane (the job's client supplies the charts). On failure the
+ * world is returned unchanged.
+ */
+export function setRoute(
+  world: WorldState,
+  data: GameData,
+  toSystemId: string,
+): { world: WorldState; ok: boolean; reason?: 'noRoute' } {
+  const charted = new Set([...world.known, ...world.seen]);
+  const missionTarget = world.missions.some((m) => data.planets[m.destId]?.systemId === toSystemId);
+  const route = missionTarget
+    ? routeBetween(data, world.systemId, toSystemId, () => true)
+    : charted.has(toSystemId)
+      ? routeBetween(data, world.systemId, toSystemId, (id) => charted.has(id))
+      : null;
+  if (!route) return { world, ok: false, reason: 'noRoute' };
+  return { world: { ...world, route }, ok: true };
+}
+
+/** Enter `systemId`: it becomes known and its neighbours seen. The date is advanceDays' job. */
+function enterSystem(world: WorldState, data: GameData, systemId: string): WorldState {
+  return { ...world, ...revealOnArrival(world.known, world.seen, data, systemId) };
 }
 
 export function interruptAutopilot(world: WorldState): WorldState {
@@ -88,16 +160,26 @@ export function applyRefuel(
   };
 }
 
-/** Tow a stranded ship to the nearest fuel planet, charging the tow fee (credits may go negative). */
+/**
+ * Tow a stranded ship to the nearest fuel planet, charging the tow fee (credits may go negative).
+ * The tow takes a day per hop (at least one). A route through the tow system keeps its remaining
+ * hops; one whose next hop isn't linked from there is cleared.
+ */
 export function applyTow(world: WorldState, data: GameData): { world: WorldState; events: SimEvent[] } {
   const planetId = towDestination(world, data);
   if (!planetId) return { world, events: [] };
+  const toSystemId = data.planets[planetId].systemId;
+  const days = Math.max(1, hopDistance(data, world.systemId, toSystemId));
   const moved = departFrom(
     { ...world, credits: world.credits - data.config.towFee, targetPlanetId: null },
     data,
     planetId,
   );
-  return { world: moved, events: [{ type: 'towed', planetId }] };
+  let route = moved.route.slice(moved.route.indexOf(toSystemId) + 1); // indexOf -1 keeps it whole
+  if (route.length > 0 && !data.systems[toSystemId].links.includes(route[0])) route = [];
+  const entered = enterSystem({ ...moved, route }, data, toSystemId);
+  const after = advanceDays(entered, data, days);
+  return { world: after.world, events: [{ type: 'towed', planetId }, ...after.events] };
 }
 
 /** Heading toward the destination system's map position (the jump point's direction). */
@@ -190,7 +272,12 @@ export function stepWorld(
     if (t >= JUMP_DURATION - 1e-9) {
       const toSystemId = w.jump.toSystemId;
       events.push({ type: 'jumped', toSystemId });
-      return { world: arriveFromJump(coasted, data, toSystemId), events };
+      let arrived = arriveFromJump(coasted, data, toSystemId);
+      if (arrived.route[0] === toSystemId) arrived = { ...arrived, route: arrived.route.slice(1) };
+      arrived = enterSystem(arrived, data, toSystemId);
+      const after = advanceDays(arrived, data, 1);
+      events.push(...after.events, { type: 'arrived', systemId: toSystemId, day: after.world.day });
+      return { world: after.world, events };
     }
     return { world: { ...coasted, jump: { ...w.jump, t } }, events };
   }
@@ -233,7 +320,11 @@ export function stepWorld(
   if (pressed.has('jump')) {
     const check = canJump(w, data);
     const toSystemId = jumpDestination(w, data);
-    if (check.ok && toSystemId) {
+    if (routeBroken(w, data)) {
+      // Stale course (e.g. after a data change): drop it rather than jump somewhere unplanned.
+      w = { ...w, route: [] };
+      events.push({ type: 'message', text: MSG_ROUTE_BROKEN });
+    } else if (check.ok && toSystemId) {
       w = {
         ...w,
         assist: NONE,
@@ -244,6 +335,8 @@ export function stepWorld(
       events.push({ type: 'message', text: MSG_TOO_CLOSE });
     } else if (!check.ok && check.reason === 'noFuel') {
       events.push({ type: 'message', text: MSG_NO_FUEL });
+    } else if (!check.ok && check.reason === 'noDestination') {
+      events.push({ type: 'message', text: MSG_NO_DESTINATION });
     }
   }
   // firePrimary, fireSecondary, nearestHostile: accepted and ignored for now.

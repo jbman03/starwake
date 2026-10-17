@@ -23,6 +23,8 @@ export function contextLabel(action: ContextAction, world: WorldState, data: Gam
       const id = pickLandTarget(world, data, false);
       return id ? `⬇ LAND ON ${data.planets[id].name.toUpperCase()}` : null;
     }
+    case 'plotCourse':
+      return '🗺 PLOT COURSE';
     case 'autopilotOut':
       return '⇱ AUTOPILOT TO JUMP POINT';
     case 'jump': {
@@ -113,7 +115,11 @@ export function mountRails(opts: RailsOptions): Rails {
   // ---- stick rail ----------------------------------------------------------
   const sysName = el('span', { class: 'sw-rail-sys' });
   const fuel = el('div', { class: 'sw-rail-line' });
+  const credits = el('div', { class: 'sw-rail-line sw-rail-dim', attrs: { 'data-testid': 'rail-credits' } });
+  const cargo = el('div', { class: 'sw-rail-line sw-rail-dim', attrs: { 'data-testid': 'rail-cargo' } });
   const target = el('div', { class: 'sw-rail-line sw-rail-dim' });
+  const course = el('div', { class: 'sw-rail-line sw-rail-course', attrs: { 'data-testid': 'rail-course' } });
+  course.hidden = true;
   const pause = holdButton('pause', 'II', 'pause', 'Pause', 'sw-rail-pause');
   const bar = (name: string, cls: string) =>
     el('div', { class: 'sw-rail-bar' }, [el('span', { text: name }), el('i', { class: cls })]);
@@ -122,7 +128,10 @@ export function mountRails(opts: RailsOptions): Rails {
     bar('Shields', 'sw-bar-shield'),
     bar('Armor', 'sw-bar-armor'),
     fuel,
+    credits,
+    cargo,
     target,
+    course,
   ]);
   // Pause sits inside the HUD box; it is checked through the HUD's box, so it isn't listed twice.
   pause.removeAttribute('data-rail-control');
@@ -279,7 +288,11 @@ export function mountRails(opts: RailsOptions): Rails {
     sysName.textContent = info.system;
     fuel.textContent = info.fuel;
     fuel.style.color = info.fuelColor;
+    credits.textContent = info.credits;
+    cargo.textContent = info.cargo;
     target.textContent = info.target;
+    course.textContent = info.nextHop ?? '';
+    course.hidden = info.nextHop === null;
 
     const label = controller.isFlying ? contextLabel(controller.currentContext(), world, data) : null;
     if (label !== lastLabel) {

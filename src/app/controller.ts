@@ -5,16 +5,39 @@ import { TouchSource } from '../input/touch';
 import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import type { Settings } from '../save/settings';
 import { contextAction, type ContextAction } from '../sim/context';
+import { buy, sell, type BuyResult, type SellResult } from '../sim/cargo';
+import {
+  abandon,
+  accept,
+  canAbandon,
+  canAccept,
+  completeAt,
+  offersAt,
+  type AbandonCheck,
+  type AcceptCheck,
+  type MissionOffer,
+} from '../sim/missions';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { FixedStepper } from '../sim/stepper';
-import type { FrameInput, ShipState, SimEvent, WorldState } from '../sim/types';
-import { applyRefuel, applyTow, autopilotToJumpPoint, departFrom, interruptAutopilot, newWorld, stepWorld } from '../sim/world';
+import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
+import {
+  applyRefuel,
+  applyTow,
+  autopilotToJumpPoint,
+  departFrom,
+  interruptAutopilot,
+  newWorld,
+  setRoute,
+  stepWorld,
+} from '../sim/world';
 
 export type ControllerEvent =
   | SimEvent
   | { type: 'contextChanged'; action: ContextAction }
+  /** Jobs finished by the landing that just happened; emitted before the autosave. */
+  | { type: 'missionsCompleted'; missions: Mission[]; pay: number }
   /** A flight key asked for a menu; flight is already paused. */
-  | { type: 'menu'; action: 'pause' | 'map' }
+  | { type: 'menu'; action: 'pause' | 'map' | 'missionLog' }
   /** Flight started or stopped (planet screen, menus, pause). */
   | { type: 'flying'; flying: boolean }
   /** Result of the autosave started by a landing. */
@@ -67,6 +90,16 @@ export class Controller {
   pilot: PilotMeta | null = null;
   /** Autosave target; null disables saving. */
   store: SaveSink | null = null;
+  /**
+   * Jobs finished by the landing that opened the planet screen, until that screen shows them
+   * (it mounts after `missionsCompleted` fires, so it collects them with takeCompletion()).
+   */
+  private completion: { missions: Mission[]; pay: number } | null = null;
+  /**
+   * Messages raised while the ship was being towed (e.g. missions failed on the way). The HUD is
+   * hidden behind the planet screen by then, so that screen collects them with takeNotices().
+   */
+  private notices: string[] = [];
   /** Settles when the most recent autosave finishes (never rejects). */
   lastSave: Promise<void> = Promise.resolve();
 
@@ -139,6 +172,8 @@ export class Controller {
     this.pilot = null;
     this.landedPlanetId = null;
     this.lastPlanetId = null;
+    this.completion = null;
+    this.notices = [];
   }
 
   /** The pilot as of the most recent landing, or null with no session. */
@@ -197,11 +232,17 @@ export class Controller {
     return contextAction(this.world, this.data);
   }
 
-  /** Perform the context button's action (used by touch controls). No-op unless flying. */
+  /**
+   * Perform the context button's action (used by touch controls). No-op unless flying.
+   * `plotCourse` opens the star map the way the map key does (flight pauses; closing resumes it).
+   */
   doContextAction(): void {
     if (!this.flying) return;
     const action = this.currentContext();
-    if (action === 'takeControl') this.world = interruptAutopilot(this.world);
+    if (action === 'plotCourse') {
+      this.pauseFlight();
+      this.emit({ type: 'menu', action: 'map' });
+    } else if (action === 'takeControl') this.world = interruptAutopilot(this.world);
     else if (action === 'tow') this.callTow();
     else if (action === 'land') this.queued.add('land');
     else if (action === 'autopilotOut') this.world = autopilotToJumpPoint(this.world);
@@ -244,6 +285,73 @@ export class Controller {
     return true;
   }
 
+  /** Plot a course (see setRoute; works landed or in flight). `ok` is false if there's no route. */
+  plotRoute(systemId: string): { ok: boolean; reason?: 'noRoute' } {
+    const r = setRoute(this.world, this.data, systemId);
+    this.world = r.world;
+    this.checkContext();
+    return r.ok ? { ok: true } : { ok: false, reason: r.reason };
+  }
+
+  clearRoute(): void {
+    this.world = { ...this.world, route: [] };
+    this.checkContext();
+  }
+
+  /** The landing's completed jobs, once: the planet screen shows them and they are cleared. */
+  takeCompletion(): { missions: Mission[]; pay: number } | null {
+    const c = this.completion;
+    this.completion = null;
+    return c;
+  }
+
+  /** Messages from the tow that opened the planet screen, once (see `notices`). */
+  takeNotices(): string[] {
+    const n = this.notices;
+    this.notices = [];
+    return n;
+  }
+
+  // ---- trade and jobs (landed only; none of these save) -------------------
+
+  buy(commodityId: string, tons: number): BuyResult {
+    if (!this.landedPlanetId) return { world: this.world, tons: 0, cost: 0, reason: 'notTraded' };
+    const r = buy(this.world, this.data, this.landedPlanetId, commodityId, tons);
+    this.world = r.world;
+    return r;
+  }
+
+  sell(commodityId: string, tons: number): SellResult {
+    if (!this.landedPlanetId) return { world: this.world, tons: 0, revenue: 0, reason: 'notTraded' };
+    const r = sell(this.world, this.data, this.landedPlanetId, commodityId, tons);
+    this.world = r.world;
+    return r;
+  }
+
+  /** Today's jobs at the planet we're landed on; none when not landed. */
+  offers(): MissionOffer[] {
+    return this.landedPlanetId ? offersAt(this.world, this.data, this.landedPlanetId) : [];
+  }
+
+  acceptMission(offerId: string): AcceptCheck | { ok: false; reason: 'gone' } {
+    const offer = this.offers().find((o) => o.offerId === offerId);
+    if (!offer) return { ok: false, reason: 'gone' };
+    const check = canAccept(this.world, this.data, offer);
+    if (!check.ok) return check;
+    this.world = accept(this.world, this.data, offer);
+    return { ok: true };
+  }
+
+  /** Whether the job can be dropped now (an up-front advance must be refundable). */
+  canAbandonMission(id: string): AbandonCheck {
+    return canAbandon(this.world, id);
+  }
+
+  /** Drop a job; an up-front advance is handed back. No-op when canAbandonMission says no. */
+  abandonMission(id: string): void {
+    this.world = abandon(this.world, id);
+  }
+
   selectPlanet(id: string | null): void {
     this.world = { ...this.world, targetPlanetId: id };
   }
@@ -275,7 +383,14 @@ export class Controller {
         actions: new Set([...keys.actions, ...touch.actions]),
         pressed: new Set([...keys.pressed, ...touch.pressed]),
       };
-      const menu = polled.pressed.has('pause') ? 'pause' : polled.pressed.has('map') ? 'map' : null;
+      // No star map in hyperspace: the course can't change mid-jump, so the press is ignored.
+      const menu = polled.pressed.has('pause')
+        ? 'pause'
+        : polled.pressed.has('map') && !this.world.jump
+          ? 'map'
+          : polled.pressed.has('flightMissionLog')
+            ? 'missionLog'
+            : null;
       if (menu) {
         this.pauseFlight();
         this.emit({ type: 'menu', action: menu });
@@ -304,12 +419,22 @@ export class Controller {
     if (ui && pressed.size > 0) ui.handler(pressed);
   }
 
+  /**
+   * Route one batch of sim events. Messages are gathered first: after a tow they become planet
+   * screen notices (queued before `towed` opens that screen); otherwise they are joined into one
+   * HUD message so several failures from one jump don't overwrite each other.
+   */
   private handleEvents(events: SimEvent[]): void {
+    const messages = events.flatMap((e) => (e.type === 'message' ? [e.text] : []));
+    const towed = events.some((e) => e.type === 'towed');
+    if (towed) this.notices.push(...messages);
     for (const e of events) {
+      if (e.type === 'message') continue;
       if (e.type === 'landed' || e.type === 'towed') this.landAt(e.planetId);
       else if (e.type === 'jumped') this.prevShip = this.world.ship; // no interpolation across systems
       this.emit(e);
     }
+    if (!towed && messages.length > 0) this.emit({ type: 'message', text: messages.join(' ') });
   }
 
   private landAt(planetId: string, autosave = true): void {
@@ -318,6 +443,13 @@ export class Controller {
     this.lastPlanetId = planetId;
     this.prevShip = this.world.ship;
     this.alpha = 0;
+    // Pay lands in the world first so the autosave below includes it.
+    const done = completeAt(this.world, planetId);
+    if (done.completed.length > 0) {
+      this.world = done.world;
+      this.completion = { missions: done.completed, pay: done.pay };
+      this.emit({ type: 'missionsCompleted', missions: done.completed, pay: done.pay });
+    }
     if (autosave) this.autosave();
   }
 

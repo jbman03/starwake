@@ -1,12 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import config from '../../data/config.json';
-import planets from '../../data/planets.json';
-import ships from '../../data/ships.json';
-import systems from '../../data/systems.json';
-import { parseGameData } from '../data/load';
+import { testData } from '../data/testData';
 import {
   canJump,
   canLand,
+  jumpDestination,
   jumpPoint,
   pickLandTarget,
   refuelQuote,
@@ -15,7 +12,7 @@ import {
 import type { WorldState } from './types';
 import { dist, len } from './vec';
 
-const data = parseGameData({ ships, systems, planets, config });
+const data = testData();
 const shuttle = data.ships.shuttle;
 
 const mkWorld = (p: Partial<WorldState> = {}, ship: Partial<WorldState['ship']> = {}): WorldState => ({
@@ -26,6 +23,16 @@ const mkWorld = (p: Partial<WorldState> = {}, ship: Partial<WorldState['ship']> 
   assist: { kind: 'none' },
   jump: null,
   timeSec: 0,
+  day: 0,
+  seed: 1,
+  cargo: {},
+  missions: [],
+  route: ['vesk'],
+  known: ['calder'],
+  seen: ['vesk', 'tessaly', 'minster', 'dunmore'],
+  pressure: {},
+  events: [],
+  takenOffers: [],
   ...p,
   ship: { pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, heading: 0, fuel: 300, ...ship },
 });
@@ -111,9 +118,49 @@ describe('canJump / jumpPoint', () => {
   it('jump point lies at jumpDistance+50 toward the destination', () => {
     const p = jumpPoint(mkWorld(), data);
     expect(len(p)).toBeCloseTo(2050, 6);
-    // vesk mapPos (300,-120) relative to calder (0,0)
-    expect(Math.atan2(p.y, p.x)).toBeCloseTo(Math.atan2(-120, 300), 6);
+    // Toward vesk (calder's first link) on the star map.
+    const calder = data.systems.calder.mapPos;
+    const vesk = data.systems.vesk.mapPos;
+    expect(Math.atan2(p.y, p.x)).toBeCloseTo(Math.atan2(vesk.y - calder.y, vesk.x - calder.x), 6);
     expect(canJump(mkWorld({}, { pos: p }), data)).toEqual({ ok: true });
+  });
+  it('noDestination outside the jump distance with fuel but no course', () => {
+    expect(canJump(mkWorld({ route: [] }, { pos: { x: 2100, y: 0 } }), data)).toEqual({
+      ok: false, reason: 'noDestination',
+    });
+  });
+  it('tooClose and noFuel take precedence over noDestination', () => {
+    expect(canJump(mkWorld({ route: [] }, { pos: { x: 100, y: 0 } }), data)).toEqual({ ok: false, reason: 'tooClose' });
+    expect(canJump(mkWorld({ route: [] }, { pos: { x: 2100, y: 0 }, fuel: 0 }), data)).toEqual({
+      ok: false, reason: 'noFuel',
+    });
+  });
+  it('with no destination the jump point lies radially outward through the ship', () => {
+    const p = jumpPoint(mkWorld({ route: [] }, { pos: { x: -300, y: 400 } }), data);
+    expect(len(p)).toBeCloseTo(2050, 6);
+    expect(Math.atan2(p.y, p.x)).toBeCloseTo(Math.atan2(400, -300), 6);
+  });
+  it('with no destination and the ship at the center the jump point lies along +x', () => {
+    const p = jumpPoint(mkWorld({ route: [] }, { pos: { x: 0, y: 0 } }), data);
+    expect(p.x).toBeCloseTo(2050, 6);
+    expect(p.y).toBeCloseTo(0, 6);
+  });
+});
+
+describe('jumpDestination', () => {
+  it('the first hop of the route when it is linked', () => {
+    expect(jumpDestination(mkWorld({ route: ['tessaly', 'aurelle'] }), data)).toBe('tessaly');
+  });
+  it('null with no route and several links', () => {
+    expect(jumpDestination(mkWorld({ route: [] }), data)).toBeNull();
+  });
+  it("null when the route's first hop is not linked (stale) and there are several links", () => {
+    expect(jumpDestination(mkWorld({ route: ['skerry'] }), data)).toBeNull();
+  });
+  it('the single link when there is exactly one', () => {
+    const one = { ...data, systems: { ...data.systems, mirren: { ...data.systems.mirren, links: ['vesk'] } } };
+    expect(jumpDestination(mkWorld({ systemId: 'mirren', route: [] }), one)).toBe('vesk');
+    expect(jumpDestination(mkWorld({ systemId: 'mirren', route: ['skerry'] }), one)).toBe('vesk');
   });
 });
 

@@ -7,5 +7,9 @@
   "landingSpeed": 60,
   "landingMargin": 40,
   "arrivalRadius": 30,
-  "fuelPerJump": 100
+  "fuelPerJump": 100,
+  "knownAtStart": ["calder", "tessaly", "aurelle", "minster", "corvana", "quillon", "hollis"],
+  "startYear": 3207,
+  "startMonth": 3,
+  "startDay": 1
 }

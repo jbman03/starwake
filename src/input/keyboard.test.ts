@@ -155,6 +155,14 @@ describe('KeyboardSource default prevention by context', () => {
     expect(key('KeyL', link).defaultPrevented).toBe(false);
   });
 
+  it("on an exchange screen, the exchange group's keys are blocked and other groups' are not", () => {
+    const { key } = inMenus(['exchange', 'menus']);
+    expect(key('KeyB').defaultPrevented).toBe(true); // buyGoods
+    expect(key('KeyS').defaultPrevented).toBe(true); // sellGoods
+    expect(key('KeyR').defaultPrevented).toBe(false); // refuel / nearestHostile: other groups
+    expect(key('Escape').defaultPrevented).toBe(true); // back
+  });
+
   it('Tab is never blocked in menus, even when bound to a menu action', () => {
     const ctx: KeyContext = { flying: false, groups: ['menus'] };
     const bindings = { ...DEFAULT_BINDINGS, back: ['Escape', 'Tab'] as [string, string] };

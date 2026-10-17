@@ -107,6 +107,7 @@ test.describe('phone (touch, landscape)', () => {
     await page.evaluate(() => {
       const c = window.__starwake!.controller;
       c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: -1000, y: -1000 }, vel: { x: 0, y: 0 } } };
+      c.plotRoute('vesk'); // plotted directly; starmap.spec.ts covers the map UI
     });
     const ctxBtn = page.getByTestId('context-button');
     await expect(ctxBtn).toHaveText('⇱ AUTOPILOT TO JUMP POINT');
@@ -120,6 +121,30 @@ test.describe('phone (touch, landscape)', () => {
     expect(b.x).toBeGreaterThanOrEqual(clear.x);
     expect(b.x + b.width).toBeLessThanOrEqual(clear.x + clear.w);
     expect(b.y).toBeLessThan(80);
+    expect(errors).toEqual([]);
+  });
+
+  test('no destination after leaving Halcyon: the context button plots a course on the star map', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Plot');
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await page.touchscreen.tap(422, 30);
+    await expect(page.getByTestId('touch-rails')).toBeVisible();
+    // Fly clear of Halcyon (out of land range) with no course plotted: Calder has 4 lanes out.
+    await page.evaluate(() => {
+      const c = window.__starwake!.controller;
+      c.world = { ...c.world, route: [], ship: { ...c.world.ship, pos: { x: -1000, y: -1000 }, vel: { x: 0, y: 0 } } };
+    });
+    const ctxBtn = page.getByTestId('context-button');
+    await expect(ctxBtn).toHaveText('🗺 PLOT COURSE');
+    await ctxBtn.tap();
+    const map = page.getByTestId('star-map');
+    await expect(map).toBeVisible();
+    expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(false);
+    await map.getByRole('button', { name: /^Close/ }).tap();
+    await expect(map).toBeHidden();
+    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
     expect(errors).toEqual([]);
   });
 

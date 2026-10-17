@@ -1,14 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import config from '../../data/config.json';
-import planets from '../../data/planets.json';
-import ships from '../../data/ships.json';
-import systems from '../../data/systems.json';
-import { parseGameData } from '../data/load';
+import { testData } from '../data/testData';
 import type { WorldState } from '../sim/types';
 import { newWorld } from '../sim/world';
 import { hudInfo, routeBannerText } from './hudInfo';
 
-const data = parseGameData({ ships, systems, planets, config });
+const data = testData();
 const withFuel = (w: WorldState, fuel: number): WorldState => ({ ...w, ship: { ...w.ship, fuel } });
 
 describe('routeBannerText', () => {
@@ -25,10 +21,16 @@ describe('routeBannerText', () => {
   });
 
   it('names the destination system for the jump point and counts the jump', () => {
-    const w: WorldState = { ...newWorld(data), assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
+    const w: WorldState = {
+      ...newWorld(data),
+      route: ['vesk'],
+      assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false },
+    };
     expect(routeBannerText(w, data)).toBe('Autopilot → Vesk · fuel after: 2 jumps');
     expect(routeBannerText(withFuel(w, 200), data)).toBe('Autopilot → Vesk · fuel after: 1 jump');
     expect(routeBannerText(withFuel(w, 50), data)).toBe('Autopilot → Vesk · fuel after: 0 jumps');
+    // No course plotted: the autopilot flies out radially to a plain jump point.
+    expect(routeBannerText({ ...w, route: [] }, data)).toBe('Autopilot → jump point · fuel after: 2 jumps');
   });
 });
 
@@ -36,5 +38,25 @@ describe('hudInfo', () => {
   it('uses singular fuel text for one jump', () => {
     expect(hudInfo(withFuel(newWorld(data), 100), data).fuel).toBe('Fuel: 1 jump');
     expect(hudInfo(newWorld(data), data).fuel).toBe('Fuel: 3 jumps');
+  });
+});
+
+describe('hudInfo nextHop', () => {
+  it('is null with no course and names the next hop with the jumps left on a course', () => {
+    const w = newWorld(data);
+    expect(hudInfo(w, data).nextHop).toBeNull();
+    expect(hudInfo({ ...w, route: ['vesk', 'lastlight'] }, data).nextHop).toBe('Course: Vesk (2 jumps)');
+    expect(hudInfo({ ...w, route: ['tessaly'] }, data).nextHop).toBe('Course: Tessaly (1 jump)');
+  });
+});
+
+describe('hudInfo credits and cargo', () => {
+  it('shows credits with a thousands separator and cargo free over hold size', () => {
+    const w = newWorld(data);
+    const info = hudInfo({ ...w, credits: 9290 }, data);
+    expect(info.credits).toBe('Credits: 9,290 cr');
+    expect(info.cargo).toBe(`Cargo: 20/${data.ships[w.shipId].cargo} t`);
+    expect(hudInfo({ ...w, credits: -400, cargo: { ...w.cargo, [Object.keys(data.commodities)[0]]: 10 } }, data).cargo).toBe('Cargo: 10/20 t');
+    expect(hudInfo({ ...w, credits: -400 }, data).credits).toBe('Credits: -400 cr');
   });
 });

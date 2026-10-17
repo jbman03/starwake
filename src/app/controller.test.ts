@@ -6,6 +6,7 @@ import type { PilotSave } from '../save/pilot';
 import { worldFromPilot } from '../save/pilot';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import { PilotStore } from '../save/store';
+import { canAccept } from '../sim/missions';
 import { newWorld } from '../sim/world';
 import { Controller, type ControllerEvent } from './controller';
 
@@ -62,12 +63,35 @@ describe('Controller', () => {
   it('the autopilotOut context action engages the autopilot to the jump point', async () => {
     const { c, events } = await setup();
     c.startFlight();
-    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: -1000, y: -1000 } } };
+    c.world = { ...c.world, route: ['vesk'], ship: { ...c.world.ship, pos: { x: -1000, y: -1000 } } };
     c.update(1 / 60);
     expect(events).toContainEqual({ type: 'contextChanged', action: 'autopilotOut' });
     c.doContextAction();
     expect(c.world.assist).toEqual({ kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false });
     expect(events.at(-1)).toEqual({ type: 'contextChanged', action: 'takeControl' });
+  });
+
+  it('the plotCourse context action pauses flight and opens the star map', async () => {
+    const { c, events } = await setup();
+    c.startFlight();
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: -1000, y: -1000 } } };
+    c.update(1 / 60);
+    expect(events).toContainEqual({ type: 'contextChanged', action: 'plotCourse' });
+    c.doContextAction();
+    expect(c.isFlying).toBe(false);
+    expect(events).toContainEqual({ type: 'menu', action: 'map' });
+    expect(events.at(-1)).toEqual({ type: 'contextChanged', action: null });
+  });
+
+  it('the map key is ignored during a jump', async () => {
+    const { c, target, events } = await setup();
+    c.startFlight();
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 0 } };
+    target.dispatchEvent(keyEvent('keydown', 'KeyM'));
+    c.update(1 / 60);
+    expect(c.isFlying).toBe(true);
+    expect(events.some((e) => e.type === 'menu')).toBe(false);
+    expect(c.world.jump).not.toBeNull();
   });
 
   it('Tab moves focus in menus but is kept by the game while flying', async () => {
@@ -230,6 +254,41 @@ describe('Controller', () => {
     expect(c.world.credits).toBe(data.config.startCredits - data.config.towFee);
   });
 
+  const dueToday = (id: string, title: string) => ({
+    id, typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 0, passengers: 0, pay: 500,
+    paidUpfront: false, deadlineDay: 0, title, description: '', cargoName: 'x',
+  });
+
+  it('missions failed during a tow wait for the planet screen instead of the hidden HUD', async () => {
+    const { c, data, events } = await setup();
+    const w = newWorld(data, 1);
+    c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 }, missions: [dueToday('a', 'Job A'), dueToday('b', 'Job B')] },
+      { id: 'p1', name: 'Ava' }, 'tallow-rock');
+    c.leavePlanet();
+    expect(c.callTow()).toBe(true);
+    expect(c.world.missions).toEqual([]);
+    expect(events.filter((e) => e.type === 'message')).toEqual([]);
+    expect(c.takeNotices()).toEqual([
+      'Mission failed: Job A — the deadline passed.',
+      'Mission failed: Job B — the deadline passed.',
+    ]);
+    expect(c.takeNotices()).toEqual([]);
+  });
+
+  it('several failures from one jump become a single HUD message', async () => {
+    const { c, data, events } = await setup();
+    const w = newWorld(data, 1);
+    c.beginSession({ ...w, missions: [dueToday('a', 'Job A'), dueToday('b', 'Job B')] }, { id: 'p1', name: 'Ava' }, 'halcyon');
+    c.leavePlanet();
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 0.99 } };
+    c.update(0.1);
+    expect(events.filter((e) => e.type === 'jumped')).toHaveLength(1);
+    expect(events.filter((e) => e.type === 'message')).toEqual([
+      { type: 'message', text: 'Mission failed: Job A — the deadline passed. Mission failed: Job B — the deadline passed.' },
+    ]);
+    expect(c.takeNotices()).toEqual([]);
+  });
+
   it('a tow into debt autosaves a valid pilot that loads back without the backup', async () => {
     const { c, data, events } = await setup();
     const store = new PilotStore(createStore('ctl-tow-debt', 'kv'));
@@ -356,6 +415,25 @@ describe('Controller', () => {
   });
 });
 
+describe('Controller.plotRoute', () => {
+  it('stores a course to a charted system and offers the jump to its first hop', async () => {
+    const { c } = await setup();
+    c.startFlight();
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 2100, y: 0 }, vel: { x: 0, y: 0 } } };
+    expect(c.currentContext()).toBe('plotCourse'); // no destination yet
+    expect(c.plotRoute('vesk')).toEqual({ ok: true });
+    expect(c.world.route).toEqual(['vesk']);
+    expect(c.currentContext()).toBe('jump');
+  });
+
+  it('refuses an uncharted system and keeps the old course', async () => {
+    const { c } = await setup();
+    c.plotRoute('vesk');
+    expect(c.plotRoute('skerry')).toEqual({ ok: false, reason: 'noRoute' });
+    expect(c.world.route).toEqual(['vesk']);
+  });
+});
+
 describe('Controller flight events and input release', () => {
   it('emits flying on start and pause, only on change', async () => {
     const c = new Controller(await loadGameData(), { ...DEFAULT_SETTINGS }, new EventTarget());
@@ -373,5 +451,75 @@ describe('Controller flight events and input release', () => {
     c.touch.press('thrust');
     c.releaseInputs();
     expect(c.touch.poll('flight').actions.size).toBe(0);
+  });
+});
+
+describe('Controller trade, missions and routes', () => {
+  const deliver = (over = {}) => ({
+    offerId: 'o1', typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 1, passengers: 0, pay: 700,
+    paidUpfront: false, deadlineDay: null, title: 'T', description: '', cargoName: 'crates', ...over,
+  });
+
+  it('buy/sell update the world only when landed', async () => {
+    const { c } = await setup();
+    const before = c.world;
+    expect(c.buy('food', 10)).toMatchObject({ tons: 0, reason: 'notTraded' });
+    expect(c.sell('food', 10)).toMatchObject({ tons: 0, reason: 'notTraded' });
+    expect(c.offers()).toEqual([]);
+    expect(c.world).toBe(before);
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    const b = c.buy('food', 10);
+    expect(b.tons).toBeGreaterThan(0);
+    expect(c.world.cargo.food).toBe(b.tons);
+    expect(c.world.credits).toBe(before.credits - b.cost);
+    const s = c.sell('food', b.tons);
+    expect(s.tons).toBe(b.tons);
+    expect(c.world.cargo.food ?? 0).toBe(0);
+  });
+
+  it('acceptMission uses current offers and reports a failed check', async () => {
+    const { c, data } = await setup();
+    c.beginSession(newWorld(data, 1), { id: 'p1', name: 'Ava' }, 'halcyon'); // fixed seed: same offers every run
+    const offers = c.offers();
+    expect(offers.length).toBeGreaterThanOrEqual(3);
+    const pick = offers.find((o) => canAccept(c.world, c.data, o).ok)!;
+    expect(pick).toBeDefined();
+    expect(c.acceptMission('nope')).toMatchObject({ ok: false });
+    c.world = { ...c.world, missions: Array.from({ length: 8 }, (_, i) => ({ ...deliver(), id: `x${i}` })) };
+    expect(c.acceptMission(pick.offerId)).toEqual({ ok: false, reason: 'tooMany' });
+    c.world = { ...c.world, missions: [] };
+    expect(c.acceptMission(pick.offerId)).toEqual({ ok: true });
+    expect(c.world.missions).toHaveLength(1);
+    c.abandonMission(pick.offerId);
+    expect(c.world.missions).toHaveLength(0);
+  });
+
+  it('landing at the destination emits missionsCompleted before the autosave, and the save has the pay', async () => {
+    const { c } = await setup();
+    const order: string[] = [];
+    const saved: PilotSave[] = [];
+    c.store = { save: async (p) => void (order.push('save'), saved.push(p)) };
+    c.on('missionsCompleted', () => order.push('completed'));
+    const done: { missions: unknown[]; pay: number }[] = [];
+    c.on('missionsCompleted', (e) => done.push(e));
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    const credits = c.world.credits;
+    c.world = { ...c.world, missions: [{ ...deliver(), id: 'j1' }] };
+    // Same path a landed or towed sim event takes (handleEvents -> landAt).
+    (c as unknown as { landAt(id: string): void }).landAt('merrow');
+    await c.lastSave;
+    expect(order).toEqual(['completed', 'save']);
+    expect(done[0].pay).toBe(700);
+    expect(c.world.missions).toHaveLength(0);
+    expect(saved[0].credits).toBe(credits + 700);
+    expect(saved[0].missions).toEqual([]);
+  });
+
+  it('plotRoute returns the setRoute result; clearRoute empties the course', async () => {
+    const { c } = await setup();
+    expect(c.plotRoute('vesk')).toEqual({ ok: true });
+    expect(c.world.route).toEqual(['vesk']);
+    c.clearRoute();
+    expect(c.world.route).toEqual([]);
   });
 });

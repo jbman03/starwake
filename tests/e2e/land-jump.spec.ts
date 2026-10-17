@@ -33,11 +33,13 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
     .poll(async () => (await pilots(page))[0].savedAt > before[0].savedAt, { timeout: 5000 })
     .toBe(true);
 
-  // Leave via the button; no target remains, so G autopilots to the jump point.
+  // Leave via the button; no target remains, so G autopilots to the jump point. The course to
+  // Vesk is plotted through the test hook (starmap.spec.ts plots one on the star map).
   await page.getByRole('button', { name: /^Leave/ }).click();
   await expect(planet).toBeHidden();
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);
   expect(await page.evaluate(() => window.__starwake!.world().targetPlanetId)).toBeNull();
+  expect(await page.evaluate(() => window.__starwake!.controller.plotRoute('vesk').ok)).toBe(true);
   await page.waitForTimeout(100);
   await page.keyboard.press('KeyG');
   await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'autopilot');
@@ -53,6 +55,9 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   const w = await page.evaluate(() => window.__starwake!.world());
   expect(w.systemId).toBe('vesk');
   expect(w.ship.fuel).toBe(fuel0 - 100);
+  expect(w.day).toBe(1);
+  expect(w.route).toEqual([]);
+  expect(w.known).toContain('vesk');
 
   // Escape opens the pause menu and freezes the sim.
   await page.keyboard.press('Escape');
@@ -68,12 +73,12 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   await expect(pause).toBeHidden();
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);
 
-  // M opens the map; M closes it.
+  // M opens the map (on the current system, now Vesk); M closes it.
   await page.keyboard.press('KeyM');
   const map = page.getByTestId('star-map');
   await expect(map).toBeVisible();
-  await expect(map).toContainText('Vesk');
-  await expect(map).toContainText('You are here');
+  await expect(map.getByTestId('map-info')).toContainText('Vesk');
+  await expect(map.getByTestId('map-route')).toHaveText('You are here');
   await page.keyboard.press('KeyM');
   await expect(map).toBeHidden();
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);

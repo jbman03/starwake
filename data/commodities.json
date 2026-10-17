@@ -1,0 +1,14 @@
+[
+  { "id": "food", "name": "Food", "basePrice": 90, "description": "Grain, preserves and fresh harvests." },
+  { "id": "industrial", "name": "Industrial", "basePrice": 190, "description": "Machine parts, fasteners and raw plant stock." },
+  { "id": "medical", "name": "Medical", "basePrice": 280, "description": "Medicines, bandages and clinic supplies." },
+  { "id": "luxury", "name": "Luxury", "basePrice": 420, "description": "Fine goods for those who can afford the finer things." },
+  { "id": "metal", "name": "Metal", "basePrice": 130, "description": "Ingots and plate from the mines." },
+  { "id": "equipment", "name": "Equipment", "basePrice": 340, "description": "Tools, instruments and ship fittings." },
+  { "id": "glowmoss", "name": "Vesk Glowmoss", "basePrice": 640, "origin": "tallow-rock",
+    "description": "A pale lichen from Tallow Rock that glows softly for a year after picking. Core households hang it in jars instead of lamps and swear it helps them sleep." },
+  { "id": "copperwine", "name": "Halcyon Copperwine", "basePrice": 520, "origin": "halcyon",
+    "description": "A dry orchard wine the color of Halcyon's evening sea. Miners on the rim pay a week's wages for a bottle and drink it slowly." },
+  { "id": "emberwool", "name": "Thistle Emberwool", "basePrice": 760, "origin": "thistledown",
+    "description": "Fleece from the slow red sheep of Thistledown, warm enough to keep a cold-docked pilot alive. Free Reach weavers will not sell the breeding stock at any price." }
+]
