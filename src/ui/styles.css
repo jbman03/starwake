@@ -288,6 +288,18 @@
   .sw-hotkey-name { grid-column: 1 / -1; }
 }
 
+/* ---- how to play ---- */
+.sw-htp { display: flex; flex-direction: column; overflow: hidden; }
+.sw-htp-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 8px; }
+.sw-htp-p { margin: 0; font-size: 15px; line-height: 1.45; color: #c9d3de; }
+.sw-htp-row { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 4px 10px; padding: 4px 0; font-size: 14px; border-bottom: 1px solid #1c2735; overflow-wrap: anywhere; }
+.sw-htp-head { color: var(--sw-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.sw-htp-keys { color: var(--sw-accent); }
+.sw-htp-phone { color: var(--sw-dim); }
+.sw-htp .sw-reason { margin: 0 0 6px; }
+.sw-htp .sw-tabs { flex-wrap: wrap; }
+.sw-htp .sw-tabs > .sw-tab { flex: 1 1 auto; }
+
 /* Fatal screens (crash, bad data) and the update banner live on <body>, above everything. */
 .sw-fatal {
   position: fixed;

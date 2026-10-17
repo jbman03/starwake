@@ -24,12 +24,14 @@ export const ACTION_IDS = [
   'refuel',
   'openMap',
   'missionLog',
+  'howToPlay',
   'leave',
   // commodity exchange
   'buyGoods',
   'sellGoods',
   // menus
   'back',
+  'menuHowToPlay',
 ] as const;
 
 export type ActionId = (typeof ACTION_IDS)[number];
@@ -58,10 +60,12 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   refuel: 'planet',
   openMap: 'planet',
   missionLog: 'planet',
+  howToPlay: 'planet',
   leave: 'planet',
   buyGoods: 'exchange',
   sellGoods: 'exchange',
   back: 'menus',
+  menuHowToPlay: 'menus',
 };
 
 export const ACTION_LABEL: Record<ActionId, string> = {
@@ -86,8 +90,10 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   refuel: 'Refuel',
   openMap: 'Star map',
   missionLog: 'Mission log',
+  howToPlay: 'How to play',
   leave: 'Leave',
   buyGoods: 'Buy goods',
   sellGoods: 'Sell goods',
   back: 'Back',
+  menuHowToPlay: 'How to play',
 };

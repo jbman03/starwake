@@ -5,6 +5,7 @@ import type { RefuelQuote } from '../sim/rules';
 import type { UiContext } from './context';
 import { alertDialog, button, el, formatCredits, hotkeyFor } from './dom';
 import { showExchange } from './exchange';
+import { showHowToPlay } from './howToPlay';
 import { guideCard } from './guideHint';
 import { showMissionComputer } from './missionComputer';
 import { showMissionLog } from './missionLog';
@@ -57,6 +58,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   const openExchange = () => showExchange(ctx, planetId, () => ctx.go.planet(planetId));
   const openMissions = () => showMissionComputer(ctx, planetId, () => ctx.go.planet(planetId));
   const openMissionLog = () => showMissionLog(ctx, () => ctx.go.planet(planetId));
+  const openHowToPlay = () => showHowToPlay(ctx, { onClose: () => ctx.go.planet(planetId) });
 
   const refuel = () => {
     const q = controller.refuel();
@@ -93,12 +95,14 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     const reason = refuelBtn && !canRefuel && q?.reason ? el('p', { class: 'sw-reason', text: REFUEL_REASON[q.reason] }) : null;
     const mapBtn = button('Star Map', openMap, { hotkey: hotkeyFor(bindings, 'openMap') });
     const logBtn = button('Mission Log', openMissionLog, { hotkey: hotkeyFor(bindings, 'missionLog') });
+    const helpBtn = button('How to Play', openHowToPlay, { hotkey: hotkeyFor(bindings, 'howToPlay') });
     const leaveBtn = button('Leave', leave, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'leave') });
     actions.replaceChildren(
       ...[exchangeBtn, missionsBtn, refuelBtn].filter((b) => b !== null),
       ...(reason ? [reason] : []),
       mapBtn,
       logBtn,
+      helpBtn,
       leaveBtn,
     );
   }
@@ -124,6 +128,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       else if (pressed.has('openMissions') && services.has('missions')) openMissions();
       else if (pressed.has('missionLog')) openMissionLog();
       else if (pressed.has('openMap')) openMap();
+      else if (pressed.has('howToPlay')) openHowToPlay();
       else if (pressed.has('refuel') && services.has('refuel') && (controller.refuelQuote()?.units ?? 0) > 0) refuel();
     },
     cleanup: () => {

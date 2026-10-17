@@ -47,10 +47,16 @@ Arrow keys fly: Up thrusts, Left/Right turn, Down reverses. Default hotkeys
 | M | Mission computer (on a planet); star map (in flight) |
 | N | Star map (on a planet) |
 | K | Mission log |
+| H | How to Play (on a planet and in menus) |
 | B / S | Buy / sell in the exchange (10 t; hold Shift for 1 t) |
 | Esc | Pause / back |
 
 ### How to play
+
+New pilots are offered a guided first flight: one trade from start to finish.
+Replay it from **How to Play** (button on the main menu, pause menu and planet
+screen, or **H**) or from Settings. How to Play also lists every control,
+including your own rebinds and the phone equivalents.
 
 **Trading.** Each port's exchange lists its goods with a Low, Med or High
 price level. Buy where a good is Low, fly to a port where it is High, and sell.

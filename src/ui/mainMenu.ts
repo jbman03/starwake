@@ -2,8 +2,9 @@ import { SaveError, worldFromPilot } from '../save/pilot';
 import { importPilot } from '../save/transfer';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
+import { showHowToPlay } from './howToPlay';
 import { showSettings } from './settingsScreen';
-import { button, confirmDialog, el, promptDialog } from './dom';
+import { button, confirmDialog, el, hotkeyFor, promptDialog } from './dom';
 import { randomPilotName } from '../save/pilotNames';
 
 export const NAME_MAX = 24;
@@ -164,12 +165,15 @@ export function showMainMenu(ctx: UiContext): void {
     })();
   });
 
+  const openHowToPlay = () => showHowToPlay(ctx, { onClose: () => showMainMenu(ctx) });
+
   const screen = el('div', { class: 'sw-screen sw-main-menu', attrs: { 'data-testid': 'main-menu' } }, [
     el('div', { class: 'sw-panel sw-menu sw-menu-wide' }, [
       el('h1', { class: 'sw-logo', text: 'STARWAKE' }),
       el('div', { class: 'sw-actions sw-actions-row' }, [
         button('New Pilot', guarded(newPilot), { class: 'sw-btn-primary' }),
         button('Import pilot', () => file.click()),
+        button('How to Play', openHowToPlay, { hotkey: hotkeyFor(controller.settings.bindings, 'menuHowToPlay') }),
         button('Settings', () => showSettings(ctx, { mode: ctx.inputMode.mode, onClose: () => showMainMenu(ctx) })),
       ]),
       list,
@@ -178,6 +182,11 @@ export function showMainMenu(ctx: UiContext): void {
     ]),
   ]);
 
-  ctx.mount(screen);
+  ctx.mount(screen, {
+    groups: ['menus'],
+    onPress: (pressed) => {
+      if (pressed.has('menuHowToPlay')) openHowToPlay();
+    },
+  });
   void refresh().catch((err) => say(`Couldn't read saved pilots: ${err instanceof Error ? err.message : String(err)}`));
 }

@@ -25,10 +25,12 @@ export const DEFAULT_BINDINGS: Bindings = {
   refuel: ['KeyR', null],
   openMap: ['KeyN', null],
   missionLog: ['KeyK', null],
+  howToPlay: ['KeyH', null],
   leave: ['KeyL', 'Escape'],
   buyGoods: ['KeyB', null],
   sellGoods: ['KeyS', null],
   back: ['Escape', null],
+  menuHowToPlay: ['KeyH', null],
 };
 
 export const MUST_KEEP_ESCAPE: readonly ActionId[] = ['pause', 'back'];

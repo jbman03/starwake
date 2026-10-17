@@ -1,5 +1,6 @@
 import { exportFileName, exportPilot } from '../save/transfer';
 import type { UiContext } from './context';
+import { showHowToPlay } from './howToPlay';
 import { showMissionLog } from './missionLog';
 import { showSettings } from './settingsScreen';
 import { button, confirmDialog, el, formatCredits, hotkeyFor } from './dom';
@@ -49,6 +50,8 @@ export function showPauseMenu(ctx: UiContext): void {
     ctx.go.mainMenu();
   };
 
+  const openHowToPlay = () => showHowToPlay(ctx, { onClose: () => showPauseMenu(ctx) });
+
   const towTo = controller.towDestination();
   const buttons = el('div', { class: 'sw-actions' }, [
     button('Resume', resume, { class: 'sw-btn-primary', hotkey: hotkeyFor(controller.settings.bindings, 'back') }),
@@ -60,6 +63,7 @@ export function showPauseMenu(ctx: UiContext): void {
         })
       : null,
     button('Mission Log', () => showMissionLog(ctx, () => showPauseMenu(ctx))),
+    button('How to Play', openHowToPlay, { hotkey: hotkeyFor(controller.settings.bindings, 'menuHowToPlay') }),
     button('Settings', () => showSettings(ctx, { mode: ctx.inputMode.mode, onClose: () => showPauseMenu(ctx) })),
     button('Export pilot', exportCurrent),
     button('Quit to main menu', () => void quit(), { class: 'sw-btn-danger' }),
@@ -73,6 +77,7 @@ export function showPauseMenu(ctx: UiContext): void {
     groups: ['menus'],
     onPress: (pressed) => {
       if (pressed.has('back')) resume();
+      else if (pressed.has('menuHowToPlay')) openHowToPlay();
     },
   });
 }
