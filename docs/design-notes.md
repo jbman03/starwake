@@ -63,6 +63,11 @@ https://infinitemac.org/1996/System%207.5.3 (useful for checking feel later).
   port now sells fuel; remote ports charge more. → cycle 2 spec §4.6
 - **Mission destination on the map.** Highlighting a mission and pressing the Map key
   should show where it goes, to plan the trip. → cycle 2 spec §4.4
+- **Ships must differ.** Each hull has its own role: carriers haul, couriers are fast,
+  liners carry passengers, and so on. No two hold sizes are the same, and a balance
+  test enforces this. → cycle 2 spec §2.1 role table
+- **Recommended additions:** still to be drafted after the EV comparison. They will go
+  to the owner as questions with top picks, not decided alone.
 
 ## Expansion cycles (agreed 2026-10-16)
 

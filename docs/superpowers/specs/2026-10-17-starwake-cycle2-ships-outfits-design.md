@@ -30,24 +30,45 @@ the spaceport bar, story missions, the pilot card (cycle 3).
 - `techTier` (1–5)
 - `shields`, `armor` (integers ≥ 0; base maximums)
 - `outfitSpace` (tons available for outfits)
-- `hull` — one of `'dart' | 'wedge' | 'hauler' | 'ring'`, the silhouette profile
+- `role` — one of `'starter' | 'courier' | 'scout' | 'freighter' | 'heavyFreighter' |
+  'liner' | 'interceptor' | 'corvette' | 'trader' | 'carrier'`
+- `hull` — the silhouette profile: `'pod' | 'dart' | 'wedge' | 'hauler' | 'liner' |
+  'carrier'`
 - `description` (original text, 1–2 sentences)
 
-Roster (about 8 hulls; names and numbers are tuned in the plan, all original):
+Crew is not added yet. It has no use until combat and boarding exist.
 
-| Tier | Role | Notes |
-|---|---|---|
-| 1 | Wayfarer Shuttle | the start ship (existing), cheap, small |
-| 2 | fast courier | quick, little cargo, few berths |
-| 2 | cheap freighter | slow, more cargo |
-| 3 | balanced trader | the natural first upgrade |
-| 3 | bulk hauler | big hold, sluggish |
-| 4 | long-range runner | large fuel tank, decent hold |
-| 4 | heavy freighter | very large hold |
-| 5 | flagship trader | best all-round; sold only at tier-5 worlds |
+**Roster: 10 hulls, each with a distinct role (owner direction: no two ships alike).**
+This table is a draft for owner approval. All names are original, and numbers may be
+tuned while balancing. Flight stats are in game units: the current shuttle is speed
+300, acceleration 150, turn 180°/s, and a jump costs 100 fuel.
 
-Prices scale so the first upgrade takes a few successful trade runs and the tier-5
-hull is a long-term goal.
+| Tier | Ship | Role | Price | Hold t | Berths | Fuel | Speed | Accel | Turn | Shields | Armor | Outfit space | Hull |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Wayfarer Shuttle | starter | 10,000 | 20 | 4 | 300 | 300 | 150 | 180 | 60 | 40 | 10 | pod |
+| 2 | Swiftwing Courier | courier: fast, small hold, extra fuel | 30,000 | 12 | 2 | 500 | 420 | 230 | 220 | 70 | 40 | 12 | dart |
+| 2 | Pathfinder Scout | scout: longest range, nimble | 35,000 | 6 | 1 | 900 | 380 | 200 | 240 | 50 | 30 | 14 | dart |
+| 2 | Mule Light Freighter | freighter: big cheap hold, slow | 45,000 | 60 | 2 | 400 | 240 | 110 | 120 | 100 | 120 | 20 | hauler |
+| 3 | Kestrel Interceptor | interceptor: fastest, most agile, tiny hold (combat later) | 70,000 | 5 | 0 | 300 | 460 | 300 | 300 | 150 | 100 | 25 | dart |
+| 3 | Starlit Liner | liner: most berths | 90,000 | 25 | 30 | 500 | 280 | 120 | 110 | 180 | 120 | 20 | liner |
+| 4 | Ironback Heavy Freighter | heavyFreighter: largest hold | 140,000 | 150 | 4 | 600 | 200 | 80 | 90 | 250 | 300 | 30 | hauler |
+| 4 | Warden Corvette | corvette: balanced, tough, most outfit space for its size (weapons later) | 160,000 | 30 | 6 | 450 | 340 | 190 | 170 | 300 | 250 | 45 | wedge |
+| 5 | Meridian Trader | trader: best all-rounder | 300,000 | 90 | 12 | 700 | 330 | 160 | 150 | 350 | 300 | 50 | wedge |
+| 5 | Bastion Carrier | carrier: huge hull with big hauling and berths, most shields, armor and outfit space (fighter bays later) | 450,000 | 120 | 20 | 800 | 230 | 90 | 80 | 600 | 600 | 80 | carrier |
+
+The only tier-5 ships, the Meridian and the Bastion, are sold only at tier-5 worlds.
+Prices scale so the first upgrade takes a few successful trade runs, and a tier-5 hull
+is a long-term goal.
+
+**Balance test.** This is a unit test over `data/ships.json` that fails if any of these
+stops being true:
+- No two ships share a hold size.
+- The heavy freighter has the largest hold.
+- The liner has the most berths.
+- The scout has the largest fuel tank.
+- The interceptor has the highest speed and turn rate.
+- The carrier has the most shields, armor and outfit space.
+- The starter is the cheapest ship.
 
 ### 2.2 Outfits (new `data/outfits.json`)
 `OutfitSchema`: `id`, `name`, `description`, `category` (`'cargo' | 'fuel' | 'armor' |
