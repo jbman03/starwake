@@ -38,8 +38,8 @@ the spaceport bar, story missions, the pilot card (cycle 3).
 
 Crew is not added yet. It has no use until combat and boarding exist.
 
-**Roster: 10 hulls, each with a distinct role (owner direction: no two ships alike).**
-This table is a draft for owner approval. All names are original, and numbers may be
+**Roster: 10 hulls, each with a distinct role (owner direction: no two ships alike). Approved by the owner on 2026-10-18.**
+All names are original, and numbers may be
 tuned while balancing. Flight stats are in game units: the current shuttle is speed
 300, acceleration 150, turn 180°/s, and a jump costs 100 fuel.
 
