@@ -240,6 +240,20 @@ describe('showStarMap', () => {
     expect(c.world.route).toEqual(['tessaly']);
   });
 
+  it('a preview centres and zooms the view on its system', () => {
+    const { root } = setup(undefined, undefined, { preview: { systemId: 'tessaly', label: 'Mission: x' } });
+    const [x, y, w, h] = root.querySelector('svg')!.getAttribute('viewBox')!.split(' ').map(Number);
+    const at = data.systems.tessaly.mapPos;
+    const all = Object.values(data.systems);
+    const xs = all.map((q) => q.mapPos.x);
+    const whole = Math.max(...xs) - Math.min(...xs) + 200; // the full-galaxy width (PAD 100 each side)
+    expect(w).toBeCloseTo(whole / 2, 3); // zoom 2
+    // Centred on the system unless the galaxy edge clamps it.
+    const clamped = Math.abs(x + w / 2 - at.x) > 1e-6;
+    if (clamped) expect(Math.abs(x + w / 2 - at.x)).toBeLessThan(w / 2);
+    expect(Math.abs(y + h / 2 - at.y)).toBeLessThan(h / 2);
+  });
+
   it('a preview of an unexplored system still gets a marker', () => {
     const unknown = mapModel(world(), data).nodes.find((n) => n.state === 'unknown')!;
     const { sys } = setup(undefined, undefined, { preview: { systemId: unknown.id, label: 'Mission: x' } });
