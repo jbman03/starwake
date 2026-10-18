@@ -5,12 +5,14 @@ import {
   EventSchema,
   GovernmentSchema,
   MissionTypeSchema,
+  OutfitSchema,
   PlanetSchema,
   ShipSchema,
   SystemSchema,
   type GameConfig,
   type GameData,
 } from './schemas';
+import { sells } from '../sim/stock';
 
 export class DataError extends Error {
   constructor(
@@ -20,6 +22,26 @@ export class DataError extends Error {
     super(`Invalid game data in ${file}:\n  ${issues.join('\n  ')}`);
     this.name = 'DataError';
   }
+}
+
+/** Fewest lane hops between two systems (Infinity when unconnected). */
+function hopDistance(systems: Record<string, { links: string[] }>, from: string, to: string): number {
+  const seen = new Set([from]);
+  let frontier = [from];
+  for (let d = 0; frontier.length > 0; d++) {
+    if (frontier.includes(to)) return d;
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const l of systems[id]?.links ?? []) {
+        if (l in systems && !seen.has(l)) {
+          seen.add(l);
+          next.push(l);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return Infinity;
 }
 
 function describeIssue(issue: z.core.$ZodIssue): string {
@@ -73,10 +95,12 @@ const KEYS = [
   'commodities',
   'events',
   'missionTypes',
+  'outfits',
 ] as const;
 
 export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): GameData {
   const ships = parseList('ships.json', ShipSchema, raw.ships);
+  const outfits = parseList('outfits.json', OutfitSchema, raw.outfits);
   const systems = parseList('systems.json', SystemSchema, raw.systems);
   const planets = parseList('planets.json', PlanetSchema, raw.planets);
   const governments = parseList('governments.json', GovernmentSchema, raw.governments);
@@ -149,6 +173,46 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   }
   if (goodsIssues.length) throw new DataError('commodities.json', goodsIssues);
 
+  const shopIssues: string[] = [];
+  const hubsByGov: Record<string, string[]> = {};
+  for (const gid of Object.keys(governments)) hubsByGov[gid] = [];
+  for (const p of Object.values(planets)) {
+    if (!p.hub) continue;
+    if (!p.services.includes('shipyard') || !p.services.includes('outfitter'))
+      shopIssues.push(fmt('planets.json', `${p.id}.hub`, 'hub must have both shipyard and outfitter'));
+    hubsByGov[systems[p.systemId].government]?.push(p.id);
+  }
+  for (const [gid, hubs] of Object.entries(hubsByGov)) {
+    if (hubs.length === 0) shopIssues.push(fmt('planets.json', 'hub', `government "${gid}" has no hub`));
+    for (let i = 0; i < hubs.length; i++)
+      for (let j = i + 1; j < hubs.length; j++) {
+        const hops = hopDistance(systems, planets[hubs[i]].systemId, planets[hubs[j]].systemId);
+        if (hops < 2)
+          shopIssues.push(
+            fmt('planets.json', 'hub', `hubs "${hubs[i]}" and "${hubs[j]}" are only ${hops} jump apart; need at least 2`),
+          );
+      }
+  }
+  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, config } as GameData;
+  const items: { file: string; item: { id: string; techTier: number; soldBy?: string[] } }[] = [
+    ...Object.values(ships).map((item) => ({ file: 'ships.json', item })),
+    ...Object.values(outfits).map((item) => ({ file: 'outfits.json', item })),
+  ];
+  for (const { file, item } of items) {
+    const shop = file === 'ships.json' ? 'shipyard' : 'outfitter';
+    for (const g of item.soldBy ?? []) {
+      if (!(g in governments)) shopIssues.push(fmt(file, `${item.id}.soldBy`, `unknown government "${g}"`));
+    }
+    const sellers = Object.values(planets).filter((p) => p.services.includes(shop) && sells(p.id, item, partial));
+    if (sellers.length === 0) shopIssues.push(fmt(file, item.id, 'no port sells this'));
+    for (const g of item.soldBy ?? []) {
+      if (!(g in governments)) continue;
+      if (!sellers.some((p) => p.hub && systems[p.systemId].government === g))
+        shopIssues.push(fmt(file, `${item.id}.soldBy`, `not sold at any "${g}" hub`));
+    }
+  }
+  if (shopIssues.length) throw new DataError('planets.json', shopIssues);
+
   const eventIssues: string[] = [];
   for (const e of Object.values(events)) {
     if (!(e.commodity in commodities))
@@ -169,6 +233,8 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     cfgIssues.push(fmt('config.json', 'startSystemId', `unknown system "${config.startSystemId}"`));
   if (!(config.startShipId in ships))
     cfgIssues.push(fmt('config.json', 'startShipId', `unknown ship "${config.startShipId}"`));
+  else if (Object.values(ships).some((s) => s.id !== config.startShipId && s.price <= ships[config.startShipId].price))
+    cfgIssues.push(fmt('config.json', 'startShipId', 'startShipId must be the lowest-priced ship'));
   const sp = planets[config.startPlanetId];
   if (!sp)
     cfgIssues.push(fmt('config.json', 'startPlanetId', `unknown planet "${config.startPlanetId}"`));
@@ -182,14 +248,14 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   });
   if (cfgIssues.length) throw new DataError('config.json', cfgIssues);
 
-  return { ships, systems, planets, governments, commodities, events, missionTypes, config };
+  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, config };
 }
 
 /** Loads and validates the bundled data. `override` swaps raw payloads (used by test flags). */
 export async function loadGameData(
   override: Partial<Record<(typeof KEYS)[number], unknown>> = {},
 ): Promise<GameData> {
-  const [ships, systems, planets, config, governments, commodities, events, missionTypes] =
+  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits] =
     await Promise.all([
       import('../../data/ships.json'),
       import('../../data/systems.json'),
@@ -199,6 +265,7 @@ export async function loadGameData(
       import('../../data/commodities.json'),
       import('../../data/events.json'),
       import('../../data/missionTypes.json'),
+      import('../../data/outfits.json'),
     ]);
   return parseGameData({
     ships: ships.default,
@@ -209,6 +276,7 @@ export async function loadGameData(
     commodities: commodities.default,
     events: events.default,
     missionTypes: missionTypes.default,
+    outfits: outfits.default,
     ...override,
   });
 }

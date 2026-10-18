@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const vec2 = z.object({ x: z.number(), y: z.number() });
 const id = z.string().min(1);
+const tier = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]);
 
 export const ShipSchema = z.object({
   id,
@@ -13,7 +14,49 @@ export const ShipSchema = z.object({
   radius: z.number().positive(),
   cargo: z.number().int().nonnegative(), // tons
   passengers: z.number().int().nonnegative(), // berths
+  price: z.number().int().nonnegative(),
+  techTier: tier,
+  shields: z.number().int().nonnegative(),
+  armor: z.number().int().nonnegative(),
+  outfitSpace: z.number().int().nonnegative(), // tons available for outfits
+  role: z.enum([
+    'starter',
+    'courier',
+    'scout',
+    'freighter',
+    'heavyFreighter',
+    'liner',
+    'interceptor',
+    'corvette',
+    'trader',
+    'carrier',
+  ]),
+  hull: z.enum(['pod', 'dart', 'wedge', 'hauler', 'liner', 'carrier']),
+  description: z.string(),
+  soldBy: z.array(id).optional(), // government ids; absent = sold anywhere the tier allows
 });
+
+const outfitBase = {
+  id,
+  name: z.string(),
+  description: z.string(),
+  price: z.number().int().nonnegative(),
+  techTier: tier,
+  space: z.number().int().nonnegative(),
+  max: z.number().int().positive(),
+  soldBy: z.array(id).optional(),
+};
+
+const effect = <K extends string>(key: K) => z.object({ [key]: z.number().positive() } as Record<K, z.ZodNumber>).strict();
+
+export const OutfitSchema = z.discriminatedUnion('category', [
+  z.object({ ...outfitBase, category: z.literal('cargo'), effect: effect('cargo') }),
+  z.object({ ...outfitBase, category: z.literal('fuel'), effect: effect('fuel') }),
+  z.object({ ...outfitBase, category: z.literal('armor'), effect: effect('armor') }),
+  z.object({ ...outfitBase, category: z.literal('shields'), effect: effect('shields') }),
+  z.object({ ...outfitBase, category: z.literal('map'), effect: effect('mapJumps') }),
+  z.object({ ...outfitBase, category: z.literal('scoop'), effect: effect('fuelPerMin') }),
+]);
 
 export const SystemSchema = z.object({
   id,
@@ -32,13 +75,14 @@ export const PlanetSchema = z.object({
   systemId: id,
   pos: vec2,
   radius: z.number().positive(),
-  techTier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
+  techTier: tier,
   fuelPrice: z.number().nonnegative(),
   description: z.string(),
   kind: z.enum(['planet', 'station']),
   services: z.array(z.enum(['exchange', 'missions', 'shipyard', 'outfitter'])),
   market: z.record(z.string(), z.enum(['low', 'med', 'high'])).optional(),
   dumpSite: z.boolean().optional(),
+  hub: z.boolean().optional(), // tech hub: sells everything its tier and government allow
 });
 
 export const GovernmentSchema = z.object({
@@ -107,6 +151,7 @@ export const ConfigSchema = z.object({
 });
 
 export type ShipDef = z.infer<typeof ShipSchema>;
+export type OutfitDef = z.infer<typeof OutfitSchema>;
 export type SystemDef = z.infer<typeof SystemSchema>;
 export type PlanetDef = z.infer<typeof PlanetSchema>;
 export type GovernmentDef = z.infer<typeof GovernmentSchema>;
@@ -117,6 +162,7 @@ export type GameConfig = z.infer<typeof ConfigSchema>;
 
 export interface GameData {
   ships: Record<string, ShipDef>;
+  outfits: Record<string, OutfitDef>;
   systems: Record<string, SystemDef>;
   planets: Record<string, PlanetDef>;
   governments: Record<string, GovernmentDef>;

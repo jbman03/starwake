@@ -82,7 +82,7 @@ describe('systemDetails', () => {
     expect(row('Government')).toBe('Concord of Lanterns');
     expect(row('Goods')).toContain('Food');
     expect(row('Goods')).toContain('Halcyon Copperwine');
-    expect(row('Services')).toBe('Refuel, Exchange, Missions');
+    expect(row('Services')).toBe('Refuel, Exchange, Missions, Outfitter');
     const bare = systemDetails('calder', world(), withoutPorts(data, 'calder'));
     expect(bare.rows.find((r) => r.label === 'Services')?.value).toBe('None');
     expect(row('Ports')).toBe('Halcyon, Merrow, Brigg Station');

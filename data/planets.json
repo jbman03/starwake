@@ -1,7 +1,7 @@
 [
   {
     "id": "halcyon", "name": "Halcyon", "systemId": "calder", "pos": { "x": 700, "y": -200 }, "radius": 60, "techTier": 3, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "food": "low", "medical": "med", "luxury": "high", "metal": "med", "copperwine": "low" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "food": "low", "medical": "med", "luxury": "high", "metal": "med", "copperwine": "low" },
     "description": "A temperate world of terraced orchards and quiet harbors, where the evening light turns the sea to copper."
   },
   {
@@ -17,12 +17,12 @@
 
   {
     "id": "vanterre", "name": "Vanterre", "systemId": "tessaly", "pos": { "x": -600, "y": -500 }, "radius": 70, "techTier": 5, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "industrial": "low", "equipment": "low", "luxury": "high", "food": "high", "medical": "med", "emberwool": "high" },
+    "hub": true, "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "industrial": "low", "equipment": "low", "luxury": "high", "food": "high", "medical": "med", "emberwool": "high" },
     "description": "A world-sized workshop whose night side never goes dark. The factories run on schedules so precise that the trams apologize for being early."
   },
   {
     "id": "glasshouse", "name": "Glasshouse", "systemId": "tessaly", "pos": { "x": 850, "y": 200 }, "radius": 32, "techTier": 4, "fuelPrice": 2, "kind": "station",
-    "services": ["exchange", "missions"], "market": { "medical": "low", "food": "med", "metal": "high" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "medical": "low", "food": "med", "metal": "high" },
     "description": "A spindle of greenhouses and laboratories where half the Concord's medicines are grown in rows. It smells of mint and disinfectant in equal measure."
   },
   {
@@ -33,12 +33,12 @@
 
   {
     "id": "concordance", "name": "Concordance", "systemId": "aurelle", "pos": { "x": 500, "y": -600 }, "radius": 72, "techTier": 5, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "luxury": "high", "industrial": "low", "equipment": "low", "medical": "med", "food": "high", "glowmoss": "high" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "luxury": "high", "industrial": "low", "equipment": "low", "medical": "med", "food": "high", "glowmoss": "high" },
     "description": "The seat of the Concord, a planet of white arcades and lantern-lined boulevards. Every treaty in the core was signed here, usually after a very good lunch."
   },
   {
     "id": "lamplight-yards", "name": "Lamplight Yards", "systemId": "aurelle", "pos": { "x": -800, "y": 300 }, "radius": 34, "techTier": 5, "fuelPrice": 2, "kind": "station",
-    "services": ["exchange", "missions"], "market": { "metal": "high", "equipment": "low", "industrial": "med" },
+    "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "metal": "high", "equipment": "low", "industrial": "med" },
     "description": "The Concord's great shipyards, where hulls hang in the dark like lanterns waiting to be lit. The foremen can name every rivet and will, given the chance."
   },
   {
@@ -49,7 +49,7 @@
 
   {
     "id": "hallow", "name": "Hallow", "systemId": "minster", "pos": { "x": -400, "y": 650 }, "radius": 58, "techTier": 4, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "medical": "low", "luxury": "high", "food": "med", "equipment": "med" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "medical": "low", "luxury": "high", "food": "med", "equipment": "med" },
     "description": "A cloistered world of teaching hospitals and bell towers. Physicians train here for twelve years and leave with excellent handwriting."
   },
   {
@@ -60,7 +60,7 @@
 
   {
     "id": "corvana-works", "name": "Corvana Works", "systemId": "corvana", "pos": { "x": 650, "y": 450 }, "radius": 66, "techTier": 5, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "industrial": "low", "equipment": "low", "metal": "high", "food": "med" },
+    "hub": true, "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "industrial": "low", "equipment": "low", "metal": "high", "food": "med" },
     "description": "A foundry planet under a permanent orange sky. The workers sing in shifts, and the songs are better than the air."
   },
   {
@@ -71,7 +71,7 @@
 
   {
     "id": "quillon-spires", "name": "Quillon Spires", "systemId": "quillon", "pos": { "x": -350, "y": -550 }, "radius": 54, "techTier": 4, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "luxury": "low", "equipment": "med", "food": "med", "glowmoss": "high", "emberwool": "high" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "luxury": "low", "equipment": "med", "food": "med", "glowmoss": "high", "emberwool": "high" },
     "description": "An old artisans' world of glass towers and narrow galleries. Everything sold here is beautiful, and nothing is cheap except the compliments."
   },
   {
@@ -82,7 +82,7 @@
 
   {
     "id": "hollis-landing", "name": "Hollis Landing", "systemId": "hollis", "pos": { "x": 600, "y": -350 }, "radius": 56, "techTier": 4, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "equipment": "low", "metal": "high", "food": "med", "industrial": "med", "luxury": "high" },
+    "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "equipment": "low", "metal": "high", "food": "med", "industrial": "med", "luxury": "high" },
     "description": "The last proper Concord port before the Reach, all outfitters and survey offices. Prospectors buy their tools here and their courage somewhere else."
   },
   {
@@ -93,7 +93,7 @@
 
   {
     "id": "brannock-deeps", "name": "Brannock Deeps", "systemId": "brannock", "pos": { "x": 550, "y": 500 }, "radius": 50, "techTier": 3, "fuelPrice": 3, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "metal": "low", "food": "high", "medical": "high", "equipment": "med" },
+    "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "metal": "low", "food": "high", "medical": "high", "equipment": "med" },
     "description": "A mining world honeycombed so deep that the miners commute by elevator for an hour each way. They come up hungry and go down bandaged."
   },
   {
@@ -104,7 +104,7 @@
 
   {
     "id": "thistledown", "name": "Thistledown", "systemId": "thistle", "pos": { "x": -500, "y": 400 }, "radius": 58, "techTier": 3, "fuelPrice": 3, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "food": "low", "emberwool": "low", "equipment": "high", "industrial": "high", "medical": "med" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "food": "low", "emberwool": "low", "equipment": "high", "industrial": "high", "medical": "med" },
     "description": "Rolling red pasture under a wide gold sky, grazed by sheep that look permanently surprised. The farmers mend their own tractors and resent every hour of it."
   },
   {
@@ -115,7 +115,7 @@
 
   {
     "id": "wrenhold", "name": "Wrenhold", "systemId": "wrenhold", "pos": { "x": 400, "y": 600 }, "radius": 62, "techTier": 4, "fuelPrice": 3, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "luxury": "high", "medical": "high", "industrial": "med", "food": "med", "metal": "med", "glowmoss": "high" },
+    "hub": true, "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "luxury": "high", "medical": "high", "industrial": "med", "food": "med", "metal": "med", "glowmoss": "high" },
     "description": "The Free Reach's heart, a stubborn city of timber halls and loud public meetings. Every citizen gets a vote, a speech, and at least one heckler."
   },
   {
@@ -131,7 +131,7 @@
 
   {
     "id": "kiln", "name": "Kiln", "systemId": "cinderfall", "pos": { "x": 600, "y": 300 }, "radius": 52, "techTier": 3, "fuelPrice": 3, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "metal": "low", "food": "high", "equipment": "high", "copperwine": "high" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "metal": "low", "food": "high", "equipment": "high", "copperwine": "high" },
     "description": "A volcanic world where the Reach smelts its own ore and owes nobody for it. The forges never cool, and neither does the conversation."
   },
   {
@@ -142,7 +142,7 @@
 
   {
     "id": "oxbow-meadows", "name": "Oxbow Meadows", "systemId": "oxbow", "pos": { "x": -450, "y": 550 }, "radius": 56, "techTier": 3, "fuelPrice": 3, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "food": "low", "industrial": "high", "equipment": "high", "luxury": "med" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "food": "low", "industrial": "high", "equipment": "high", "luxury": "med" },
     "description": "A river-bend world of floodplain farms and long, unhurried barges. The harvest festivals last a week, and the hangovers last two."
   },
   {
@@ -153,7 +153,7 @@
 
   {
     "id": "redwater-sound", "name": "Redwater Sound", "systemId": "redwater", "pos": { "x": 500, "y": -450 }, "radius": 60, "techTier": 3, "fuelPrice": 3, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "medical": "low", "metal": "high", "food": "med", "luxury": "high" },
+    "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "medical": "low", "metal": "high", "food": "med", "luxury": "high" },
     "description": "A world of rust-red seas whose kelp makes the Reach's best fever remedies. The harbor folk taste every batch and will tell you about it."
   },
   {
@@ -164,7 +164,7 @@
 
   {
     "id": "brinefield", "name": "Brinefield", "systemId": "saltmarsh", "pos": { "x": 650, "y": 350 }, "radius": 54, "techTier": 3, "fuelPrice": 3, "kind": "planet",
-    "services": ["exchange", "missions"], "market": { "food": "low", "medical": "high", "equipment": "high" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "food": "low", "medical": "high", "equipment": "high" },
     "description": "A flat, shining world of salt pans and shrimp farms. The locals are cheerful, sunburned and permanently short of boots."
   },
   {
@@ -175,7 +175,7 @@
 
   {
     "id": "dunmore-crossing", "name": "Dunmore Crossing", "systemId": "dunmore", "pos": { "x": -500, "y": -500 }, "radius": 36, "techTier": 4, "fuelPrice": 3, "kind": "station",
-    "services": ["exchange", "missions"], "market": { "luxury": "low", "medical": "med", "metal": "med", "equipment": "med", "industrial": "med" },
+    "hub": true, "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "luxury": "low", "medical": "med", "metal": "med", "equipment": "med", "industrial": "med" },
     "description": "A sprawling free port where Concord goods arrive without Concord tariffs. Nobody asks where the crates came from, and the crates never say."
   },
   {
@@ -203,13 +203,13 @@
 
   {
     "id": "lastlight-beacon", "name": "Lastlight Beacon", "systemId": "lastlight", "pos": { "x": -400, "y": 300 }, "radius": 30, "techTier": 2, "fuelPrice": 5, "kind": "station",
-    "services": ["exchange", "missions"], "market": { "food": "high", "equipment": "high", "metal": "med" },
+    "hub": true, "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "food": "high", "equipment": "high", "metal": "med" },
     "description": "A lighthouse at the bottom of the charts, kept by a family who have never once let it go out. Their fuel is dear, and their soup is free."
   },
 
   {
     "id": "brackwater", "name": "Brackwater", "systemId": "brackwater", "pos": { "x": 550, "y": -300 }, "radius": 48, "techTier": 1, "fuelPrice": 4, "kind": "planet",
-    "services": ["exchange"], "market": { "metal": "low", "food": "high", "luxury": "high", "copperwine": "high" },
+    "services": ["exchange", "outfitter"], "market": { "metal": "low", "food": "high", "luxury": "high", "copperwine": "high" },
     "description": "A drowned world of tin-roofed rafts lashed into floating towns. The scrap-divers bring up hull metal by the ton and spend it on anything that reminds them of land."
   },
   {
@@ -220,7 +220,7 @@
 
   {
     "id": "skerry-light", "name": "Skerry Light", "systemId": "skerry", "pos": { "x": -450, "y": 450 }, "radius": 28, "techTier": 2, "fuelPrice": 5, "kind": "station",
-    "services": ["exchange", "missions"], "market": { "food": "high", "medical": "high", "emberwool": "high" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "food": "high", "medical": "high", "emberwool": "high" },
     "description": "A cold, bright station at the very rim, where the heaters run all year and never quite win. Its keepers trade for anything warm, edible or both."
   },
   {
