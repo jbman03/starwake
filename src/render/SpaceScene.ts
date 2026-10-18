@@ -11,7 +11,7 @@ import { skipLabel } from '../guide/guide';
 import { hotkeyFor } from '../ui/dom';
 import { formatMessage } from '../ui/messageText';
 import { Hud, type HudGuide } from './hud';
-import { Sidebar } from './sidebar';
+import { Sidebar, SIDEBAR_W } from './sidebar';
 import { sidebarInfo } from './sidebarInfo';
 import {
   makePlanetTexture,
@@ -26,8 +26,6 @@ const TAP_MARGIN = 12;
 /** ...and never with a radius under this (a 44 px wide touch target). */
 const MIN_TAP_RADIUS = 22;
 
-/** Width of the PC sidebar HUD. */
-export const SIDEBAR_W = 200;
 /** Narrowest window that gets the sidebar (keyboard mode). */
 const SIDEBAR_MIN_WINDOW = 700;
 
@@ -161,6 +159,14 @@ export class SpaceScene extends Phaser.Scene {
     };
   }
 
+  /**
+   * Register a game-world object created after startup. The sidebar camera draws only the
+   * sidebar, so every other object must be hidden from it; do this for any new world object.
+   */
+  private addWorldObject(o: Phaser.GameObjects.GameObject): void {
+    this.sidebar.cam.ignore(o);
+  }
+
   /** Rebuild the star and planets for a system. */
   private buildSystem(systemId: string): void {
     if (this.builtSystemId === systemId) return;
@@ -170,7 +176,7 @@ export class SpaceScene extends Phaser.Scene {
     const { data } = this.controller;
     const sys: SystemDef = data.systems[systemId];
     const star = this.add.image(SYSTEM_CENTER.x, SYSTEM_CENTER.y, makeStarTexture(this, sys)).setDepth(0).setBlendMode(Phaser.BlendModes.ADD);
-    this.sidebar.cam.ignore(star);
+    this.addWorldObject(star);
     this.bodies.push(star);
     for (const p of Object.values(data.planets)) {
       if (p.systemId !== systemId) continue;
@@ -181,7 +187,7 @@ export class SpaceScene extends Phaser.Scene {
       img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, (pointer: Phaser.Input.Pointer) =>
         this.controller.tapPlanet(p.id, pointerTypeOf(pointer.event, pointer.wasTouch)),
       );
-      this.sidebar.cam.ignore(img);
+      this.addWorldObject(img);
       this.bodies.push(img);
     }
   }

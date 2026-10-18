@@ -78,3 +78,13 @@ export function radarBlips(world: WorldState, data: GameData, radius: number): R
   out.push(place(jumpPoint(world, data), 'jumpRing'));
   return out;
 }
+
+/** Where the ship's nose points on the radar: `len` px from the centre along the heading (y down). */
+export function radarHeadingTip(heading: number, len: number): { x: number; y: number } {
+  return { x: Math.cos(heading) * len, y: Math.sin(heading) * len };
+}
+
+/** `text` cut to at most `max` characters, ending in an ellipsis when it was shortened. */
+export function fitText(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1))}…`;
+}

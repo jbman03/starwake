@@ -3,7 +3,7 @@ import { testData } from '../data/testData';
 import { worldStats } from '../sim/shipStats';
 import type { WorldState } from '../sim/types';
 import { newWorld } from '../sim/world';
-import { radarBlips, RADAR_RANGE, sidebarInfo } from './sidebarInfo';
+import { fitText, radarBlips, radarHeadingTip, RADAR_RANGE, sidebarInfo } from './sidebarInfo';
 
 const data = testData();
 const base = (): WorldState => newWorld(data);
@@ -65,5 +65,23 @@ describe('radarBlips', () => {
       Object.values(data.planets).filter((q) => q.systemId === w.systemId).length - 1,
     );
     for (const b of blips) expect(Math.hypot(b.x, b.y)).toBeLessThanOrEqual(50 + 1e-9);
+  });
+});
+
+describe('radarHeadingTip', () => {
+  it('points along the heading', () => {
+    const e = radarHeadingTip(0, 9);
+    expect(e.x).toBeCloseTo(9);
+    expect(e.y).toBeCloseTo(0);
+    const s = radarHeadingTip(Math.PI / 2, 9);
+    expect(s.x).toBeCloseTo(0);
+    expect(s.y).toBeCloseTo(9);
+  });
+});
+
+describe('fitText', () => {
+  it('keeps short text and ellipsises long text within the limit', () => {
+    expect(fitText('Vesk', 10)).toBe('Vesk');
+    expect(fitText('A very long system name', 10)).toBe('A very lo…');
   });
 });

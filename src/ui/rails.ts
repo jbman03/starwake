@@ -6,6 +6,7 @@ import type { InputMode } from '../input/mode';
 import { getInsets } from '../input/insets';
 import { computeLayout, railMetrics, stickFromOffset, type Insets, type Layout, type Rect } from '../input/touch';
 import { hudInfo, routeBannerText } from '../render/hudInfo';
+import { radarBlips } from '../render/sidebarInfo';
 import type { ContextAction } from '../sim/context';
 import { jumpDestination, pickLandTarget } from '../sim/rules';
 import type { WorldState } from '../sim/types';
@@ -15,7 +16,6 @@ import { isFinalStep, skipLabel } from '../guide/guide';
 /** Opacity of Fire, Missile and the stick while the autopilot flies. */
 export const AUTOPILOT_DIM = 0.2;
 /** World distance shown from the radar's center to its edge. */
-const RADAR_RANGE = 2500;
 
 /** Text for the bottom-center context button, or null when it should be hidden. */
 export function contextLabel(action: ContextAction, world: WorldState, data: GameData): string | null {
@@ -403,19 +403,11 @@ function drawRadar(canvas: HTMLCanvasElement, world: WorldState, data: GameData)
   g.beginPath();
   g.arc(m, m, m - 1, 0, Math.PI * 2);
   g.stroke();
-  const k = (m - 4) / RADAR_RANGE;
-  for (const p of Object.values(data.planets)) {
-    if (p.systemId !== world.systemId) continue;
-    let dx = (p.pos.x - world.ship.pos.x) * k;
-    let dy = (p.pos.y - world.ship.pos.y) * k;
-    const d = Math.hypot(dx, dy);
-    if (d > m - 4) {
-      dx *= (m - 4) / d;
-      dy *= (m - 4) / d;
-    }
-    g.fillStyle = p.id === world.targetPlanetId ? '#6fe36f' : '#9fb4cc';
+  for (const b of radarBlips(world, data, m - 4)) {
+    if (b.kind !== 'planet' && b.kind !== 'target') continue;
+    g.fillStyle = b.kind === 'target' ? '#6fe36f' : '#9fb4cc';
     g.beginPath();
-    g.arc(m + dx, m + dy, 2.5, 0, Math.PI * 2);
+    g.arc(m + b.x, m + b.y, 2.5, 0, Math.PI * 2);
     g.fill();
   }
   g.fillStyle = '#ffffff';

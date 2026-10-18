@@ -1,10 +1,14 @@
 import Phaser from 'phaser';
 import type { GameData } from '../data/schemas';
 import type { WorldState } from '../sim/types';
-import { radarBlips, sidebarInfo, type SidebarInfo } from './sidebarInfo';
+import { fitText, radarBlips, radarHeadingTip, sidebarInfo, type SidebarInfo } from './sidebarInfo';
 
 const FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
+/** Width of the PC sidebar. */
+export const SIDEBAR_W = 200;
 const PAD = 12;
+/** Longest line of text that fits beside the padding at the smallest font used. */
+const MAX_CHARS = 26;
 const RADAR_R = 76;
 const BAR_H = 8;
 const MAP_H = 30;
@@ -29,7 +33,7 @@ export class Sidebar {
 
   constructor(scene: Phaser.Scene, onMap: () => void, mapKeyLabel: () => string | undefined) {
     this.mapKeyLabel = mapKeyLabel;
-    this.cam = scene.cameras.add(0, 0, 200, 1);
+    this.cam = scene.cameras.add(0, 0, SIDEBAR_W, 1);
     const text = (size: number, color = '#cfd8e3') => {
       const t = scene.add.text(0, 0, '', { fontFamily: FONT, fontSize: `${size}px`, color }).setScrollFactor(0).setDepth(1000);
       this.texts.push(t);
@@ -50,7 +54,7 @@ export class Sidebar {
       date: text(12, '#8fa0b5'),
     };
     this.mapBtn = scene.add
-      .text(0, 0, 'Map', { fontFamily: FONT, fontSize: '14px', color: '#dff0ff', align: 'center', fixedWidth: 200 - PAD * 2, fixedHeight: MAP_H, padding: { top: 6 } })
+      .text(0, 0, 'Map', { fontFamily: FONT, fontSize: '14px', color: '#dff0ff', align: 'center', fixedWidth: SIDEBAR_W - PAD * 2, fixedHeight: MAP_H, padding: { top: 6 } })
       .setScrollFactor(0)
       .setDepth(1000)
       .setInteractive({ useHandCursor: true });
@@ -66,7 +70,7 @@ export class Sidebar {
    */
   layout(x: number, h: number): void {
     this.screenX = x;
-    this.cam.setViewport(x, 0, 200, h);
+    this.cam.setViewport(x, 0, SIDEBAR_W, h);
     this.h = h;
     this.place();
   }
@@ -95,7 +99,7 @@ export class Sidebar {
   }
 
   private localMapBounds(): { x: number; y: number; w: number; h: number } {
-    return { x: this.x + PAD, y: this.h - PAD - MAP_H, w: 200 - PAD * 2, h: MAP_H };
+    return { x: this.x + PAD, y: this.h - PAD - MAP_H, w: SIDEBAR_W - PAD * 2, h: MAP_H };
   }
 
   private place(): void {
@@ -128,9 +132,9 @@ export class Sidebar {
     L.shields.setText('Shields');
     L.armor.setText('Armor');
     L.fuel.setText(`Fuel · ${info.jumps === Infinity ? '∞' : info.jumps} ${info.jumps === 1 ? 'jump' : 'jumps'}`);
-    L.nav.setText(`Nav: ${info.nav}`);
+    L.nav.setText(fitText(`Nav: ${info.nav}`, MAX_CHARS));
     L.secondary.setText(`Secondary: ${info.secondary}`);
-    L.target.setText(info.target ?? 'No target');
+    L.target.setText(fitText(info.target ?? 'No target', MAX_CHARS));
     L.targetDetail.setText(info.targetDetail ?? '');
     L.cargo.setText(`Cargo free: ${info.cargoFree}`);
     L.credits.setText(info.credits);
@@ -144,7 +148,7 @@ export class Sidebar {
     const g = this.g;
     g.clear();
     g.fillStyle(0x0b1018, 0.94);
-    g.fillRect(this.x, 0, 200, this.h);
+    g.fillRect(this.x, 0, SIDEBAR_W, this.h);
     g.lineStyle(1, 0x3a4a5e, 1);
     g.lineBetween(this.x + 0.5, 0, this.x + 0.5, this.h);
 
@@ -158,13 +162,13 @@ export class Sidebar {
     bars.forEach(([, frac, color], i) => {
       const by = first + i * 20 + 14;
       g.fillStyle(0x1a2433, 1);
-      g.fillRect(x, by, 200 - PAD * 2, BAR_H);
+      g.fillRect(x, by, SIDEBAR_W - PAD * 2, BAR_H);
       g.fillStyle(color, 1);
-      g.fillRect(x, by, Math.round((200 - PAD * 2) * frac), BAR_H);
+      g.fillRect(x, by, Math.round((SIDEBAR_W - PAD * 2) * frac), BAR_H);
     });
 
     // Radar.
-    const cx = this.x + 100;
+    const cx = this.x + SIDEBAR_W / 2;
     const cy = 12 + RADAR_R;
     const r = this.radar;
     r.clear();
@@ -185,8 +189,12 @@ export class Sidebar {
         r.fillCircle(cx + b.x, cy + b.y, 2.5);
       }
     }
+    // The ship: a dot with a tick toward its nose.
+    const tip = radarHeadingTip(world.ship.heading, 9);
+    r.lineStyle(2, 0xffffff, 1);
+    r.lineBetween(cx, cy, cx + tip.x, cy + tip.y);
     r.fillStyle(0xffffff, 1);
-    r.fillRect(cx - 1.5, cy - 1.5, 3, 3);
+    r.fillCircle(cx, cy, 2.5);
 
     // Map button box.
     const m = this.localMapBounds();
