@@ -12,12 +12,12 @@ import { deadlineText, destinationText, loadText, payText } from './missionText'
  * Abandon is disabled with the reason when the pilot can't refund it). Opened from the planet screen, the
  * pause menu or in flight; Esc, the log key or Done runs `onClose`.
  */
-export function showMissionLog(ctx: UiContext, onClose: () => void): void {
+export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { selectId?: string } = {}): void {
   const { controller } = ctx;
   const { data } = controller;
   const landed = controller.landedPlanetId !== null;
   const closeAction = landed ? 'missionLog' : 'flightMissionLog';
-  let index = 0;
+  let index = Math.max(0, controller.world.missions.findIndex((m) => m.id === opts.selectId));
 
   const close = () => {
     ctx.unmount();
@@ -29,7 +29,8 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
   const detail = el('div', { class: 'sw-mc-detail', attrs: { 'data-testid': 'log-detail' } });
   const reason = el('p', { class: 'sw-ex-message sw-ex-bad', attrs: { 'data-testid': 'log-reason', 'aria-live': 'polite' } });
 
-  const mapBtn = button('Show on map', () => showOnMap());
+  const mapHotkey = hotkeyFor(controller.settings.bindings, closeAction === 'missionLog' ? 'openMap' : 'map');
+  const mapBtn = button('Show on map', () => showOnMap(), { hotkey: mapHotkey });
   const abandonBtn = button('Abandon', () => void abandon(), { class: 'sw-btn-danger' });
   const doneBtn = button('Done', close, { class: 'sw-btn-primary', hotkey: hotkeyFor(controller.settings.bindings, closeAction) });
 
@@ -46,9 +47,12 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
     const m = controller.world.missions[index];
     const systemId = m ? data.planets[m.destId]?.systemId : undefined;
     if (!m || !systemId) return;
-    // The map replaces this screen; closing it brings the log back.
-    ctx.go.map({ initialSelection: systemId, onClose: () => showMissionLog(ctx, onClose) });
+    // The map replaces this screen; closing it brings the log back with the same mission selected.
+    ctx.go.map({ preview: { systemId, label: `Mission: ${m.title}` }, onClose: () => showMissionLog(ctx, onClose, { selectId: m.id }) });
   }
+
+  /** The current selection survives a trip to the map. */
+  const reopen = () => showMissionLog(ctx, onClose, { selectId: controller.world.missions[index]?.id });
 
   async function abandon(): Promise<void> {
     const m = controller.world.missions[index];
@@ -116,7 +120,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
 
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-mc-screen', attrs: { 'data-testid': 'mission-log' } }, [
     el('div', { class: 'sw-panel sw-mc' }, [
-      mapCornerButton(ctx, () => showMissionLog(ctx, onClose)),
+      mapCornerButton(ctx, () => reopen()),
       el('h1', { class: 'sw-title', text: 'Mission Log' }),
       stats,
       el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason])]),
@@ -131,7 +135,14 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
     move(e.code === 'ArrowUp' ? -1 : 1);
   };
   window.addEventListener('keydown', onKey);
-  const offMapKey = mapCornerKey(ctx, () => showMissionLog(ctx, onClose));
+  const offMapKey = mapCornerKey(
+    ctx,
+    () => reopen(),
+    () => {
+      if (controller.world.missions[index]) showOnMap();
+      else ctx.go.map({ onClose: () => reopen() });
+    },
+  );
 
   ctx.mount(screen, {
     groups: landed ? ['planet', 'menus'] : ['flight', 'menus'],

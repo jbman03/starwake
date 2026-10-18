@@ -193,6 +193,8 @@
 .sw-sys-unknown .sw-map-dot { stroke: #5a6472; stroke-width: 1.5; }
 .sw-map-ring { fill: none; stroke: #ffffff; stroke-width: 2; }
 .sw-map-sel { fill: none; stroke: var(--sw-accent); stroke-width: 2; stroke-dasharray: 4 3; }
+.sw-map-prev { fill: none; stroke: var(--sw-accent); stroke-width: 1; opacity: 0.6; }
+.sw-map-preview-label { margin: 0 0 6px; color: var(--sw-accent); font-weight: 600; }
 .sw-map-sys:focus-visible .sw-map-hit { stroke: var(--sw-accent); stroke-width: 1.5; }
 .sw-map-flag { fill: #ffd166; stroke: #ffd166; stroke-width: 1.5; stroke-linejoin: round; }
 .sw-map-name { fill: var(--sw-text); font: 13px var(--sw-font); text-anchor: middle; paint-order: stroke; stroke: #02040a; stroke-width: 3px; }

@@ -16,15 +16,19 @@ export function mapCornerButton(ctx: UiContext, reopen: () => void): HTMLButtonE
  * would also switch on Leave and the other planet keys): a keydown matching any `openMap`
  * binding opens the map. Ignored while a dialog is open or a text field has focus. Returns a
  * dispose function for the screen's cleanup. The planet screen has its own path; don't use it there.
+ * With `open`, that runs instead of the plain map, and any key bound to `map` or `openMap` triggers it
+ * (the mission screens use this to preview the selected mission).
  */
-export function mapCornerKey(ctx: UiContext, reopen: () => void): () => void {
+export function mapCornerKey(ctx: UiContext, reopen: () => void, open?: () => void): () => void {
   const onKey = (e: KeyboardEvent) => {
     if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || dialogOpen()) return;
     const t = e.target;
     if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
-    if (!ctx.controller.settings.bindings.openMap.includes(e.code)) return;
+    const b = ctx.controller.settings.bindings;
+    if (!b.openMap.includes(e.code) && !(open && b.map.includes(e.code))) return;
     e.preventDefault();
-    ctx.go.map({ onClose: reopen });
+    if (open) open();
+    else ctx.go.map({ onClose: reopen });
   };
   window.addEventListener('keydown', onKey);
   return () => window.removeEventListener('keydown', onKey);

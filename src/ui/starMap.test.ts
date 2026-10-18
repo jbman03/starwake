@@ -105,7 +105,7 @@ describe('systemDetails', () => {
 describe('showStarMap', () => {
   afterEach(() => document.body.replaceChildren());
 
-  function setup(onClose?: () => void, landedAt?: string) {
+  function setup(onClose?: () => void, landedAt?: string, extra: { preview?: { systemId: string; label: string } } = {}) {
     const settings = { ...DEFAULT_SETTINGS };
     const c = new Controller(data, settings, new EventTarget(), world());
     if (landedAt) c.beginSession(c.world, { id: 'p', name: 'P' }, landedAt);
@@ -125,7 +125,7 @@ describe('showStarMap', () => {
       unmount: () => root.replaceChildren(),
       go: { mainMenu() {}, planet() {}, pause() {}, map() {} },
     } as unknown as UiContext;
-    showStarMap(ctx, onClose ? { onClose } : undefined);
+    showStarMap(ctx, { ...(onClose ? { onClose } : {}), ...extra });
     const btn = (name: string) => [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith(name))!;
     const sys = (id: string) => root.querySelector<SVGGElement>(`[data-system="${id}"]`)!;
     return { c, root, btn, sys, press: (...a: string[]) => mounted.onPress?.(new Set(a)), groups: () => mounted.groups };
@@ -227,5 +227,22 @@ describe('showStarMap', () => {
     expect(groups()).toEqual(['planet', 'menus']);
     press('openMap');
     expect(closed).toBe(1);
+  });
+
+  it('a preview selects its system, shows the label and the route, and leaves the course alone until Set course', () => {
+    const { c, root, btn, sys } = setup(undefined, undefined, { preview: { systemId: 'tessaly', label: 'Mission: Deliver rations' } });
+    expect(sys('tessaly').classList.contains('sw-map-selected')).toBe(true);
+    expect(sys('tessaly').classList.contains('sw-map-preview')).toBe(true);
+    expect(root.querySelector('[data-testid="map-preview"]')!.textContent).toBe('Mission: Deliver rations');
+    expect(root.querySelector('[data-testid="map-route"]')!.textContent).toBe("1 jump · fuel needed 1 · you have 3");
+    expect(c.world.route).toEqual([]);
+    btn('Set course').click();
+    expect(c.world.route).toEqual(['tessaly']);
+  });
+
+  it('a preview of an unexplored system still gets a marker', () => {
+    const unknown = mapModel(world(), data).nodes.find((n) => n.state === 'unknown')!;
+    const { sys } = setup(undefined, undefined, { preview: { systemId: unknown.id, label: 'Mission: x' } });
+    expect(sys(unknown.id).classList.contains('sw-map-preview')).toBe(true);
   });
 });

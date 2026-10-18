@@ -41,7 +41,7 @@ export interface UiContext {
     planet(planetId: string, notice?: string): void;
     pause(): void;
     /** Star map; closing it runs `onClose` (default: resume flight). */
-    map(opts?: { onClose?: () => void; initialSelection?: string }): void;
+    map(opts?: { onClose?: () => void; initialSelection?: string; preview?: { systemId: string; label: string } }): void;
   };
 }
 

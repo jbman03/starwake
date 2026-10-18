@@ -15,12 +15,12 @@ import { ACCEPT_REASON, deadlineText, destinationText, loadText, payText } from 
  * job (it leaves the list; the selection stays on the next one), Esc or Done closes. A job you
  * can't take yet stays listed with the reason shown and Accept disabled.
  */
-export function showMissionComputer(ctx: UiContext, portId: string, onClose: () => void): void {
+export function showMissionComputer(ctx: UiContext, portId: string, onClose: () => void, opts: { selectId?: string } = {}): void {
   const { controller } = ctx;
   const { data } = controller;
   const port = data.planets[portId];
-  let index = 0;
-  let offers: MissionOffer[] = [];
+  let offers: MissionOffer[] = controller.offers();
+  let index = Math.max(0, offers.findIndex((o) => o.offerId === opts.selectId));
 
   const close = () => {
     ctx.unmount();
@@ -39,6 +39,7 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
   };
 
   const acceptBtn = button('Accept Mission', () => accept(), { class: 'sw-btn-primary', hotkey: 'Enter' });
+  const mapBtn = button('Show on map', () => showOnMap(), { hotkey: hotkeyFor(controller.settings.bindings, 'openMap') });
   const doneBtn = button('Done', close, { hotkey: hotkeyFor(controller.settings.bindings, 'back') });
 
   const select = (i: number) => {
@@ -49,6 +50,15 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
   const move = (delta: number) => {
     if (offers.length > 0) select(Math.min(offers.length - 1, Math.max(0, index + delta)));
   };
+
+  /** Preview the selected job's destination on the map; closing it returns here with the job still selected. */
+  function showOnMap(): void {
+    const o = offers[index];
+    const systemId = o ? data.planets[o.destId]?.systemId : undefined;
+    if (!o || !systemId) return;
+    ctx.go.map({ preview: { systemId, label: `Mission: ${o.title}` }, onClose: () => reopen(o.offerId) });
+  }
+  const reopen = (selectId = offers[index]?.offerId) => showMissionComputer(ctx, portId, onClose, { selectId });
 
   function accept(): void {
     const offer = offers[index];
@@ -108,6 +118,7 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
       );
     }
     acceptBtn.disabled = !o || !check?.ok;
+    mapBtn.disabled = !o;
     reason.textContent = check && !check.ok ? ACCEPT_REASON[check.reason] : '';
     list.querySelector('.sw-mc-selected')?.scrollIntoView?.({ block: 'nearest' });
   }
@@ -115,13 +126,13 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
   const hint = guideCard(controller, ctx.root);
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-mc-screen', attrs: { 'data-testid': 'mission-computer' } }, [
     el('div', { class: 'sw-panel sw-mc' }, [
-      mapCornerButton(ctx, () => showMissionComputer(ctx, portId, onClose)),
+      mapCornerButton(ctx, () => reopen()),
       el('h1', { class: 'sw-title', text: `${port.name} · Mission Computer` }),
       stats,
       rumorLine,
       el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason, message])]),
       hint.node,
-      el('div', { class: 'sw-ex-actions' }, [acceptBtn, doneBtn]),
+      el('div', { class: 'sw-ex-actions' }, [acceptBtn, mapBtn, doneBtn]),
     ]),
   ]);
 
@@ -138,7 +149,14 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
     }
   };
   window.addEventListener('keydown', onKey);
-  const offMapKey = mapCornerKey(ctx, () => showMissionComputer(ctx, portId, onClose));
+  const offMapKey = mapCornerKey(
+    ctx,
+    () => reopen(),
+    () => {
+      if (offers[index]) showOnMap();
+      else ctx.go.map({ onClose: () => reopen() });
+    },
+  );
 
   ctx.mount(screen, {
     groups: ['menus'],

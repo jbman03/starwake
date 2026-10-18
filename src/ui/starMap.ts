@@ -13,6 +13,7 @@ export const UNKNOWN_COLOR = '#5a6472';
 /** Map units of empty space around the outermost systems at minimum zoom. */
 const PAD = 100;
 const MAX_ZOOM = 4;
+const PREVIEW_ZOOM = 2;
 const ZOOM_STEP = 1.5;
 /** Pointer travel (px) before a press on the map counts as a drag rather than a click. */
 const DRAG_PX = 6;
@@ -153,9 +154,10 @@ const points = (ids: string[], data: GameData) => ids.map((id) => `${data.system
  * grey outline = unknown) joined by the lanes you know of. Zoom with the buttons, wheel or
  * pinch; drag to pan (both change the SVG viewBox). Select a system for its info and route,
  * then Set course. Flight is paused while it's open; closing runs `onClose` (default: resume
- * flight). `initialSelection` pre-selects a system. Opened from a planet it listens to the planet group (N or Esc close it).
+ * flight). `initialSelection` pre-selects a system; `preview` (a mission's destination) also centres on it,
+ * rings it and shows its label, without touching the plotted course. Opened from a planet it listens to the planet group (N or Esc close it).
  */
-export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initialSelection?: string } = {}): void {
+export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initialSelection?: string; preview?: { systemId: string; label: string } } = {}): void {
   const { controller } = ctx;
   const { data } = controller;
   const fromPlanet = controller.landedPlanetId !== null;
@@ -288,7 +290,15 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
   );
 
   // ---- side panel ----------------------------------------------------------
+  const preview = opts.preview && data.systems[opts.preview.systemId] ? opts.preview : undefined;
+  if (preview) {
+    const at = data.systems[preview.systemId].mapPos;
+    view.z = PREVIEW_ZOOM;
+    view.cx = at.x;
+    view.cy = at.y;
+  }
   let selected =
+    preview?.systemId ??
     (opts.initialSelection && data.systems[opts.initialSelection] ? opts.initialSelection : undefined) ??
     controller.world.route.at(-1) ??
     controller.world.systemId;
@@ -330,6 +340,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
         const cls = ['sw-map-sys', `sw-sys-${n.state}`];
         if (n.current) cls.push('sw-map-here');
         if (n.id === selected) cls.push('sw-map-selected');
+        if (n.id === preview?.systemId) cls.push('sw-map-preview');
         const g = svg('g', {
           class: cls.join(' '),
           'data-system': n.id,
@@ -338,6 +349,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
           'aria-label': n.name ?? 'Unexplored system',
         });
         g.append(svg('circle', { r: 20, class: 'sw-map-hit' }));
+        if (n.id === preview?.systemId) g.append(svg('circle', { r: 20, class: 'sw-map-prev' }));
         if (n.id === selected) g.append(svg('circle', { r: 15, class: 'sw-map-sel' }));
         if (n.current) g.append(svg('circle', { r: 12, class: 'sw-map-ring' }));
         const dot = svg('circle', { r: 7, class: 'sw-map-dot' });
@@ -418,6 +430,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
       ]),
       el('div', { class: 'sw-starmap-side' }, [
         el('h1', { class: 'sw-title', text: 'Star Map' }),
+        ...(preview ? [el('p', { class: 'sw-map-preview-label', text: preview.label, attrs: { 'data-testid': 'map-preview' } })] : []),
         info,
         routeText,
         hint.node,
