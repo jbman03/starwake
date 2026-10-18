@@ -392,6 +392,14 @@ describe('refuel, tow, depart', () => {
     expect(r.world.credits).toBe(9600);
   });
 
+  it('applyRefuel from a fractional tank ends exactly at capacity with whole credits', () => {
+    const w = { ...newWorld(data), ship: { ...newWorld(data).ship, fuel: 287.3333 } };
+    const r = applyRefuel(w, data, 'halcyon');
+    expect(r.world.ship.fuel).toBe(300);
+    expect(Number.isInteger(r.quote.cost)).toBe(true);
+    expect(Number.isInteger(r.world.credits)).toBe(true);
+  });
+
   it('applyRefuel with negative credits buys nothing', () => {
     const w = { ...newWorld(data), credits: -300, ship: { ...newWorld(data).ship, fuel: 0 } };
     const r = applyRefuel(w, data, 'halcyon');

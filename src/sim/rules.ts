@@ -77,7 +77,9 @@ export function jumpPoint(world: WorldState, data: GameData): Vec2 {
 /** How much fuel a refuel would buy. Partial when short of credits; nothing when credits ≤ 0. */
 export function refuelQuote(fuel: number, fuelCapacity: number, planet: PlanetDef, credits: number): RefuelQuote {
   const price = planet.fuelPrice;
-  const need = Math.max(0, fuelCapacity - fuel);
+  // Whole units only (a fuel scoop leaves the tank fractional): round the shortfall up so a full
+  // refuel always reaches capacity; applyRefuel clamps the last partial unit.
+  const need = Math.max(0, Math.ceil(fuelCapacity - fuel - 1e-9));
   if (need <= 0) return { units: 0, cost: 0, reason: 'full' };
   if (credits <= 0) return { units: 0, cost: 0, reason: 'noCredits' };
   if (price === 0) return { units: need, cost: 0 };

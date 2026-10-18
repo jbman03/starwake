@@ -16,6 +16,7 @@ import { sidebarInfo } from './sidebarInfo';
 import {
   makePlanetTexture,
   makeShipTextures,
+  shipTextureKey,
   makeStarfieldTexture,
   makeStarTexture,
   shipFrame,
@@ -148,6 +149,7 @@ export class SpaceScene extends Phaser.Scene {
       return { x: c.x, y: c.y, w: c.width, h: c.height };
     };
     hook.sidebar = () => ({ visible: this.sidebar.isVisible(), info: sidebarInfo(this.controller.world, this.controller.data) });
+    hook.flightSpriteTexture = () => this.ship.texture.key;
     hook.hudBanner = () => this.hud.bannerText();
     hook.hudCourse = () => this.hud.courseText();
     hook.hudGuide = () => this.hud.guideInfo();
@@ -204,6 +206,8 @@ export class SpaceScene extends Phaser.Scene {
     // Interpolated ship position; camera stays centered on it.
     const x = prevShip.pos.x + (world.ship.pos.x - prevShip.pos.x) * alpha;
     const y = prevShip.pos.y + (world.ship.pos.y - prevShip.pos.y) * alpha;
+    const shipKey = shipTextureKey(data.ships[world.shipId] ?? Object.values(data.ships)[0]!);
+    if (this.ship.texture.key !== shipKey) this.ship.setTexture(shipKey);
     this.ship.setPosition(x, y).setFrame(shipFrame(world.ship.heading));
     const cam = this.cameras.main;
     cam.centerOn(x, y);

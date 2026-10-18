@@ -50,7 +50,7 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
       const notes: string[] = [];
       if (owned > 0 && sell.ok) {
         rows.push(['Resale value', formatCredits(sell.refund)]);
-        if (sell.fuelLost > 0) notes.push(`Selling one drains ${sell.fuelLost} fuel to fit the smaller tank.`);
+        if (sell.fuelLost > 0) notes.push(`Selling one drains ${Math.ceil(sell.fuelLost)} fuel to fit the smaller tank.`);
       } else if (owned > 0 && !sell.ok) {
         notes.push(OUTFIT_BLOCK_TEXT[sell.reason]);
       }

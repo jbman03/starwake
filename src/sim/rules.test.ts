@@ -74,6 +74,11 @@ describe('refuelQuote', () => {
   it('quotes fuel at a fringe port', () => {
     expect(refuelQuote(100, shuttle.fuelCapacity, data.planets['tallow-rock'], 10000)).toEqual({ units: 200, cost: 1000 });
   });
+  it('quotes whole units and whole credits for a fractional tank', () => {
+    const q = refuelQuote(287.3333, shuttle.fuelCapacity, h, 10000);
+    expect(q).toEqual({ units: 13, cost: 26 });
+    expect(Number.isInteger(q.units) && Number.isInteger(q.cost)).toBe(true);
+  });
   it('reports full when the tank is full', () => {
     expect(refuelQuote(300, shuttle.fuelCapacity, h, 10000)).toEqual({ units: 0, cost: 0, reason: 'full' });
   });

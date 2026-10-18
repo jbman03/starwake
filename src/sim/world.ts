@@ -155,10 +155,15 @@ export function applyRefuel(
   data: GameData,
   planetId: string,
 ): { world: WorldState; quote: RefuelQuote } {
-  const quote = refuelQuote(world.ship.fuel, worldStats(world, data).fuelCapacity, data.planets[planetId], world.credits);
+  const capacity = worldStats(world, data).fuelCapacity;
+  const quote = refuelQuote(world.ship.fuel, capacity, data.planets[planetId], world.credits);
   if (quote.units === 0) return { world, quote };
   return {
-    world: { ...world, credits: world.credits - quote.cost, ship: { ...world.ship, fuel: world.ship.fuel + quote.units } },
+    world: {
+      ...world,
+      credits: world.credits - quote.cost,
+      ship: { ...world.ship, fuel: Math.min(capacity, world.ship.fuel + quote.units) },
+    },
     quote,
   };
 }

@@ -13,6 +13,8 @@ export interface StarwakeTestHook {
   teleport: (planetId: string) => void;
   /** Set by SpaceScene: the main camera's viewport in screen px. */
   cameraViewport?: () => { x: number; y: number; w: number; h: number };
+  /** Set by SpaceScene: the texture key of the flight ship sprite. */
+  flightSpriteTexture?: () => string;
   /** Set by SpaceScene: the desktop HUD's autopilot route banner text, or null when hidden. */
   hudBanner?: () => string | null;
   /** Set by SpaceScene: the desktop HUD course line, or null when hidden. */

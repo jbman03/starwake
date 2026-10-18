@@ -50,6 +50,8 @@ test.describe('desktop', () => {
     await page.keyboard.press('Escape');
     await expect(shop).toBeHidden();
     await expect(page.getByTestId('planet-screen')).toContainText('/60 t');
+    // The flight sprite follows the bought hull (the scene keeps updating under the planet screen).
+    await expect.poll(() => page.evaluate(() => window.__starwake!.flightSpriteTexture!())).toBe('ship:mule');
     expect(errors).toEqual([]);
   });
 });
