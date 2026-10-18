@@ -9,6 +9,8 @@ export interface StarwakeTestHook {
   data: GameData;
   controller: Controller;
   store: PilotStore;
+  /** Test-only: put the world at `planetId` (in its system) and land there, as a real landing would. */
+  teleport: (planetId: string) => void;
   /** Set by SpaceScene: the main camera's viewport in screen px. */
   cameraViewport?: () => { x: number; y: number; w: number; h: number };
   /** Set by SpaceScene: the desktop HUD's autopilot route banner text, or null when hidden. */
@@ -59,5 +61,18 @@ export function testFlags(search: string = location.search): TestFlags {
 /** Exposes game internals to e2e tests in dev builds. */
 export function installTestHook(controller: Controller, data: GameData, store: PilotStore): void {
   if (!testHookActive()) return;
-  window.__starwake = { world: () => controller.world, data, controller, store };
+  const teleport = (planetId: string): void => {
+    const planet = data.planets[planetId];
+    if (!planet) throw new Error(`teleport: unknown planet ${planetId}`);
+    const c = controller as unknown as { landAt(id: string): void; emit(e: { type: 'landed'; planetId: string }): void };
+    controller.world = {
+      ...controller.world,
+      systemId: planet.systemId,
+      route: [],
+      ship: { ...controller.world.ship, pos: { ...planet.pos }, vel: { x: 0, y: 0 } },
+    };
+    c.landAt(planetId);
+    c.emit({ type: 'landed', planetId });
+  };
+  window.__starwake = { world: () => controller.world, data, controller, store, teleport };
 }

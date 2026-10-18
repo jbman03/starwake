@@ -131,6 +131,45 @@ test.describe('desktop', () => {
   });
 });
 
+test.describe('desktop mission preview and corner button', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('the corner Map button opens the map from the planet screen and returns', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Corner');
+    await page.locator('.sw-map-corner').click();
+    const map = page.getByTestId('star-map');
+    await expect(map).toBeVisible();
+    await map.getByRole('button', { name: /^Close/ }).click();
+    await expect(map).toBeHidden();
+    await expect(page.getByTestId('planet-screen')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test('N in the Mission Computer previews the selected job on the map; closing keeps the selection', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Preview');
+    await page.getByRole('button', { name: /^Mission Computer/ }).click();
+    const mc = page.getByTestId('mission-computer');
+    await expect(mc).toBeVisible();
+    const rows = mc.locator('.sw-mc-row');
+    expect(await rows.count()).toBeGreaterThan(1);
+    await rows.nth(1).click();
+    const offerId = (await rows.nth(1).getAttribute('data-offer'))!;
+    await page.keyboard.press('KeyN');
+    const map = page.getByTestId('star-map');
+    await expect(map).toBeVisible();
+    await expect(map.getByTestId('map-preview')).toContainText('Mission:');
+    await expect(map.getByTestId('map-route')).toBeVisible();
+    await expect(map.locator('.sw-map-preview')).toHaveCount(1);
+    await map.getByRole('button', { name: /^Close/ }).click();
+    await expect(map).toBeHidden();
+    await expect(mc).toBeVisible();
+    await expect(mc.locator(`.sw-mc-row[data-offer="${offerId}"]`)).toHaveAttribute('aria-selected', 'true');
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('phone (touch, landscape)', () => {
   test.use({ hasTouch: true, viewport: { width: 844, height: 390 } });
 

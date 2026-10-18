@@ -163,6 +163,9 @@ first big upgrade as a milestone. It needs to come soon enough (we aim for rough
    per-planet services, commodity exchange with events, generic missions.
 2. **Ships and outfits** — shipyard with trade-in, outfitter (tech-tier
    stock, maps), EV-style right sidebar HUD on PC.
+   *Built:* ten hulls with a tech-tier shipyard and half-price trade-in,
+   an outfitter that sells and refunds gear, a Map button on every landed
+   screen and the phone rail, mission previews on the map, and the PC sidebar.
 3. **Missions and bar** — spaceport bar, story missions that unlock ships,
    gear and areas; pilot card on the main menu.
 Later: combat, reputation and police, boarding, contraband, more regions.

@@ -29,6 +29,9 @@ export function mapCornerKey(ctx: UiContext, reopen: () => void, open?: () => vo
     e.preventDefault();
     if (open) open();
     else ctx.go.map({ onClose: reopen });
+    // The press is still pending in the keyboard source; the map polls different groups and would
+    // read the same N as "close the map" on its next frame.
+    ctx.controller.releaseInputs();
   };
   window.addEventListener('keydown', onKey);
   return () => window.removeEventListener('keydown', onKey);

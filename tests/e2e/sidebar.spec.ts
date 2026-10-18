@@ -19,3 +19,16 @@ test('the sidebar is hidden on a narrow window', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar?.().visible)).toBe(false);
   expect((await page.evaluate(() => window.__starwake!.cameraViewport!())).w).toBe(600);
 });
+
+test.describe('touch mode', () => {
+  test.use({ hasTouch: true, viewport: { width: 1280, height: 800 } });
+
+  test('the sidebar is not shown in touch mode, even on a wide window', async ({ page }) => {
+    await newPilot(page);
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await page.touchscreen.tap(640, 30);
+    await expect(page.getByTestId('touch-rails')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar?.().visible)).toBe(false);
+  });
+});
