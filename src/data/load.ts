@@ -130,13 +130,8 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
       if (!(g in commodities))
         planetIssues.push(fmt('planets.json', `${p.id}.market.${g}`, 'unknown commodity'));
     }
-    const hasRefuel = p.services.includes('refuel');
     const hasExchange = p.services.includes('exchange');
     const hasMarket = Object.keys(p.market ?? {}).length > 0;
-    if (hasRefuel !== (p.fuelPrice !== undefined))
-      planetIssues.push(
-        fmt('planets.json', `${p.id}.services`, '"refuel" must be listed exactly when fuelPrice is set'),
-      );
     if (hasExchange !== hasMarket)
       planetIssues.push(
         fmt('planets.json', `${p.id}.services`, '"exchange" must be listed exactly when market is non-empty'),

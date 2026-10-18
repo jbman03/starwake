@@ -103,7 +103,7 @@ export interface SystemDetails {
   rows: { label: string; value: string }[];
 }
 
-const SERVICE_NAMES = { refuel: 'Refuel', exchange: 'Exchange', missions: 'Missions' } as const;
+const SERVICE_NAMES = { exchange: 'Exchange', missions: 'Missions', shipyard: 'Shipyard', outfitter: 'Outfitter' } as const;
 const listOr = (items: string[], none = 'None') => (items.length > 0 ? items.join(', ') : none);
 
 /** Info panel content. Unknown systems are "Unexplored"; seen ones show only name and owner. */
@@ -128,7 +128,10 @@ export function systemDetails(id: string, world: WorldState, data: GameData): Sy
       { label: 'Goods', value: listOr([...goods].map((g) => data.commodities[g]?.name ?? g)) },
       {
         label: 'Services',
-        value: listOr((Object.keys(SERVICE_NAMES) as (keyof typeof SERVICE_NAMES)[]).filter((s) => services.has(s)).map((s) => SERVICE_NAMES[s])),
+        value: listOr([
+          'Refuel', // every port sells fuel
+          ...(Object.keys(SERVICE_NAMES) as (keyof typeof SERVICE_NAMES)[]).filter((s) => services.has(s)).map((s) => SERVICE_NAMES[s]),
+        ]),
       },
       { label: 'Ports', value: listOr(ports.map((p) => p.name)) },
       { label: 'Hazards', value: listOr(sys.hazards ?? []) },

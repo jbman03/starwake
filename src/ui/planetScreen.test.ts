@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../app/controller';
 import { loadGameData } from '../data/load';
+import { withoutPorts } from '../data/testData';
 import { InputMode } from '../input/mode';
 import type { PilotStore } from '../save/store';
 import { DEFAULT_SETTINGS } from '../save/settings';
@@ -89,6 +90,12 @@ describe('planet screen', () => {
     expect(root.textContent).toContain('Cargo: 20/20 t');
   });
 
+  it('a former fuel-less port (Tallow Rock) now offers Refuel', async () => {
+    const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'tallow-rock');
+    expect(labels(root)).toContain('Refuel — 750 cr');
+    expect(find(root, 'Refuel').disabled).toBe(false);
+  });
+
   it('a refuel-only port shows only Refuel, Star Map, Mission Log and Leave', async () => {
     const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'haywain');
     expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Star Map', 'Mission Log', 'How to Play', 'Leave']);
@@ -128,7 +135,7 @@ describe('planet screen', () => {
 
 describe('planet screen after a tow', () => {
   it('shows every mission the tow failed', async () => {
-    const data = await loadGameData();
+    const data = withoutPorts(await loadGameData(), 'vesk');
     const c = new Controller(data, DEFAULT_SETTINGS, new EventTarget());
     const w = newWorld(data, 1);
     const due = (id: string, title: string) => ({
@@ -136,11 +143,12 @@ describe('planet screen after a tow', () => {
       paidUpfront: false, deadlineDay: 0, title, description: '', cargoName: 'x',
     });
     c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 }, missions: [due('a', 'Job A'), due('b', 'Job B')] },
-      { id: 'p', name: 'P' }, 'tallow-rock');
+      { id: 'p', name: 'P' }, 'halcyon');
     const root = document.createElement('div');
     document.body.append(root);
     createUi(root, c, {} as PilotStore, () => null, new InputMode(new EventTarget(), () => DEFAULT_SETTINGS.bindings, 'keyboard'));
     c.leavePlanet();
+    c.world = { ...c.world, systemId: 'vesk' }; // leaving Halcyon put us in calder; strand us in the port-less vesk
     expect(c.callTow()).toBe(true);
     const screen = root.querySelector('[data-testid="planet-screen"]')!;
     expect(screen).toBeTruthy();

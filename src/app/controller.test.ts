@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { createStore } from 'idb-keyval';
 import { describe, expect, it } from 'vitest';
 import { loadGameData } from '../data/load';
+import { withoutPorts } from '../data/testData';
 import type { PilotSave } from '../save/pilot';
 import { worldFromPilot } from '../save/pilot';
 import { DEFAULT_SETTINGS } from '../save/settings';
@@ -12,8 +13,9 @@ import { Controller, type ControllerEvent } from './controller';
 
 const keyEvent = (type: string, code: string) => Object.assign(new Event(type), { code, repeat: false });
 
-async function setup() {
-  const data = await loadGameData();
+/** `portless` names systems whose ports are removed (every port sells fuel, so that is how a test strands the ship). */
+async function setup(portless: string[] = []) {
+  const data = withoutPorts(await loadGameData(), ...portless);
   const target = new EventTarget();
   const c = new Controller(data, { ...DEFAULT_SETTINGS }, target);
   const events: ControllerEvent[] = [];
@@ -240,10 +242,11 @@ describe('Controller', () => {
   });
 
   it('callTow works while paused and lands at the tow destination', async () => {
-    const { c, data, events } = await setup();
+    const { c, data, events } = await setup(['vesk']);
     const w = newWorld(data);
-    c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 } }, { id: 'p1', name: 'Ava' }, 'tallow-rock');
+    c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 } }, { id: 'p1', name: 'Ava' }, 'halcyon');
     c.leavePlanet();
+    c.world = { ...c.world, systemId: 'vesk' }; // leaving Halcyon put us in calder; strand us in the port-less vesk
     c.pauseFlight();
     expect(c.towDestination()).not.toBeNull();
     expect(c.callTow()).toBe(true);
@@ -260,11 +263,12 @@ describe('Controller', () => {
   });
 
   it('missions failed during a tow wait for the planet screen instead of the hidden HUD', async () => {
-    const { c, data, events } = await setup();
+    const { c, data, events } = await setup(['vesk']);
     const w = newWorld(data, 1);
     c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 }, missions: [dueToday('a', 'Job A'), dueToday('b', 'Job B')] },
-      { id: 'p1', name: 'Ava' }, 'tallow-rock');
+      { id: 'p1', name: 'Ava' }, 'halcyon');
     c.leavePlanet();
+    c.world = { ...c.world, systemId: 'vesk' }; // leaving Halcyon put us in calder; strand us in the port-less vesk
     expect(c.callTow()).toBe(true);
     expect(c.world.missions).toEqual([]);
     expect(events.filter((e) => e.type === 'message')).toEqual([]);
@@ -290,7 +294,7 @@ describe('Controller', () => {
   });
 
   it('a tow into debt autosaves a valid pilot that loads back without the backup', async () => {
-    const { c, data, events } = await setup();
+    const { c, data, events } = await setup(['vesk']);
     const store = new PilotStore(createStore('ctl-tow-debt', 'kv'));
     c.store = store;
     const w = newWorld(data);

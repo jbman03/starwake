@@ -117,8 +117,8 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
       return [
         { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses ${perJump} fuel and takes one day. The shuttle's tank holds ${tank} jumps' worth. With nothing targeted, ${k('autopilot')} flies you out to the jump point.` },
         { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE or the radar.` },
-        { heading: 'Refuelling', text: `Ports with a fuel pump let you refuel (${k('refuel')}); fuel is charged per unit. Check your fuel before you leave, since not every port sells it.` },
-        { heading: 'Stranded?', text: `With less than one jump of fuel and no fuel for sale in the system, you can call a tow from the pause menu or the CALL TOW button. It costs ${data.config.towFee} cr, which can leave you in debt. The tow takes you to the nearest port with fuel, uses days on the way, and jobs that pass their deadline fail.` },
+        { heading: 'Refuelling', text: `Every port sells fuel; press ${k('refuel')} to refuel. Fuel is charged per unit, and fringe ports charge more, so top up in the core worlds when you can.` },
+        { heading: 'Stranded?', text: `With less than one jump of fuel and no port in the system, you can call a tow from the pause menu or the CALL TOW button. It costs ${data.config.towFee} cr, which can leave you in debt. The tow takes you to the nearest port, uses days on the way, and jobs that pass their deadline fail.` },
       ];
   }
 }

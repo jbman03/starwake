@@ -100,16 +100,20 @@ describe('game data', () => {
     expect(failure(r).issues).toContain('planets.json → halcyon.market.spice: unknown commodity');
   });
 
-  it('fuelPrice without refuel service fails', () => {
+  it('every port must have a fuelPrice', () => {
     const r = raw();
-    r.planets[0].services = ['exchange', 'missions'];
-    expect(failure(r).issues.some((i) => i.startsWith('planets.json → halcyon.services'))).toBe(true);
+    delete port(r, 'tallow-rock').fuelPrice;
+    expect(failure(r).issues.some((i) => i.includes('planets.json') && i.includes('tallow-rock'))).toBe(true);
   });
 
-  it('refuel service without fuelPrice fails', () => {
+  it('the old refuel service is no longer valid', () => {
     const r = raw();
-    port(r, 'tallow-rock').services = ['refuel'];
-    expect(failure(r).issues.some((i) => i.startsWith('planets.json → tallow-rock.services'))).toBe(true);
+    port(r, 'tallow-rock').services = ['exchange', 'refuel'];
+    expect(failure(r).issues.some((i) => i.includes('tallow-rock'))).toBe(true);
+  });
+
+  it('the bundled data gives every port a positive fuelPrice', () => {
+    for (const p of Object.values(parseGameData(raw() as any).planets)) expect(p.fuelPrice, p.id).toBeGreaterThan(0);
   });
 
   it('exchange service requires a market and vice versa', () => {
@@ -289,9 +293,10 @@ describe('galaxy content', () => {
     expect(d.systems[d.planets[third.origin!].systemId].government).toBe('free-reach');
   });
 
-  it('at least 2 systems sell no fuel', () => {
-    const dry = systemList.filter((s) => !portsIn(s.id).some((p) => p.fuelPrice !== undefined));
-    expect(dry.length).toBeGreaterThanOrEqual(2);
+  it('fringe ports charge more for fuel than core ports', () => {
+    expect(d.planets['tallow-rock'].fuelPrice).toBe(5);
+    expect(d.planets['little-wren'].fuelPrice).toBe(4);
+    expect(d.planets.halcyon.fuelPrice).toBe(2);
   });
 
   it('at least 2 dump sites', () => {

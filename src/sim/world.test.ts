@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testData } from '../data/testData';
+import { onlyPorts, testData, withoutPorts } from '../data/testData';
 import type { ActionId } from '../input/actions';
 import type { FrameInput, SimEvent, WorldState } from './types';
 import type { GameData } from '../data/schemas';
@@ -404,7 +404,7 @@ describe('refuel, tow, depart', () => {
       ...newWorld(data), systemId: 'vesk', credits: 200, targetPlanetId: 'tallow-rock',
       ship: { pos: { x: 0, y: 0 }, vel: { x: 5, y: 5 }, heading: 0, fuel: 0 },
     };
-    const r = applyTow(w, data);
+    const r = applyTow(w, withoutPorts(data, 'vesk'));
     expect(r.events).toEqual([{ type: 'towed', planetId: 'halcyon' }]);
     expect(r.world.systemId).toBe('calder');
     expect(r.world.credits).toBe(-300);
@@ -569,17 +569,8 @@ describe('setRoute', () => {
 });
 
 describe('applyTow: time and routes', () => {
-  /** Only halcyon (calder) sells fuel, so a tow from brackwater travels 3 hops. */
-  const dry: GameData = {
-    ...data,
-    planets: Object.fromEntries(
-      Object.entries(data.planets).map(([id, p]) => {
-        if (id === 'halcyon') return [id, p];
-        const { fuelPrice: _drop, ...rest } = p;
-        return [id, rest];
-      }),
-    ),
-  };
+  /** Only halcyon (calder) has a port, so a tow from brackwater travels 3 hops. */
+  const dry: GameData = onlyPorts(data, 'halcyon');
   const stranded = (p: Partial<WorldState> = {}): WorldState => ({
     ...newWorld(data, 1),
     systemId: 'brackwater',
@@ -597,7 +588,7 @@ describe('applyTow: time and routes', () => {
 
   it('a one-hop tow still advances one day', () => {
     const w: WorldState = { ...stranded(), systemId: 'vesk' };
-    expect(applyTow(w, data).world.day).toBe(1);
+    expect(applyTow(w, withoutPorts(data, 'vesk')).world.day).toBe(1);
   });
 
   it('clears a route whose next hop is not linked from the tow system', () => {
@@ -614,16 +605,7 @@ describe('applyTow: time and routes', () => {
   });
 
   it('a tow into an unexplored system marks it known and its neighbours seen', () => {
-    const fuelOnlyAtSkerry: GameData = {
-      ...data,
-      planets: Object.fromEntries(
-        Object.entries(data.planets).map(([id, p]) => {
-          if (id === 'skerry-light') return [id, p];
-          const { fuelPrice: _drop, ...rest } = p;
-          return [id, rest];
-        }),
-      ),
-    };
+    const fuelOnlyAtSkerry: GameData = onlyPorts(data, 'skerry-light');
     const r = applyTow(stranded(), fuelOnlyAtSkerry);
     expect(r.world.systemId).toBe('skerry');
     expect(r.world.known).toContain('skerry');
@@ -647,16 +629,7 @@ describe('advanceDays', () => {
   });
 
   it('a 3-hop tow ends 3 days later and emits towed', () => {
-    const dry: GameData = {
-      ...data,
-      planets: Object.fromEntries(
-        Object.entries(data.planets).map(([id, p]) => {
-          if (id === 'halcyon') return [id, p];
-          const { fuelPrice: _drop, ...rest } = p;
-          return [id, rest];
-        }),
-      ),
-    };
+    const dry: GameData = onlyPorts(data, 'halcyon');
     const w: WorldState = {
       ...newWorld(data, 1),
       systemId: 'brackwater',

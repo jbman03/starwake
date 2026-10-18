@@ -12,7 +12,6 @@ import { showMissionLog } from './missionLog';
 
 const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
   full: 'Fuel tank is full.',
-  noFuelSold: 'No fuel is sold here.',
   noCredits: 'Not enough credits to buy fuel.',
 };
 
@@ -88,11 +87,11 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     const missionsBtn = services.has('missions')
       ? button('Mission Computer', openMissions, { hotkey: hotkeyFor(bindings, 'openMissions') })
       : null;
-    const refuelBtn = !services.has('refuel') ? null : button(canRefuel ? `Refuel — ${formatCredits(q.cost)}` : 'Refuel', refuel, {
+    const refuelBtn = button(canRefuel ? `Refuel — ${formatCredits(q.cost)}` : 'Refuel', refuel, {
       hotkey: hotkeyFor(bindings, 'refuel'),
       disabled: !canRefuel,
     });
-    const reason = refuelBtn && !canRefuel && q?.reason ? el('p', { class: 'sw-reason', text: REFUEL_REASON[q.reason] }) : null;
+    const reason = !canRefuel && q?.reason ? el('p', { class: 'sw-reason', text: REFUEL_REASON[q.reason] }) : null;
     const mapBtn = button('Star Map', openMap, { hotkey: hotkeyFor(bindings, 'openMap') });
     const logBtn = button('Mission Log', openMissionLog, { hotkey: hotkeyFor(bindings, 'missionLog') });
     const helpBtn = button('How to Play', openHowToPlay, { hotkey: hotkeyFor(bindings, 'howToPlay') });
@@ -129,7 +128,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       else if (pressed.has('missionLog')) openMissionLog();
       else if (pressed.has('openMap')) openMap();
       else if (pressed.has('howToPlay')) openHowToPlay();
-      else if (pressed.has('refuel') && services.has('refuel') && (controller.refuelQuote()?.units ?? 0) > 0) refuel();
+      else if (pressed.has('refuel') && (controller.refuelQuote()?.units ?? 0) > 0) refuel();
     },
     cleanup: () => {
       offSaved();

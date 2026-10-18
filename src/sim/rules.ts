@@ -8,7 +8,7 @@ export const SYSTEM_CENTER: Vec2 = { x: 0, y: 0 };
 export const JUMP_POINT_MARGIN = 50;
 
 export type JumpCheck = { ok: true } | { ok: false; reason: 'tooClose' | 'noFuel' | 'jumping' | 'noDestination' };
-export type RefuelQuote = { units: number; cost: number; reason?: 'full' | 'noFuelSold' | 'noCredits' };
+export type RefuelQuote = { units: number; cost: number; reason?: 'full' | 'noCredits' };
 
 /** Planets of the current system, sorted nearest-first from the ship. */
 export function planetsByDistance(world: WorldState, data: GameData): PlanetDef[] {
@@ -77,7 +77,6 @@ export function jumpPoint(world: WorldState, data: GameData): Vec2 {
 /** How much fuel a refuel would buy. Partial when short of credits; nothing when credits ≤ 0. */
 export function refuelQuote(fuel: number, def: ShipDef, planet: PlanetDef, credits: number): RefuelQuote {
   const price = planet.fuelPrice;
-  if (price === undefined) return { units: 0, cost: 0, reason: 'noFuelSold' };
   const need = Math.max(0, def.fuelCapacity - fuel);
   if (need <= 0) return { units: 0, cost: 0, reason: 'full' };
   if (credits <= 0) return { units: 0, cost: 0, reason: 'noCredits' };
@@ -87,16 +86,14 @@ export function refuelQuote(fuel: number, def: ShipDef, planet: PlanetDef, credi
   return { units, cost: units * price };
 }
 
-const sellsFuel = (p: PlanetDef) => p.fuelPrice !== undefined;
-
 /**
- * Where a stranded ship gets towed: null unless fuel < fuelPerJump and nothing in the current
- * system sells fuel. BFS over links; in the first system with fuel, the planet nearest its center.
+ * Where a stranded ship gets towed: null unless fuel < fuelPerJump and the current system has no
+ * port (every port sells fuel). BFS over links; in the first system with a port, the planet nearest its center.
  */
 export function towDestination(world: WorldState, data: GameData): string | null {
   if (world.ship.fuel >= data.config.fuelPerJump) return null;
   const planets = Object.values(data.planets);
-  const fuelIn = (sysId: string) => planets.filter((p) => p.systemId === sysId && sellsFuel(p));
+  const fuelIn = (sysId: string) => planets.filter((p) => p.systemId === sysId);
   if (fuelIn(world.systemId).length > 0) return null;
 
   const seen = new Set<string>([world.systemId]);

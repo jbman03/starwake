@@ -33,10 +33,10 @@ export const PlanetSchema = z.object({
   pos: vec2,
   radius: z.number().positive(),
   techTier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
-  fuelPrice: z.number().nonnegative().optional(),
+  fuelPrice: z.number().nonnegative(),
   description: z.string(),
   kind: z.enum(['planet', 'station']),
-  services: z.array(z.enum(['refuel', 'exchange', 'missions'])),
+  services: z.array(z.enum(['exchange', 'missions', 'shipyard', 'outfitter'])),
   market: z.record(z.string(), z.enum(['low', 'med', 'high'])).optional(),
   dumpSite: z.boolean().optional(),
 });
