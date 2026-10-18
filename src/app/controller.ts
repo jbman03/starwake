@@ -19,6 +19,7 @@ import {
   type MissionOffer,
 } from '../sim/missions';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
+import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
 import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
 import {
@@ -226,7 +227,7 @@ export class Controller {
   refuelQuote(): RefuelQuote | null {
     const planet = this.landedPlanetId ? this.data.planets[this.landedPlanetId] : undefined;
     if (!planet) return null;
-    return refuelQuote(this.world.ship.fuel, this.data.ships[this.world.shipId], planet, this.world.credits);
+    return refuelQuote(this.world.ship.fuel, worldStats(this.world, this.data).fuelCapacity, planet, this.world.credits);
   }
 
   refuel(): RefuelQuote | null {

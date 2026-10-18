@@ -1,4 +1,4 @@
-import type { GameData, PlanetDef, ShipDef } from '../data/schemas';
+import type { GameData, PlanetDef } from '../data/schemas';
 import type { WorldState } from './types';
 import { add, dist, len, norm, scale, sub, type Vec2 } from './vec';
 
@@ -75,9 +75,9 @@ export function jumpPoint(world: WorldState, data: GameData): Vec2 {
 }
 
 /** How much fuel a refuel would buy. Partial when short of credits; nothing when credits ≤ 0. */
-export function refuelQuote(fuel: number, def: ShipDef, planet: PlanetDef, credits: number): RefuelQuote {
+export function refuelQuote(fuel: number, fuelCapacity: number, planet: PlanetDef, credits: number): RefuelQuote {
   const price = planet.fuelPrice;
-  const need = Math.max(0, def.fuelCapacity - fuel);
+  const need = Math.max(0, fuelCapacity - fuel);
   if (need <= 0) return { units: 0, cost: 0, reason: 'full' };
   if (credits <= 0) return { units: 0, cost: 0, reason: 'noCredits' };
   if (price === 0) return { units: need, cost: 0 };

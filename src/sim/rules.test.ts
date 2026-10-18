@@ -60,22 +60,22 @@ describe('canLand', () => {
 describe('refuelQuote', () => {
   const h = data.planets.halcyon; // fuelPrice 2
   it('fills the tank when affordable', () => {
-    expect(refuelQuote(100, shuttle, h, 10000)).toEqual({ units: 200, cost: 400 });
+    expect(refuelQuote(100, shuttle.fuelCapacity, h, 10000)).toEqual({ units: 200, cost: 400 });
   });
   it('buys partially when short of credits', () => {
-    expect(refuelQuote(100, shuttle, h, 150)).toEqual({ units: 75, cost: 150 });
+    expect(refuelQuote(100, shuttle.fuelCapacity, h, 150)).toEqual({ units: 75, cost: 150 });
   });
   it('buys nothing with negative credits', () => {
-    expect(refuelQuote(100, shuttle, h, -300)).toEqual({ units: 0, cost: 0, reason: 'noCredits' });
+    expect(refuelQuote(100, shuttle.fuelCapacity, h, -300)).toEqual({ units: 0, cost: 0, reason: 'noCredits' });
   });
   it('buys nothing with zero credits', () => {
-    expect(refuelQuote(100, shuttle, h, 0)).toEqual({ units: 0, cost: 0, reason: 'noCredits' });
+    expect(refuelQuote(100, shuttle.fuelCapacity, h, 0)).toEqual({ units: 0, cost: 0, reason: 'noCredits' });
   });
   it('quotes fuel at a fringe port', () => {
-    expect(refuelQuote(100, shuttle, data.planets['tallow-rock'], 10000)).toEqual({ units: 200, cost: 1000 });
+    expect(refuelQuote(100, shuttle.fuelCapacity, data.planets['tallow-rock'], 10000)).toEqual({ units: 200, cost: 1000 });
   });
   it('reports full when the tank is full', () => {
-    expect(refuelQuote(300, shuttle, h, 10000)).toEqual({ units: 0, cost: 0, reason: 'full' });
+    expect(refuelQuote(300, shuttle.fuelCapacity, h, 10000)).toEqual({ units: 0, cost: 0, reason: 'full' });
   });
 });
 

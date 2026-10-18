@@ -6,6 +6,7 @@ import type { UiContext } from './context';
 import { alertDialog, button, el, formatCredits, hotkeyFor } from './dom';
 import { showExchange } from './exchange';
 import { showHowToPlay } from './howToPlay';
+import { worldStats } from '../sim/shipStats';
 import { guideCard } from './guideHint';
 import { showMissionComputer } from './missionComputer';
 import { showMissionLog } from './missionLog';
@@ -77,7 +78,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       el('div', { class: 'sw-stat', text: formatDate(w.day, data.config) }),
       el('div', { class: 'sw-stat', text: `Credits: ${formatCredits(w.credits)}` }),
       el('div', { class: 'sw-stat', text: fuelText(jumpsOf(w.ship.fuel, data.config.fuelPerJump)) }),
-      el('div', { class: 'sw-stat', text: `Cargo: ${cargoFree(w, data)}/${data.ships[w.shipId].cargo} t` }),
+      el('div', { class: 'sw-stat', text: `Cargo: ${cargoFree(w, data)}/${worldStats(w, data).cargo} t` }),
     );
     const q = controller.refuelQuote();
     const canRefuel = !!q && q.units > 0;

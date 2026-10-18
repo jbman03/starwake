@@ -1,6 +1,7 @@
 import { formatDate } from '../sim/calendar';
 import { cargoFree, maxBuy } from '../sim/cargo';
 import { displayLevel, localNews, priceOf } from '../sim/economy';
+import { worldStats } from '../sim/shipStats';
 import type { UiContext } from './context';
 import { button, el, formatCredits, hotkeyFor } from './dom';
 import { guideCard } from './guideHint';
@@ -83,7 +84,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
 
   function render(): void {
     const w = controller.world;
-    const shipCargo = data.ships[w.shipId].cargo;
+    const shipCargo = worldStats(w, data).cargo;
     stats.replaceChildren(
       el('span', { text: formatDate(w.day, data.config) }),
       el('span', { text: `Credits: ${formatCredits(w.credits)}` }),

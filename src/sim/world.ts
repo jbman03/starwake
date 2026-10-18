@@ -18,6 +18,7 @@ import {
   towDestination,
   type RefuelQuote,
 } from './rules';
+import { worldStats } from './shipStats';
 import type { Assist, FlightInput, FrameInput, ShipState, SimEvent, WorldState } from './types';
 import { add, angleOf, fromAngle, len, norm, scale, sub, type Vec2 } from './vec';
 
@@ -154,7 +155,7 @@ export function applyRefuel(
   data: GameData,
   planetId: string,
 ): { world: WorldState; quote: RefuelQuote } {
-  const quote = refuelQuote(world.ship.fuel, data.ships[world.shipId], data.planets[planetId], world.credits);
+  const quote = refuelQuote(world.ship.fuel, worldStats(world, data).fuelCapacity, data.planets[planetId], world.credits);
   if (quote.units === 0) return { world, quote };
   return {
     world: { ...world, credits: world.credits - quote.cost, ship: { ...world.ship, fuel: world.ship.fuel + quote.units } },

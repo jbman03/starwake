@@ -1,5 +1,6 @@
 import type { GameData } from '../data/schemas';
 import { applyPressure, priceOf } from './economy';
+import { worldStats } from './shipStats';
 import type { WorldState } from './types';
 
 export interface BuyResult {
@@ -27,13 +28,13 @@ export function cargoUsed(world: WorldState): number {
 }
 
 export function cargoFree(world: WorldState, data: GameData): number {
-  return Math.max(0, data.ships[world.shipId].cargo - cargoUsed(world));
+  return Math.max(0, worldStats(world, data).cargo - cargoUsed(world));
 }
 
 export function berthsFree(world: WorldState, data: GameData): number {
   let taken = 0;
   for (const m of world.missions) taken += m.passengers;
-  return Math.max(0, data.ships[world.shipId].passengers - taken);
+  return Math.max(0, worldStats(world, data).passengers - taken);
 }
 
 /** Price per ton once the market has absorbed `tonsBought` (negative = sold). Null if not traded. */
