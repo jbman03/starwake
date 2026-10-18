@@ -7,6 +7,7 @@ import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import type { Settings } from '../save/settings';
 import { contextAction, type ContextAction } from '../sim/context';
 import { buy, sell, type BuyResult, type SellResult } from '../sim/cargo';
+import { buyOutfit, outfitBuyCheck, sellOutfit, type BuyCheck, type SellCheck } from '../sim/outfitter';
 import {
   abandon,
   accept,
@@ -341,6 +342,28 @@ export class Controller {
     const r = sell(this.world, this.data, this.landedPlanetId, commodityId, tons);
     this.world = r.world;
     return r;
+  }
+
+  /** Buy one outfit here (like exchange trades, this does not save). */
+  buyOutfit(outfitId: string): BuyCheck {
+    if (!this.landedPlanetId) return { ok: false, reason: 'notSold' };
+    const r = buyOutfit(this.world, this.data, this.landedPlanetId, outfitId);
+    this.world = r.world;
+    return r.check;
+  }
+
+  /** Sell one fitted outfit for half its price (does not save). */
+  sellOutfit(outfitId: string): SellCheck {
+    if (!this.landedPlanetId) return { ok: false, reason: 'notOwned' };
+    const r = sellOutfit(this.world, this.data, outfitId);
+    this.world = r.world;
+    return r.check;
+  }
+
+  /** What buying would do right now, without doing it. */
+  outfitQuote(outfitId: string): BuyCheck {
+    if (!this.landedPlanetId) return { ok: false, reason: 'notSold' };
+    return outfitBuyCheck(this.world, this.data, this.landedPlanetId, outfitId);
   }
 
   /** Today's jobs at the planet we're landed on; none when not landed. */

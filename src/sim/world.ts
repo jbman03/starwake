@@ -382,6 +382,13 @@ export function stepWorld(
   const jumpFlight: FlightInput | null = w.jump
     ? { thrust: false, turn: 0, targetHeading: jumpHeading(w, data, w.jump.toSystemId) }
     : null;
-  const ship = stepShip(w.ship, def, jumpFlight ?? flight, dt);
+  let ship = stepShip(w.ship, def, jumpFlight ?? flight, dt);
+  // A fuel scoop trickles fuel back in while flying (never while jumping).
+  if (!w.jump) {
+    const stats = worldStats(w, data);
+    if (stats.fuelPerMin > 0) {
+      ship = { ...ship, fuel: Math.min(stats.fuelCapacity, ship.fuel + (stats.fuelPerMin * dt) / 60) };
+    }
+  }
   return { world: { ...w, ship }, events };
 }
