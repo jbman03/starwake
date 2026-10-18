@@ -57,12 +57,11 @@ describe('planet screen', () => {
     expect(root.textContent).not.toContain('1 jumps');
   });
 
-  it('Star Map (button or N) opens the map, which returns to this planet screen', async () => {
+  it('the corner Map button (or N) opens the map, which returns to this planet screen', async () => {
     const { root, calls } = await setup(1000, 300);
-    const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
-    expect(map.textContent).toBe('Star MapN');
-    const labels = [...root.querySelectorAll('button')].map((b) => b.querySelector('.sw-btn-label')?.textContent);
-    expect(labels.indexOf('Star Map')).toBe(labels.indexOf('Leave') - 3);
+    const map = root.querySelector<HTMLButtonElement>('.sw-panel > .sw-map-corner')!;
+    expect(map.textContent).toBe('MapN');
+    expect(root.querySelector('.sw-actions')!.textContent).not.toContain('Star Map');
     map.click();
     expect(calls.map).toHaveLength(1);
     calls.map[0].onClose!();
@@ -71,10 +70,10 @@ describe('planet screen', () => {
     expect(calls.map).toHaveLength(2);
   });
 
-  it('an unbound Star Map action shows no key chip', async () => {
+  it('an unbound Map action shows no key chip', async () => {
     const { root } = await setup(1000, 300, { ...DEFAULT_SETTINGS.bindings, openMap: [null, null] });
-    const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
-    expect(map.textContent).toBe('Star Map');
+    const map = root.querySelector<HTMLButtonElement>('.sw-map-corner')!;
+    expect(map.textContent).toBe('Map');
     expect(map.querySelector('.sw-key')).toBeNull();
   });
 
@@ -83,9 +82,9 @@ describe('planet screen', () => {
 
   it('Halcyon offers every service, in order, with hotkey chips, plus date and cargo', async () => {
     const { root } = await setup(1000, 150);
-    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Outfitter', 'Refuel — 300 cr', 'Star Map', 'Mission Log', 'How to Play', 'Leave']);
+    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Outfitter', 'Refuel — 300 cr', 'Mission Log', 'How to Play', 'Leave']);
     const chips = [...root.querySelectorAll('.sw-actions .sw-key')].map((k) => k.textContent);
-    expect(chips).toEqual(['C', 'M', 'O', 'R', 'N', 'K', 'H', 'L']);
+    expect(chips).toEqual(['C', 'M', 'O', 'R', 'K', 'H', 'L']);
     expect(root.textContent).toContain('1 Mar 3207');
     expect(root.textContent).toContain('Cargo: 20/20 t');
   });
@@ -96,9 +95,9 @@ describe('planet screen', () => {
     expect(find(root, 'Refuel').disabled).toBe(false);
   });
 
-  it('a refuel-only port shows only Refuel, Star Map, Mission Log and Leave', async () => {
+  it('a refuel-only port shows only Refuel, Mission Log and Leave', async () => {
     const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'haywain');
-    expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Star Map', 'Mission Log', 'How to Play', 'Leave']);
+    expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Mission Log', 'How to Play', 'Leave']);
   });
 
   it('Commodity Exchange opens the exchange; Done returns to the planet screen', async () => {

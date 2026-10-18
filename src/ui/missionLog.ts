@@ -2,6 +2,7 @@ import { formatDate } from '../sim/calendar';
 import { MAX_MISSIONS } from '../sim/missions';
 import type { UiContext } from './context';
 import { button, confirmDialog, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
+import { mapCornerButton } from './mapButton';
 import { deadlineText, destinationText, loadText, payText } from './missionText';
 
 /**
@@ -115,6 +116,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
 
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-mc-screen', attrs: { 'data-testid': 'mission-log' } }, [
     el('div', { class: 'sw-panel sw-mc' }, [
+      mapCornerButton(ctx, () => showMissionLog(ctx, onClose)),
       el('h1', { class: 'sw-title', text: 'Mission Log' }),
       stats,
       el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason])]),

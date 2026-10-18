@@ -8,6 +8,7 @@ import { showExchange } from './exchange';
 import { showHowToPlay } from './howToPlay';
 import { worldStats } from '../sim/shipStats';
 import { guideCard } from './guideHint';
+import { mapCornerButton } from './mapButton';
 import { showMissionComputer } from './missionComputer';
 import { showMissionLog } from './missionLog';
 import { showOutfitter } from './outfitter';
@@ -21,7 +22,7 @@ const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
 /**
  * EV-style planet screen: picture, name, kind and tech tier, description, then credits, fuel
  * and a column of buttons for the port's services (Commodity Exchange, Mission Computer, Refuel) then
- * Star Map, Mission Log and Leave. Hotkeys come from the `planet` binding group.
+ * Mission Log and Leave, with a Map button fixed in the corner. Hotkeys come from the `planet` binding group.
  */
 export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: string): void {
   const { controller } = ctx;
@@ -104,14 +105,12 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       disabled: !canRefuel,
     });
     const reason = !canRefuel && q?.reason ? el('p', { class: 'sw-reason', text: REFUEL_REASON[q.reason] }) : null;
-    const mapBtn = button('Star Map', openMap, { hotkey: hotkeyFor(bindings, 'openMap') });
     const logBtn = button('Mission Log', openMissionLog, { hotkey: hotkeyFor(bindings, 'missionLog') });
     const helpBtn = button('How to Play', openHowToPlay, { hotkey: hotkeyFor(bindings, 'howToPlay') });
     const leaveBtn = button('Leave', leave, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'leave') });
     actions.replaceChildren(
       ...[exchangeBtn, missionsBtn, shipyardBtn, outfitterBtn, refuelBtn].filter((b) => b !== null),
       ...(reason ? [reason] : []),
-      mapBtn,
       logBtn,
       helpBtn,
       leaveBtn,
@@ -121,6 +120,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
 
   const screen = el('div', { class: 'sw-screen sw-planet-screen', attrs: { 'data-testid': 'planet-screen' } }, [
     el('div', { class: 'sw-panel sw-planet-frame' }, [
+      mapCornerButton(ctx, () => ctx.go.planet(planetId)),
       picture,
       info,
       el('div', { class: 'sw-planet-side' }, [stats, hint.node, actions, status]),

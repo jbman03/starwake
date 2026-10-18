@@ -40,7 +40,7 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   land: 'LAND ON (planet) button, or tap the planet',
   jump: 'JUMP TO (system) button',
   autopilot: 'AUTOPILOT TO JUMP POINT button; TAKE CONTROL stops it',
-  map: 'Tap the radar, or PLOT COURSE',
+  map: 'Tap Map, or PLOT COURSE',
   flightMissionLog: 'Pause (II), then Mission Log',
   pause: 'II button',
   openExchange: 'Tap the button',
@@ -123,7 +123,7 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
     case 'travel':
       return [
         { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses ${perJump} fuel and takes one day. The shuttle's tank holds ${tank} jumps' worth. With nothing targeted, ${k('autopilot')} flies you out to the jump point.` },
-        { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE or the radar.` },
+        { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE, or the Map button (always shown, on every planet screen too).` },
         { heading: 'Refuelling', text: `Every port sells fuel; press ${k('refuel')} to refuel. Fuel is charged per unit, and fringe ports charge more, so top up in the core worlds when you can.` },
         { heading: 'Stranded?', text: `With less than one jump of fuel and no port in the system, you can call a tow from the pause menu or the CALL TOW button. It costs ${data.config.towFee} cr, which can leave you in debt. The tow takes you to the nearest port, uses days on the way, and jobs that pass their deadline fail.` },
       ];

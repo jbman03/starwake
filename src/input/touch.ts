@@ -105,6 +105,8 @@ export interface RailMetrics {
   /** Size of the Fire button. */
   fire: number;
   radar: number;
+  /** Height of the labelled Map button above the radar (never hidden). */
+  map: number;
   /** Height of the HUD block at the top of the stick rail. */
   hud: number;
   /** Joystick diameter. */
@@ -123,6 +125,8 @@ const PAD = 8;
 const GAP = 8;
 const HUD_HEIGHT = 178; // room for the 44px Pause button, two bars, fuel, credits, cargo, target and a two-line course
 const MAX_RADAR = 84;
+/** The labelled Map button above the radar: a full 44 px touch target. */
+const MAP_HEIGHT = 44;
 const MAX_STICK = 140;
 /** The rail hint wraps to at most this many lines of the HUD's 11 px font... */
 export const HINT_LINES = 3;
@@ -138,7 +142,7 @@ const MIN_STOP = 44;
 /**
  * Pixel sizes for the rail controls: the S/M/L base size, shrunk only as far as needed so both
  * stacks fit inside their rails (height and width).
- * Stick rail: HUD, Stop, joystick. Button rail: radar, Target, Missile, [Thrust], Fire.
+ * Stick rail: HUD, Stop, joystick. Button rail: Map, radar, Target, Missile, [Thrust], Fire.
  * With `hint` (the First Flight guide is showing), the stick rail also holds the hint's text under
  * the HUD (HINT_LINES lines) and a Skip guide button beside Stop; only Stop and the stick give way.
  */
@@ -154,13 +158,19 @@ export function railMetrics(
   const inner = Math.min(layout.leftRail.w - railInset(layout.leftRail, insets), layout.rightRail.w - railInset(layout.rightRail, insets)) - 2 * PAD;
   const usable = h - insets.top - insets.bottom - 2 * PAD;
   const plain = steering === 'classic' ? 3 : 2; // Target, Missile (+ Thrust)
-  const rightGaps = (plain + 1) * GAP; // radar + plain + fire = plain + 2 items
+  const rightGaps = (plain + 2) * GAP; // map + radar + plain + fire = plain + 3 items
+  const reserved = rightGaps + MAP_HEIGHT;
 
   let radar = Math.min(MAX_RADAR, inner);
-  let button = Math.min(BUTTON_SIZES[s.buttonSize], inner / FIRE_SCALE, (usable - rightGaps - radar) / (plain + FIRE_SCALE));
-  if (button < MIN_BUTTON) {
+  let button = Math.min(BUTTON_SIZES[s.buttonSize], inner / FIRE_SCALE, (usable - reserved - radar) / (plain + FIRE_SCALE));
+  // Keep the buttons at a 44 px touch target by giving the radar's room up first.
+  const room44 = usable - reserved - BUTTON_SIZES.S * (plain + FIRE_SCALE);
+  if (button < BUTTON_SIZES.S && room44 >= 0 && inner / FIRE_SCALE >= BUTTON_SIZES.S) {
+    button = BUTTON_SIZES.S;
+    radar = Math.min(radar, room44);
+  } else if (button < MIN_BUTTON) {
     button = MIN_BUTTON;
-    radar = Math.max(0, usable - rightGaps - button * (plain + FIRE_SCALE));
+    radar = Math.max(0, usable - reserved - button * (plain + FIRE_SCALE));
   }
   button = Math.floor(button);
   const fire = button * FIRE_SCALE;
@@ -183,13 +193,14 @@ export function railMetrics(
     button,
     fire,
     radar,
+    map: MAP_HEIGHT,
     hud: HUD_HEIGHT,
     stick,
     hint: hintH,
     stop,
     skip,
     leftStackHeight: above + Math.max(stop, skip) + GAP + stick,
-    rightStackHeight: radar + rightGaps + plain * button + fire,
+    rightStackHeight: MAP_HEIGHT + radar + rightGaps + plain * button + fire,
   };
 }
 

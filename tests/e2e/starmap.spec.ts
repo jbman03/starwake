@@ -138,7 +138,7 @@ test.describe('phone (touch, landscape)', () => {
     test.setTimeout(60_000);
     const errors = trackErrors(page);
     await newPilot(page, 'Pocket');
-    await page.getByRole('button', { name: /^Star Map/ }).tap();
+    await page.getByRole('button', { name: /^Map/ }).tap();
     const map = page.getByTestId('star-map');
     await expect(map).toBeVisible();
     await map.locator('[data-system="tessaly"]').tap();

@@ -1,5 +1,6 @@
 import type { UiContext } from './context';
 import { button, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
+import { mapCornerButton } from './mapButton';
 
 /** Say something in the status line (bad = shown as a problem). */
 export type Say = (text: string, bad?: boolean) => void;
@@ -163,6 +164,7 @@ export function showShop(ctx: UiContext, opts: ShopOpts): void {
   const actions = [buyBtn, ...(sellBtn ? [sellBtn] : []), doneBtn];
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-shop-screen', attrs: { 'data-testid': opts.testId } }, [
     el('div', { class: 'sw-panel sw-shop' }, [
+      mapCornerButton(ctx, () => showShop(ctx, opts)),
       el('h1', { class: 'sw-title', text: opts.title }),
       stats,
       el('div', { class: 'sw-shop-body' }, [

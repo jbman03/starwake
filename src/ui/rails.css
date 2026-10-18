@@ -52,6 +52,7 @@ html, body { overscroll-behavior: none; }
   cursor: pointer;
 }
 .sw-rail-btn:active { background: #2d4566; }
+.sw-rail-map { border-radius: 8px; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; }
 .sw-rail-fire { border-color: #d0705f; background: radial-gradient(circle at 35% 30%, #5a2620, #1d0d0b 70%); font-size: 14px; }
 .sw-rail-fire:active { background: #84382e; }
 

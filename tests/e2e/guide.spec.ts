@@ -310,7 +310,7 @@ test.describe('phone (touch, landscape)', () => {
       const { controller, data } = window.__starwake!;
       return data.systems[controller.guide!.target()!.system].name;
     });
-    await expect(page.getByTestId('rail-guide')).toHaveText(`Tap the radar. Set course to ${systemName}.`);
+    await expect(page.getByTestId('rail-guide')).toHaveText(`Tap Map. Set course to ${systemName}.`);
     await railHintFits(page, 844, 390);
 
     // Skip guide in the rail asks first (flight pauses meanwhile), then the rail gives the room back.

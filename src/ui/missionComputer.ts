@@ -5,6 +5,7 @@ import { canAccept, MAX_MISSIONS, type MissionOffer } from '../sim/missions';
 import type { UiContext } from './context';
 import { worldStats } from '../sim/shipStats';
 import { button, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
+import { mapCornerButton } from './mapButton';
 import { guideCard } from './guideHint';
 import { ACCEPT_REASON, deadlineText, destinationText, loadText, payText } from './missionText';
 
@@ -114,6 +115,7 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
   const hint = guideCard(controller, ctx.root);
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-mc-screen', attrs: { 'data-testid': 'mission-computer' } }, [
     el('div', { class: 'sw-panel sw-mc' }, [
+      mapCornerButton(ctx, () => showMissionComputer(ctx, portId, onClose)),
       el('h1', { class: 'sw-title', text: `${port.name} · Mission Computer` }),
       stats,
       rumorLine,

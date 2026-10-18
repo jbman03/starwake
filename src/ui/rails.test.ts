@@ -121,6 +121,29 @@ describe('mountRails', () => {
     expect(btn.textContent).toBe('✋ TAKE CONTROL');
   });
 
+  it('has a labelled Map button above the radar at 844×390, even with the radar hidden, that presses map', async () => {
+    const { c, rails, parent } = await setup();
+    c.startFlight();
+    rails.update();
+    const map = parent.querySelector<HTMLButtonElement>('[data-control="map"]')!;
+    const radar = parent.querySelector<HTMLElement>('[data-control="radar"]')!;
+    expect(map.textContent).toBe('Map');
+    expect(map.hidden).toBe(false);
+    const rail = map.parentElement!;
+    const kids = [...rail.children];
+    expect(kids.indexOf(map)).toBe(kids.indexOf(radar) - 1);
+    c.settings.touch.buttonSize = 'L';
+    const tight = mountRails({ parent, controller: c, inputMode: new InputMode(new EventTarget(), () => c.settings.bindings, 'touch'), size: () => ({ w: 667, h: 300 }), autoUpdate: false });
+    tight.update();
+    const maps = parent.querySelectorAll<HTMLButtonElement>('[data-control="map"]');
+    expect(maps[1].hidden).toBe(false);
+    expect(parseFloat(maps[1].style.height)).toBeGreaterThanOrEqual(44);
+    const pressed: boolean[] = [];
+    c.touch.press = ((a: string) => pressed.push(a === 'map')) as typeof c.touch.press;
+    map.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(pressed[0]).toBe(true);
+  });
+
   it('fire button presses and releases firePrimary through the touch source', async () => {
     const { c, rails, parent } = await setup();
     c.startFlight();

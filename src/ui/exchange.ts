@@ -4,6 +4,7 @@ import { displayLevel, localNews, priceOf } from '../sim/economy';
 import { worldStats } from '../sim/shipStats';
 import type { UiContext } from './context';
 import { button, el, formatCredits, hotkeyFor } from './dom';
+import { mapCornerButton } from './mapButton';
 import { guideCard } from './guideHint';
 
 /** Press-and-hold time (ms) on Buy/Sell before it moves 1 t instead of 10. */
@@ -173,6 +174,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
 
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-exchange-screen', attrs: { 'data-testid': 'exchange' } }, [
     el('div', { class: 'sw-panel sw-exchange' }, [
+      mapCornerButton(ctx, () => showExchange(ctx, portId, onClose)),
       el('h1', { class: 'sw-title', text: `${port.name} · Commodity Exchange` }),
       stats,
       el('div', { class: 'sw-ex-tablewrap' }, [table]),

@@ -108,7 +108,7 @@ describe('step text', () => {
   it('switches to phone wording', () => {
     const c = ctx({ mode: 'touch', ...flying });
     expect(STEPS[5].text(c)).toBe('Push the stick to fly, STOP to brake.');
-    expect(STEPS[6].text(c)).toBe('Tap the radar. Set course to Tessaly.');
+    expect(STEPS[6].text(c)).toBe('Tap Map. Set course to Tessaly.');
     expect(STEPS[7].text(c)).toBe('To Tessaly: fly clear, tap Jump. Repeat.');
     expect(STEPS[8].text(c)).toBe('Tap TGT until Vanterre, then LAND.');
     for (const s of STEPS) expect(s.text(c)).not.toMatch(/\(\S{1,6}\)/);
@@ -159,9 +159,9 @@ describe('step text', () => {
       expect(STEPS[2].text(ctx({ screen: 'exchange', mode: 'touch' }))).toBe('Tap Done, then Mission Computer.');
       expect(STEPS[2].text(ctx({ mode: 'touch' }))).toBe('Tap Mission Computer.');
     });
-    it('step 7 on a phone: Star Map button on the planet screen, the radar in flight', () => {
-      expect(STEPS[6].text(ctx({ mode: 'touch' }))).toBe('Tap Star Map. Set course to Tessaly.');
-      expect(STEPS[6].text(ctx({ mode: 'touch', ...flying }))).toBe('Tap the radar. Set course to Tessaly.');
+    it('step 7 on a phone: the Map button on the planet screen and in flight', () => {
+      expect(STEPS[6].text(ctx({ mode: 'touch' }))).toBe('Tap Map. Set course to Tessaly.');
+      expect(STEPS[6].text(ctx({ mode: 'touch', ...flying }))).toBe('Tap Map. Set course to Tessaly.');
     });
     it('step 7 with the map already open names the system, not the radar', () => {
       expect(STEPS[6].text(ctx({ mode: 'touch', screen: 'map' }))).toBe('Tap Tessaly, then Set course.');

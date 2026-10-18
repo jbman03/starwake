@@ -25,6 +25,9 @@
   box-sizing: border-box;
   overflow: auto;
 }
+/* The fixed Map button in a landed screen's top-right corner. */
+.sw-panel:has(> .sw-map-corner) { position: relative; }
+.sw-map-corner { position: absolute; top: 8px; right: 8px; min-height: 44px; z-index: 1; }
 /* margin:auto centers the panel but lets a too-tall one scroll instead of clipping its top. */
 .sw-screen > .sw-panel { margin: auto; }
 .sw-overlay { background: rgba(2, 4, 8, 0.62); }
