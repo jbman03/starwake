@@ -319,9 +319,8 @@ describe('mission preview on the map', () => {
 
   it('computer: with nothing selected the Map key opens the plain map', async () => {
     const { ctx, state, c } = await setup();
-    c.world = { ...c.world, day: 100000 };
+    c.offers = () => [];
     showMissionComputer(ctx, 'halcyon', () => {});
-    if (c.offers().length > 0) return;
     press('KeyN');
     expect(state.maps).toHaveLength(1);
     expect(state.maps[0].preview).toBeUndefined();

@@ -11,7 +11,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 /** Unknown systems: a plain grey outline, whatever their owner. */
 export const UNKNOWN_COLOR = '#5a6472';
 /** Map units of empty space around the outermost systems at minimum zoom. */
-const PAD = 100;
+export const PAD = 100;
 const MAX_ZOOM = 4;
 const PREVIEW_ZOOM = 2;
 const ZOOM_STEP = 1.5;

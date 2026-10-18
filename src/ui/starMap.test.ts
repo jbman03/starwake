@@ -9,7 +9,7 @@ import type { Mission, WorldState } from '../sim/types';
 import { accept } from '../sim/missions';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
-import { mapModel, routeSummary, showStarMap, systemDetails } from './starMap';
+import { mapModel, PAD, routeSummary, showStarMap, systemDetails } from './starMap';
 
 const data = testData();
 const world = (): WorldState => newWorld(data, 1);
@@ -246,12 +246,17 @@ describe('showStarMap', () => {
     const at = data.systems.tessaly.mapPos;
     const all = Object.values(data.systems);
     const xs = all.map((q) => q.mapPos.x);
-    const whole = Math.max(...xs) - Math.min(...xs) + 200; // the full-galaxy width (PAD 100 each side)
-    expect(w).toBeCloseTo(whole / 2, 3); // zoom 2
-    // Centred on the system unless the galaxy edge clamps it.
-    const clamped = Math.abs(x + w / 2 - at.x) > 1e-6;
-    if (clamped) expect(Math.abs(x + w / 2 - at.x)).toBeLessThan(w / 2);
-    expect(Math.abs(y + h / 2 - at.y)).toBeLessThan(h / 2);
+    const ys = all.map((q) => q.mapPos.y);
+    const bx = Math.min(...xs) - PAD;
+    const by = Math.min(...ys) - PAD;
+    const bw = Math.max(...xs) + PAD - bx;
+    const bh = Math.max(...ys) + PAD - by;
+    expect(w).toBeCloseTo(bw / 2, 6); // zoom 2
+    expect(h).toBeCloseTo(bh / 2, 6);
+    // Centred on the system, clamped so the view stays inside the galaxy bounds.
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    expect(x + w / 2).toBeCloseTo(clamp(at.x, bx + w / 2, bx + bw - w / 2), 6);
+    expect(y + h / 2).toBeCloseTo(clamp(at.y, by + h / 2, by + bh - h / 2), 6);
   });
 
   it('a preview of an unexplored system still gets a marker', () => {
