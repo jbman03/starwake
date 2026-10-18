@@ -129,7 +129,7 @@ export function systemDetails(id: string, world: WorldState, data: GameData): Sy
       {
         label: 'Services',
         value: listOr([
-          'Refuel', // every port sells fuel
+          ...(ports.length > 0 ? ['Refuel'] : []), // every port sells fuel
           ...(Object.keys(SERVICE_NAMES) as (keyof typeof SERVICE_NAMES)[]).filter((s) => services.has(s)).map((s) => SERVICE_NAMES[s]),
         ]),
       },

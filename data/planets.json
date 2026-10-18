@@ -126,7 +126,7 @@
   {
     "id": "little-wren", "name": "Little Wren", "systemId": "wrenhold", "pos": { "x": 200, "y": -1100 }, "radius": 34, "techTier": 2, "fuelPrice": 4, "kind": "planet",
     "services": ["exchange"], "market": { "food": "low", "metal": "med" },
-    "description": "A small moon of allotments and fish ponds that keeps the capital fed. Nobody has got around to building a fuel depot, and nobody seems to mind."
+    "description": "A small moon of allotments and fish ponds that keeps the capital fed. The only fuel pump is a hand crank behind the pond sheds, and the price reflects the arm work."
   },
 
   {
@@ -198,7 +198,7 @@
   {
     "id": "mirren-hollow", "name": "Mirren Hollow", "systemId": "mirren", "pos": { "x": 450, "y": 500 }, "radius": 44, "techTier": 1, "fuelPrice": 5, "kind": "planet",
     "services": ["exchange", "missions"], "market": { "medical": "low", "equipment": "high", "industrial": "high", "luxury": "med" },
-    "description": "A boggy world of stilt houses and herb gardens, where the healers are better than the roofs. Bring your own fuel; they burn peat."
+    "description": "A boggy world of stilt houses and herb gardens, where the healers are better than the roofs. Fuel comes by barge and sells dear, so the locals burn peat and let visitors pay the difference."
   },
 
   {

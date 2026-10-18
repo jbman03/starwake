@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { Controller } from '../app/controller';
-import { testData } from '../data/testData';
+import { testData, withoutPorts } from '../data/testData';
 import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import type { PilotStore } from '../save/store';
@@ -83,6 +83,8 @@ describe('systemDetails', () => {
     expect(row('Goods')).toContain('Food');
     expect(row('Goods')).toContain('Halcyon Copperwine');
     expect(row('Services')).toBe('Refuel, Exchange, Missions');
+    const bare = systemDetails('calder', world(), withoutPorts(data, 'calder'));
+    expect(bare.rows.find((r) => r.label === 'Services')?.value).toBe('None');
     expect(row('Ports')).toBe('Halcyon, Merrow, Brigg Station');
     expect(row('Hazards')).toBe('None');
   });
