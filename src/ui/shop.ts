@@ -1,6 +1,6 @@
 import type { UiContext } from './context';
 import { button, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
-import { mapCornerButton } from './mapButton';
+import { mapCornerButton, mapCornerKey } from './mapButton';
 
 /** Say something in the status line (bad = shown as a problem). */
 export type Say = (text: string, bad?: boolean) => void;
@@ -188,6 +188,7 @@ export function showShop(ctx: UiContext, opts: ShopOpts): void {
   const onResize = () => render();
   window.addEventListener('keydown', onKey);
   window.addEventListener('resize', onResize);
+  const offMapKey = mapCornerKey(ctx, () => showShop(ctx, opts));
 
   ctx.mount(screen, {
     groups: ['shop', 'menus'],
@@ -201,6 +202,7 @@ export function showShop(ctx: UiContext, opts: ShopOpts): void {
     cleanup: () => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', onResize);
+      offMapKey();
     },
   });
   render();

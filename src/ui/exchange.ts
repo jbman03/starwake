@@ -4,7 +4,7 @@ import { displayLevel, localNews, priceOf } from '../sim/economy';
 import { worldStats } from '../sim/shipStats';
 import type { UiContext } from './context';
 import { button, el, formatCredits, hotkeyFor } from './dom';
-import { mapCornerButton } from './mapButton';
+import { mapCornerButton, mapCornerKey } from './mapButton';
 import { guideCard } from './guideHint';
 
 /** Press-and-hold time (ms) on Buy/Sell before it moves 1 t instead of 10. */
@@ -199,6 +199,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
   };
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', onKeyUp);
+  const offMapKey = mapCornerKey(ctx, () => showExchange(ctx, portId, onClose));
 
   ctx.mount(screen, {
     groups: ['exchange', 'menus'],
@@ -210,6 +211,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
     cleanup: () => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keyup', onKeyUp);
+      offMapKey();
       buyBtn.stop();
       sellBtn.stop();
       hint.dispose();

@@ -21,6 +21,7 @@ async function setup(portId: string) {
   c.beginSession({ ...newWorld(data), credits: 50000 }, { id: 'p', name: 'P' }, portId);
   const root = document.createElement('div');
   document.body.replaceChildren(root);
+  let cleanup: (() => void) | undefined;
   const maps: { onClose?: () => void }[] = [];
   const ctx = {
     root,
@@ -28,8 +29,16 @@ async function setup(portId: string) {
     store: {} as PilotStore,
     inputMode: new InputMode(new EventTarget(), () => DEFAULT_SETTINGS.bindings, 'keyboard'),
     planetImage: () => null,
-    mount: (node: HTMLElement) => root.replaceChildren(node),
-    unmount: () => root.replaceChildren(),
+    mount: (node: HTMLElement, opts: { cleanup?: () => void } = {}) => {
+      cleanup?.();
+      cleanup = opts.cleanup;
+      root.replaceChildren(node);
+    },
+    unmount: () => {
+      cleanup?.();
+      cleanup = undefined;
+      root.replaceChildren();
+    },
     go: { mainMenu() {}, planet: (id: string) => showPlanetScreen(ctx, id), pause() {}, map: (o?: { onClose?: () => void }) => maps.push(o ?? {}) },
   } as UiContext;
   return { ctx, root, maps, data };
@@ -84,4 +93,35 @@ describe('every landed screen has the corner Map button, and closing the map ret
     expect(root.querySelector('[data-testid="shipyard"]')).not.toBeNull();
     expect(root.querySelector('.sw-map-corner')).not.toBeNull();
   });
+});
+
+describe('the N chip works on every non-planet screen', () => {
+  const press = (code: string, target: EventTarget = window) =>
+    target.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true }));
+  const screens: [string, string, (ctx: UiContext) => void][] = [
+    ['exchange', 'halcyon', (ctx) => showExchange(ctx, 'halcyon', () => {})],
+    ['mission computer', 'halcyon', (ctx) => showMissionComputer(ctx, 'halcyon', () => {})],
+    ['mission log', 'halcyon', (ctx) => showMissionLog(ctx, () => {})],
+    ['outfitter', 'halcyon', (ctx) => showOutfitter(ctx, 'halcyon', () => {})],
+    ['shipyard', 'vanterre', (ctx) => showShipyard(ctx, 'vanterre', () => {})],
+  ];
+  for (const [name, port, open] of screens) {
+    it(`${name}: N opens the map once and returns to the screen; not in a text field; stops after unmount`, async () => {
+      const { ctx, root, maps } = await setup(port);
+      open(ctx);
+      const id = root.firstElementChild!.getAttribute('data-testid');
+      const input = document.createElement('input');
+      root.append(input);
+      press('KeyN', input);
+      expect(maps).toHaveLength(0);
+      press('KeyN');
+      expect(maps).toHaveLength(1);
+      root.replaceChildren();
+      maps[0].onClose!();
+      expect(root.firstElementChild!.getAttribute('data-testid')).toBe(id);
+      ctx.unmount();
+      press('KeyN');
+      expect(maps).toHaveLength(1);
+    });
+  }
 });

@@ -133,10 +133,12 @@ describe('mountRails', () => {
     const kids = [...rail.children];
     expect(kids.indexOf(map)).toBe(kids.indexOf(radar) - 1);
     c.settings.touch.buttonSize = 'L';
-    const tight = mountRails({ parent, controller: c, inputMode: new InputMode(new EventTarget(), () => c.settings.bindings, 'touch'), size: () => ({ w: 667, h: 300 }), autoUpdate: false });
+    c.settings.touch.steering = 'classic';
+    const tight = mountRails({ parent, controller: c, inputMode: new InputMode(new EventTarget(), () => c.settings.bindings, 'touch'), size: () => ({ w: 667, h: 270 }), autoUpdate: false });
     tight.update();
     const maps = parent.querySelectorAll<HTMLButtonElement>('[data-control="map"]');
     expect(maps[1].hidden).toBe(false);
+    expect(parent.querySelectorAll<HTMLElement>('[data-control="radar"]')[1].hidden).toBe(true);
     expect(parseFloat(maps[1].style.height)).toBeGreaterThanOrEqual(44);
     const pressed: boolean[] = [];
     c.touch.press = ((a: string) => pressed.push(a === 'map')) as typeof c.touch.press;

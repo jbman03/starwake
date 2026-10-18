@@ -5,7 +5,7 @@ import { canAccept, MAX_MISSIONS, type MissionOffer } from '../sim/missions';
 import type { UiContext } from './context';
 import { worldStats } from '../sim/shipStats';
 import { button, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
-import { mapCornerButton } from './mapButton';
+import { mapCornerButton, mapCornerKey } from './mapButton';
 import { guideCard } from './guideHint';
 import { ACCEPT_REASON, deadlineText, destinationText, loadText, payText } from './missionText';
 
@@ -138,6 +138,7 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
     }
   };
   window.addEventListener('keydown', onKey);
+  const offMapKey = mapCornerKey(ctx, () => showMissionComputer(ctx, portId, onClose));
 
   ctx.mount(screen, {
     groups: ['menus'],
@@ -146,6 +147,7 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
     },
     cleanup: () => {
       window.removeEventListener('keydown', onKey);
+      offMapKey();
       hint.dispose();
     },
     guide: 'missions',

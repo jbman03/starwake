@@ -2,7 +2,7 @@ import { formatDate } from '../sim/calendar';
 import { MAX_MISSIONS } from '../sim/missions';
 import type { UiContext } from './context';
 import { button, confirmDialog, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
-import { mapCornerButton } from './mapButton';
+import { mapCornerButton, mapCornerKey } from './mapButton';
 import { deadlineText, destinationText, loadText, payText } from './missionText';
 
 /**
@@ -131,13 +131,17 @@ export function showMissionLog(ctx: UiContext, onClose: () => void): void {
     move(e.code === 'ArrowUp' ? -1 : 1);
   };
   window.addEventListener('keydown', onKey);
+  const offMapKey = mapCornerKey(ctx, () => showMissionLog(ctx, onClose));
 
   ctx.mount(screen, {
     groups: landed ? ['planet', 'menus'] : ['flight', 'menus'],
     onPress: (pressed) => {
       if (pressed.has('back') || pressed.has(closeAction)) close();
     },
-    cleanup: () => window.removeEventListener('keydown', onKey),
+    cleanup: () => {
+      window.removeEventListener('keydown', onKey);
+      offMapKey();
+    },
   });
   render();
 }
