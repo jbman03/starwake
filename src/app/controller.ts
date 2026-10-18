@@ -19,6 +19,7 @@ import {
   type AcceptCheck,
   type MissionOffer,
 } from '../sim/missions';
+import { buyShip, shipQuote, type ShipQuote } from '../sim/shipyard';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
@@ -364,6 +365,19 @@ export class Controller {
   outfitQuote(outfitId: string): BuyCheck {
     if (!this.landedPlanetId) return { ok: false, reason: 'notSold' };
     return outfitBuyCheck(this.world, this.data, this.landedPlanetId, outfitId);
+  }
+
+  /** Trade in the current ship for another here (like exchange trades, this does not save). */
+  buyShip(shipId: string): ShipQuote {
+    if (!this.landedPlanetId) return shipQuote(this.world, this.data, '', shipId);
+    const r = buyShip(this.world, this.data, this.landedPlanetId, shipId);
+    this.world = r.world;
+    return r.quote;
+  }
+
+  /** What swapping to this ship would cost right now, without doing it. */
+  shipQuote(shipId: string): ShipQuote {
+    return shipQuote(this.world, this.data, this.landedPlanetId ?? '', shipId);
   }
 
   /** Today's jobs at the planet we're landed on; none when not landed. */
