@@ -35,9 +35,9 @@ export const STICK_DEADZONE = 0.25;
 /** Point-mode stick magnitude above which the ship thrusts. */
 export const STICK_THRUST = 0.6;
 
-export const MSG_TOO_CLOSE = 'Too close to the star to jump. Use autopilot (G) to fly out.';
+export const MSG_TOO_CLOSE = 'Too close to the star to jump. {autopilot} to fly out.';
 export const MSG_NO_FUEL = 'Not enough fuel to jump.';
-export const MSG_NO_DESTINATION = 'Choose a destination on the star map (M).';
+export const MSG_NO_DESTINATION = 'Choose a destination on the star map{map}.';
 export const MSG_ROUTE_BROKEN = 'Course no longer valid — plot a new one on the star map.';
 
 const NONE: Assist = { kind: 'none' };

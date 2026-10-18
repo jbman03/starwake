@@ -15,6 +15,7 @@ import {
   JUMP_DURATION,
   jumpHeading,
   MSG_NO_DESTINATION,
+  MSG_TOO_CLOSE,
   MSG_ROUTE_BROKEN,
   newWorld,
   setRoute,
@@ -297,7 +298,7 @@ describe('stepWorld: jumping', () => {
     expect(w.systemId).toBe('vesk');
     // Post-arrival presses are refused as too close, never as a second jump.
     for (const e of events.filter((x) => x.type === 'message')) {
-      expect(e).toEqual({ type: 'message', text: 'Too close to the star to jump. Use autopilot (G) to fly out.' });
+      expect(e).toEqual({ type: 'message', text: MSG_TOO_CLOSE });
     }
   });
 
@@ -369,7 +370,7 @@ describe('stepWorld: jumping', () => {
 
   it('too close → message', () => {
     const r = stepWorld(newWorld(data), data, frame(['jump']), DT, OPTS);
-    expect(r.events).toEqual([{ type: 'message', text: 'Too close to the star to jump. Use autopilot (G) to fly out.' }]);
+    expect(r.events).toEqual([{ type: 'message', text: MSG_TOO_CLOSE }]);
     expect(r.world.jump).toBeNull();
     expect(r.world.ship.fuel).toBe(300);
   });
@@ -476,7 +477,7 @@ describe('stepWorld: destinations and routes', () => {
     const w = at(w0, { x: data.systems.mirren.jumpDistance + 100, y: 0 });
     const r = stepWorld(w, data, frame(['jump']), DT, OPTS);
     expect(r.events).toEqual([{ type: 'message', text: MSG_NO_DESTINATION }]);
-    expect(MSG_NO_DESTINATION).toBe('Choose a destination on the star map (M).');
+    expect(MSG_NO_DESTINATION).toBe('Choose a destination on the star map{map}.');
     expect(r.world.jump).toBeNull();
     expect(r.world.ship.fuel).toBe(300);
   });

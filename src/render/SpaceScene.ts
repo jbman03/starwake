@@ -8,6 +8,8 @@ import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { JUMP_DURATION } from '../sim/world';
 import { skipLabel } from '../guide/guide';
+import { hotkeyFor } from '../ui/dom';
+import { formatMessage } from '../ui/messageText';
 import { Hud, type HudGuide } from './hud';
 import {
   makePlanetTexture,
@@ -72,7 +74,15 @@ export class SpaceScene extends Phaser.Scene {
 
     this.unsubs.push(
       this.controller.on('jumped', (e) => this.buildSystem(e.toSystemId)),
-      this.controller.on('message', (e) => this.hud.showMessage(e.text)),
+      this.controller.on('message', (e) =>
+        this.hud.showMessage(
+          formatMessage(
+            e.text,
+            (a) => hotkeyFor(this.controller.settings.bindings, a) ?? null,
+            this.inputMode.mode === 'touch',
+          ),
+        ),
+      ),
     );
 
     this.applyLayout();
