@@ -68,6 +68,8 @@ export interface WorldState {
   events: MarketEvent[];
   /** Offer ids already accepted, so a taken job cannot be taken again the same day. */
   takenOffers: string[];
+  /** Owned outfits: outfit id -> count. Only counts > 0; maps (category 'map') are never stored. */
+  outfits: Record<string, number>;
 }
 
 export type SimEvent =

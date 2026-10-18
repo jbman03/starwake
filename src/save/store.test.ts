@@ -7,9 +7,9 @@ import { PILOT_DB, PILOT_OBJECT_STORE, PilotStore } from './store';
 let n = 0;
 const mkStore = () => createStore(`db-${n++}`, 'kv');
 const mk = (over: Partial<PilotSave> = {}): PilotSave => ({
-  version: 2, id: 'p1', name: 'Ann', credits: 100, shipId: 's', fuel: 5, systemId: 'x',
+  version: 3, id: 'p1', name: 'Ann', credits: 100, shipId: 's', fuel: 5, systemId: 'x',
   planetId: 'y', gameTimeSec: 1, savedAt: '2026-01-01T00:00:00.000Z',
-  day: 0, seed: 1, cargo: {}, missions: [], route: [], known: ['x'], seen: [], pressure: {}, events: [], takenOffers: [], ...over,
+  day: 0, seed: 1, cargo: {}, missions: [], route: [], known: ['x'], seen: [], pressure: {}, events: [], takenOffers: [], outfits: {}, ...over,
 });
 
 describe('PilotStore', () => {

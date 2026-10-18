@@ -5,7 +5,7 @@ import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 2;
+export const CURRENT_SAVE_VERSION = 3;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -39,7 +39,7 @@ const MarketEventSchema = z.object({
 });
 
 export const PilotSaveSchema = z.object({
-  version: z.literal(2),
+  version: z.literal(3),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -62,6 +62,8 @@ export const PilotSaveSchema = z.object({
   pressure: z.record(z.string(), z.number().finite()),
   events: z.array(MarketEventSchema),
   takenOffers: z.array(z.string()),
+  // v3: owned outfits (outfit id -> count).
+  outfits: z.record(z.string(), z.number().int().positive()),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
@@ -84,6 +86,8 @@ export const migrations: Record<number, (s: any) => any> = {
     events: [],
     takenOffers: [],
   }),
+  // v2 -> v3: no outfits owned.
+  2: (s) => ({ ...s, version: 3, outfits: {} }),
 };
 
 export function upgradeSave(raw: unknown): PilotSave {
@@ -129,6 +133,7 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
     pressure: { ...world.pressure },
     events: world.events.map((e) => ({ ...e })),
     takenOffers: [...world.takenOffers],
+    outfits: { ...world.outfits },
   };
 }
 
@@ -136,6 +141,7 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
   const planet = data.planets[p.planetId];
   if (!data.ships[p.shipId] || !data.systems[p.systemId] || !planet) throw new SaveError('invalid', 'unknown id');
   for (const id of Object.keys(p.cargo)) if (!data.commodities[id]) throw new SaveError('unknownContent', `unknown commodity "${id}"`);
+  for (const id of Object.keys(p.outfits)) if (!data.outfits[id]) throw new SaveError('unknownContent', `unknown outfit "${id}"`);
   for (const m of p.missions) if (!data.planets[m.destId]) throw new SaveError('unknownContent', `unknown mission port "${m.destId}"`);
   // A v1 upgrade has no chart: start from the opening chart plus where the pilot is. Either way
   // `seen` is recomputed so it is exactly the unvisited neighbours of `known`.
@@ -162,6 +168,7 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     pressure: { ...p.pressure },
     events: p.events.map((e) => ({ ...e })),
     takenOffers: [...p.takenOffers],
+    outfits: { ...p.outfits },
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
 }
