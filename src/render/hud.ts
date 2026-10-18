@@ -46,6 +46,7 @@ export class Hud {
   private guideKey = '';
   private statics: Phaser.GameObjects.GameObject[] = [];
   private touchMode = false;
+  private sidebar = false;
   private viewW = 0;
   private viewH = 0;
 
@@ -88,19 +89,24 @@ export class Hud {
       .setVisible(false)
       .setInteractive({ useHandCursor: true });
     this.guideSkip.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => onGuideSkip());
-    this.setLayout(scene.scale.width, scene.scale.height, false);
+    this.setLayout(scene.scale.width, scene.scale.height, false, false);
   }
 
-  /** Size of the camera viewport the HUD is drawn in, and whether touch rails are showing. */
-  setLayout(viewW: number, viewH: number, touchMode: boolean): void {
-    if (viewW === this.viewW && viewH === this.viewH && touchMode === this.touchMode) return;
+  /**
+   * Size of the camera viewport the HUD is drawn in, whether touch rails are showing, and whether
+   * the PC sidebar replaces the status panel (the guide hint then sits top-left).
+   */
+  setLayout(viewW: number, viewH: number, touchMode: boolean, sidebar = false): void {
+    if (viewW === this.viewW && viewH === this.viewH && touchMode === this.touchMode && sidebar === this.sidebar) return;
+    this.sidebar = sidebar;
+    this.guideKey = '';
     this.viewW = viewW;
     this.viewH = viewH;
     this.touchMode = touchMode;
     for (const o of [this.panel, this.system, this.fuel, this.credits, this.cargo, this.target, ...this.statics]) {
-      (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(!touchMode);
+      (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(!touchMode && !sidebar);
     }
-    if (touchMode) this.course.setVisible(false);
+    if (touchMode || sidebar) this.course.setVisible(false);
     this.banner.setPosition(viewW / 2, 14);
     // Touch mode: the message sits below the (HTML) route banner, clear of the context button.
     if (touchMode) this.message.setOrigin(0.5, 0).setPosition(viewW / 2, 56);
@@ -143,12 +149,12 @@ export class Hud {
 
   /** The hint box under the status panel (the touch rail draws its own in touch mode). */
   private drawGuide(guide: HudGuide | null): void {
-    const key = guide ? `${this.panelH}|${guide.skip}|${guide.text}` : '';
+    const key = guide ? `${this.sidebar}|${this.panelH}|${guide.skip}|${guide.text}` : '';
     if (key === this.guideKey) return;
     this.guideKey = key;
     for (const o of [this.guideBox, this.guideText, this.guideSkip]) o.setVisible(guide !== null);
     if (!guide) return;
-    const top = 10 + this.panelH + GUIDE_GAP;
+    const top = this.sidebar ? 10 : 10 + this.panelH + GUIDE_GAP;
     this.guideText.setText(guide.text).setPosition(20, top + 8);
     this.guideSkip.setText(`${guide.skip} ›`).setPosition(20, top + 8 + this.guideText.height + 2);
     const h = this.guideText.height + this.guideSkip.height + 18;
@@ -168,7 +174,7 @@ export class Hud {
   }
 
   update(world: WorldState, data: GameData, dtSec: number, guide: HudGuide | null = null): void {
-    if (!this.touchMode) {
+    if (!this.touchMode && !this.sidebar) {
       const info = hudInfo(world, data);
       this.system.setText(info.system);
       this.fuel.setText(info.fuel).setColor(info.fuelColor);

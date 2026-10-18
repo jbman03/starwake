@@ -162,7 +162,7 @@ test.describe('phone (touch, landscape)', () => {
   });
 });
 
-test('keyboard mode: no rails, camera fills the window, no rotate overlay', async ({ page }) => {
+test('keyboard mode: no rails, camera fills the window beside the PC sidebar, no rotate overlay', async ({ page }) => {
   await newPilot(page, 'Keys');
   await page.keyboard.press('KeyL');
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);
@@ -171,5 +171,5 @@ test('keyboard mode: no rails, camera fills the window, no rotate overlay', asyn
   const size = page.viewportSize()!;
   await expect
     .poll(() => page.evaluate(() => window.__starwake!.cameraViewport!()))
-    .toEqual({ x: 0, y: 0, w: size.width, h: size.height });
+    .toEqual({ x: 0, y: 0, w: size.width >= 700 ? size.width - 200 : size.width, h: size.height });
 });

@@ -1,6 +1,7 @@
 import type { GameData } from '../data/schemas';
 import type { PilotStore } from '../save/store';
 import type { WorldState } from '../sim/types';
+import type { SidebarInfo } from '../render/sidebarInfo';
 import type { Controller } from './controller';
 
 export interface StarwakeTestHook {
@@ -16,6 +17,8 @@ export interface StarwakeTestHook {
   hudCourse?: () => string | null;
   /** Set by SpaceScene: the desktop HUD's guide hint and its skip control's screen box, or null when hidden. */
   hudGuide?: () => { text: string; skip: { x: number; y: number; w: number; h: number } } | null;
+  /** Set by SpaceScene: whether the PC sidebar is showing, and what it shows. */
+  sidebar?: () => { visible: boolean; info: SidebarInfo };
   /** Set by SpaceScene: a planet's on-screen position, or null if not in the current system. */
   planetScreenPos?: (planetId: string) => { x: number; y: number } | null;
 }

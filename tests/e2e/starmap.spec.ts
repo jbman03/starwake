@@ -65,7 +65,7 @@ test.describe('desktop', () => {
     await map.getByRole('button', { name: /^Close/ }).click();
     await expect(map).toBeHidden();
     await page.waitForFunction(() => window.__starwake!.controller.isFlying);
-    await expect.poll(() => page.evaluate(() => window.__starwake!.hudCourse!())).toBe('Course: Tessaly (1 jump)');
+    await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar!().info.nav)).toBe('Tessaly · 1 jump');
 
     await page.keyboard.press('KeyG');
     await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'autopilot');
@@ -78,7 +78,7 @@ test.describe('desktop', () => {
     const w = await page.evaluate(() => window.__starwake!.world());
     expect(w.route).toEqual([]);
     expect(w.day).toBe(1);
-    await expect.poll(() => page.evaluate(() => window.__starwake!.hudCourse!())).toBeNull();
+    await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar!().info.nav)).toBe('No course');
 
     // Back on the map, the date has moved on and Tessaly is now the current system.
     await page.keyboard.press('KeyM');

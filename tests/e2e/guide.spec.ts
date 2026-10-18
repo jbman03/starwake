@@ -70,11 +70,11 @@ test.describe('desktop', () => {
     await page.keyboard.press('KeyL');
     await page.waitForFunction(() => window.__starwake!.controller.isFlying);
 
-    // 6: the hint is in the HUD column, under the status panel, wrapped to its width.
+    // 6: with the PC sidebar the status panel is gone, so the hint sits top-left, wrapped to its width.
     expect(await hudHint(page, /^Fly:/)).toBe('Fly: ↑ thrust, ← → turn, X stop.');
     const box = (await page.evaluate(() => window.__starwake!.hudGuide!()))!.skip;
     expect(box.x).toBeLessThan(40);
-    expect(box.y).toBeGreaterThan(174);
+    expect(box.y).toBeLessThan(174);
     await page.screenshot({ path: `${SHOTS}/guide-desktop-flight.png` });
     await page.keyboard.down('ArrowUp');
     await expect.poll(() => step(page), { timeout: 20_000 }).toBe(7);
