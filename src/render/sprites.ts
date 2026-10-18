@@ -125,7 +125,24 @@ function boxBlur(src: Float32Array, w: number, h: number, r: number): Float32Arr
 // ---------------------------------------------------------------- ships
 
 type Pt = [number, number];
-/** Hull outline in units of ship radius, nose toward +x. Mirrored about the x axis. */
+type Hull = ShipDef['hull'];
+
+interface HullProfile {
+  /** Hull outline in units of ship radius, nose toward +x. Mirrored about the x axis. */
+  half: Pt[];
+  /** Raised centre body. */
+  fuselage: Pt[];
+  /** Cockpit canopy: centre x, half-length, half-width. */
+  canopy: [number, number, number];
+  /** Accent stripe polygon for the +y side (mirrored to -y). */
+  stripe: Pt[];
+  /** x positions of panel seams across the fuselage, and the seam half-width. */
+  seams: number[];
+  seamHalfWidth: number;
+  /** Engine nozzle rectangles for the +y side (x, y, w, h); mirrored to -y. */
+  nozzles: [number, number, number, number][];
+}
+
 const HULL_HALF: Pt[] = [
   [1.05, 0],
   [0.75, 0.16],
@@ -145,6 +162,120 @@ const FUSELAGE_HALF: Pt[] = [
   [-0.6, 0.24],
   [-0.8, 0.14],
 ];
+
+/** One silhouette per hull class. `pod` is the original starter shuttle shape. */
+export const HULL_PROFILES: Record<Hull, HullProfile> = {
+  // Starter shuttle: stubby body with broad rear wings.
+  pod: {
+    half: HULL_HALF,
+    fuselage: FUSELAGE_HALF,
+    canopy: [0.42, 0.24, 0.1],
+    stripe: [[-0.28, 0.55], [-0.4, 0.86], [-0.5, 0.84], [-0.38, 0.5]],
+    seams: [-0.1, -0.45],
+    seamHalfWidth: 0.24,
+    nozzles: [[-0.88, 0.06, 0.1, 0.14]],
+  },
+  // Slim needle nose with long swept-back blades.
+  dart: {
+    half: [
+      [1.1, 0],
+      [0.55, 0.07],
+      [0.1, 0.13],
+      [-0.2, 0.18],
+      [-0.55, 0.82],
+      [-0.78, 0.9],
+      [-0.7, 0.34],
+      [-0.9, 0.2],
+      [-0.94, 0.08],
+    ],
+    fuselage: [[1.0, 0], [0.4, 0.09], [-0.2, 0.13], [-0.8, 0.1]],
+    canopy: [0.38, 0.22, 0.06],
+    stripe: [[-0.3, 0.3], [-0.6, 0.78], [-0.68, 0.8], [-0.5, 0.3]],
+    seams: [0.0, -0.4],
+    seamHalfWidth: 0.12,
+    nozzles: [[-0.96, 0.02, 0.08, 0.1]],
+  },
+  // Broad arrowhead with a deep chevron cut at the stern.
+  wedge: {
+    half: [
+      [1.0, 0],
+      [0.55, 0.26],
+      [0.05, 0.58],
+      [-0.4, 0.92],
+      [-0.78, 0.96],
+      [-0.86, 0.62],
+      [-0.7, 0.3],
+      [-0.82, 0.12],
+    ],
+    fuselage: [[0.9, 0], [0.4, 0.2], [-0.2, 0.34], [-0.7, 0.3], [-0.78, 0.12]],
+    canopy: [0.35, 0.26, 0.11],
+    stripe: [[0.1, 0.4], [-0.3, 0.8], [-0.42, 0.78], [-0.05, 0.36]],
+    seams: [0.0, -0.35],
+    seamHalfWidth: 0.3,
+    nozzles: [[-0.9, 0.1, 0.1, 0.18], [-0.9, 0.42, 0.1, 0.16]],
+  },
+  // Blunt boxy spine flanked by square cargo pods.
+  hauler: {
+    half: [
+      [1.0, 0],
+      [0.88, 0.2],
+      [0.62, 0.26],
+      [0.56, 0.62],
+      [0.5, 0.66],
+      [-0.58, 0.66],
+      [-0.62, 0.5],
+      [-0.62, 0.4],
+      [-0.9, 0.38],
+      [-0.94, 0.14],
+    ],
+    fuselage: [[0.9, 0], [0.7, 0.2], [-0.8, 0.22], [-0.86, 0.1]],
+    canopy: [0.72, 0.14, 0.12],
+    stripe: [[0.3, 0.3], [0.3, 0.6], [-0.3, 0.6], [-0.3, 0.3]],
+    seams: [0.3, -0.05, -0.4],
+    seamHalfWidth: 0.62,
+    nozzles: [[-0.96, 0.04, 0.1, 0.12], [-0.96, 0.24, 0.1, 0.12]],
+  },
+  // Long, smooth spindle with a bulging mid-section and window row.
+  liner: {
+    half: [
+      [1.08, 0],
+      [0.95, 0.16],
+      [0.7, 0.32],
+      [0.3, 0.42],
+      [-0.2, 0.46],
+      [-0.65, 0.4],
+      [-0.9, 0.28],
+      [-1.0, 0.16],
+      [-1.0, 0.06],
+    ],
+    fuselage: [[0.98, 0], [0.7, 0.18], [0.0, 0.3], [-0.7, 0.26], [-0.92, 0.1]],
+    canopy: [0.74, 0.2, 0.1],
+    stripe: [[0.45, 0.34], [-0.45, 0.4], [-0.45, 0.35], [0.45, 0.3]],
+    seams: [0.3, -0.1, -0.5],
+    seamHalfWidth: 0.3,
+    nozzles: [[-1.04, 0.04, 0.09, 0.1]],
+  },
+  // Huge flat-decked slab: squared bow, wide beam, stepped stern.
+  carrier: {
+    half: [
+      [1.0, 0.12],
+      [0.94, 0.52],
+      [0.62, 0.72],
+      [0.0, 0.94],
+      [-0.7, 0.98],
+      [-0.96, 0.84],
+      [-0.98, 0.5],
+      [-0.9, 0.34],
+      [-0.94, 0.16],
+    ],
+    fuselage: [[0.9, 0.1], [0.8, 0.36], [-0.8, 0.4], [-0.86, 0.14]],
+    canopy: [0.55, 0.12, 0.18],
+    stripe: [[0.7, 0.55], [-0.6, 0.75], [-0.6, 0.68], [0.7, 0.48]],
+    seams: [0.4, 0.0, -0.4],
+    seamHalfWidth: 0.4,
+    nozzles: [[-1.0, 0.12, 0.1, 0.2], [-1.0, 0.5, 0.1, 0.2]],
+  },
+};
 
 function mirrored(half: Pt[]): Pt[] {
   const back = half.filter((p) => p[1] !== 0).map(([x, y]) => [x, -y] as Pt).reverse();
@@ -175,9 +306,11 @@ function readChannel(ctx: CanvasRenderingContext2D, size: number, ch: number): F
 }
 
 /** Renders one lit hull frame and returns RGBA pixels. */
-function renderShipFrame(size: number, scale: number, angle: number, hue: number): ImageData {
-  const hull = mirrored(HULL_HALF);
-  const fuselage = mirrored(FUSELAGE_HALF);
+function renderShipFrame(size: number, scale: number, angle: number, hue: number, hullClass: Hull): ImageData {
+  const prof = HULL_PROFILES[hullClass];
+  const hull = mirrored(prof.half);
+  const fuselage = mirrored(prof.fuselage);
+  const [cx, crx, cry] = prof.canopy;
 
   // Height map: wings low, fuselage raised, cockpit canopy highest.
   const [, hctx] = canvas(size, size);
@@ -190,7 +323,7 @@ function renderShipFrame(size: number, scale: number, angle: number, hue: number
     hctx.fill();
     hctx.fillStyle = 'rgb(255,255,255)';
     hctx.beginPath();
-    hctx.ellipse(0.42, 0, 0.26, 0.12, 0, 0, Math.PI * 2);
+    hctx.ellipse(cx, 0, crx + 0.02, cry + 0.02, 0, 0, Math.PI * 2);
     hctx.fill();
   });
   const rawHeight = readChannel(hctx, size, 0);
@@ -209,30 +342,29 @@ function renderShipFrame(size: number, scale: number, angle: number, hue: number
     cctx.fillStyle = `hsl(${(hue + 180) % 360}, 55%, 45%)`;
     for (const s of [1, -1]) {
       cctx.beginPath();
-      cctx.moveTo(-0.28, 0.55 * s);
-      cctx.lineTo(-0.4, 0.86 * s);
-      cctx.lineTo(-0.5, 0.84 * s);
-      cctx.lineTo(-0.38, 0.5 * s);
+      prof.stripe.forEach(([x, y], i) => (i ? cctx.lineTo(x, y * s) : cctx.moveTo(x, y * s)));
       cctx.closePath();
       cctx.fill();
     }
     cctx.strokeStyle = 'rgba(40,40,48,0.55)';
     cctx.lineWidth = 0.035;
     cctx.beginPath();
-    cctx.moveTo(-0.1, -0.24);
-    cctx.lineTo(-0.1, 0.24);
-    cctx.moveTo(-0.45, -0.24);
-    cctx.lineTo(-0.45, 0.24);
+    for (const x of prof.seams) {
+      cctx.moveTo(x, -prof.seamHalfWidth);
+      cctx.lineTo(x, prof.seamHalfWidth);
+    }
     cctx.stroke();
     // Canopy glass.
     cctx.fillStyle = 'rgb(40,70,110)';
     cctx.beginPath();
-    cctx.ellipse(0.42, 0, 0.24, 0.1, 0, 0, Math.PI * 2);
+    cctx.ellipse(cx, 0, crx, cry, 0, 0, Math.PI * 2);
     cctx.fill();
     // Engine nozzles (dark).
     cctx.fillStyle = 'rgb(35,35,40)';
-    cctx.fillRect(-0.88, -0.2, 0.1, 0.14);
-    cctx.fillRect(-0.88, 0.06, 0.1, 0.14);
+    for (const [x, y, w, h] of prof.nozzles) {
+      cctx.fillRect(x, y, w, h);
+      cctx.fillRect(x, -y - h, w, h);
+    }
   });
   const col = cctx.getImageData(0, 0, size, size);
   const px = col.data;
@@ -258,6 +390,12 @@ function renderShipFrame(size: number, scale: number, angle: number, hue: number
   return col;
 }
 
+/** Draws one shaded frame of `def` at heading -90 degrees (nose up) filling a size x size context. */
+export function drawShipFrame(ctx: CanvasRenderingContext2D, size: number, def: ShipDef): void {
+  const scale = size / 2.4;
+  ctx.putImageData(renderShipFrame(size, scale, -Math.PI / 2, hashString(def.id) % 360, def.hull), 0, 0);
+}
+
 /**
  * Generates SHIP_FRAMES frames (10° steps) of a shaded hull into one texture keyed
  * `shipTextureKey(def)`, with frames named 0..35. Use `shipFrame(heading)` to pick one.
@@ -271,7 +409,7 @@ export function makeShipTextures(scene: Phaser.Scene, def: ShipDef): string {
   const [sheet, sctx] = canvas(cols * size, rows * size);
   const hue = hashString(def.id) % 360;
   for (let f = 0; f < SHIP_FRAMES; f++) {
-    const img = renderShipFrame(size, scale, f * FRAME_STEP, hue);
+    const img = renderShipFrame(size, scale, f * FRAME_STEP, hue, def.hull);
     const fx = (f % cols) * size, fy = Math.floor(f / cols) * size;
     sctx.putImageData(img, fx, fy);
     // Engine glow, drawn after lighting so it stays bright.
