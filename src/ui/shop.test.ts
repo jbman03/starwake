@@ -19,7 +19,11 @@ async function setup(portId: string, credits = 50000) {
   c.beginSession({ ...w, credits }, { id: 'p', name: 'P' }, portId);
   const root = document.createElement('div');
   document.body.replaceChildren(root);
-  const calls = { planet: [] as string[], onPress: undefined as ((p: Set<string>) => void) | undefined };
+  const calls = {
+    planet: [] as string[],
+    onPress: undefined as ((p: Set<string>) => void) | undefined,
+    mapClose: undefined as (() => void) | undefined,
+  };
   const ctx = {
     root,
     controller: c,
@@ -35,7 +39,9 @@ async function setup(portId: string, credits = 50000) {
       mainMenu() {},
       planet: (id: string) => calls.planet.push(id),
       pause() {},
-      map() {},
+      map: (o?: { onClose?: () => void }) => {
+        calls.mapClose = o?.onClose;
+      },
     },
   } as UiContext;
   return { root, c, ctx, calls, data };
@@ -64,6 +70,17 @@ describe('outfitter', () => {
     await flush();
     expect(tile(root, 'cargo-pod').querySelector('.sw-shop-badge')?.textContent).toBe('1');
     expect(c.world.credits).toBe(before - 2000);
+  });
+
+  it('coming back from the map keeps the selected tile', async () => {
+    const { root, ctx, calls } = await setup('halcyon');
+    showOutfitter(ctx, 'halcyon', () => {});
+    const ids = [...root.querySelectorAll('[data-item]')].map((n) => n.getAttribute('data-item')!);
+    const pick = ids[2];
+    tile(root, pick).click();
+    root.querySelector<HTMLButtonElement>('.sw-map-corner')!.click();
+    calls.mapClose!();
+    expect(tile(root, pick).classList.contains('sw-shop-selected')).toBe(true);
   });
 
   it('disables Buy with the space reason once the space is full', async () => {

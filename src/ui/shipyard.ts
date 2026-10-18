@@ -67,7 +67,7 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
       const to = data.ships[id].name;
       const ok = await confirmDialog(ctx.root, {
         title: `Trade in your ${from} and buy ${to} for ${formatCredits(q.net)}?`,
-        message: 'Your fitted outfits go with the old ship.',
+        message: Object.values(controller.world.outfits).some((c) => c > 0) ? 'Your fitted outfits go with the old ship.' : undefined,
         confirm: 'Buy ship',
       });
       if (!ok) return;

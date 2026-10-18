@@ -116,7 +116,7 @@ describe('How to Play', () => {
       .flatMap((t) => tabText(t, DEFAULT_SETTINGS.bindings, data))
       .map((x) => x.text)
       .join(' ');
-    expect(all).toContain('Your hold fits 35 t.');
+    expect(all).toContain("The starter shuttle's hold fits 35 t;");
     expect(all).toContain('Each jump uses 75 fuel');
     expect(all).toContain("holds 4 jumps' worth");
     expect(all).toContain('It costs 650 cr');

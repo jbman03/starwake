@@ -127,6 +127,12 @@ describe('pilot', () => {
     expect(back.outfits).toEqual({ 'cargo-pod': 2 });
   });
 
+  it('drops map-category outfits so a crafted save cannot hold charts', () => {
+    const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
+    const back = worldFromPilot({ ...p, outfits: { 'local-chart': 1, 'cargo-pod': 1 } }, data);
+    expect(back.outfits).toEqual({ 'cargo-pod': 1 });
+  });
+
   it('an unknown outfit id -> unknownContent', () => {
     const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
     expect(() => worldFromPilot({ ...p, outfits: { 'no-such-outfit': 1 } }, data)).toThrowError(

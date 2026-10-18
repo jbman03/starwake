@@ -27,6 +27,8 @@ export interface ShopOpts {
   /** Absent = no Sell button (the shipyard). */
   onSell?(id: string, say: Say): void;
   onClose(): void;
+  /** Tile to select on open (a rebuild after the map keeps the player's choice). */
+  selected?: string;
 }
 
 /** Tiles per page: 4x3 on desktop, 3x2 on a phone (short or narrow viewport). */
@@ -42,11 +44,13 @@ export function pageSize(width: number, height: number): { cols: number; rows: n
 export function showShop(ctx: UiContext, opts: ShopOpts): void {
   const { controller } = ctx;
   const bindings = controller.settings.bindings;
-  let selected = '';
+  let selected = opts.selected ?? '';
   let page = 0;
   let message = '';
   let messageBad = false;
   let items: ShopItem[] = [];
+
+  const reopen = () => showShop(ctx, { ...opts, selected });
 
   const close = () => {
     ctx.unmount();
@@ -164,7 +168,7 @@ export function showShop(ctx: UiContext, opts: ShopOpts): void {
   const actions = [buyBtn, ...(sellBtn ? [sellBtn] : []), doneBtn];
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-shop-screen', attrs: { 'data-testid': opts.testId } }, [
     el('div', { class: 'sw-panel sw-shop' }, [
-      mapCornerButton(ctx, () => showShop(ctx, opts)),
+      mapCornerButton(ctx, reopen),
       el('h1', { class: 'sw-title', text: opts.title }),
       stats,
       el('div', { class: 'sw-shop-body' }, [
@@ -188,7 +192,7 @@ export function showShop(ctx: UiContext, opts: ShopOpts): void {
   const onResize = () => render();
   window.addEventListener('keydown', onKey);
   window.addEventListener('resize', onResize);
-  const offMapKey = mapCornerKey(ctx, () => showShop(ctx, opts));
+  const offMapKey = mapCornerKey(ctx, reopen);
 
   ctx.mount(screen, {
     groups: ['shop', 'menus'],

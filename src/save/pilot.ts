@@ -168,7 +168,8 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     pressure: { ...p.pressure },
     events: p.events.map((e) => ({ ...e })),
     takenOffers: [...p.takenOffers],
-    outfits: { ...p.outfits },
+    // Charts are one-time map reveals, never fitted gear: a crafted save can't hold them.
+    outfits: Object.fromEntries(Object.entries(p.outfits).filter(([id]) => data.outfits[id].category !== 'map')),
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
 }
