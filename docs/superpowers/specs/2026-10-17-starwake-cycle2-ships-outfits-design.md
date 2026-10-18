@@ -144,6 +144,30 @@ Closing the map returns to the same screen with the same mission still highlight
 Unknown destinations are still marked (the mission names them). Works with touch (the
 button) and keyboard (the key).
 
+### 4.5 Always-available star map (owner request)
+The owner could not find a way to open the map in flight (M on PC and a radar tap on
+phone were not discoverable). The map becomes a **fixed, always-visible control**:
+- **In flight, PC:** a **Map** button in the sidebar HUD (§5), showing its key.
+- **In flight, phone:** a **Map** button in a rail, in the same spot every time.
+  Nothing covers the game view.
+- **On screens (planet, exchange, missions, shops, log):** a **Map** button in one
+  fixed corner of the frame, the same place on every screen, replacing the planet
+  screen's per-world "Star Map" button.
+- The `map` / `openMap` hotkeys still work. The guide's map-step hints, How to Play and
+  the tests are updated to point at the button.
+
+### 4.6 Refuel at every port (owner request)
+Every landable planet and station sells fuel.
+- **Data:** every port gets a `fuelPrice`, and `'refuel'` is no longer a listed
+  service: refuel is always offered. The 7 ports without fuel today get a price.
+  Fringe and low-tier ports charge more (about 2–3× core prices), so where you fill
+  up still matters.
+- **Validation:** the "refuel listed exactly when fuelPrice is set" rule becomes
+  "every port has a fuelPrice".
+- **Towing:** this is still needed when you're stranded in space with too little fuel
+  to jump. The tow destination becomes the nearest port, which now always sells fuel.
+- The guide, How to Play text and tests that mention ports without fuel are updated.
+
 ## 5. PC sidebar HUD
 
 In keyboard mode a right-hand sidebar (about 200 px) replaces the top-left status

@@ -54,6 +54,16 @@ https://infinitemac.org/1996/System%207.5.3 (useful for checking feel later).
 - **Combat:** lasers and missiles hit shields, then armor. Below 10% armor a
   ship is disabled: can't move or shoot, slows and drifts (then boardable).
 
+## Owner feedback after playing (2026-10-17)
+
+- **Map must always be reachable.** In flight there was no obvious way to open it.
+  Make it a fixed Map button (PC sidebar, phone rail, one fixed spot on every
+  screen) instead of a per-world button. → cycle 2 spec §4.5
+- **Refuel anywhere.** Running low, the owner couldn't refuel at some worlds. Every
+  port now sells fuel; remote ports charge more. → cycle 2 spec §4.6
+- **Mission destination on the map.** Highlighting a mission and pressing the Map key
+  should show where it goes, to plan the trip. → cycle 2 spec §4.4
+
 ## Expansion cycles (agreed 2026-10-16)
 
 1. **Trade, mission computer, more systems** — ~20 systems in three areas
