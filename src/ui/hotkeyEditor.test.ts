@@ -19,7 +19,7 @@ describe('hotkey editor sections', () => {
   it('lists every group, including Exchange, with each action in it', () => {
     const { ed } = setup();
     const titles = [...ed.node.querySelectorAll('.sw-hotkey-group-title')].map((h) => h.textContent);
-    expect(titles).toEqual(['Flight', 'Planet screen', 'Exchange', 'Menus']);
+    expect(titles).toEqual(['Flight', 'Planet screen', 'Exchange', 'Shops', 'Menus']);
     const exchange = ed.node.querySelector('[aria-label="Exchange"]')!;
     expect(exchange.textContent).toContain('Buy goods');
     expect(exchange.textContent).toContain('Sell goods');
@@ -41,8 +41,8 @@ describe('hotkey editor unbound actions', () => {
     expect(markers.map((m) => m.dataset.testid)).toEqual(['unbound-openMap']);
     expect(markers[0].textContent).toBe('Unbound — click to set');
     markers[0].click();
-    press('KeyY');
-    expect(settings.bindings.openMap).toEqual(['KeyY', null]);
+    press('KeyZ');
+    expect(settings.bindings.openMap).toEqual(['KeyZ', null]);
     expect(ed.node.querySelector('[data-testid="unbound-openMap"]')).toBeNull();
     ed.dispose();
     document.body.replaceChildren();

@@ -83,9 +83,9 @@ describe('planet screen', () => {
 
   it('Halcyon offers every service, in order, with hotkey chips, plus date and cargo', async () => {
     const { root } = await setup(1000, 150);
-    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Refuel — 300 cr', 'Star Map', 'Mission Log', 'How to Play', 'Leave']);
+    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Outfitter', 'Refuel — 300 cr', 'Star Map', 'Mission Log', 'How to Play', 'Leave']);
     const chips = [...root.querySelectorAll('.sw-actions .sw-key')].map((k) => k.textContent);
-    expect(chips).toEqual(['C', 'M', 'R', 'N', 'K', 'H', 'L']);
+    expect(chips).toEqual(['C', 'M', 'O', 'R', 'N', 'K', 'H', 'L']);
     expect(root.textContent).toContain('1 Mar 3207');
     expect(root.textContent).toContain('Cargo: 20/20 t');
   });

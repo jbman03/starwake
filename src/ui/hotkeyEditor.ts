@@ -10,6 +10,7 @@ const GROUPS: { id: ActionGroup; title: string }[] = [
   { id: 'flight', title: 'Flight' },
   { id: 'planet', title: 'Planet screen' },
   { id: 'exchange', title: 'Exchange' },
+  { id: 'shop', title: 'Shops' },
   { id: 'menus', title: 'Menus' },
 ];
 

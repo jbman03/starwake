@@ -10,6 +10,8 @@ import { worldStats } from '../sim/shipStats';
 import { guideCard } from './guideHint';
 import { showMissionComputer } from './missionComputer';
 import { showMissionLog } from './missionLog';
+import { showOutfitter } from './outfitter';
+import { showShipyard } from './shipyard';
 
 const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
   full: 'Fuel tank is full.',
@@ -41,6 +43,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     el('div', { class: 'sw-planet-sub' }, [
       el('span', { text: `${kind} · ${system} system` }),
       el('span', { class: 'sw-tier', text: `Tech tier ${planet.techTier}` }),
+      planet.hub ? el('span', { class: 'sw-tier sw-hub', text: 'Tech hub' }) : null,
     ]),
     el('p', { class: 'sw-planet-desc', text: planet.description }),
   ]);
@@ -57,6 +60,8 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   const services = new Set(planet.services);
   const openExchange = () => showExchange(ctx, planetId, () => ctx.go.planet(planetId));
   const openMissions = () => showMissionComputer(ctx, planetId, () => ctx.go.planet(planetId));
+  const openShipyard = () => showShipyard(ctx, planetId, () => ctx.go.planet(planetId));
+  const openOutfitter = () => showOutfitter(ctx, planetId, () => ctx.go.planet(planetId));
   const openMissionLog = () => showMissionLog(ctx, () => ctx.go.planet(planetId));
   const openHowToPlay = () => showHowToPlay(ctx, { onClose: () => ctx.go.planet(planetId) });
 
@@ -88,6 +93,12 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     const missionsBtn = services.has('missions')
       ? button('Mission Computer', openMissions, { hotkey: hotkeyFor(bindings, 'openMissions') })
       : null;
+    const shipyardBtn = services.has('shipyard')
+      ? button('Shipyard', openShipyard, { hotkey: hotkeyFor(bindings, 'openShipyard') })
+      : null;
+    const outfitterBtn = services.has('outfitter')
+      ? button('Outfitter', openOutfitter, { hotkey: hotkeyFor(bindings, 'openOutfitter') })
+      : null;
     const refuelBtn = button(canRefuel ? `Refuel — ${formatCredits(q.cost)}` : 'Refuel', refuel, {
       hotkey: hotkeyFor(bindings, 'refuel'),
       disabled: !canRefuel,
@@ -98,7 +109,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     const helpBtn = button('How to Play', openHowToPlay, { hotkey: hotkeyFor(bindings, 'howToPlay') });
     const leaveBtn = button('Leave', leave, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'leave') });
     actions.replaceChildren(
-      ...[exchangeBtn, missionsBtn, refuelBtn].filter((b) => b !== null),
+      ...[exchangeBtn, missionsBtn, shipyardBtn, outfitterBtn, refuelBtn].filter((b) => b !== null),
       ...(reason ? [reason] : []),
       mapBtn,
       logBtn,
@@ -126,6 +137,8 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       if (pressed.has('leave')) leave();
       else if (pressed.has('openExchange') && services.has('exchange')) openExchange();
       else if (pressed.has('openMissions') && services.has('missions')) openMissions();
+      else if (pressed.has('openShipyard') && services.has('shipyard')) openShipyard();
+      else if (pressed.has('openOutfitter') && services.has('outfitter')) openOutfitter();
       else if (pressed.has('missionLog')) openMissionLog();
       else if (pressed.has('openMap')) openMap();
       else if (pressed.has('howToPlay')) openHowToPlay();

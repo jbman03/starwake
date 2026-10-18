@@ -21,6 +21,7 @@ const GROUPS: { id: ActionGroup; title: string }[] = [
   { id: 'flight', title: 'Flight' },
   { id: 'planet', title: 'Planet screen' },
   { id: 'exchange', title: 'Exchange' },
+  { id: 'shop', title: 'Shops' },
   { id: 'menus', title: 'Menus' },
 ];
 
@@ -44,6 +45,8 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   pause: 'II button',
   openExchange: 'Tap the button',
   openMissions: 'Tap the button',
+  openShipyard: 'Tap the button',
+  openOutfitter: 'Tap the button',
   refuel: 'Tap the button',
   openMap: 'Tap the button',
   missionLog: 'Tap the button',
@@ -51,6 +54,10 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   leave: 'Tap the button',
   buyGoods: 'Buy buttons (hold for 1 t)',
   sellGoods: 'Sell buttons (hold for 1 t)',
+  shopBuy: 'Buy button',
+  shopSell: 'Sell button',
+  shopPrevPage: 'Prev button',
+  shopNextPage: 'Next button',
   back: 'Back or Close button',
   menuHowToPlay: 'Tap the button',
 };
