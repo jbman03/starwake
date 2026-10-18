@@ -72,26 +72,93 @@ stops being true:
 
 ### 2.2 Outfits (new `data/outfits.json`)
 `OutfitSchema`: `id`, `name`, `description`, `category` (`'cargo' | 'fuel' | 'armor' |
-'shields' | 'map'`), `price`, `techTier` (1–5), `space` (tons of outfit space used, 0
-for maps), `max` (per ship), and an effect:
+'shields' | 'map' | 'scoop'`), `price`, `techTier` (1–5, the **minimum** port tier that
+sells it), `space` (tons of outfit space used, 0 for maps), `max` (per ship), optional
+`soldBy` (§2.3), and an effect:
 - `cargo`: `+tons` of cargo capacity
 - `fuel`: `+units` of fuel capacity
 - `armor` / `shields`: `+points` to the maximum
-- `map`: `jumps` — reveals every system within N jumps of the current one
+- `map`: `jumps` reveals every system within N jumps of the system where it is bought
+- `scoop`: `fuelPerMin` fuel regained per minute of flight, up to capacity
 
-About 12 items, for example: small and large cargo pods, a fuel tank and an extended
-tank, two armor plates, two shield units, and local, regional and long-range charts
-(2, 4 and 7 jumps).
+Draft catalog (names original, numbers tuned in the plan; owner reviews what is sold where):
 
-Maps take effect **at purchase** and are not kept as owned items (no owned count,
-cannot be sold). Revealed systems become `known` and their neighbours `seen`, the same
-as arriving (reuse the `revealOnArrival` rules).
+| Item | Category | Min tier | Sold by | Notes |
+|---|---|---|---|---|
+| Cargo pod | cargo | 1 | everyone | small hold boost |
+| Fuel tank | fuel | 1 | everyone | +1 jump |
+| Local chart | map | 1 | everyone | reveals about 4 jumps; every outfitter sells it |
+| Armor plate | armor | 2 | everyone | |
+| Shield booster | shields | 2 | everyone | |
+| Fuel scoop | scoop | 3 | everyone | slowly refuels in flight (a jump's worth in a few minutes) |
+| Cargo bay extension | cargo | 3 | everyone | bigger, uses more space |
+| Extended tank | fuel | 3 | everyone | +3 jumps |
+| Salvage tank | fuel | 1 | independents | cheap, space-hungry |
+| Frontier cargo rack | cargo | 2 | Free Reach | best tons per space |
+| Reinforced plating | armor | 3 | Free Reach | |
+| Heavy armor | armor | 4 | Concord | |
+| Shield array | shields | 4 | Concord | |
 
-### 2.3 Where they are sold
-`PlanetSchema.services` gains `'shipyard'` and `'outfitter'`. Data adds them to a
-spread of worlds: outfitters at most tier-2+ worlds, shipyards mostly tier 3+, with at
-least one shipyard reachable from the start in two jumps. A shop's stock is **every
-ship or outfit whose `techTier` ≤ the planet's `techTier`**.
+Maps take effect **at purchase**. They are not kept as owned items: they have no owned
+count and can't be sold. They can be bought again at another outfitter to chart more.
+Revealed systems become `known` and their neighbours become `seen`, the same as
+arriving (reuse the `revealOnArrival` rules). A map is blocked if it would reveal
+nothing new.
+
+The **fuel scoop** is applied in the flight step: while flying (not landed, not
+jumping), fuel rises by `fuelPerMin`/60 per second, up to capacity. Owned scoops don't
+stack beyond `max` 1.
+
+The **escape pod** is noted for the combat cycle and is not sold in cycle 2, because
+it has no effect until ships can be destroyed. It is one of the owner questions (§8).
+
+### 2.3 Where they are sold: tech tiers, factions and hubs
+`PlanetSchema.services` gains `'shipyard'` and `'outfitter'`. Stock follows two rules
+(owner direction: "each outfit level depends on what they carry"):
+1. **Tech tier.** A port sells a ship or outfit only if the port's `techTier` is at least
+   the item's `techTier`. Low-tier fringe outfitters carry basic gear, and core
+   outfitters carry the advanced items. The best items are sold only at tier 4–5.
+2. **Faction.** An item with `soldBy` (a list of government ids) is sold only at ports
+   in a system owned by one of those governments. An item without `soldBy` is common
+   civilian gear, sold everywhere by tier.
+
+**Faction tech hubs** (owner direction). A port can be flagged `hub: true`. A hub has
+both a shipyard and an outfitter, and it sells that faction's whole catalog. The
+planet screen shows "Tech hub" on hub ports. Hubs are spread across each faction's
+territory, and ports between them step down in tier.
+
+Draft hub map (for owner approval):
+
+| Faction | Hub port (system, tier) | Notes |
+|---|---|---|
+| Concord | Vanterre (Tessaly, 5) | core west; sells the Meridian and Bastion |
+| Concord | Corvana Works (Corvana, 5) | core east, 2 jumps from Vanterre |
+| Free Reach | Wrenhold (Wrenhold, 4) | north frontier |
+| Free Reach | Dunmore Crossing (Dunmore, 4) | south frontier, 1 jump from Calder; 4 jumps from Wrenhold |
+| Independents | Lastlight Beacon (Lastlight, 2) | fringe crossroads |
+
+Faction catalog (draft):
+- **Concord:** Kestrel Interceptor, Warden Corvette, Meridian Trader, Bastion Carrier;
+  heavy armor and shield array.
+- **Free Reach:** Ironback Heavy Freighter; frontier cargo rack and reinforced
+  plating.
+- **Independents:** Pathfinder Scout; salvage tank.
+- **Common:** Wayfarer Shuttle, Swiftwing Courier, Mule Light Freighter, Starlit Liner,
+  and the common outfits.
+
+Non-hub shipyards and outfitters go on a spread of other tier 2+ worlds, with at least
+one shipyard 2 jumps or less from the start.
+
+**Validation** (data tests):
+- Every faction has at least one hub.
+- A faction's hubs are at least 2 jumps apart.
+- Every hub has both shops.
+- Every faction item is sold at one or more of its faction's hubs; hubs must have a
+  high enough tier.
+- Every ship and outfit is sold somewhere.
+
+**Later hook (reputation cycle).** A hub may refuse its best stock to pilots its
+faction dislikes. Nothing is built for this now.
 
 ## 3. Rules (pure sim code, unit-tested)
 
@@ -225,3 +292,19 @@ used.
 Branch `cycle2-ships-outfits`, built task by task with a review after each task and a
 final whole-branch review. Merge to `main` and deploy to GitHub Pages only after the
 owner's OK.
+
+## 8. Open owner questions (defaults used until answered)
+
+These come from the owner's "EV Study Checklist" doc. The spec uses the default until
+the owner answers.
+
+| Question | Default in this spec |
+|---|---|
+| How much more fuel costs at remote ports | 2× core price at fringe and tier 1–2 ports |
+| Trade-in value | 75% of hull price plus 50% of outfits |
+| Starting ship | keep the Wayfarer Shuttle |
+| Weapons in cycle 2 | hidden until combat |
+| Escape pod | noted, sold with combat |
+| Hubs per faction | 2 Concord, 2 Free Reach, 1 independent (§2.3) |
+| Who owns the carrier | Concord now; a Free Reach design can come later |
+| Local map range | 4 jumps |
