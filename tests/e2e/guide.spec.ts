@@ -83,7 +83,7 @@ test.describe('desktop', () => {
     // 7: plot the course the hint names.
     const plot = (await hudHint(page, /Star Map/)).match(/set a course to (.+)\. (.+) pays well there\.$/);
     expect(plot).not.toBeNull();
-    expect(await hudHint(page, /Star Map/)).toContain('Open the Star Map (M)');
+    expect(await hudHint(page, /Star Map/)).toContain('Open the Star Map (N)');
     const system = (await idOf(page, 'systems', plot![1]))!;
     await page.keyboard.press('KeyM');
     const map = page.getByTestId('star-map');

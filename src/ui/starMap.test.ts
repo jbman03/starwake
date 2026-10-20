@@ -68,6 +68,15 @@ describe('routeSummary', () => {
     expect(far.reachable).toBe(3);
   });
 
+  it('with anyLane, routes through unexplored space and says so', () => {
+    const w = world();
+    expect(routeSummary(w, data, 'lastlight').route).toBeNull();
+    const r = routeSummary(w, data, 'lastlight', { anyLane: true });
+    expect(r.route).toHaveLength(2);
+    expect(r.text).toMatch(/^2 jumps \(through unexplored space\)/);
+    expect(routeSummary(w, data, 'tessaly', { anyLane: true }).text).toBe('1 jump · fuel needed 1 · you have 3');
+  });
+
   it('has no route to unknown systems and nothing to plan to the current one', () => {
     expect(routeSummary(world(), data, 'skerry')).toMatchObject({ route: null, text: 'No known route', short: false });
     expect(routeSummary(world(), data, 'calder')).toMatchObject({ route: [], text: 'You are here' });

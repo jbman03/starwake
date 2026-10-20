@@ -28,6 +28,17 @@ async function checkFits(page: Page): Promise<void> {
 test.describe('desktop', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
+  test('N opens the star map in flight', async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Nkey');
+    await leavePlanet(page);
+    await page.waitForTimeout(100);
+    await page.keyboard.press('KeyN');
+    await expect(page.getByTestId('star-map')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
   test('M opens the star map; plot a course to a known neighbour, then autopilot out and J jumps there', async ({ page }) => {
     test.setTimeout(60_000);
     const errors = trackErrors(page);

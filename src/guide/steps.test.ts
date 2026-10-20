@@ -183,7 +183,7 @@ describe('step text', () => {
         STEPS[9].text(ctx({ fallback: true, mode: 'touch' })),
       ];
       for (const text of all) expect(text).not.toMatch(/\b(Low|High)\b/);
-      expect(STEPS[6].text(ctx(flying))).toBe('Open the Star Map (KeyM) and set a course to Tessaly. Food pays well there.');
+      expect(STEPS[6].text(ctx(flying))).toBe('Open the Star Map (KeyN) and set a course to Tessaly. Food pays well there.');
       expect(STEPS[9].text(ctx({ fallback: true }))).toContain('Food pays well here');
       expect(STEPS[9].text(ctx({ fallback: true, mode: 'touch' }))).toBe('Exchange: Food pays well.');
     });

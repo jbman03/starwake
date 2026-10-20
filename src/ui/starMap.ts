@@ -1,6 +1,6 @@
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
-import { fuelCheck } from '../sim/galaxy';
+import { fuelCheck, routeBetween } from '../sim/galaxy';
 import type { WorldState } from '../sim/types';
 import { setRoute } from '../sim/world';
 import type { UiContext } from './context';
@@ -89,14 +89,17 @@ const jumps = (n: number) => `${n} ${n === 1 ? 'jump' : 'jumps'}`;
  * Fewest-hops route as setRoute plots it (charted systems, or any lane to a mission's system),
  * with "N jumps · fuel needed N · you have M" (in jumps).
  */
-export function routeSummary(world: WorldState, data: GameData, toId: string): RouteSummary {
+export function routeSummary(world: WorldState, data: GameData, toId: string, opts: { anyLane?: boolean } = {}): RouteSummary {
   const reachable = fuelCheck(world.ship.fuel, 0, data.config).reachable;
   if (toId === world.systemId) return { route: [], text: 'You are here', short: false, reachable };
-  const r = setRoute(world, data, toId);
-  if (!r.ok) return { route: null, text: 'No known route', short: false, reachable };
-  const route = r.world.route;
+  // anyLane previews a mission's course (accepting one charts any lane), so it may cross unexplored space.
+  const plotted = opts.anyLane ? routeBetween(data, world.systemId, toId, () => true) : null;
+  const r = plotted ? null : setRoute(world, data, toId);
+  const route = plotted ?? (r?.ok ? r.world.route : null);
+  if (!route) return { route: null, text: 'No known route', short: false, reachable };
   const n = route.length;
-  return { route, text: `${jumps(n)} · fuel needed ${n} · you have ${reachable}`, short: reachable < n, reachable };
+  const unexplored = opts.anyLane && route.some((id) => !world.known.includes(id)) ? ' (through unexplored space)' : '';
+  return { route, text: `${jumps(n)}${unexplored} · fuel needed ${n} · you have ${reachable}`, short: reachable < n, reachable };
 }
 
 export interface SystemDetails {
@@ -378,7 +381,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
     drawNodes(world);
 
     // Plotted course (faint), then the selected system's route: solid while the fuel lasts.
-    const summary = routeSummary(world, data, selected);
+    const summary = routeSummary(world, data, selected, { anyLane: preview !== undefined });
     routeLayer.replaceChildren();
     if (world.route.length > 0) {
       routeLayer.append(svg('polyline', { points: points([world.systemId, ...world.route], data), class: 'sw-map-course' }));

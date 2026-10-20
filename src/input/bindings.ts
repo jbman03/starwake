@@ -17,7 +17,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   land: ['KeyL', null],
   jump: ['KeyJ', null],
   autopilot: ['KeyG', null],
-  map: ['KeyM', null],
+  map: ['KeyN', 'KeyM'],
   flightMissionLog: ['KeyK', null],
   pause: ['Escape', null],
   openExchange: ['KeyC', null],

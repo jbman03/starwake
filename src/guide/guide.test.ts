@@ -222,7 +222,7 @@ describe('Guide', () => {
     guide.update(state({ ...moved(w, 400), route: [], systemId: elsewhere }, 'flight'));
     expect(guide.current()?.step).toBe(8);
     expect(guide.current()?.text).toContain(data.systems[target.system].name);
-    expect(guide.current()?.text).toMatch(/^Open the Star Map \(M\) and set a course to /); // no course: plot again
+    expect(guide.current()?.text).toMatch(/^Open the Star Map \(N\) and set a course to /); // no course: plot again
     guide.update(state({ ...moved(w, 400), route: [target.system], systemId: elsewhere }, 'flight'));
     expect(guide.current()?.text).toMatch(/Jump \(J\)/);
   });
