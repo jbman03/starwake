@@ -68,7 +68,17 @@ function fuelDelta(choice: Choice): number {
 }
 
 /** Why the pilot can't pick this choice right now, or null. */
-export function choiceBlock(world: WorldState, data: GameData, choice: Choice): 'fuel' | 'credits' | 'cargoSpace' | null {
+export type Block = 'fuel' | 'credits' | 'cargoSpace' | 'missions';
+
+/** Short reasons for the encounter card to show beside a blocked choice. */
+export const ENCOUNTER_BLOCK_TEXT: Record<Block, string> = {
+  fuel: 'Not enough fuel to spare',
+  credits: 'Not enough credits',
+  cargoSpace: 'Not enough room in the hold',
+  missions: 'No room for another job',
+};
+
+export function choiceBlock(world: WorldState, data: GameData, choice: Choice, defId: string): Block | null {
   const needs = choice.needs;
   if (needs?.fuel !== undefined && world.ship.fuel < needs.fuel) return 'fuel';
   if (needs?.credits !== undefined && world.credits < needs.credits) return 'credits';
@@ -79,6 +89,8 @@ export function choiceBlock(world: WorldState, data: GameData, choice: Choice): 
   let spend = 0;
   for (const o of choice.outcomes) if (o.type === 'credits') spend += o.n;
   if (spend < 0 && world.credits + spend < 0) return 'credits';
+  // A job the pilot couldn't take (or that has nowhere to go): dry-run the very code applyChoice uses.
+  if (choice.outcomes.some((o) => o.type === 'mission') && runChoice(world, data, defId, false, choice, { npcName: '' }).refused) return 'missions';
   return null;
 }
 
@@ -90,7 +102,7 @@ export function fillText(text: string, ctx: { ship: string; system: string; pilo
 /** A mission of `typeId` from a port here to `toSystem`'s first port, or to a known port 1-3 jumps away. */
 function buildEncounterMission(world: WorldState, data: GameData, defId: string, idx: number, typeId: string, toSystem?: string) {
   const type = data.missionTypes[typeId];
-  const origin = Object.values(data.planets).find((p) => p.systemId === world.systemId) ?? Object.values(data.planets)[0];
+  const origin = Object.values(data.planets).find((p) => p.systemId === world.systemId);
   if (!type || !origin) return null;
   const r = mulberry32(hashString(world.seed, 'encm', defId, world.day, idx));
   let dest: { portId: string; hops: number } | undefined;
@@ -121,6 +133,20 @@ export function applyChoice(
   ctx: { npcName: string },
 ): { world: WorldState; messages: string[]; missions: Mission[] } {
   const choice = def.choices[choiceIdx];
+  if (!choice) throw new Error(`Encounter ${def.id} has no choice ${choiceIdx}`);
+  const { refused, ...result } = runChoice(world, data, def.id, def.once === true, choice, ctx);
+  return result;
+}
+
+function runChoice(
+  world: WorldState,
+  data: GameData,
+  defId: string,
+  once: boolean,
+  choice: Choice,
+  ctx: { npcName: string },
+): { world: WorldState; messages: string[]; missions: Mission[]; refused: boolean } {
+  let refused = false;
   const text = { ship: ctx.npcName, system: data.systems[world.systemId]?.name ?? world.systemId, pilot: world.shipName };
   const messages: string[] = [];
   const missions: Mission[] = [];
@@ -141,10 +167,12 @@ export function applyChoice(
         break;
       }
       case 'mission': {
-        const offer = buildEncounterMission(w, data, def.id, idx, o.missionType, o.toSystem);
-        if (!offer) break;
-        const next = accept(w, data, offer);
-        if (next === w) break;
+        const offer = buildEncounterMission(w, data, defId, idx, o.missionType, o.toSystem);
+        const next = offer ? accept(w, data, offer) : w;
+        if (next === w) {
+          refused = true;
+          break;
+        }
         w = next;
         missions.push(next.missions[next.missions.length - 1]);
         break;
@@ -169,6 +197,6 @@ export function applyChoice(
     }
   };
   choice.outcomes.forEach(apply);
-  if (def.once && choice.outcomes.some((o) => o.type !== 'message')) w = setFlag(w, onceFlag(def.id));
-  return { world: { ...w, lastEncounterDay: world.day }, messages, missions };
+  if (once && choice.outcomes.some((o) => o.type !== 'message')) w = setFlag(w, onceFlag(defId));
+  return { world: { ...w, lastEncounterDay: world.day }, messages, missions, refused };
 }

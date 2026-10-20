@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import type { EncounterDef } from '../data/schemas';
 import { cargoFree } from './cargo';
-import { ENCOUNTER_CHANCE, applyChoice, choiceBlock, fillText, rollEncounter } from './encounters';
+import { ENCOUNTER_BLOCK_TEXT, ENCOUNTER_CHANCE, applyChoice, choiceBlock, fillText, rollEncounter } from './encounters';
 import { HIDDEN_LANE_FLAG } from './galaxy';
 import { hasFlag } from './story';
 import type { WorldState } from './types';
@@ -113,13 +113,13 @@ describe('rollEncounter', () => {
 
 describe('choiceBlock', () => {
   it('blocks on credits, cargo space and fuel needs', () => {
-    expect(choiceBlock(base({ credits: 399 }), data, choiceOf('cheap-goods-pedlar', 0))).toBe('credits');
-    expect(choiceBlock(base({ credits: 400 }), data, choiceOf('cheap-goods-pedlar', 0))).toBeNull();
+    expect(choiceBlock(base({ credits: 399 }), data, choiceOf('cheap-goods-pedlar', 0), 'cheap-goods-pedlar')).toBe('credits');
+    expect(choiceBlock(base({ credits: 400 }), data, choiceOf('cheap-goods-pedlar', 0), 'cheap-goods-pedlar')).toBeNull();
     const full = base({ cargo: { food: cargoFree(base(), data) } });
-    expect(choiceBlock(full, data, choiceOf('cargo-drift', 0))).toBe('cargoSpace');
+    expect(choiceBlock(full, data, choiceOf('cargo-drift', 0), 'cargo-drift')).toBe('cargoSpace');
     const dry = base();
     dry.ship = { ...dry.ship, fuel: 39 };
-    expect(choiceBlock(dry, data, choiceOf('fuel-starved-hauler', 0))).toBe('fuel');
+    expect(choiceBlock(dry, data, choiceOf('fuel-starved-hauler', 0), 'fuel-starved-hauler')).toBe('fuel');
   });
 
   it('fuel choice disabled when short: fuel left must cover one jump', () => {
@@ -127,11 +127,49 @@ describe('choiceBlock', () => {
     const give = { label: 'g', outcomes: [{ type: 'fuel' as const, n: -20 }] };
     const w = base();
     w.ship = { ...w.ship, fuel: 20 + per - 1 };
-    expect(choiceBlock(w, data, give)).toBe('fuel');
+    expect(choiceBlock(w, data, give, 't')).toBe('fuel');
     w.ship = { ...w.ship, fuel: 20 + per };
-    expect(choiceBlock(w, data, give)).toBeNull();
+    expect(choiceBlock(w, data, give, 't')).toBeNull();
     w.ship = { ...w.ship, fuel: 0 };
-    expect(choiceBlock(w, data, { label: 'x', outcomes: [{ type: 'fuel', n: 5 }] })).toBeNull();
+    expect(choiceBlock(w, data, { label: 'x', outcomes: [{ type: 'fuel', n: 5 }] }, 't')).toBeNull();
+  });
+});
+
+describe('mission blocks', () => {
+  const ferry = () => choiceOf('stranded-passenger', 0);
+  const filler = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `x${i}`, typeId: 'delivery', originId: 'halcyon', destId: 'vanterre', tons: 0, passengers: 0, pay: 1,
+      paidUpfront: false, deadlineDay: null, title: 't', description: '', cargoName: 'x',
+    }));
+
+  it('is open with an empty log, blocked with a full one', () => {
+    expect(choiceBlock(base(), data, ferry(), 'stranded-passenger')).toBeNull();
+    expect(choiceBlock(base({ missions: filler(8) }), data, ferry(), 'stranded-passenger')).toBe('missions');
+  });
+
+  it('is blocked when there are no free berths', () => {
+    const w = base({ missions: filler(1).map((m) => ({ ...m, passengers: 99 })) });
+    expect(choiceBlock(w, data, ferry(), 'stranded-passenger')).toBe('missions');
+  });
+
+  it('is blocked when there is nowhere to go', () => {
+    const w = base({ known: [base().systemId] });
+    const d = def({ choices: [{ label: 'a', outcomes: [{ type: 'mission', missionType: 'delivery' }] }] });
+    expect(choiceBlock(w, data, d.choices[0], 'none')).toBe('missions');
+  });
+
+  it('agrees with applyChoice: a blocked choice adds no mission', () => {
+    const w = base({ missions: filler(8) });
+    expect(applyChoice(w, data, enc('stranded-passenger'), 0, ctx).missions).toHaveLength(0);
+  });
+
+  it('has text for every block reason', () => {
+    for (const k of ['fuel', 'credits', 'cargoSpace', 'missions'] as const) expect(ENCOUNTER_BLOCK_TEXT[k].length).toBeGreaterThan(0);
+  });
+
+  it('throws on an out-of-range choice', () => {
+    expect(() => applyChoice(base(), data, enc('lost-parcel'), 5, ctx)).toThrow(/no choice/);
   });
 });
 
