@@ -29,7 +29,7 @@
 .sw-panel:has(> .sw-map-corner) { position: relative; }
 .sw-btn.sw-map-corner { position: absolute; top: 8px; right: 8px; width: auto; min-height: 44px; z-index: 1; }
 /* Keep the heading and the stats row clear of the corner button. */
-.sw-panel:has(> .sw-map-corner) > :is(.sw-title, .sw-stats, .sw-ex-stats) { padding-right: 96px; }
+.sw-panel:has(> .sw-map-corner) > :is(.sw-title, .sw-stats, .sw-ex-stats) { padding-right: 148px; }
 /* margin:auto centers the panel but lets a too-tall one scroll instead of clipping its top. */
 .sw-screen > .sw-panel { margin: auto; }
 .sw-overlay { background: rgba(2, 4, 8, 0.62); }
