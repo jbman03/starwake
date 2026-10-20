@@ -20,7 +20,7 @@ describe('pickTarget', () => {
     expect(data.planets[t.port].systemId).toBe(t.system);
     expect(world.known).toContain(t.system);
     expect(t.system).not.toBe('calder');
-    const hops = hopDistance(data, 'calder', t.system);
+    const hops = hopDistance(data, 'calder', t.system, []);
     expect(hops).toBeGreaterThanOrEqual(1);
     expect(hops).toBeLessThanOrEqual(3);
   });
@@ -35,10 +35,10 @@ describe('pickTarget', () => {
   it('picks the nearest selling port, ties broken by port id', () => {
     const t = pickTarget(world, data, 'halcyon');
     if (!t) throw new Error('no target');
-    const best = hopDistance(data, 'calder', t.system);
+    const best = hopDistance(data, 'calder', t.system, []);
     for (const p of Object.values(data.planets)) {
       if (p.market?.[t.good] !== 'high' || !world.known.includes(p.systemId) || p.systemId === 'calder') continue;
-      const h = hopDistance(data, 'calder', p.systemId);
+      const h = hopDistance(data, 'calder', p.systemId, []);
       expect(h > best || (h === best && p.id >= t.port)).toBe(true);
     }
   });

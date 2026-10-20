@@ -18,7 +18,7 @@ function sweep(days = 12): { offer: MissionOffer; hops: number }[] {
   for (let d = 0; d < days; d++) {
     for (const p of ports) {
       for (const offer of offersAt(at(d), data, p.id)) {
-        out.push({ offer, hops: hopDistance(data, p.systemId, sysOf(offer.destId)) });
+        out.push({ offer, hops: hopDistance(data, p.systemId, sysOf(offer.destId), []) });
       }
     }
   }
@@ -92,7 +92,7 @@ describe('offersAt', () => {
       const nearest = Math.min(
         ...Object.values(data.planets)
           .filter((p) => p.dumpSite && p.systemId !== origin.systemId)
-          .map((p) => hopDistance(data, origin.systemId, p.systemId)),
+          .map((p) => hopDistance(data, origin.systemId, p.systemId, [])),
       );
       expect(hops).toBe(nearest);
     }
@@ -113,7 +113,7 @@ describe('offersAt', () => {
     for (const p of ports) {
       for (const o of offersAt(w, data, p.id)) {
         const t = data.missionTypes[o.typeId];
-        const hops = hopDistance(data, p.systemId, sysOf(o.destId));
+        const hops = hopDistance(data, p.systemId, sysOf(o.destId), []);
         expect(o.deadlineDay).toBe(t.deadline ? 5 + t.deadline.perHop * hops + t.deadline.plus : null);
         expect(o.title).not.toMatch(/[{}]/);
         expect(o.description).not.toMatch(/[{}]/);

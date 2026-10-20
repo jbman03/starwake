@@ -668,7 +668,7 @@ describe('setRoute to a mission destination', () => {
     const r = setRoute(taken, data, 'brackwater');
     expect(r.ok).toBe(true);
     expect(r.world.route.at(-1)).toBe('brackwater');
-    expect(r.world.route.length).toBe(hopDistance(data, w.systemId, 'brackwater'));
+    expect(r.world.route.length).toBe(hopDistance(data, w.systemId, 'brackwater', []));
   });
 
   it('routes through any lane only for an active mission target', () => {

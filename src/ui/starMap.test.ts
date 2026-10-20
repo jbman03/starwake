@@ -9,7 +9,7 @@ import type { Mission, WorldState } from '../sim/types';
 import { accept } from '../sim/missions';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
-import { mapModel, PAD, routeSummary, showStarMap, systemDetails } from './starMap';
+import { mapModel, PAD, routeSummary, showStarMap, systemDetails, visibleSystemCount } from './starMap';
 
 const data = testData();
 const world = (): WorldState => newWorld(data, 1);
@@ -30,10 +30,28 @@ describe('mission destinations in uncharted space', () => {
   });
 });
 
+describe('hidden systems on the map', () => {
+  const open = (): WorldState => ({ ...world(), flags: ['hushwater-lane'] });
+  it('omits Hushwater and its lane until the flag is set', () => {
+    const closed = mapModel(world(), data);
+    expect(closed.nodes.some((n) => n.id === 'hushwater')).toBe(false);
+    expect(closed.lanes.some((l) => l.includes('hushwater'))).toBe(false);
+    const w = { ...open(), known: [...world().known, 'skerry', 'hushwater'] };
+    const opened = mapModel(w, data);
+    expect(opened.nodes.some((n) => n.id === 'hushwater')).toBe(true);
+    expect(opened.lanes.some((l) => l.includes('hushwater') && l.includes('skerry'))).toBe(true);
+  });
+  it('counts hidden systems only once the lane is open', () => {
+    const total = Object.keys(data.systems).length;
+    expect(visibleSystemCount(data, [])).toBe(total - 1);
+    expect(visibleSystemCount(data, ['hushwater-lane'])).toBe(total);
+  });
+});
+
 describe('mapModel', () => {
   it('fills known systems, outlines seen ones and blanks unknown ones (no name, grey)', () => {
     const m = mapModel(world(), data);
-    expect(m.nodes).toHaveLength(Object.keys(data.systems).length);
+    expect(m.nodes).toHaveLength(visibleSystemCount(data, []));
     const node = (id: string) => m.nodes.find((n) => n.id === id)!;
     expect(node('calder')).toMatchObject({ name: 'Calder', state: 'known', current: true, color: data.governments.concord.color });
     expect(node('vesk')).toMatchObject({ name: 'Vesk', state: 'seen', current: false, color: data.governments.independent.color });
@@ -265,7 +283,7 @@ describe('showStarMap', () => {
     const { root } = setup(undefined, undefined, { preview: { systemId: 'tessaly', label: 'Mission: x' } });
     const [x, y, w, h] = root.querySelector('svg')!.getAttribute('viewBox')!.split(' ').map(Number);
     const at = data.systems.tessaly.mapPos;
-    const all = Object.values(data.systems);
+    const all = Object.values(data.systems).filter((q) => !q.hidden);
     const xs = all.map((q) => q.mapPos.x);
     const ys = all.map((q) => q.mapPos.y);
     const bx = Math.min(...xs) - PAD;

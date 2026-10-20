@@ -169,8 +169,8 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
   let known = p.known;
   if (known.length === 0) known = [...new Set([...data.config.knownAtStart, p.systemId])];
   let map = { known: [] as string[], seen: [] as string[] };
-  for (const id of known) if (data.systems[id]) map = revealOnArrival(map.known, map.seen, data, id);
-  map = revealOnArrival(map.known, map.seen, data, p.systemId);
+  for (const id of known) if (data.systems[id]) map = revealOnArrival(map.known, map.seen, data, id, p.flags);
+  map = revealOnArrival(map.known, map.seen, data, p.systemId, p.flags);
   const base = newWorld(data, p.seed);
   const w: WorldState = {
     ...base,

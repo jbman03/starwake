@@ -1,5 +1,6 @@
 import type { GameData, PlanetDef } from '../data/schemas';
-import { hopDistance } from './galaxy';
+import { HIDDEN_LANE_FLAG, hopDistance } from './galaxy';
+import { hasFlag } from './story';
 import { hashString, mulberry32, pick, randInt } from './random';
 import type { MarketEvent, WorldState } from './types';
 
@@ -80,7 +81,10 @@ export function economyDay(world: WorldState, data: GameData): WorldState {
   if (templates.length === 0) return w;
   const tpl = pick(rng, templates);
   const ports = Object.values(data.planets).filter(
-    (p) => p.market?.[tpl.commodity] && !events.some((e) => e.portId === p.id && e.commodityId === tpl.commodity),
+    (p) =>
+      p.market?.[tpl.commodity] &&
+      (!data.systems[p.systemId]?.hidden || hasFlag(w, HIDDEN_LANE_FLAG)) &&
+      !events.some((e) => e.portId === p.id && e.commodityId === tpl.commodity),
   );
   if (ports.length === 0) return w;
   const port = pick(rng, ports);
@@ -113,7 +117,7 @@ export function rumor(world: WorldState, data: GameData, portId: string): string
   const near = world.events.filter((e) => {
     const there = data.planets[e.portId];
     return (
-      there && e.portId !== portId && isActive(world, e) && hopDistance(data, here.systemId, there.systemId) <= RUMOR_HOPS
+      there && e.portId !== portId && isActive(world, e) && hopDistance(data, here.systemId, there.systemId, world.flags) <= RUMOR_HOPS
     );
   });
   if (near.length === 0) return null;

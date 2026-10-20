@@ -51,7 +51,7 @@ describe('pilot', () => {
   it('round-trips the v2 world fields', () => {
     const base = newWorld(data, 99);
     // Chart with an extra visited system (vesk) and the matching seen list.
-    const chart = revealOnArrival(base.known, base.seen, data, 'vesk');
+    const chart = revealOnArrival(base.known, base.seen, data, 'vesk', []);
     const w = {
       ...base, day: 12, cargo: { food: 5 }, route: ['mirren'], pressure: { 'halcyon:food': 0.9 },
       known: chart.known, seen: chart.seen,

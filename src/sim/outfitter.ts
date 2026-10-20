@@ -32,7 +32,7 @@ export function outfitBuyCheck(world: WorldState, data: GameData, planetId: stri
   if (def.category === 'map') {
     const system = data.planets[planetId]?.systemId;
     const known = new Set(world.known);
-    const inRange = systemsWithin(data, system, def.effect.mapJumps);
+    const inRange = systemsWithin(data, system, def.effect.mapJumps, world.flags);
     if (inRange.every((id) => known.has(id))) return { ok: false, reason: 'nothingToReveal' };
   } else {
     if ((world.outfits[outfitId] ?? 0) >= def.max) return { ok: false, reason: 'max' };
@@ -54,7 +54,7 @@ export function buyOutfit(
   const def = data.outfits[outfitId];
   const paid = { ...world, credits: world.credits - def.price };
   if (def.category === 'map') {
-    const revealed = revealWithin(world.known, world.seen, data, data.planets[planetId].systemId, def.effect.mapJumps);
+    const revealed = revealWithin(world.known, world.seen, data, data.planets[planetId].systemId, def.effect.mapJumps, world.flags);
     return { world: { ...paid, ...revealed }, check };
   }
   return { world: { ...paid, outfits: { ...world.outfits, [outfitId]: (world.outfits[outfitId] ?? 0) + 1 } }, check };

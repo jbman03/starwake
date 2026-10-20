@@ -1,4 +1,5 @@
 import type { GameData } from '../data/schemas';
+import { lanesOf } from './galaxy';
 import { canJump, jumpDestination, planetsByDistance, towDestination } from './rules';
 import type { WorldState } from './types';
 import { dist } from './vec';
@@ -28,7 +29,7 @@ export function contextAction(world: WorldState, data: GameData): ContextAction 
   }
   const nearest = planetsByDistance(world, data)[0];
   if (nearest && dist(nearest.pos, world.ship.pos) <= LAND_CONTEXT_RANGE) return 'land';
-  if (world.assist.kind === 'none' && !jumpDestination(world, data) && data.systems[world.systemId].links.length > 1) {
+  if (world.assist.kind === 'none' && !jumpDestination(world, data) && lanesOf(data, world.systemId, world.flags).length > 1) {
     return 'plotCourse';
   }
   return leaveAction(world, data);
@@ -41,7 +42,7 @@ function leaveAction(world: WorldState, data: GameData): 'jump' | 'autopilotOut'
   if (
     check.reason === 'tooClose' &&
     world.assist.kind === 'none' &&
-    data.systems[world.systemId].links.length > 0 &&
+    lanesOf(data, world.systemId, world.flags).length > 0 &&
     world.ship.fuel >= data.config.fuelPerJump
   ) {
     return 'autopilotOut';

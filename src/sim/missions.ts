@@ -25,13 +25,13 @@ function fill(template: string, vars: Record<string, string | number>): string {
 }
 
 /** Ports a type may send the pilot to from `originId`, each with its hop count. */
-function destinations(data: GameData, originId: string, type: MissionTypeDef): { portId: string; hops: number }[] {
+function destinations(data: GameData, flags: readonly string[], originId: string, type: MissionTypeDef): { portId: string; hops: number }[] {
   const origin = data.planets[originId];
   const out: { portId: string; hops: number }[] = [];
   for (const p of Object.values(data.planets)) {
     if (p.id === originId) continue;
     if (type.toDumpSite && !p.dumpSite) continue;
-    const hops = hopDistance(data, origin.systemId, p.systemId);
+    const hops = hopDistance(data, origin.systemId, p.systemId, flags);
     if (!Number.isFinite(hops) || hops < type.hops[0] || hops > type.hops[1]) continue;
     if (hops >= 1 && p.systemId === origin.systemId) continue;
     out.push({ portId: p.id, hops });
@@ -59,7 +59,7 @@ export function offersAt(world: WorldState, data: GameData, portId: string): Mis
     let made: MissionOffer | null = null;
     for (let k = 0; k < types.length && !made; k++) {
       const type = types[(start + k) % types.length];
-      const dests = destinations(data, portId, type);
+      const dests = destinations(data, world.flags, portId, type);
       if (dests.length === 0) continue;
       let pool = dests;
       if (type.toDumpSite) {
