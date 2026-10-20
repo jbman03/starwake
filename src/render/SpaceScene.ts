@@ -6,7 +6,7 @@ import { getInsets } from '../input/insets';
 import { pointerTypeOf } from '../input/pointer';
 import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
-import { isTargetable, npcLabel } from '../sim/traffic';
+import { npcLabel, targetedNpc } from '../sim/traffic';
 import { JUMP_DURATION } from '../sim/world';
 import { skipLabel } from '../guide/guide';
 import { hotkeyFor } from '../ui/dom';
@@ -162,6 +162,8 @@ export class SpaceScene extends Phaser.Scene {
         return {
           id: n.id,
           label: npcLabel(n, this.controller.data),
+          texture: img?.texture.key ?? null,
+          tint: img ? img.tintTopLeft : null,
           screen: img ? { x: c.x + (img.x - c.worldView.x) * c.zoom, y: c.y + (img.y - c.worldView.y) * c.zoom } : null,
         };
       });
@@ -257,7 +259,7 @@ export class SpaceScene extends Phaser.Scene {
     const { data, world } = this.controller.view();
     const { traffic } = this.controller;
     let cx0: number, cy0: number, r: number;
-    const npc = traffic.targetId ? traffic.npcs.find((n) => n.id === traffic.targetId && isTargetable(n)) : undefined;
+    const npc = targetedNpc(traffic);
     const sprite = npc ? this.npcSprites.get(npc.id) : undefined;
     if (npc && sprite) {
       cx0 = sprite.x;
@@ -290,6 +292,12 @@ export class SpaceScene extends Phaser.Scene {
       seen.add(n.id);
       const def = data.ships[n.shipId];
       let img = this.npcSprites.get(n.id);
+      // Ids are not unique across sessions: a reseed can reuse an id for a different ship.
+      const sig = `${n.shipId}|${n.government}`;
+      if (img && img.getData('sig') !== sig) {
+        img.destroy();
+        img = undefined;
+      }
       if (!img) {
         img = this.add.image(n.ship.pos.x, n.ship.pos.y, shipTextureKey(def), shipFrame(n.ship.heading)).setDepth(9);
         const color = data.governments[n.government]?.color;
@@ -297,6 +305,7 @@ export class SpaceScene extends Phaser.Scene {
         const hit = Math.max(MIN_TAP_RADIUS, def.radius + TAP_MARGIN);
         img.setInteractive(new Phaser.Geom.Circle(img.width / 2, img.height / 2, hit), Phaser.Geom.Circle.Contains);
         img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => this.controller.targetShip(n.id));
+        img.setData('sig', sig);
         this.addWorldObject(img);
         this.npcSprites.set(n.id, img);
       }

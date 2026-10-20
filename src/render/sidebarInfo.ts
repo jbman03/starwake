@@ -3,7 +3,7 @@ import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
 import { cargoFree } from '../sim/cargo';
 import { jumpPoint, SYSTEM_CENTER } from '../sim/rules';
-import { isTargetable, npcLabel, type Traffic } from '../sim/traffic';
+import { isTargetable, npcLabel, targetedNpc, type Traffic } from '../sim/traffic';
 import { worldStats } from '../sim/shipStats';
 import type { WorldState } from '../sim/types';
 import { dist } from '../sim/vec';
@@ -34,7 +34,7 @@ export function sidebarInfo(world: WorldState, data: GameData, traffic: Traffic 
   const n = world.route.length;
   const t = world.targetPlanetId ? data.planets[world.targetPlanetId] : undefined;
   const hasTarget = t !== undefined && t.systemId === world.systemId;
-  const ship = traffic?.targetId ? traffic.npcs.find((n) => n.id === traffic.targetId && isTargetable(n)) : undefined;
+  const ship = targetedNpc(traffic);
   return {
     shields: stats.shields,
     armor: stats.armor,

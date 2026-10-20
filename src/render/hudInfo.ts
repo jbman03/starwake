@@ -4,7 +4,7 @@ import { cargoFree } from '../sim/cargo';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import { jumpDestination } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
-import { isTargetable, npcLabel, type Traffic } from '../sim/traffic';
+import { npcLabel, targetedNpc, type Traffic } from '../sim/traffic';
 import type { WorldState } from '../sim/types';
 import { dist } from '../sim/vec';
 
@@ -43,7 +43,7 @@ export function nextHopText(world: WorldState, data: GameData): string | null {
 export function hudInfo(world: WorldState, data: GameData, traffic: Traffic | null = null): HudInfo {
   const jumps = fuelJumps(world, data);
   const t = world.targetPlanetId ? data.planets[world.targetPlanetId] : undefined;
-  const ship = traffic?.targetId ? traffic.npcs.find((n) => n.id === traffic.targetId && isTargetable(n)) : undefined;
+  const ship = targetedNpc(traffic);
   return {
     system: data.systems[world.systemId]?.name ?? world.systemId,
     fuel: fuelText(jumps),

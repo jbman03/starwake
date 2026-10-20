@@ -213,6 +213,10 @@ export function npcLabel(npc: Npc, data: GameData): string {
 /** Ships a pilot can target: flying (or just arrived), not landing or leaving. */
 export const isTargetable = (n: Npc): boolean => n.phase === 'fly' || n.phase === 'jumpIn';
 
+/** The targeted NPC, if it is still there and targetable. */
+export const targetedNpc = (t: Traffic | null): Npc | undefined =>
+  t?.targetId ? t.npcs.find((n) => n.id === t.targetId && isTargetable(n)) : undefined;
+
 export interface TargetPick {
   /** Targeted NPC id, or null. */
   shipId: string | null;

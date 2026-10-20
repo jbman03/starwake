@@ -23,7 +23,7 @@ import { buyShip, shipQuote, type ShipQuote } from '../sim/shipyard';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
-import { cycleTarget, isTargetable, seedTraffic, stepTraffic, type Traffic } from '../sim/traffic';
+import { cycleTarget, isTargetable, seedTraffic, stepTraffic, targetedNpc, type Traffic } from '../sim/traffic';
 import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
 import {
   applyRefuel,
@@ -496,7 +496,7 @@ export class Controller {
     if (this.world.jump) return;
     let t = stepTraffic(this.traffic, this.world, this.data, dt, this.maxNpcs()).traffic;
     // A ship target that landed or left, or a planet the sim just targeted (landing autopilot), ends it.
-    const alive = t.targetId !== null && t.npcs.some((n) => n.id === t.targetId && isTargetable(n));
+    const alive = targetedNpc(t) !== undefined;
     if (!alive || this.world.targetPlanetId !== null) t = { ...t, targetId: null };
     this.traffic = t;
   }

@@ -42,3 +42,21 @@ test('clicking a ship targets it', async ({ page }) => {
   await page.mouse.click(ship.screen!.x, ship.screen!.y);
   expect(await page.evaluate(() => window.__starwake!.controller.traffic.targetId)).toBe(id);
 });
+
+test('a reseeded NPC that reuses an id gets its own hull and tint', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await newPilot(page);
+  await leavePlanet(page);
+  await expect.poll(() => page.evaluate(() => window.__starwake!.traffic!().some((n) => n.texture !== null)), { timeout: 25_000 }).toBe(true);
+  const before = (await page.evaluate(() => window.__starwake!.traffic!())).find((n) => n.texture)!;
+  // Same id, different hull and government, as after a new session in the same system and day.
+  await page.evaluate((id) => {
+    const c = window.__starwake!.controller;
+    const other = Object.keys(c.data.ships).find((s) => s !== c.traffic.npcs.find((n) => n.id === id)!.shipId && !c.data.ships[s].unique)!;
+    const gov = Object.keys(c.data.governments).find((g) => g !== c.traffic.npcs.find((n) => n.id === id)!.government)!;
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === id ? { ...n, shipId: other, government: gov } : n)) };
+  }, before.id);
+  await expect
+    .poll(async () => (await page.evaluate(() => window.__starwake!.traffic!())).find((n) => n.id === before.id)?.texture)
+    .not.toBe(before.texture);
+});
