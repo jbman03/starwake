@@ -3,6 +3,7 @@ import type { GameData } from '../data/schemas';
 import { cargoFree } from '../sim/cargo';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import { jumpDestination } from '../sim/rules';
+import { worldStats } from '../sim/shipStats';
 import type { WorldState } from '../sim/types';
 import { dist } from '../sim/vec';
 
@@ -46,7 +47,7 @@ export function hudInfo(world: WorldState, data: GameData): HudInfo {
     fuel: fuelText(jumps),
     fuelColor: fuelColor(jumps),
     credits: `Credits: ${Math.round(world.credits).toLocaleString('en-US')} cr`,
-    cargo: `Cargo: ${cargoFree(world, data)}/${data.ships[world.shipId].cargo} t`,
+    cargo: `Cargo: ${cargoFree(world, data)}/${worldStats(world, data).cargo} t`,
     target: t && t.systemId === world.systemId ? `Target: ${t.name}  ${Math.round(dist(t.pos, world.ship.pos))}` : 'Target: none',
     nextHop: nextHopText(world, data),
   };

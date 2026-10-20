@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testData } from '../data/testData';
+import { onlyPorts, testData, withoutPorts } from '../data/testData';
 import type { ActionId } from '../input/actions';
 import type { FrameInput, SimEvent, WorldState } from './types';
 import type { GameData } from '../data/schemas';
@@ -15,6 +15,7 @@ import {
   JUMP_DURATION,
   jumpHeading,
   MSG_NO_DESTINATION,
+  MSG_TOO_CLOSE,
   MSG_ROUTE_BROKEN,
   newWorld,
   setRoute,
@@ -297,7 +298,7 @@ describe('stepWorld: jumping', () => {
     expect(w.systemId).toBe('vesk');
     // Post-arrival presses are refused as too close, never as a second jump.
     for (const e of events.filter((x) => x.type === 'message')) {
-      expect(e).toEqual({ type: 'message', text: 'Too close to the star to jump. Use autopilot (G) to fly out.' });
+      expect(e).toEqual({ type: 'message', text: MSG_TOO_CLOSE });
     }
   });
 
@@ -369,7 +370,7 @@ describe('stepWorld: jumping', () => {
 
   it('too close → message', () => {
     const r = stepWorld(newWorld(data), data, frame(['jump']), DT, OPTS);
-    expect(r.events).toEqual([{ type: 'message', text: 'Too close to the star to jump. Use autopilot (G) to fly out.' }]);
+    expect(r.events).toEqual([{ type: 'message', text: MSG_TOO_CLOSE }]);
     expect(r.world.jump).toBeNull();
     expect(r.world.ship.fuel).toBe(300);
   });
@@ -391,6 +392,14 @@ describe('refuel, tow, depart', () => {
     expect(r.world.credits).toBe(9600);
   });
 
+  it('applyRefuel from a fractional tank ends exactly at capacity with whole credits', () => {
+    const w = { ...newWorld(data), ship: { ...newWorld(data).ship, fuel: 287.3333 } };
+    const r = applyRefuel(w, data, 'halcyon');
+    expect(r.world.ship.fuel).toBe(300);
+    expect(Number.isInteger(r.quote.cost)).toBe(true);
+    expect(Number.isInteger(r.world.credits)).toBe(true);
+  });
+
   it('applyRefuel with negative credits buys nothing', () => {
     const w = { ...newWorld(data), credits: -300, ship: { ...newWorld(data).ship, fuel: 0 } };
     const r = applyRefuel(w, data, 'halcyon');
@@ -404,7 +413,7 @@ describe('refuel, tow, depart', () => {
       ...newWorld(data), systemId: 'vesk', credits: 200, targetPlanetId: 'tallow-rock',
       ship: { pos: { x: 0, y: 0 }, vel: { x: 5, y: 5 }, heading: 0, fuel: 0 },
     };
-    const r = applyTow(w, data);
+    const r = applyTow(w, withoutPorts(data, 'vesk'));
     expect(r.events).toEqual([{ type: 'towed', planetId: 'halcyon' }]);
     expect(r.world.systemId).toBe('calder');
     expect(r.world.credits).toBe(-300);
@@ -476,7 +485,7 @@ describe('stepWorld: destinations and routes', () => {
     const w = at(w0, { x: data.systems.mirren.jumpDistance + 100, y: 0 });
     const r = stepWorld(w, data, frame(['jump']), DT, OPTS);
     expect(r.events).toEqual([{ type: 'message', text: MSG_NO_DESTINATION }]);
-    expect(MSG_NO_DESTINATION).toBe('Choose a destination on the star map (M).');
+    expect(MSG_NO_DESTINATION).toBe('Choose a destination on the star map{map}.');
     expect(r.world.jump).toBeNull();
     expect(r.world.ship.fuel).toBe(300);
   });
@@ -569,17 +578,8 @@ describe('setRoute', () => {
 });
 
 describe('applyTow: time and routes', () => {
-  /** Only halcyon (calder) sells fuel, so a tow from brackwater travels 3 hops. */
-  const dry: GameData = {
-    ...data,
-    planets: Object.fromEntries(
-      Object.entries(data.planets).map(([id, p]) => {
-        if (id === 'halcyon') return [id, p];
-        const { fuelPrice: _drop, ...rest } = p;
-        return [id, rest];
-      }),
-    ),
-  };
+  /** Only halcyon (calder) has a port, so a tow from brackwater travels 3 hops. */
+  const dry: GameData = onlyPorts(data, 'halcyon');
   const stranded = (p: Partial<WorldState> = {}): WorldState => ({
     ...newWorld(data, 1),
     systemId: 'brackwater',
@@ -597,7 +597,7 @@ describe('applyTow: time and routes', () => {
 
   it('a one-hop tow still advances one day', () => {
     const w: WorldState = { ...stranded(), systemId: 'vesk' };
-    expect(applyTow(w, data).world.day).toBe(1);
+    expect(applyTow(w, withoutPorts(data, 'vesk')).world.day).toBe(1);
   });
 
   it('clears a route whose next hop is not linked from the tow system', () => {
@@ -614,16 +614,7 @@ describe('applyTow: time and routes', () => {
   });
 
   it('a tow into an unexplored system marks it known and its neighbours seen', () => {
-    const fuelOnlyAtSkerry: GameData = {
-      ...data,
-      planets: Object.fromEntries(
-        Object.entries(data.planets).map(([id, p]) => {
-          if (id === 'skerry-light') return [id, p];
-          const { fuelPrice: _drop, ...rest } = p;
-          return [id, rest];
-        }),
-      ),
-    };
+    const fuelOnlyAtSkerry: GameData = onlyPorts(data, 'skerry-light');
     const r = applyTow(stranded(), fuelOnlyAtSkerry);
     expect(r.world.systemId).toBe('skerry');
     expect(r.world.known).toContain('skerry');
@@ -647,16 +638,7 @@ describe('advanceDays', () => {
   });
 
   it('a 3-hop tow ends 3 days later and emits towed', () => {
-    const dry: GameData = {
-      ...data,
-      planets: Object.fromEntries(
-        Object.entries(data.planets).map(([id, p]) => {
-          if (id === 'halcyon') return [id, p];
-          const { fuelPrice: _drop, ...rest } = p;
-          return [id, rest];
-        }),
-      ),
-    };
+    const dry: GameData = onlyPorts(data, 'halcyon');
     const w: WorldState = {
       ...newWorld(data, 1),
       systemId: 'brackwater',

@@ -21,6 +21,7 @@ const GROUPS: { id: ActionGroup; title: string }[] = [
   { id: 'flight', title: 'Flight' },
   { id: 'planet', title: 'Planet screen' },
   { id: 'exchange', title: 'Exchange' },
+  { id: 'shop', title: 'Shops' },
   { id: 'menus', title: 'Menus' },
 ];
 
@@ -39,11 +40,13 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   land: 'LAND ON (planet) button, or tap the planet',
   jump: 'JUMP TO (system) button',
   autopilot: 'AUTOPILOT TO JUMP POINT button; TAKE CONTROL stops it',
-  map: 'Tap the radar, or PLOT COURSE',
+  map: 'Tap Map, or PLOT COURSE',
   flightMissionLog: 'Pause (II), then Mission Log',
   pause: 'II button',
   openExchange: 'Tap the button',
   openMissions: 'Tap the button',
+  openShipyard: 'Tap the button',
+  openOutfitter: 'Tap the button',
   refuel: 'Tap the button',
   openMap: 'Tap the button',
   missionLog: 'Tap the button',
@@ -51,6 +54,10 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   leave: 'Tap the button',
   buyGoods: 'Buy buttons (hold for 1 t)',
   sellGoods: 'Sell buttons (hold for 1 t)',
+  shopBuy: 'Buy button',
+  shopSell: 'Sell button',
+  shopPrevPage: 'Prev button',
+  shopNextPage: 'Next button',
   back: 'Back or Close button',
   menuHowToPlay: 'Tap the button',
 };
@@ -102,7 +109,7 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
     case 'trade':
       return [
         { heading: 'Buy low, sell high', text: 'Each exchange shows a price level for every good: Low, Med or High. Buy where a good is Low, fly to a port where it is High, and sell.' },
-        { heading: 'Buying and selling', text: `Select a good, then ${k('buyGoods')} buys and ${k('sellGoods')} sells 10 t at a time; hold Shift or long-press the button for 1 t. Buy max and Sell all fill or empty the line. Your hold fits ${ship.cargo} t.` },
+        { heading: 'Buying and selling', text: `Select a good, then ${k('buyGoods')} buys and ${k('sellGoods')} sells 10 t at a time; hold Shift or long-press the button for 1 t. Buy max and Sell all fill or empty the line. The starter shuttle's hold fits ${ship.cargo} t; the Shipyard and Outfitter sell bigger holds.` },
         { heading: 'Prices move', text: 'Prices drift from day to day. News events cause a surplus or shortage at one port. Your own trading counts too: heavy buying pushes a price up, heavy selling pushes it down, and both ease back over a few days.' },
         { heading: 'Credits', text: 'Trading never takes your credits below zero. A pilot in debt (after a tow) can sell but not buy.' },
       ];
@@ -115,10 +122,10 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
       ];
     case 'travel':
       return [
-        { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses ${perJump} fuel and takes one day. The shuttle's tank holds ${tank} jumps' worth. With nothing targeted, ${k('autopilot')} flies you out to the jump point.` },
-        { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE or the radar.` },
-        { heading: 'Refuelling', text: `Ports with a fuel pump let you refuel (${k('refuel')}); fuel is charged per unit. Check your fuel before you leave, since not every port sells it.` },
-        { heading: 'Stranded?', text: `With less than one jump of fuel and no fuel for sale in the system, you can call a tow from the pause menu or the CALL TOW button. It costs ${data.config.towFee} cr, which can leave you in debt. The tow takes you to the nearest port with fuel, uses days on the way, and jobs that pass their deadline fail.` },
+        { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses ${perJump} fuel and takes one day. The starter shuttle's tank holds ${tank} jumps' worth; the Outfitter sells bigger tanks. With nothing targeted, ${k('autopilot')} flies you out to the jump point.` },
+        { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE, or the Map button (always shown, on every planet screen too).` },
+        { heading: 'Refuelling', text: `Every port sells fuel; press ${k('refuel')} to refuel. Fuel is charged per unit, and fringe ports charge more, so top up in the core worlds when you can.` },
+        { heading: 'Stranded?', text: `With less than one jump of fuel and no port in the system, you can call a tow from the pause menu or the CALL TOW button. It costs ${data.config.towFee} cr, which can leave you in debt. The tow takes you to the nearest port, uses days on the way, and jobs that pass their deadline fail.` },
       ];
   }
 }

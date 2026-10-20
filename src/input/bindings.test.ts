@@ -28,6 +28,12 @@ describe('bindings', () => {
       ['flightMissionLog', 'flight', 'KeyK'],
       ['buyGoods', 'exchange', 'KeyB'],
       ['sellGoods', 'exchange', 'KeyS'],
+      ['openShipyard', 'planet', 'KeyY'],
+      ['openOutfitter', 'planet', 'KeyO'],
+      ['shopBuy', 'shop', 'KeyB'],
+      ['shopSell', 'shop', 'KeyS'],
+      ['shopPrevPage', 'shop', 'PageUp'],
+      ['shopNextPage', 'shop', 'PageDown'],
       ['howToPlay', 'planet', 'KeyH'],
       ['menuHowToPlay', 'menus', 'KeyH'],
     ];

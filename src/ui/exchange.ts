@@ -1,8 +1,10 @@
 import { formatDate } from '../sim/calendar';
 import { cargoFree, maxBuy } from '../sim/cargo';
 import { displayLevel, localNews, priceOf } from '../sim/economy';
+import { worldStats } from '../sim/shipStats';
 import type { UiContext } from './context';
 import { button, el, formatCredits, hotkeyFor } from './dom';
+import { mapCornerButton, mapCornerKey } from './mapButton';
 import { guideCard } from './guideHint';
 
 /** Press-and-hold time (ms) on Buy/Sell before it moves 1 t instead of 10. */
@@ -83,7 +85,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
 
   function render(): void {
     const w = controller.world;
-    const shipCargo = data.ships[w.shipId].cargo;
+    const shipCargo = worldStats(w, data).cargo;
     stats.replaceChildren(
       el('span', { text: formatDate(w.day, data.config) }),
       el('span', { text: `Credits: ${formatCredits(w.credits)}` }),
@@ -172,6 +174,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
 
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-exchange-screen', attrs: { 'data-testid': 'exchange' } }, [
     el('div', { class: 'sw-panel sw-exchange' }, [
+      mapCornerButton(ctx, () => showExchange(ctx, portId, onClose)),
       el('h1', { class: 'sw-title', text: `${port.name} · Commodity Exchange` }),
       stats,
       el('div', { class: 'sw-ex-tablewrap' }, [table]),
@@ -196,6 +199,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
   };
   window.addEventListener('keydown', onKey);
   window.addEventListener('keyup', onKeyUp);
+  const offMapKey = mapCornerKey(ctx, () => showExchange(ctx, portId, onClose));
 
   ctx.mount(screen, {
     groups: ['exchange', 'menus'],
@@ -207,6 +211,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
     cleanup: () => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keyup', onKeyUp);
+      offMapKey();
       buyBtn.stop();
       sellBtn.stop();
       hint.dispose();

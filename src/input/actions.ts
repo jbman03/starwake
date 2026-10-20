@@ -21,6 +21,8 @@ export const ACTION_IDS = [
   // planet
   'openExchange',
   'openMissions',
+  'openShipyard',
+  'openOutfitter',
   'refuel',
   'openMap',
   'missionLog',
@@ -29,6 +31,11 @@ export const ACTION_IDS = [
   // commodity exchange
   'buyGoods',
   'sellGoods',
+  // shipyard and outfitter
+  'shopBuy',
+  'shopSell',
+  'shopPrevPage',
+  'shopNextPage',
   // menus
   'back',
   'menuHowToPlay',
@@ -36,7 +43,7 @@ export const ACTION_IDS = [
 
 export type ActionId = (typeof ACTION_IDS)[number];
 
-export type ActionGroup = 'flight' | 'planet' | 'exchange' | 'menus';
+export type ActionGroup = 'flight' | 'planet' | 'exchange' | 'shop' | 'menus';
 
 export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   thrust: 'flight',
@@ -57,6 +64,8 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   pause: 'flight',
   openExchange: 'planet',
   openMissions: 'planet',
+  openShipyard: 'planet',
+  openOutfitter: 'planet',
   refuel: 'planet',
   openMap: 'planet',
   missionLog: 'planet',
@@ -64,6 +73,10 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   leave: 'planet',
   buyGoods: 'exchange',
   sellGoods: 'exchange',
+  shopBuy: 'shop',
+  shopSell: 'shop',
+  shopPrevPage: 'shop',
+  shopNextPage: 'shop',
   back: 'menus',
   menuHowToPlay: 'menus',
 };
@@ -87,6 +100,8 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   pause: 'Pause',
   openExchange: 'Commodity exchange',
   openMissions: 'Mission computer',
+  openShipyard: 'Shipyard',
+  openOutfitter: 'Outfitter',
   refuel: 'Refuel',
   openMap: 'Star map',
   missionLog: 'Mission log',
@@ -94,6 +109,10 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   leave: 'Leave',
   buyGoods: 'Buy goods',
   sellGoods: 'Sell goods',
+  shopBuy: 'Buy',
+  shopSell: 'Sell',
+  shopPrevPage: 'Previous page',
+  shopNextPage: 'Next page',
   back: 'Back',
   menuHowToPlay: 'How to play',
 };

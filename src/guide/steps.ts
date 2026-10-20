@@ -66,8 +66,7 @@ function plotText(c: TextCtx): string {
     return touch(c) ? `Tap ${systemName(c)}, then Set course.` : `Pick ${systemName(c)}, then Set course.`;
   }
   if (touch(c)) {
-    const how = c.screen === 'planet' ? 'Tap Star Map.' : 'Tap the radar.';
-    return `${how} Set course to ${systemName(c)}.`;
+    return `Tap Map. Set course to ${systemName(c)}.`;
   }
   return `Open the Star Map (${c.key('map')}) and set a course to ${systemName(c)}. ${goodName(c)} pays well there.`;
 }

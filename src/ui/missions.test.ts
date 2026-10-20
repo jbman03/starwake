@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Controller } from '../app/controller';
 import { loadGameData } from '../data/load';
 import type { ActionId } from '../input/actions';
@@ -13,6 +13,7 @@ import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { showMissionComputer } from './missionComputer';
 import { showMissionLog } from './missionLog';
+import { dialogOpen } from './dom';
 import { showPauseMenu } from './pauseMenu';
 import { showPlanetScreen } from './planetScreen';
 
@@ -22,7 +23,7 @@ async function setup(patch: (w: ReturnType<typeof newWorld>) => ReturnType<typeo
   c.beginSession(patch({ ...newWorld(data, 1), credits: 5000 }), { id: 'p', name: 'P' }, 'halcyon');
   const root = document.createElement('div');
   document.body.append(root);
-  const state: { onPress?: (p: Set<ActionId>) => void; closed: number; maps: { initialSelection?: string; onClose?: () => void }[] } = {
+  const state: { cleanup?: () => void; onPress?: (p: Set<ActionId>) => void; closed: number; maps: { initialSelection?: string; preview?: { systemId: string; label: string }; onClose?: () => void }[] } = {
     closed: 0,
     maps: [],
   };
@@ -33,6 +34,8 @@ async function setup(patch: (w: ReturnType<typeof newWorld>) => ReturnType<typeo
     inputMode: new InputMode(new EventTarget(), () => DEFAULT_SETTINGS.bindings, 'keyboard'),
     planetImage: () => null,
     mount: (node: HTMLElement, opts: { onPress?: (p: Set<ActionId>) => void; cleanup?: () => void } = {}) => {
+      state.cleanup?.(); // like the real mount: the previous screen's listeners go
+      state.cleanup = opts.cleanup;
       root.replaceChildren(node);
       state.onPress = opts.onPress;
     },
@@ -41,7 +44,7 @@ async function setup(patch: (w: ReturnType<typeof newWorld>) => ReturnType<typeo
       mainMenu() {},
       planet() {},
       pause() {},
-      map: (o: { initialSelection?: string; onClose?: () => void } = {}) => state.maps.push(o),
+      map: (o: { initialSelection?: string; preview?: { systemId: string; label: string }; onClose?: () => void } = {}) => state.maps.push(o),
     },
   } as unknown as UiContext;
   const q = (t: string) => root.querySelector(`[data-testid="${t}"]`)!;
@@ -221,7 +224,7 @@ describe('mission log', () => {
     showMissionLog(ctx, () => {});
     btn('Show on map').click();
     expect(state.maps).toHaveLength(1);
-    expect(state.maps[0].initialSelection).toBe(data.planets.merrow.systemId);
+    expect(state.maps[0].preview).toEqual({ systemId: data.planets.merrow.systemId, label: 'Mission: Deliver rations to Merrow' });
     state.maps[0].onClose!();
     expect(root.querySelector('[data-testid="mission-log"]')).toBeTruthy();
   });
@@ -250,6 +253,7 @@ describe('pause menu and dialogs', () => {
     expect(root.querySelector('.sw-dialog')).toBeTruthy();
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown' }));
     expect(rows()[0].getAttribute('aria-selected')).toBe('true');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', cancelable: true })); // don't leak the open dialog
   });
 });
 
@@ -276,5 +280,77 @@ describe('completion dialog', () => {
     const { ctx, root } = await setup();
     showPlanetScreen(ctx, 'halcyon');
     expect(root.querySelector('.sw-dialog')).toBeNull();
+  });
+});
+
+describe('mission preview on the map', () => {
+  beforeEach(() => {
+    // Earlier tests can leave a dialog open (the key handlers ignore keys while one is).
+    for (let i = 0; i < 10 && dialogOpen(); i++) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', cancelable: true }));
+  });
+
+  const press = (code: string) => window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true }));
+
+  it('computer: Show on map and the Map key open the map previewing the selected offer; closing keeps the selection', async () => {
+    const { ctx, c, data, state, btn, rows } = await setup();
+    showMissionComputer(ctx, 'halcyon', () => {});
+    rows()[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const o = c.offers()[2];
+    const route = c.world.route;
+    press('KeyN');
+    expect(state.maps).toHaveLength(1); // not also the plain-map handler
+    expect(state.maps[0].preview).toEqual({ systemId: data.planets[o.destId].systemId, label: `Mission: ${o.title}` });
+    expect(c.world.route).toBe(route);
+    state.maps[0].onClose!();
+    expect(rows()[2].getAttribute('aria-selected')).toBe('true');
+    press('KeyM');
+    expect(state.maps).toHaveLength(2);
+    btn('Show on map').click();
+    expect(state.maps).toHaveLength(3);
+    expect(state.maps[2].preview!.label).toBe(`Mission: ${o.title}`);
+  });
+
+  it('computer: the corner Map button still opens the plain map', async () => {
+    const { ctx, state, root } = await setup();
+    showMissionComputer(ctx, 'halcyon', () => {});
+    root.querySelector<HTMLButtonElement>('.sw-map-corner')!.click();
+    expect(state.maps[0].preview).toBeUndefined();
+  });
+
+  it('computer: with nothing selected the Map key opens the plain map', async () => {
+    const { ctx, state, c } = await setup();
+    c.offers = () => [];
+    showMissionComputer(ctx, 'halcyon', () => {});
+    press('KeyN');
+    expect(state.maps).toHaveLength(1);
+    expect(state.maps[0].preview).toBeUndefined();
+  });
+
+  it('log: the Map key previews the selected mission and closing returns with it still selected', async () => {
+    const { ctx, data, state, rows, root } = await setup((w) => ({ ...w, missions: [job(), job({ id: 'j2', title: 'Second job', destId: 'vanterre' })] }));
+    showMissionLog(ctx, () => {});
+    rows()[1].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    press('KeyN');
+    expect(state.maps).toHaveLength(1);
+    expect(state.maps[0].preview).toEqual({ systemId: data.planets.vanterre.systemId, label: 'Mission: Second job' });
+    state.maps[0].onClose!();
+    expect(root.querySelector('[data-testid="mission-log"]')).toBeTruthy();
+    expect(rows()[1].getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('log: with no missions the Map key opens the plain map', async () => {
+    const { ctx, state } = await setup();
+    showMissionLog(ctx, () => {});
+    press('KeyN');
+    expect(state.maps).toHaveLength(1);
+    expect(state.maps[0].preview).toBeUndefined();
+  });
+
+  it('selectId pre-selects an offer or mission', async () => {
+    const { ctx, c, rows } = await setup((w) => ({ ...w, missions: [job(), job({ id: 'j2' })] }));
+    showMissionComputer(ctx, 'halcyon', () => {}, { selectId: c.offers()[3].offerId });
+    expect(rows()[3].getAttribute('aria-selected')).toBe('true');
+    showMissionLog(ctx, () => {}, { selectId: 'j2' });
+    expect(rows()[1].getAttribute('aria-selected')).toBe('true');
   });
 });

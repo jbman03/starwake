@@ -8,10 +8,15 @@ import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { JUMP_DURATION } from '../sim/world';
 import { skipLabel } from '../guide/guide';
+import { hotkeyFor } from '../ui/dom';
+import { formatMessage } from '../ui/messageText';
 import { Hud, type HudGuide } from './hud';
+import { Sidebar, SIDEBAR_W } from './sidebar';
+import { sidebarInfo } from './sidebarInfo';
 import {
   makePlanetTexture,
   makeShipTextures,
+  shipTextureKey,
   makeStarfieldTexture,
   makeStarTexture,
   shipFrame,
@@ -21,6 +26,9 @@ import {
 const TAP_MARGIN = 12;
 /** ...and never with a radius under this (a 44 px wide touch target). */
 const MIN_TAP_RADIUS = 22;
+
+/** Narrowest window that gets the sidebar (keyboard mode). */
+const SIDEBAR_MIN_WINDOW = 700;
 
 /** Parallax factor per starfield layer (far → near). */
 const PARALLAX = [0.08, 0.22, 0.45];
@@ -37,6 +45,7 @@ export class SpaceScene extends Phaser.Scene {
   private bracket!: Phaser.GameObjects.Graphics;
   private fx!: Phaser.GameObjects.Graphics;
   private hud!: Hud;
+  private sidebar!: Sidebar;
   private builtSystemId: string | null = null;
   private unsubs: (() => void)[] = [];
   private viewport: Rect = { x: 0, y: 0, w: 0, h: 0 };
@@ -68,16 +77,43 @@ export class SpaceScene extends Phaser.Scene {
     this.fx = this.add.graphics().setDepth(20);
     this.hud = new Hud(this, () => this.controller.requestGuideSkip());
 
+    this.sidebar = new Sidebar(
+      this,
+      () => {
+        this.controller.touch.press('map');
+        this.controller.touch.release('map');
+      },
+      () => hotkeyFor(this.controller.settings.bindings, 'map'),
+    );
+
+    // The sidebar is drawn by its own camera; the main camera and that one skip each other's objects.
+    const sb = this.sidebar.objects();
+    this.cameras.main.ignore(sb);
+    this.sidebar.cam.ignore(this.children.list.filter((o) => !sb.includes(o)));
+
     this.buildSystem(world.systemId);
 
     this.unsubs.push(
       this.controller.on('jumped', (e) => this.buildSystem(e.toSystemId)),
-      this.controller.on('message', (e) => this.hud.showMessage(e.text)),
+      this.controller.on('message', (e) =>
+        this.hud.showMessage(
+          formatMessage(
+            e.text,
+            (a) => hotkeyFor(this.controller.settings.bindings, a) ?? null,
+            this.inputMode.mode === 'touch',
+          ),
+        ),
+      ),
     );
 
     this.applyLayout();
     this.installTestHook();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsubs.forEach((u) => u()));
+  }
+
+  /** The sidebar shows in keyboard mode on windows wide enough for it. */
+  private sidebarShowing(): boolean {
+    return this.inputMode.mode !== 'touch' && this.scale.width >= SIDEBAR_MIN_WINDOW;
   }
 
   /** The view rect for the current window size and input mode, in whole pixels. */
@@ -86,7 +122,7 @@ export class SpaceScene extends Phaser.Scene {
     const v =
       this.inputMode.mode === 'touch'
         ? computeLayout(width, height, this.controller.settings.touch, getInsets()).view
-        : { x: 0, y: 0, w: width, h: height };
+        : { x: 0, y: 0, w: this.sidebarShowing() ? width - SIDEBAR_W : width, h: height };
     return { x: Math.round(v.x), y: Math.round(v.y), w: Math.round(v.w), h: Math.round(v.h) };
   }
 
@@ -98,7 +134,10 @@ export class SpaceScene extends Phaser.Scene {
     this.viewport = v;
     this.cameras.main.setViewport(v.x, v.y, v.w, v.h);
     for (const ts of this.stars) ts.setSize(v.w, v.h);
-    this.hud.setLayout(v.w, v.h, this.inputMode.mode === 'touch');
+    const sidebar = this.sidebarShowing();
+    this.hud.setLayout(v.w, v.h, this.inputMode.mode === 'touch', sidebar);
+    this.sidebar.setVisible(sidebar);
+    if (sidebar) this.sidebar.layout(this.scale.width - SIDEBAR_W, this.scale.height);
   }
 
   /** e2e helpers: the camera viewport and where a planet is on screen. */
@@ -109,6 +148,8 @@ export class SpaceScene extends Phaser.Scene {
       const c = this.cameras.main;
       return { x: c.x, y: c.y, w: c.width, h: c.height };
     };
+    hook.sidebar = () => ({ visible: this.sidebar.isVisible(), info: sidebarInfo(this.controller.world, this.controller.data) });
+    hook.flightSpriteTexture = () => this.ship.texture.key;
     hook.hudBanner = () => this.hud.bannerText();
     hook.hudCourse = () => this.hud.courseText();
     hook.hudGuide = () => this.hud.guideInfo();
@@ -120,6 +161,14 @@ export class SpaceScene extends Phaser.Scene {
     };
   }
 
+  /**
+   * Register a game-world object created after startup. The sidebar camera draws only the
+   * sidebar, so every other object must be hidden from it; do this for any new world object.
+   */
+  private addWorldObject(o: Phaser.GameObjects.GameObject): void {
+    this.sidebar.cam.ignore(o);
+  }
+
   /** Rebuild the star and planets for a system. */
   private buildSystem(systemId: string): void {
     if (this.builtSystemId === systemId) return;
@@ -128,9 +177,9 @@ export class SpaceScene extends Phaser.Scene {
     this.bodies = [];
     const { data } = this.controller;
     const sys: SystemDef = data.systems[systemId];
-    this.bodies.push(
-      this.add.image(SYSTEM_CENTER.x, SYSTEM_CENTER.y, makeStarTexture(this, sys)).setDepth(0).setBlendMode(Phaser.BlendModes.ADD),
-    );
+    const star = this.add.image(SYSTEM_CENTER.x, SYSTEM_CENTER.y, makeStarTexture(this, sys)).setDepth(0).setBlendMode(Phaser.BlendModes.ADD);
+    this.addWorldObject(star);
+    this.bodies.push(star);
     for (const p of Object.values(data.planets)) {
       if (p.systemId !== systemId) continue;
       const img = this.add.image(p.pos.x, p.pos.y, makePlanetTexture(this, p)).setDepth(1);
@@ -140,6 +189,7 @@ export class SpaceScene extends Phaser.Scene {
       img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, (pointer: Phaser.Input.Pointer) =>
         this.controller.tapPlanet(p.id, pointerTypeOf(pointer.event, pointer.wasTouch)),
       );
+      this.addWorldObject(img);
       this.bodies.push(img);
     }
   }
@@ -156,6 +206,8 @@ export class SpaceScene extends Phaser.Scene {
     // Interpolated ship position; camera stays centered on it.
     const x = prevShip.pos.x + (world.ship.pos.x - prevShip.pos.x) * alpha;
     const y = prevShip.pos.y + (world.ship.pos.y - prevShip.pos.y) * alpha;
+    const shipKey = shipTextureKey(data.ships[world.shipId] ?? Object.values(data.ships)[0]!);
+    if (this.ship.texture.key !== shipKey) this.ship.setTexture(shipKey);
     this.ship.setPosition(x, y).setFrame(shipFrame(world.ship.heading));
     const cam = this.cameras.main;
     cam.centerOn(x, y);
@@ -170,6 +222,7 @@ export class SpaceScene extends Phaser.Scene {
     this.drawBracket(world.targetPlanetId);
     this.drawJumpFx(x, y);
     this.hud.update(world, data, dt, this.guideHint());
+    this.sidebar.update(world, data, dt);
   }
 
   /** The First Flight guide's current hint for the HUD, or null. */

@@ -70,11 +70,11 @@ test.describe('desktop', () => {
     await page.keyboard.press('KeyL');
     await page.waitForFunction(() => window.__starwake!.controller.isFlying);
 
-    // 6: the hint is in the HUD column, under the status panel, wrapped to its width.
+    // 6: with the PC sidebar the status panel is gone, so the hint sits top-left, wrapped to its width.
     expect(await hudHint(page, /^Fly:/)).toBe('Fly: ↑ thrust, ← → turn, X stop.');
     const box = (await page.evaluate(() => window.__starwake!.hudGuide!()))!.skip;
     expect(box.x).toBeLessThan(40);
-    expect(box.y).toBeGreaterThan(174);
+    expect(box.y).toBeLessThan(174);
     await page.screenshot({ path: `${SHOTS}/guide-desktop-flight.png` });
     await page.keyboard.down('ArrowUp');
     await expect.poll(() => step(page), { timeout: 20_000 }).toBe(7);
@@ -310,7 +310,7 @@ test.describe('phone (touch, landscape)', () => {
       const { controller, data } = window.__starwake!;
       return data.systems[controller.guide!.target()!.system].name;
     });
-    await expect(page.getByTestId('rail-guide')).toHaveText(`Tap the radar. Set course to ${systemName}.`);
+    await expect(page.getByTestId('rail-guide')).toHaveText(`Tap Map. Set course to ${systemName}.`);
     await railHintFits(page, 844, 390);
 
     // Skip guide in the rail asks first (flight pauses meanwhile), then the rail gives the room back.

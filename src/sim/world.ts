@@ -18,6 +18,7 @@ import {
   towDestination,
   type RefuelQuote,
 } from './rules';
+import { worldStats } from './shipStats';
 import type { Assist, FlightInput, FrameInput, ShipState, SimEvent, WorldState } from './types';
 import { add, angleOf, fromAngle, len, norm, scale, sub, type Vec2 } from './vec';
 
@@ -34,9 +35,9 @@ export const STICK_DEADZONE = 0.25;
 /** Point-mode stick magnitude above which the ship thrusts. */
 export const STICK_THRUST = 0.6;
 
-export const MSG_TOO_CLOSE = 'Too close to the star to jump. Use autopilot (G) to fly out.';
+export const MSG_TOO_CLOSE = 'Too close to the star to jump. {autopilot} to fly out.';
 export const MSG_NO_FUEL = 'Not enough fuel to jump.';
-export const MSG_NO_DESTINATION = 'Choose a destination on the star map (M).';
+export const MSG_NO_DESTINATION = 'Choose a destination on the star map{map}.';
 export const MSG_ROUTE_BROKEN = 'Course no longer valid — plot a new one on the star map.';
 
 const NONE: Assist = { kind: 'none' };
@@ -78,6 +79,7 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     pressure: {},
     events: [],
     takenOffers: [],
+    outfits: {},
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
 }
@@ -153,10 +155,15 @@ export function applyRefuel(
   data: GameData,
   planetId: string,
 ): { world: WorldState; quote: RefuelQuote } {
-  const quote = refuelQuote(world.ship.fuel, data.ships[world.shipId], data.planets[planetId], world.credits);
+  const capacity = worldStats(world, data).fuelCapacity;
+  const quote = refuelQuote(world.ship.fuel, capacity, data.planets[planetId], world.credits);
   if (quote.units === 0) return { world, quote };
   return {
-    world: { ...world, credits: world.credits - quote.cost, ship: { ...world.ship, fuel: world.ship.fuel + quote.units } },
+    world: {
+      ...world,
+      credits: world.credits - quote.cost,
+      ship: { ...world.ship, fuel: Math.min(capacity, world.ship.fuel + quote.units) },
+    },
     quote,
   };
 }
@@ -380,6 +387,13 @@ export function stepWorld(
   const jumpFlight: FlightInput | null = w.jump
     ? { thrust: false, turn: 0, targetHeading: jumpHeading(w, data, w.jump.toSystemId) }
     : null;
-  const ship = stepShip(w.ship, def, jumpFlight ?? flight, dt);
+  let ship = stepShip(w.ship, def, jumpFlight ?? flight, dt);
+  // A fuel scoop trickles fuel back in while flying (never while jumping).
+  if (!w.jump) {
+    const stats = worldStats(w, data);
+    if (stats.fuelPerMin > 0) {
+      ship = { ...ship, fuel: Math.min(stats.fuelCapacity, ship.fuel + (stats.fuelPerMin * dt) / 60) };
+    }
+  }
   return { world: { ...w, ship }, events };
 }

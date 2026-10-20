@@ -25,6 +25,11 @@
   box-sizing: border-box;
   overflow: auto;
 }
+/* The fixed Map button in a landed screen's top-right corner. */
+.sw-panel:has(> .sw-map-corner) { position: relative; }
+.sw-btn.sw-map-corner { position: absolute; top: 8px; right: 8px; width: auto; min-height: 44px; z-index: 1; }
+/* Keep the heading and the stats row clear of the corner button. */
+.sw-panel:has(> .sw-map-corner) > :is(.sw-title, .sw-stats, .sw-ex-stats) { padding-right: 96px; }
 /* margin:auto centers the panel but lets a too-tall one scroll instead of clipping its top. */
 .sw-screen > .sw-panel { margin: auto; }
 .sw-overlay { background: rgba(2, 4, 8, 0.62); }
@@ -188,6 +193,8 @@
 .sw-sys-unknown .sw-map-dot { stroke: #5a6472; stroke-width: 1.5; }
 .sw-map-ring { fill: none; stroke: #ffffff; stroke-width: 2; }
 .sw-map-sel { fill: none; stroke: var(--sw-accent); stroke-width: 2; stroke-dasharray: 4 3; }
+.sw-map-prev { fill: none; stroke: var(--sw-accent); stroke-width: 1; opacity: 0.6; }
+.sw-map-preview-label { margin: 0 0 6px; color: var(--sw-accent); font-weight: 600; }
 .sw-map-sys:focus-visible .sw-map-hit { stroke: var(--sw-accent); stroke-width: 1.5; }
 .sw-map-flag { fill: #ffd166; stroke: #ffd166; stroke-width: 1.5; stroke-linejoin: round; }
 .sw-map-name { fill: var(--sw-text); font: 13px var(--sw-font); text-anchor: middle; paint-order: stroke; stroke: #02040a; stroke-width: 3px; }
@@ -422,4 +429,38 @@
 @media (max-height: 500px) {
   .sw-guide { padding: 4px 8px; }
   .sw-guide-text { font-size: 13px; line-height: 1.3; }
+}
+
+/* ---- shipyard and outfitter ---- */
+.sw-hub { color: var(--sw-good); }
+.sw-shop { display: flex; flex-direction: column; gap: 8px; width: min(960px, 100%); max-height: 100%; padding: 16px; }
+.sw-shop .sw-title { margin: 0; }
+.sw-shop-body { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 12px; min-height: 0; }
+.sw-shop-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sw-shop-grid { display: grid; grid-template-columns: repeat(var(--sw-shop-cols, 4), minmax(0, 1fr)); gap: 6px; }
+.sw-shop-tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 84px; padding: 6px 4px; box-sizing: border-box; cursor: pointer; border: 1px solid var(--sw-border); border-radius: 3px; background: var(--sw-panel-2); text-align: center; }
+.sw-shop-tile:hover { background: #172233; }
+.sw-shop-selected, .sw-shop-selected:hover { background: #21344d; border-color: var(--sw-accent); }
+.sw-shop-icon { display: flex; height: 56px; align-items: center; justify-content: center; }
+.sw-shop-name { font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
+.sw-shop-badge { position: absolute; top: 3px; right: 3px; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--sw-accent); color: #04060b; font-size: 12px; font-weight: 700; line-height: 18px; text-align: center; }
+.sw-shop-pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sw-shop-pager > .sw-btn { width: auto; min-width: 90px; justify-content: center; padding: 6px 10px; }
+.sw-shop-page { font-size: 13px; color: var(--sw-dim); }
+.sw-shop-info { min-height: 0; max-height: 52vh; overflow-y: auto; overflow-wrap: anywhere; }
+.sw-shop-reason { margin: 6px 0 0; font-size: 13px; color: var(--sw-danger); }
+.sw-shop-note { margin: 6px 0 0; font-size: 13px; color: #c9d3de; }
+@media (max-height: 500px) {
+  .sw-shop { gap: 4px; padding: 8px 12px; }
+  .sw-shop .sw-title { font-size: 15px; }
+  .sw-shop-tile { min-height: 62px; padding: 3px; gap: 2px; }
+  .sw-shop-icon { height: 36px; }
+  .sw-shop-icon > * { max-height: 36px; max-width: 36px; }
+  .sw-shop-name { font-size: 11px; }
+  .sw-shop-info { max-height: calc(100vh - 150px); }
+  .sw-shop .sw-mc-desc { font-size: 12px; margin-bottom: 2px; }
+  .sw-shop .sw-mc-rows { font-size: 12px; }
+  .sw-shop-note, .sw-shop-reason { font-size: 12px; margin-top: 3px; }
+  .sw-shop .sw-ex-message { font-size: 13px; min-height: 0; margin: 0; }
+  .sw-shop-pager > .sw-btn { padding: 2px 8px; min-width: 70px; }
 }

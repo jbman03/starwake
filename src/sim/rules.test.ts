@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testData } from '../data/testData';
+import { testData, withoutPorts } from '../data/testData';
 import {
   canJump,
   canLand,
@@ -33,6 +33,7 @@ const mkWorld = (p: Partial<WorldState> = {}, ship: Partial<WorldState['ship']> 
   pressure: {},
   events: [],
   takenOffers: [],
+  outfits: {},
   ...p,
   ship: { pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, heading: 0, fuel: 300, ...ship },
 });
@@ -59,43 +60,50 @@ describe('canLand', () => {
 describe('refuelQuote', () => {
   const h = data.planets.halcyon; // fuelPrice 2
   it('fills the tank when affordable', () => {
-    expect(refuelQuote(100, shuttle, h, 10000)).toEqual({ units: 200, cost: 400 });
+    expect(refuelQuote(100, shuttle.fuelCapacity, h, 10000)).toEqual({ units: 200, cost: 400 });
   });
   it('buys partially when short of credits', () => {
-    expect(refuelQuote(100, shuttle, h, 150)).toEqual({ units: 75, cost: 150 });
+    expect(refuelQuote(100, shuttle.fuelCapacity, h, 150)).toEqual({ units: 75, cost: 150 });
   });
   it('buys nothing with negative credits', () => {
-    expect(refuelQuote(100, shuttle, h, -300)).toEqual({ units: 0, cost: 0, reason: 'noCredits' });
+    expect(refuelQuote(100, shuttle.fuelCapacity, h, -300)).toEqual({ units: 0, cost: 0, reason: 'noCredits' });
   });
   it('buys nothing with zero credits', () => {
-    expect(refuelQuote(100, shuttle, h, 0)).toEqual({ units: 0, cost: 0, reason: 'noCredits' });
+    expect(refuelQuote(100, shuttle.fuelCapacity, h, 0)).toEqual({ units: 0, cost: 0, reason: 'noCredits' });
   });
-  it('reports noFuelSold for planets without a fuel price', () => {
-    expect(refuelQuote(100, shuttle, data.planets['tallow-rock'], 10000)).toEqual({
-      units: 0, cost: 0, reason: 'noFuelSold',
-    });
+  it('quotes fuel at a fringe port', () => {
+    expect(refuelQuote(100, shuttle.fuelCapacity, data.planets['tallow-rock'], 10000)).toEqual({ units: 200, cost: 1000 });
+  });
+  it('quotes whole units and whole credits for a fractional tank', () => {
+    const q = refuelQuote(287.3333, shuttle.fuelCapacity, h, 10000);
+    expect(q).toEqual({ units: 13, cost: 26 });
+    expect(Number.isInteger(q.units) && Number.isInteger(q.cost)).toBe(true);
   });
   it('reports full when the tank is full', () => {
-    expect(refuelQuote(300, shuttle, h, 10000)).toEqual({ units: 0, cost: 0, reason: 'full' });
+    expect(refuelQuote(300, shuttle.fuelCapacity, h, 10000)).toEqual({ units: 0, cost: 0, reason: 'full' });
   });
 });
 
 describe('towDestination', () => {
-  it('stranded in vesk → a calder fuel planet', () => {
-    const id = towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 0 }), data);
+  const noVesk = withoutPorts(data, 'vesk'); // a system with no port at all
+  it('stranded in a system with no port → a calder planet', () => {
+    const id = towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 0 }), noVesk);
     expect(id).not.toBeNull();
-    expect(data.planets[id!].systemId).toBe('calder');
-    expect(data.planets[id!].fuelPrice).toBeDefined();
+    expect(noVesk.planets[id!].systemId).toBe('calder');
   });
-  it('picks the fuel planet nearest that system center', () => {
+  it('picks the planet nearest that system center', () => {
     // halcyon |(700,-200)| ≈ 728 < merrow ≈ 1006 < brigg ≈ 1170
-    expect(towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 0 }), data)).toBe('halcyon');
+    expect(towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 0 }), noVesk)).toBe('halcyon');
   });
   it('null in calder (fuel sold locally)', () => {
     expect(towDestination(mkWorld({ systemId: 'calder' }, { fuel: 0 }), data)).toBeNull();
   });
-  it('null in vesk with enough fuel to jump', () => {
-    expect(towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 100 }), data)).toBeNull();
+  it('null when the ship has under one jump of fuel but its system has any port', () => {
+    expect(towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 0 }), data)).toBeNull();
+    expect(towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 99 }), data)).toBeNull();
+  });
+  it('null with enough fuel to jump, even with no port', () => {
+    expect(towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 100 }), noVesk)).toBeNull();
   });
 });
 

@@ -65,7 +65,7 @@ test.describe('desktop', () => {
     await map.getByRole('button', { name: /^Close/ }).click();
     await expect(map).toBeHidden();
     await page.waitForFunction(() => window.__starwake!.controller.isFlying);
-    await expect.poll(() => page.evaluate(() => window.__starwake!.hudCourse!())).toBe('Course: Tessaly (1 jump)');
+    await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar!().info.nav)).toBe('Tessaly · 1 jump');
 
     await page.keyboard.press('KeyG');
     await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'autopilot');
@@ -78,7 +78,7 @@ test.describe('desktop', () => {
     const w = await page.evaluate(() => window.__starwake!.world());
     expect(w.route).toEqual([]);
     expect(w.day).toBe(1);
-    await expect.poll(() => page.evaluate(() => window.__starwake!.hudCourse!())).toBeNull();
+    await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar!().info.nav)).toBe('No course');
 
     // Back on the map, the date has moved on and Tessaly is now the current system.
     await page.keyboard.press('KeyM');
@@ -131,6 +131,45 @@ test.describe('desktop', () => {
   });
 });
 
+test.describe('desktop mission preview and corner button', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('the corner Map button opens the map from the planet screen and returns', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Corner');
+    await page.locator('.sw-map-corner').click();
+    const map = page.getByTestId('star-map');
+    await expect(map).toBeVisible();
+    await map.getByRole('button', { name: /^Close/ }).click();
+    await expect(map).toBeHidden();
+    await expect(page.getByTestId('planet-screen')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test('N in the Mission Computer previews the selected job on the map; closing keeps the selection', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Preview');
+    await page.getByRole('button', { name: /^Mission Computer/ }).click();
+    const mc = page.getByTestId('mission-computer');
+    await expect(mc).toBeVisible();
+    const rows = mc.locator('.sw-mc-row');
+    expect(await rows.count()).toBeGreaterThan(1);
+    await rows.nth(1).click();
+    const offerId = (await rows.nth(1).getAttribute('data-offer'))!;
+    await page.keyboard.press('KeyN');
+    const map = page.getByTestId('star-map');
+    await expect(map).toBeVisible();
+    await expect(map.getByTestId('map-preview')).toContainText('Mission:');
+    await expect(map.getByTestId('map-route')).toBeVisible();
+    await expect(map.locator('.sw-map-preview')).toHaveCount(1);
+    await map.getByRole('button', { name: /^Close/ }).click();
+    await expect(map).toBeHidden();
+    await expect(mc).toBeVisible();
+    await expect(mc.locator(`.sw-mc-row[data-offer="${offerId}"]`)).toHaveAttribute('aria-selected', 'true');
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('phone (touch, landscape)', () => {
   test.use({ hasTouch: true, viewport: { width: 844, height: 390 } });
 
@@ -138,7 +177,7 @@ test.describe('phone (touch, landscape)', () => {
     test.setTimeout(60_000);
     const errors = trackErrors(page);
     await newPilot(page, 'Pocket');
-    await page.getByRole('button', { name: /^Star Map/ }).tap();
+    await page.getByRole('button', { name: /^Map/ }).tap();
     const map = page.getByTestId('star-map');
     await expect(map).toBeVisible();
     await map.locator('[data-system="tessaly"]').tap();

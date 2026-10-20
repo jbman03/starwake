@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testData } from '../data/testData';
+import { testData, withoutPorts } from '../data/testData';
 import { contextAction } from './context';
 import type { WorldState } from './types';
 import { autopilotToJumpPoint, newWorld, stepWorld } from './world';
@@ -20,7 +20,7 @@ describe('contextAction', () => {
 
   it('tow when stranded', () => {
     const w = at({ ...newWorld(data), systemId: 'vesk' }, { x: -600, y: -700 }, 0);
-    expect(contextAction(w, data)).toBe('tow');
+    expect(contextAction(w, withoutPorts(data, 'vesk'))).toBe('tow');
   });
 
   it('land near halcyon', () => {
@@ -114,7 +114,7 @@ describe('contextAction', () => {
     const auto: WorldState = { ...far, assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
     expect(contextAction(auto, data)).toBe('takeControl');
     const stranded = at({ ...newWorld(data), systemId: 'vesk', targetPlanetId: 'halcyon' }, { x: -600, y: -700 }, 0);
-    expect(contextAction(stranded, data)).toBe('tow');
+    expect(contextAction(stranded, withoutPorts(data, 'vesk'))).toBe('tow');
   });
 
   it('executing land on a far targeted planet autopilots in and lands, like the L key', () => {

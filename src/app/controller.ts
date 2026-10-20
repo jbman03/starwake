@@ -7,6 +7,7 @@ import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import type { Settings } from '../save/settings';
 import { contextAction, type ContextAction } from '../sim/context';
 import { buy, sell, type BuyResult, type SellResult } from '../sim/cargo';
+import { buyOutfit, outfitBuyCheck, sellOutfit, type BuyCheck, type SellCheck } from '../sim/outfitter';
 import {
   abandon,
   accept,
@@ -18,7 +19,9 @@ import {
   type AcceptCheck,
   type MissionOffer,
 } from '../sim/missions';
+import { buyShip, shipQuote, type ShipQuote } from '../sim/shipyard';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
+import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
 import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
 import {
@@ -226,7 +229,7 @@ export class Controller {
   refuelQuote(): RefuelQuote | null {
     const planet = this.landedPlanetId ? this.data.planets[this.landedPlanetId] : undefined;
     if (!planet) return null;
-    return refuelQuote(this.world.ship.fuel, this.data.ships[this.world.shipId], planet, this.world.credits);
+    return refuelQuote(this.world.ship.fuel, worldStats(this.world, this.data).fuelCapacity, planet, this.world.credits);
   }
 
   refuel(): RefuelQuote | null {
@@ -340,6 +343,41 @@ export class Controller {
     const r = sell(this.world, this.data, this.landedPlanetId, commodityId, tons);
     this.world = r.world;
     return r;
+  }
+
+  /** Buy one outfit here (like exchange trades, this does not save). */
+  buyOutfit(outfitId: string): BuyCheck {
+    if (!this.landedPlanetId) return { ok: false, reason: 'notSold' };
+    const r = buyOutfit(this.world, this.data, this.landedPlanetId, outfitId);
+    this.world = r.world;
+    return r.check;
+  }
+
+  /** Sell one fitted outfit for half its price (does not save). */
+  sellOutfit(outfitId: string): SellCheck {
+    if (!this.landedPlanetId) return { ok: false, reason: 'notOwned' };
+    const r = sellOutfit(this.world, this.data, outfitId);
+    this.world = r.world;
+    return r.check;
+  }
+
+  /** What buying would do right now, without doing it. */
+  outfitQuote(outfitId: string): BuyCheck {
+    if (!this.landedPlanetId) return { ok: false, reason: 'notSold' };
+    return outfitBuyCheck(this.world, this.data, this.landedPlanetId, outfitId);
+  }
+
+  /** Trade in the current ship for another here (like exchange trades, this does not save). */
+  buyShip(shipId: string): ShipQuote {
+    if (!this.landedPlanetId) return shipQuote(this.world, this.data, '', shipId);
+    const r = buyShip(this.world, this.data, this.landedPlanetId, shipId);
+    this.world = r.world;
+    return r.quote;
+  }
+
+  /** What swapping to this ship would cost right now, without doing it. */
+  shipQuote(shipId: string): ShipQuote {
+    return shipQuote(this.world, this.data, this.landedPlanetId ?? '', shipId);
   }
 
   /** Today's jobs at the planet we're landed on; none when not landed. */

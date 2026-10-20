@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { Controller } from '../app/controller';
 import { loadGameData } from '../data/load';
+import { withoutPorts } from '../data/testData';
 import { InputMode } from '../input/mode';
 import type { PilotStore } from '../save/store';
 import { DEFAULT_SETTINGS } from '../save/settings';
@@ -56,12 +57,11 @@ describe('planet screen', () => {
     expect(root.textContent).not.toContain('1 jumps');
   });
 
-  it('Star Map (button or N) opens the map, which returns to this planet screen', async () => {
+  it('the corner Map button (or N) opens the map, which returns to this planet screen', async () => {
     const { root, calls } = await setup(1000, 300);
-    const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
-    expect(map.textContent).toBe('Star MapN');
-    const labels = [...root.querySelectorAll('button')].map((b) => b.querySelector('.sw-btn-label')?.textContent);
-    expect(labels.indexOf('Star Map')).toBe(labels.indexOf('Leave') - 3);
+    const map = root.querySelector<HTMLButtonElement>('.sw-panel > .sw-map-corner')!;
+    expect(map.textContent).toBe('MapN');
+    expect(root.querySelector('.sw-actions')!.textContent).not.toContain('Star Map');
     map.click();
     expect(calls.map).toHaveLength(1);
     calls.map[0].onClose!();
@@ -70,10 +70,10 @@ describe('planet screen', () => {
     expect(calls.map).toHaveLength(2);
   });
 
-  it('an unbound Star Map action shows no key chip', async () => {
+  it('an unbound Map action shows no key chip', async () => {
     const { root } = await setup(1000, 300, { ...DEFAULT_SETTINGS.bindings, openMap: [null, null] });
-    const map = [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Star Map'))!;
-    expect(map.textContent).toBe('Star Map');
+    const map = root.querySelector<HTMLButtonElement>('.sw-map-corner')!;
+    expect(map.textContent).toBe('Map');
     expect(map.querySelector('.sw-key')).toBeNull();
   });
 
@@ -82,16 +82,22 @@ describe('planet screen', () => {
 
   it('Halcyon offers every service, in order, with hotkey chips, plus date and cargo', async () => {
     const { root } = await setup(1000, 150);
-    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Refuel — 300 cr', 'Star Map', 'Mission Log', 'How to Play', 'Leave']);
+    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Outfitter', 'Refuel — 300 cr', 'Mission Log', 'How to Play', 'Leave']);
     const chips = [...root.querySelectorAll('.sw-actions .sw-key')].map((k) => k.textContent);
-    expect(chips).toEqual(['C', 'M', 'R', 'N', 'K', 'H', 'L']);
+    expect(chips).toEqual(['C', 'M', 'O', 'R', 'K', 'H', 'L']);
     expect(root.textContent).toContain('1 Mar 3207');
     expect(root.textContent).toContain('Cargo: 20/20 t');
   });
 
-  it('a refuel-only port shows only Refuel, Star Map, Mission Log and Leave', async () => {
+  it('a former fuel-less port (Tallow Rock) now offers Refuel', async () => {
+    const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'tallow-rock');
+    expect(labels(root)).toContain('Refuel — 750 cr');
+    expect(find(root, 'Refuel').disabled).toBe(false);
+  });
+
+  it('a refuel-only port shows only Refuel, Mission Log and Leave', async () => {
     const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'haywain');
-    expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Star Map', 'Mission Log', 'How to Play', 'Leave']);
+    expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Mission Log', 'How to Play', 'Leave']);
   });
 
   it('Commodity Exchange opens the exchange; Done returns to the planet screen', async () => {
@@ -128,7 +134,7 @@ describe('planet screen', () => {
 
 describe('planet screen after a tow', () => {
   it('shows every mission the tow failed', async () => {
-    const data = await loadGameData();
+    const data = withoutPorts(await loadGameData(), 'vesk');
     const c = new Controller(data, DEFAULT_SETTINGS, new EventTarget());
     const w = newWorld(data, 1);
     const due = (id: string, title: string) => ({
@@ -136,11 +142,12 @@ describe('planet screen after a tow', () => {
       paidUpfront: false, deadlineDay: 0, title, description: '', cargoName: 'x',
     });
     c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 }, missions: [due('a', 'Job A'), due('b', 'Job B')] },
-      { id: 'p', name: 'P' }, 'tallow-rock');
+      { id: 'p', name: 'P' }, 'halcyon');
     const root = document.createElement('div');
     document.body.append(root);
     createUi(root, c, {} as PilotStore, () => null, new InputMode(new EventTarget(), () => DEFAULT_SETTINGS.bindings, 'keyboard'));
     c.leavePlanet();
+    c.world = { ...c.world, systemId: 'vesk' }; // leaving Halcyon put us in calder; strand us in the port-less vesk
     expect(c.callTow()).toBe(true);
     const screen = root.querySelector('[data-testid="planet-screen"]')!;
     expect(screen).toBeTruthy();

@@ -74,7 +74,7 @@ describe('pilot', () => {
       planetId: 'vesk-outpost', gameTimeSec: 40, savedAt: '2026-01-01T00:00:00.000Z',
     };
     const p = upgradeSave(JSON.parse(JSON.stringify(v1)));
-    expect(p.version).toBe(2);
+    expect(p.version).toBe(3);
     expect(p).toMatchObject({ day: 0, seed: hashString('old-pilot'), cargo: {}, missions: [], route: [], known: [], seen: [] });
     const w = worldFromPilot(p, data);
     expect(w.systemId).toBe('vesk');
@@ -91,5 +91,57 @@ describe('pilot', () => {
     expect(() => worldFromPilot({ ...p, cargo: { unobtainium: 1 } }, data)).toThrowError(expect.objectContaining({ code: 'unknownContent' }));
     const m = { id: 'm', typeId: 't', originId: 'halcyon', destId: 'atlantis', tons: 0, passengers: 0, pay: 1, paidUpfront: false, deadlineDay: null, title: '', description: '', cargoName: '' };
     expect(() => worldFromPilot({ ...p, missions: [m] }, data)).toThrowError(expect.objectContaining({ code: 'unknownContent' }));
+  });
+
+  it('upgrades a v2 save with cargo and a mission to v3 with no outfits, round trip unchanged', () => {
+    const mission = {
+      id: 'm1', typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 2, passengers: 0, pay: 300,
+      paidUpfront: false, deadlineDay: 20, title: 'T', description: 'd', cargoName: 'crates',
+    };
+    const v3 = pilotFromWorld({ ...newWorld(data, 5), cargo: { food: 3 }, missions: [mission] }, start, { id: 'a', name: 'A' });
+    const { outfits: _o, ...rest } = v3;
+    const v2 = { ...rest, version: 2 };
+    const up = upgradeSave(JSON.parse(JSON.stringify(v2)));
+    expect(up.version).toBe(3);
+    expect(up.outfits).toEqual({});
+    expect(up).toEqual(v3);
+    const w = worldFromPilot(up, data);
+    expect(w.outfits).toEqual({});
+    expect(w.cargo).toEqual({ food: 3 });
+    expect(w.missions).toEqual([mission]);
+  });
+
+  it('upgrades a v1 save through to v3', () => {
+    const v1 = {
+      version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
+      planetId: 'vesk-outpost', gameTimeSec: 1, savedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const p = upgradeSave(v1);
+    expect(p.version).toBe(3);
+    expect(p.outfits).toEqual({});
+  });
+
+  it('round-trips owned outfits', () => {
+    const w = { ...newWorld(data, 5), outfits: { 'cargo-pod': 2 } };
+    const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
+    expect(back.outfits).toEqual({ 'cargo-pod': 2 });
+  });
+
+  it('drops map-category outfits so a crafted save cannot hold charts', () => {
+    const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
+    const back = worldFromPilot({ ...p, outfits: { 'local-chart': 1, 'cargo-pod': 1 } }, data);
+    expect(back.outfits).toEqual({ 'cargo-pod': 1 });
+  });
+
+  it('an unknown outfit id -> unknownContent', () => {
+    const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
+    expect(() => worldFromPilot({ ...p, outfits: { 'no-such-outfit': 1 } }, data)).toThrowError(
+      expect.objectContaining({ code: 'unknownContent', message: 'unknown outfit "no-such-outfit"' }),
+    );
+  });
+
+  it('a version-4 save -> futureVersion', () => {
+    const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
+    expect(() => upgradeSave({ ...p, version: 4 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
   });
 });

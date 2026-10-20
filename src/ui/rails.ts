@@ -6,6 +6,7 @@ import type { InputMode } from '../input/mode';
 import { getInsets } from '../input/insets';
 import { computeLayout, railMetrics, stickFromOffset, type Insets, type Layout, type Rect } from '../input/touch';
 import { hudInfo, routeBannerText } from '../render/hudInfo';
+import { radarBlips } from '../render/sidebarInfo';
 import type { ContextAction } from '../sim/context';
 import { jumpDestination, pickLandTarget } from '../sim/rules';
 import type { WorldState } from '../sim/types';
@@ -15,7 +16,6 @@ import { isFinalStep, skipLabel } from '../guide/guide';
 /** Opacity of Fire, Missile and the stick while the autopilot flies. */
 export const AUTOPILOT_DIM = 0.2;
 /** World distance shown from the radar's center to its edge. */
-const RADAR_RANGE = 2500;
 
 /** Text for the bottom-center context button, or null when it should be hidden. */
 export function contextLabel(action: ContextAction, world: WorldState, data: GameData): string | null {
@@ -84,7 +84,7 @@ const square = (node: HTMLElement, size: number) => {
 };
 
 /**
- * Phone controls: two side rails (stick rail: HUD, Pause, Stop, joystick; button rail: radar
+ * Phone controls: two side rails (stick rail: HUD, Pause, Stop, joystick; button rail: Map, radar
  * → map, Target, Missile, [Thrust], Fire) and a bottom-center context button. Shown only in
  * touch mode during a session. Every control stays inside its rail; only the layer's rails and
  * the context button take pointer events, so taps on the view reach the game.
@@ -181,12 +181,24 @@ export function mountRails(opts: RailsOptions): Rails {
     touch.press('map');
     touch.release('map');
   });
+  // The labelled Map button: always shown (the radar hides on tight screens), same press as the radar.
+  const mapBtn = el('button', {
+    class: 'sw-rail-btn sw-rail-map',
+    text: 'Map',
+    attrs: { type: 'button', 'aria-label': 'Star map', 'data-rail-control': '', 'data-control': 'map' },
+  });
+  mapBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    touch.press('map');
+    touch.release('map');
+  });
   const targetBtn = holdButton('target', 'TGT', 'nextTarget', 'Next target');
   const missile = holdButton('missile', 'MSL', 'fireSecondary', 'Fire missile');
   const thrust = holdButton('thrust', 'THR', 'thrust', 'Thrust');
   const fire = holdButton('fire', 'FIRE', 'firePrimary', 'Fire', 'sw-rail-fire');
   const buttonSpacer = el('div', { class: 'sw-rail-spacer' });
   const buttonRail = el('div', { class: 'sw-rail', attrs: { 'data-rail': 'buttons' } }, [
+    mapBtn,
     radar,
     buttonSpacer,
     targetBtn,
@@ -276,6 +288,8 @@ export function mountRails(opts: RailsOptions): Rails {
     for (const b of [targetBtn, missile, thrust]) square(b, m.button);
     square(fire, m.fire);
     square(stick, m.stick);
+    mapBtn.style.height = px(m.map);
+    mapBtn.style.width = px(m.fire); // as wide as Fire, which always fits the rail
     square(radar, m.radar);
     radar.hidden = m.radar < 24;
     radarCanvas.width = Math.max(1, Math.round(m.radar));
@@ -389,19 +403,11 @@ function drawRadar(canvas: HTMLCanvasElement, world: WorldState, data: GameData)
   g.beginPath();
   g.arc(m, m, m - 1, 0, Math.PI * 2);
   g.stroke();
-  const k = (m - 4) / RADAR_RANGE;
-  for (const p of Object.values(data.planets)) {
-    if (p.systemId !== world.systemId) continue;
-    let dx = (p.pos.x - world.ship.pos.x) * k;
-    let dy = (p.pos.y - world.ship.pos.y) * k;
-    const d = Math.hypot(dx, dy);
-    if (d > m - 4) {
-      dx *= (m - 4) / d;
-      dy *= (m - 4) / d;
-    }
-    g.fillStyle = p.id === world.targetPlanetId ? '#6fe36f' : '#9fb4cc';
+  for (const b of radarBlips(world, data, m - 4)) {
+    if (b.kind !== 'planet' && b.kind !== 'target') continue;
+    g.fillStyle = b.kind === 'target' ? '#6fe36f' : '#9fb4cc';
     g.beginPath();
-    g.arc(m + dx, m + dy, 2.5, 0, Math.PI * 2);
+    g.arc(m + b.x, m + b.y, 2.5, 0, Math.PI * 2);
     g.fill();
   }
   g.fillStyle = '#ffffff';

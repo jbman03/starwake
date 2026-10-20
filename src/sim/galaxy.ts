@@ -50,6 +50,43 @@ export function revealOnArrival(
   return { known: [...k], seen: [...s] };
 }
 
+/** Systems within `jumps` hops of `fromSystemId` over all lanes, including the system itself. */
+export function systemsWithin(data: GameData, fromSystemId: string, jumps: number): string[] {
+  if (!data.systems[fromSystemId]) return [];
+  const visited = new Set([fromSystemId]);
+  let frontier = [fromSystemId];
+  for (let d = 0; d < jumps && frontier.length > 0; d++) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const n of data.systems[id]?.links ?? []) {
+        if (visited.has(n)) continue;
+        visited.add(n);
+        next.push(n);
+      }
+    }
+    frontier = next;
+  }
+  return [...visited];
+}
+
+/** Charts every system within `jumps` hops as known; their neighbours become seen (never both). */
+export function revealWithin(
+  known: readonly string[],
+  seen: readonly string[],
+  data: GameData,
+  fromSystemId: string,
+  jumps: number,
+): { known: string[]; seen: string[] } {
+  const k = new Set(known);
+  const s = new Set(seen);
+  for (const id of systemsWithin(data, fromSystemId, jumps)) {
+    k.add(id);
+    for (const n of data.systems[id]?.links ?? []) s.add(n);
+  }
+  for (const id of k) s.delete(id);
+  return { known: [...k], seen: [...s] };
+}
+
 /** Fuel needed for `hops` jumps, what the ship has, and how many hops it covers. */
 export function fuelCheck(
   fuel: number,

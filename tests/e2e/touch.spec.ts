@@ -148,6 +148,23 @@ test.describe('phone (touch, landscape)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('the rail Map button opens the map in flight and closing it resumes flight', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Railmap');
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await page.touchscreen.tap(422, 30);
+    await expect(page.getByTestId('touch-rails')).toBeVisible();
+    await page.locator('[data-control="map"]').tap();
+    const map = page.getByTestId('star-map');
+    await expect(map).toBeVisible();
+    expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(false);
+    await map.getByRole('button', { name: /^Close/ }).tap();
+    await expect(map).toBeHidden();
+    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    expect(errors).toEqual([]);
+  });
+
   test('4:3 tablet: rails overlay the view edges but stay out of the clear region', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await newPilot(page, 'Tab');
@@ -162,7 +179,7 @@ test.describe('phone (touch, landscape)', () => {
   });
 });
 
-test('keyboard mode: no rails, camera fills the window, no rotate overlay', async ({ page }) => {
+test('keyboard mode: no rails, camera fills the window beside the PC sidebar, no rotate overlay', async ({ page }) => {
   await newPilot(page, 'Keys');
   await page.keyboard.press('KeyL');
   await page.waitForFunction(() => window.__starwake!.controller.isFlying);
@@ -171,5 +188,5 @@ test('keyboard mode: no rails, camera fills the window, no rotate overlay', asyn
   const size = page.viewportSize()!;
   await expect
     .poll(() => page.evaluate(() => window.__starwake!.cameraViewport!()))
-    .toEqual({ x: 0, y: 0, w: size.width, h: size.height });
+    .toEqual({ x: 0, y: 0, w: size.width >= 700 ? size.width - 200 : size.width, h: size.height });
 });
