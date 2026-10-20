@@ -1,4 +1,5 @@
 import type { GameData } from '../data/schemas';
+import { priceOf } from '../sim/economy';
 import { setRoute } from '../sim/world';
 import type { WorldState } from '../sim/types';
 
@@ -78,4 +79,29 @@ export function pickTargetNear(world: WorldState, data: GameData): GuideTarget |
   }
   const best = buyers(world, data, world.systemId, null, [...cheap].sort())[0];
   return best ? { good: best.good, system: best.system, port: best.port } : null;
+}
+
+/**
+ * Where the pilot should sell `good` now: the known exchange port with the fewest jumps (0 for the
+ * system the ship is in, else charted lanes within MAX_TARGET_HOPS and fuel) whose current price
+ * is above `paid`; ties go to the higher price, then port id. Null if no known port qualifies.
+ */
+export function bestSellPort(world: WorldState, data: GameData, good: string, paid: number): { system: string; port: string } | null {
+  const known = new Set(world.known);
+  const hopsTo = new Map<string, number | null>();
+  let best: { system: string; port: string; hops: number; price: number } | null = null;
+  for (const planet of Object.values(data.planets)) {
+    if (!known.has(planet.systemId) || !planet.services.includes('exchange')) continue;
+    const price = priceOf(world, data, planet.id, good);
+    if (price === null || price <= paid) continue;
+    if (!hopsTo.has(planet.systemId)) {
+      hopsTo.set(planet.systemId, planet.systemId === world.systemId ? 0 : plottableHops(world, data, world.systemId, planet.systemId));
+    }
+    const hops = hopsTo.get(planet.systemId);
+    if (hops == null) continue;
+    if (!best || hops < best.hops || (hops === best.hops && (price > best.price || (price === best.price && planet.id < best.port)))) {
+      best = { system: planet.systemId, port: planet.id, hops, price };
+    }
+  }
+  return best ? { system: best.system, port: best.port } : null;
 }

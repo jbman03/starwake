@@ -81,3 +81,34 @@ test('hotkey editor: conflict swap and reset to defaults', async ({ page }) => {
 
   expect(errors).toEqual([]);
 });
+
+test('hotkey works right after the Mission complete dialog', async ({ page }) => {
+  const errors = trackErrors(page);
+  await newPilot(page);
+  await page.evaluate(() => {
+    const c = window.__starwake!.controller;
+    const mission = {
+      id: 'm-guard',
+      typeId: 'delivery',
+      originId: 'halcyon',
+      destId: 'brinefield',
+      tons: 1,
+      passengers: 0,
+      pay: 100,
+      paidUpfront: false,
+      deadlineDay: null,
+      title: 'Deliver rations to Brinefield',
+      description: 'Test job.',
+      cargoName: 'Rations',
+    };
+    c.world = { ...c.world, missions: [mission], ship: { ...c.world.ship, fuel: 0 }, credits: 5000 };
+    window.__starwake!.teleport('brinefield');
+  });
+  const dialog = page.getByRole('dialog', { name: 'Mission complete' });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('KeyR'); // immediately, no waiting
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('planet-screen')).toContainText(/Bought \d+ fuel/);
+  expect(errors).toEqual([]);
+});

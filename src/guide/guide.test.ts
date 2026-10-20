@@ -397,4 +397,56 @@ describe('Guide', () => {
       expect(make().start()).toBe(false);
     });
   });
+
+  describe('follows the pilot', () => {
+    // Walk to step 7 holding the good.
+    const toStep7 = () => {
+      const ctx = setup();
+      ctx.guide.start();
+      const w = { ...ctx.host.world, cargo: { [target.good]: 10 }, credits: ctx.host.world.credits - 500 };
+      ctx.guide.update(state(w, 'exchange', 'halcyon'));
+      ctx.guide.update(state(w, 'missions', 'halcyon'));
+      ctx.guide.update(state(w, 'planet', 'halcyon'));
+      ctx.guide.update(state(w, 'flight'));
+      ctx.guide.update(state(moved(w, 301), 'flight'));
+      expect(ctx.guide.current()?.step).toBe(7);
+      return { ...ctx, w };
+    };
+    const elsewhere = (): string => {
+      const p = Object.values(data.planets).find((x) => x.systemId !== target.system && x.systemId !== 'calder' && x.services.includes('exchange'));
+      if (!p) throw new Error('fixture');
+      return p.id;
+    };
+
+    it('recomputes the target on landing and names the new port', () => {
+      const { guide, w } = toStep7();
+      const land = elsewhere();
+      const sys = data.planets[land].systemId;
+      // Make the landing port the only profitable known one: everything else sells at nothing.
+      const pressure = Object.fromEntries(Object.keys(data.planets).map((id) => [`${id}:${target.good}`, 0.7]));
+      const lw: WorldState = { ...w, systemId: sys, known: [...new Set([...w.known, sys])], pressure: { ...pressure, [`${land}:${target.good}`]: 1.3 } };
+      guide.update(state(lw, 'planet', land));
+      const t = guide.target();
+      expect(t?.good).toBe(target.good);
+      expect(t?.port).toBe(land);
+      expect(guide.current()?.text).not.toContain('Tessaly');
+    });
+
+    it('keeps the fixed target when no known port pays more', () => {
+      const { guide, w } = toStep7();
+      const land = elsewhere();
+      const pressure = Object.fromEntries(Object.keys(data.planets).map((id) => [`${id}:${target.good}`, 0.1]));
+      const lw: WorldState = { ...w, systemId: data.planets[land].systemId, pressure };
+      guide.update(state(lw, 'planet', land));
+      expect(guide.target()).toEqual(target);
+    });
+
+    it('selling the good for a profit at another port completes the sell step', () => {
+      const { guide, w } = toStep7();
+      const land = elsewhere();
+      guide.update(state({ ...w, cargo: {}, credits: w.credits + 800, systemId: data.planets[land].systemId }, 'exchange', land));
+      expect(guide.current()?.step).toBe(11);
+      expect(guide.current()?.text).toContain('Nice trade! You made 300 cr.');
+    });
+  });
 });

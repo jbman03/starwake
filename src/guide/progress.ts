@@ -23,6 +23,8 @@ export interface Progress {
    * it existed (the guide then works it out from the target, or falls back).
    */
   buyPort?: string;
+  /** Price per ton when the good was bought; a better selling port must beat it. */
+  paid?: number;
 }
 
 export const STEP_COUNT = 11;
@@ -58,6 +60,7 @@ function parse(raw: string): Progress | null {
   if (v.fallback === true) p.fallback = true;
   if (isNum(v.profit)) p.profit = v.profit;
   if (isStr(v.buyPort)) p.buyPort = v.buyPort;
+  if (isNum(v.paid)) p.paid = v.paid;
   return p;
 }
 

@@ -1,9 +1,10 @@
 import type { GameData } from '../data/schemas';
 import type { ActionId } from '../input/actions';
+import { priceOf } from '../sim/economy';
 import type { WorldState } from '../sim/types';
 import { clearProgress, loadProgress, saveProgress, STEP_COUNT, type Progress } from './progress';
 import { BUY_TONS, STEPS, type GuideState } from './steps';
-import { pickTarget, pickTargetNear, type GuideTarget } from './target';
+import { bestSellPort, pickTarget, pickTargetNear, type GuideTarget } from './target';
 
 /** The slice of Controller the guide reads. Controller satisfies it. */
 export interface GuideHost {
@@ -38,6 +39,7 @@ export const skipLabel = (c: GuideHint | null | undefined): string => (isFinalSt
 export class Guide {
   private p: Progress | null = null;
   private last: GuideState | null = null;
+  private lastLanded: string | null = null;
   private listeners = new Set<() => void>();
 
   constructor(
@@ -142,7 +144,10 @@ export class Guide {
     const p = this.p;
     if (!p || p.done) return;
     const before = p.step;
-    let changed = this.reconcile(state.world, state.landedPlanetId);
+    let changed = this.sold(state);
+    if (!changed) changed = this.retarget(state);
+    this.lastLanded = state.landedPlanetId;
+    if (!changed) changed = this.reconcile(state.world, state.landedPlanetId);
     while (p.step < STEP_COUNT) {
       if (p.step === 6) {
         // A start position left over from an earlier flight (landed, or jumped) is stale.
@@ -158,6 +163,7 @@ export class Guide {
         }
       }
       if (!STEPS[p.step - 1].done({ ...state, startPos: p.startPos }, p.target, p, this.data)) break;
+      if (p.step === 2 && p.buyPort) p.paid = priceOf(state.world, this.data, p.buyPort, p.target.good) ?? undefined;
       p.step++;
       changed = true;
     }
@@ -166,6 +172,31 @@ export class Guide {
       this.persist();
       this.emit();
     }
+  }
+
+  /** Selling the guide good for a profit anywhere, once under way, completes the sell step. */
+  private sold(state: GuideState): boolean {
+    const p = this.p;
+    if (!p || p.fallback || p.step < LEAVE_STEP || p.step >= STEP_COUNT) return false;
+    const land = state.landedPlanetId;
+    if (!land || land === p.target.port || (state.world.cargo[p.target.good] ?? 0) > 0) return false;
+    const profit = state.world.credits - p.startCredits;
+    if (profit <= 0) return false;
+    p.step = STEP_COUNT;
+    p.profit = profit;
+    return true;
+  }
+
+  /** On each new landing, aim at the nearest known port that now pays more than the pilot paid. */
+  private retarget(state: GuideState): boolean {
+    const p = this.p;
+    const land = state.landedPlanetId;
+    if (!p || p.fallback || p.paid === undefined || p.step < 3 || p.step > 9) return false;
+    if (!land || land === this.lastLanded || land === p.target.port || land === p.buyPort) return false;
+    const best = bestSellPort(state.world, this.data, p.target.good, p.paid);
+    if (!best || (best.port === p.target.port && best.system === p.target.system)) return false;
+    p.target = { good: p.target.good, system: best.system, port: best.port };
+    return true;
   }
 
   /** The hint to show, or null when not started or finished/skipped. */
