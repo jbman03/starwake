@@ -4,6 +4,7 @@ import type { InputMode } from '../input/mode';
 import type { PilotStore } from '../save/store';
 import { Guide } from '../guide/guide';
 import { dialogOpen } from './dom';
+import { showEncounterCard } from './encounterCard';
 import { confirmSkipGuide, guideKey, guideState, type GuideScreen } from './guideHint';
 import { showMainMenu } from './mainMenu';
 import { showMissionLog } from './missionLog';
@@ -130,6 +131,11 @@ export function createUi(
 
   controller.on('landed', (e) => ctx.go.planet(e.planetId));
   controller.on('towed', (e) => ctx.go.planet(e.planetId));
+  controller.on('encounter', () => {
+    const view = controller.encounterView();
+    if (view) showEncounterCard(ctx, view, (i) => controller.chooseEncounter(i)?.messages ?? null);
+    else controller.startFlight();
+  });
   controller.on('menu', (e) => {
     if (e.action === 'pause') ctx.go.pause();
     else if (e.action === 'map') ctx.go.map();

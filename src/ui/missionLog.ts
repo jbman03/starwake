@@ -27,6 +27,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
   const stats = el('div', { class: 'sw-ex-stats', attrs: { 'data-testid': 'log-stats' } });
   const list = el('div', { class: 'sw-mc-list', attrs: { role: 'listbox', 'aria-label': 'Active missions', 'data-testid': 'log-list' } });
   const detail = el('div', { class: 'sw-mc-detail', attrs: { 'data-testid': 'log-detail' } });
+  const notes = el('section', { class: 'sw-notes', attrs: { 'data-testid': 'log-notes' } });
   const reason = el('p', { class: 'sw-ex-message sw-ex-bad', attrs: { 'data-testid': 'log-reason', 'aria-live': 'polite' } });
 
   const mapHotkey = hotkeyFor(controller.settings.bindings, closeAction === 'missionLog' ? 'openMap' : 'map');
@@ -115,6 +116,14 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     const refundable = !m || controller.canAbandonMission(m.id).ok;
     abandonBtn.disabled = !m || !refundable;
     reason.textContent = m && !refundable ? `Can't refund the advance (${formatCredits(m.pay)})` : '';
+    notes.replaceChildren(
+      ...(w.notes.length === 0
+        ? []
+        : [
+            el('h2', { text: 'Notes' }),
+            el('ul', {}, w.notes.map((n) => el('li', { text: `${formatDate(n.day, data.config)}: ${n.text}` }))),
+          ]),
+    );
     list.querySelector('.sw-mc-selected')?.scrollIntoView?.({ block: 'nearest' });
   }
 
@@ -123,7 +132,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
       mapCornerButton(ctx, () => reopen()),
       el('h1', { class: 'sw-title', text: 'Mission Log' }),
       stats,
-      el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason])]),
+      el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason, notes])]),
       el('div', { class: 'sw-ex-actions' }, [mapBtn, abandonBtn, doneBtn]),
     ]),
   ]);

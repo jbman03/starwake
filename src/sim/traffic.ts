@@ -98,6 +98,9 @@ const entryPos = (world: WorldState, data: GameData, id: string): Vec2 =>
 const exitPos = (world: WorldState, data: GameData, id: string): Vec2 =>
   add(SYSTEM_CENTER, scale(laneDir(world, data, id, 'npcout').dir, data.systems[world.systemId].jumpDistance + JUMP_POINT_MARGIN));
 
+/** A pilot's name for a ship, from the name lists. */
+export const shipName = (r: () => number, data: GameData): string => `${pick(r, data.names.first)} ${pick(r, data.names.second)}`;
+
 function spawnNpc(t: Traffic, world: WorldState, data: GameData, midErrand: boolean): { npc: Npc; event: TrafficEvent | null } {
   const r = mulberry32(hashString(world.seed, 'npc', t.systemId, world.day, t.spawnCount));
   const def = pickHull(data, t.systemId, r);
@@ -105,7 +108,7 @@ function spawnNpc(t: Traffic, world: WorldState, data: GameData, midErrand: bool
   const roll = r();
   const errand: Errand = ports.length === 0 || roll >= 0.7 ? 'pass' : roll < 0.4 ? 'arrive' : 'depart';
   const port = errand === 'pass' ? null : pick(r, ports);
-  const name = `${pick(r, data.names.first)} ${pick(r, data.names.second)}`;
+  const name = shipName(r, data);
   const id = `npc-${t.systemId}-${world.day}-${t.spawnCount}`;
   const frac = 0.15 + r() * 0.7;
 

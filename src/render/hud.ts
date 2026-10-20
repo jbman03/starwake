@@ -39,6 +39,8 @@ export class Hud {
   private message: Phaser.GameObjects.Text;
   /** Autopilot route banner, top-center (keyboard mode; the rails draw it in touch mode). */
   private banner: Phaser.GameObjects.Text;
+  /** Incoming-hail banner under the route banner (keyboard mode only; phones use the context button). */
+  private hail: Phaser.GameObjects.Text;
   private messageAge = Infinity;
   /** First Flight guide hint: a box under the status panel, within the panel's width. */
   private guideBox: Phaser.GameObjects.Graphics;
@@ -77,6 +79,18 @@ export class Hud {
       .setScrollFactor(0)
       .setDepth(1000)
       .setVisible(false);
+    this.hail = scene.add
+      .text(0, 52, '', {
+        fontFamily: FONT,
+        fontSize: '14px',
+        color: '#fff4d6',
+        backgroundColor: 'rgba(48, 36, 12, 0.88)',
+        padding: { x: 12, y: 6 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setVisible(false);
     this.guideBox = scene.add.graphics().setScrollFactor(0).setDepth(999).setVisible(false);
     this.guideText = scene.add
       .text(20, 0, '', { fontFamily: FONT, fontSize: '13px', color: '#eef3f9', lineSpacing: 2, wordWrap: { width: PANEL_W - 20, useAdvancedWrap: true } })
@@ -109,6 +123,7 @@ export class Hud {
     }
     if (touchMode || sidebar) this.course.setVisible(false);
     this.banner.setPosition(viewW / 2, 14);
+    this.hail.setPosition(viewW / 2, 52);
     // Touch mode: the message sits below the (HTML) route banner, clear of the context button.
     if (touchMode) this.message.setOrigin(0.5, 0).setPosition(viewW / 2, 56);
     else this.message.setOrigin(0.5, 1).setPosition(viewW / 2, viewH - 28);
@@ -148,6 +163,11 @@ export class Hud {
     return this.banner.visible ? this.banner.text : null;
   }
 
+  /** The hail banner's text when it is showing (e2e checks), else null. */
+  hailText(): string | null {
+    return this.hail.visible ? this.hail.text : null;
+  }
+
   /** The hint box under the status panel (the touch rail draws its own in touch mode). */
   private drawGuide(guide: HudGuide | null): void {
     const key = guide ? `${this.sidebar}|${this.panelH}|${guide.skip}|${guide.text}` : '';
@@ -174,7 +194,7 @@ export class Hud {
     this.messageAge = 0;
   }
 
-  update(world: WorldState, data: GameData, dtSec: number, guide: HudGuide | null = null, traffic: Traffic | null = null): void {
+  update(world: WorldState, data: GameData, dtSec: number, guide: HudGuide | null = null, traffic: Traffic | null = null, hail: string | null = null): void {
     if (!this.touchMode && !this.sidebar) {
       const info = hudInfo(world, data, traffic);
       this.system.setText(info.system);
@@ -186,6 +206,9 @@ export class Hud {
       this.drawPanel(info.nextHop === null ? PANEL_H : PANEL_H + COURSE_H);
     }
     this.drawGuide(this.touchMode ? null : guide);
+    const hailText = this.touchMode ? null : hail;
+    if (hailText === null) this.hail.setVisible(false);
+    else if (!this.hail.visible || this.hail.text !== hailText) this.hail.setText(hailText).setVisible(true);
     const route = this.touchMode ? null : routeBannerText(world, data);
     if (route === null) this.banner.setVisible(false);
     else if (!this.banner.visible || this.banner.text !== route) this.banner.setText(route).setVisible(true);

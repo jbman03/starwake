@@ -43,6 +43,7 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   map: 'Tap Map, or PLOT COURSE',
   flightMissionLog: 'Pause (II), then Mission Log',
   pause: 'II button',
+  interact: 'Answer hail or Open site button',
   openExchange: 'Tap the button',
   openMissions: 'Tap the button',
   openShipyard: 'Tap the button',
@@ -58,6 +59,9 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   shopSell: 'Sell button',
   shopPrevPage: 'Prev button',
   shopNextPage: 'Next button',
+  encounterChoice1: 'Tap the choice',
+  encounterChoice2: 'Tap the choice',
+  encounterChoice3: 'Tap the choice',
   back: 'Back or Close button',
   menuHowToPlay: 'Tap the button',
 };

@@ -47,6 +47,8 @@ export class SpaceScene extends Phaser.Scene {
   private ship!: Phaser.GameObjects.Image;
   private bracket!: Phaser.GameObjects.Graphics;
   private fx!: Phaser.GameObjects.Graphics;
+  /** The white diamond marking a pending site. */
+  private siteMark!: Phaser.GameObjects.Graphics;
   private hud!: Hud;
   private sidebar!: Sidebar;
   private builtSystemId: string | null = null;
@@ -78,6 +80,7 @@ export class SpaceScene extends Phaser.Scene {
     this.ship = this.add.image(0, 0, `ship:${world.shipId}`, shipFrame(world.ship.heading)).setDepth(10);
     this.bracket = this.add.graphics().setDepth(5);
     this.fx = this.add.graphics().setDepth(20);
+    this.siteMark = this.add.graphics().setDepth(6);
     this.hud = new Hud(this, () => this.controller.requestGuideSkip());
 
     this.sidebar = new Sidebar(
@@ -170,6 +173,12 @@ export class SpaceScene extends Phaser.Scene {
     };
     hook.flightSpriteTexture = () => this.ship.texture.key;
     hook.hudBanner = () => this.hud.bannerText();
+    hook.hudHail = () => this.hud.hailText();
+    hook.siteScreenPos = () => {
+      const pos = this.controller.sitePos();
+      const c = this.cameras.main;
+      return pos ? { x: c.x + (pos.x - c.worldView.x) * c.zoom, y: c.y + (pos.y - c.worldView.y) * c.zoom } : null;
+    };
     hook.hudCourse = () => this.hud.courseText();
     hook.hudGuide = () => this.hud.guideInfo();
     hook.planetScreenPos = (id) => {
@@ -241,8 +250,36 @@ export class SpaceScene extends Phaser.Scene {
     this.updateNpcs();
     this.drawBracket(world.targetPlanetId);
     this.drawJumpFx(x, y);
-    this.hud.update(world, data, dt, this.guideHint(), this.controller.traffic);
-    this.sidebar.update(world, data, dt, this.controller.traffic);
+    this.drawSite();
+    this.hud.update(world, data, dt, this.guideHint(), this.controller.traffic, this.hailBanner());
+    this.sidebar.update(world, data, dt, this.controller.traffic, this.controller.sitePos());
+  }
+
+  /** "Incoming hail — Name (Y to answer)" while a hail is open, else null. */
+  private hailBanner(): string | null {
+    const p = this.controller.pending;
+    if (p?.kind !== 'hail' || !this.controller.isFlying) return null;
+    const key = hotkeyFor(this.controller.settings.bindings, 'interact') ?? 'unbound';
+    return `Incoming hail — ${p.npcName} (${key} to answer)`;
+  }
+
+  /** A white diamond at the pending site (nothing while there isn't one). */
+  private drawSite(): void {
+    const g = this.siteMark;
+    g.clear();
+    const pos = this.controller.sitePos();
+    if (!pos) return;
+    const r = 12;
+    g.lineStyle(2, 0xffffff, 0.95);
+    g.fillStyle(0xffffff, 0.25);
+    g.beginPath();
+    g.moveTo(pos.x, pos.y - r);
+    g.lineTo(pos.x + r, pos.y);
+    g.lineTo(pos.x, pos.y + r);
+    g.lineTo(pos.x - r, pos.y);
+    g.closePath();
+    g.fillPath();
+    g.strokePath();
   }
 
   /** The First Flight guide's current hint for the HUD, or null. */

@@ -1,11 +1,13 @@
-import type { GameData } from '../data/schemas';
+import type { EncounterDef, GameData } from '../data/schemas';
 import type { Guide } from '../guide/guide';
 import type { ActionGroup, ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
 import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import type { Settings } from '../save/settings';
-import { contextAction, type ContextAction } from '../sim/context';
+import { contextAction, siteReachable, type ContextAction } from '../sim/context';
+import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, rollEncounter } from '../sim/encounters';
+import { hashString, mulberry32 } from '../sim/random';
 import { buy, sell, type BuyResult, type SellResult } from '../sim/cargo';
 import { buyOutfit, outfitBuyCheck, sellOutfit, type BuyCheck, type SellCheck } from '../sim/outfitter';
 import {
@@ -23,7 +25,8 @@ import { buyShip, shipQuote, type ShipQuote } from '../sim/shipyard';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
-import { cycleTarget, isTargetable, seedTraffic, stepTraffic, targetedNpc, type Traffic } from '../sim/traffic';
+import { cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic } from '../sim/traffic';
+import type { Vec2 } from '../sim/vec';
 import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
 import {
   applyRefuel,
@@ -36,8 +39,28 @@ import {
   stepWorld,
 } from '../sim/world';
 
+/** How long a hail stays open (flight seconds). */
+export const HAIL_SECONDS = 30;
+/** How far from the arrival point a site lies (px, min and spread). */
+const SITE_MIN_DIST = 500;
+const SITE_SPREAD = 400;
+
+/** The encounter waiting in this system: a hail that lapses, or a site to fly to. */
+export type PendingEncounter =
+  | { def: EncounterDef; npcName: string; kind: 'hail'; expiresSec: number }
+  | { def: EncounterDef; npcName: string; kind: 'site'; pos: Vec2 };
+
+/** What the encounter card shows. `blocked` is the reason a choice can't be taken, or null. */
+export interface EncounterView {
+  title: string;
+  text: string;
+  choices: { label: string; blocked: string | null }[];
+}
+
 export type ControllerEvent =
   | SimEvent
+  /** The player opened the pending encounter; flight is already paused. */
+  | { type: 'encounter' }
   | { type: 'contextChanged'; action: ContextAction }
   /** Jobs finished by the landing that just happened; emitted before the autosave. */
   | { type: 'missionsCompleted'; missions: Mission[]; pay: number }
@@ -93,6 +116,8 @@ export class Controller {
 
   /** The NPC ships in this system (seeded on arrival, stepped while flying). */
   traffic: Traffic;
+  /** The hail or site waiting in this system, or null. */
+  pending: PendingEncounter | null = null;
   /** Planet the ship is sitting on (planet screen open), or null. */
   landedPlanetId: string | null = null;
   /** Most recent planet landed on this session; saves are landed snapshots taken there. */
@@ -176,6 +201,7 @@ export class Controller {
   beginSession(world: WorldState, pilot: PilotMeta, planetId: string): void {
     this.world = world;
     this.traffic = seedTraffic(world, this.data, this.maxNpcs());
+    this.pending = null;
     this.pilot = { ...pilot };
     // No autosave: a fresh load would only rotate away the older backup. New pilots call save().
     this.landAt(planetId, false);
@@ -251,7 +277,7 @@ export class Controller {
   }
 
   currentContext(): ContextAction {
-    return contextAction(this.world, this.data);
+    return contextAction(this.world, this.data, this.pending);
   }
 
   /**
@@ -264,7 +290,8 @@ export class Controller {
     if (action === 'plotCourse') {
       this.pauseFlight();
       this.emit({ type: 'menu', action: 'map' });
-    } else if (action === 'takeControl') this.world = interruptAutopilot(this.world);
+    } else if (action === 'answerHail' || action === 'openSite') this.openEncounter();
+    else if (action === 'takeControl') this.world = interruptAutopilot(this.world);
     else if (action === 'tow') this.callTow();
     else if (action === 'land') this.queued.add('land');
     else if (action === 'autopilotOut') this.world = autopilotToJumpPoint(this.world);
@@ -467,6 +494,7 @@ export class Controller {
       }
       const pressed = new Set([...polled.pressed, ...this.queued]);
       this.queued.clear();
+      if (pressed.delete('interact') && this.openEncounter()) return;
       if (pressed.delete('nextTarget')) {
         // Tab walks ships, then planets (the sim's own planet-only cycle is not used from here).
         const pick = cycleTarget(this.world, this.data, this.traffic);
@@ -483,6 +511,7 @@ export class Controller {
       this.world = r.world;
       this.handleEvents(r.events);
       this.stepTraffic(dt);
+      this.lapseHail(dt);
     });
     this.checkContext();
   }
@@ -499,6 +528,89 @@ export class Controller {
     const alive = targetedNpc(t) !== undefined;
     if (!alive || this.world.targetPlanetId !== null) t = { ...t, targetId: null };
     this.traffic = t;
+  }
+
+  // ---- encounters ----------------------------------------------------------
+
+  /** The encounter an arrival brings today, placed in space (sites) or on the air (hails), or null. */
+  private rollPending(): PendingEncounter | null {
+    const def = rollEncounter(this.world, this.data, { guideActive: (this.guide?.current() ?? null) !== null });
+    if (!def) return null;
+    const r = mulberry32(hashString(this.world.seed, 'encpos', this.world.systemId, this.world.day));
+    const npcName = shipName(r, this.data);
+    if (def.kind === 'hail') return { def, npcName, kind: 'hail', expiresSec: HAIL_SECONDS };
+    const angle = r() * Math.PI * 2;
+    const d = SITE_MIN_DIST + r() * SITE_SPREAD;
+    const ship = this.world.ship.pos;
+    return { def, npcName, kind: 'site', pos: { x: ship.x + Math.cos(angle) * d, y: ship.y + Math.sin(angle) * d } };
+  }
+
+  /** Where the pending site lies, or null (no site; a hail has no place). */
+  sitePos(): Vec2 | null {
+    return this.pending?.kind === 'site' ? this.pending.pos : null;
+  }
+
+  private lapseHail(dt: number): void {
+    const p = this.pending;
+    if (p?.kind !== 'hail') return;
+    const left = p.expiresSec - dt;
+    this.pending = left <= 1e-9 ? null : { ...p, expiresSec: left };
+  }
+
+  /** Test aid: make `id` the pending encounter (a hail now, or a site 200 px ahead). */
+  forceEncounter(id: string): void {
+    const def = this.data.encounters[id];
+    if (!def) throw new Error(`forceEncounter: unknown encounter ${id}`);
+    const npcName = shipName(mulberry32(hashString(this.world.seed, 'encforce', id)), this.data);
+    const { pos, heading } = this.world.ship;
+    this.pending =
+      def.kind === 'hail'
+        ? { def, npcName, kind: 'hail', expiresSec: HAIL_SECONDS }
+        : { def, npcName, kind: 'site', pos: { x: pos.x + Math.cos(heading) * 200, y: pos.y + Math.sin(heading) * 200 } };
+    this.checkContext();
+  }
+
+  /**
+   * Answer the hail or open the site: flight pauses and the encounter card is asked for. A site
+   * out of reach says so instead. False when nothing opened.
+   */
+  openEncounter(): boolean {
+    const p = this.pending;
+    if (!p || !this.flying) return false;
+    if (p.kind === 'site' && !siteReachable(this.world, p.pos)) {
+      this.emit({ type: 'message', text: 'Move closer to the site and slow down to open it.' });
+      return false;
+    }
+    this.pauseFlight();
+    this.emit({ type: 'encounter' });
+    return true;
+  }
+
+  /** The pending encounter as the card shows it (text filled in, blocked choices marked), or null. */
+  encounterView(): EncounterView | null {
+    const p = this.pending;
+    if (!p) return null;
+    const ctx = { ship: p.npcName, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: this.world.shipName };
+    return {
+      title: fillText(p.def.title, ctx),
+      text: fillText(p.def.text, ctx),
+      choices: p.def.choices.map((c) => {
+        const block = choiceBlock(this.world, this.data, c, p.def.id);
+        return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null };
+      }),
+    };
+  }
+
+  /** Take choice `idx`: null if there is no encounter or the choice is blocked; else the outcome lines. */
+  chooseEncounter(idx: number): { messages: string[] } | null {
+    const p = this.pending;
+    const choice = p?.def.choices[idx];
+    if (!p || !choice || choiceBlock(this.world, this.data, choice, p.def.id)) return null;
+    const r = applyChoice(this.world, this.data, p.def, idx, { npcName: p.npcName });
+    this.world = r.world;
+    this.pending = null;
+    this.checkContext();
+    return { messages: [...r.messages, ...r.missions.map((m) => `New job: ${m.title}`)] };
   }
 
   /** One poll per frame for whichever screen is open; with none, stale presses are drained. */
@@ -522,9 +634,11 @@ export class Controller {
       if (e.type === 'message') continue;
       if (e.type === 'landed' || e.type === 'towed') this.landAt(e.planetId);
       else if (e.type === 'jumped') {
+        this.pending = null;
         this.prevShip = this.world.ship; // no interpolation across systems
         this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
       }
+      if (e.type === 'arrived') this.pending = this.rollPending();
       this.emit(e);
     }
     if (!towed && messages.length > 0) this.emit({ type: 'message', text: messages.join(' ') });

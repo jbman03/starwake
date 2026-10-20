@@ -18,6 +18,7 @@ export const ACTION_IDS = [
   'map',
   'flightMissionLog',
   'pause',
+  'interact',
   // planet
   'openExchange',
   'openMissions',
@@ -39,6 +40,9 @@ export const ACTION_IDS = [
   // menus
   'back',
   'menuHowToPlay',
+  'encounterChoice1',
+  'encounterChoice2',
+  'encounterChoice3',
 ] as const;
 
 export type ActionId = (typeof ACTION_IDS)[number];
@@ -62,6 +66,7 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   map: 'flight',
   flightMissionLog: 'flight',
   pause: 'flight',
+  interact: 'flight',
   openExchange: 'planet',
   openMissions: 'planet',
   openShipyard: 'planet',
@@ -79,6 +84,9 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   shopNextPage: 'shop',
   back: 'menus',
   menuHowToPlay: 'menus',
+  encounterChoice1: 'menus',
+  encounterChoice2: 'menus',
+  encounterChoice3: 'menus',
 };
 
 export const ACTION_LABEL: Record<ActionId, string> = {
@@ -98,6 +106,7 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   map: 'Star map',
   flightMissionLog: 'Mission log',
   pause: 'Pause',
+  interact: 'Answer hail / open site',
   openExchange: 'Commodity exchange',
   openMissions: 'Mission computer',
   openShipyard: 'Shipyard',
@@ -115,4 +124,7 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   shopNextPage: 'Next page',
   back: 'Back',
   menuHowToPlay: 'How to play',
+  encounterChoice1: 'Encounter choice 1',
+  encounterChoice2: 'Encounter choice 2',
+  encounterChoice3: 'Encounter choice 3',
 };

@@ -20,6 +20,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   map: ['KeyN', 'KeyM'],
   flightMissionLog: ['KeyK', null],
   pause: ['Escape', null],
+  interact: ['KeyY', null],
   openExchange: ['KeyC', null],
   openMissions: ['KeyM', null],
   openShipyard: ['KeyY', null],
@@ -37,6 +38,9 @@ export const DEFAULT_BINDINGS: Bindings = {
   shopNextPage: ['PageDown', 'BracketRight'],
   back: ['Escape', null],
   menuHowToPlay: ['KeyH', null],
+  encounterChoice1: ['Digit1', null],
+  encounterChoice2: ['Digit2', null],
+  encounterChoice3: ['Digit3', null],
 };
 
 export const MUST_KEEP_ESCAPE: readonly ActionId[] = ['pause', 'back'];

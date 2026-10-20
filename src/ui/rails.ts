@@ -11,6 +11,7 @@ import type { ContextAction } from '../sim/context';
 import { jumpDestination, pickLandTarget } from '../sim/rules';
 import type { Traffic } from '../sim/traffic';
 import type { WorldState } from '../sim/types';
+import type { Vec2 } from '../sim/vec';
 import { el } from './dom';
 import { isFinalStep, skipLabel } from '../guide/guide';
 
@@ -33,6 +34,10 @@ export function contextLabel(action: ContextAction, world: WorldState, data: Gam
       const id = jumpDestination(world, data);
       return id ? `JUMP TO ${(data.systems[id]?.name ?? id).toUpperCase()}` : null;
     }
+    case 'answerHail':
+      return 'Answer hail';
+    case 'openSite':
+      return 'Open site';
     case 'takeControl':
       return '✋ TAKE CONTROL';
     case 'tow':
@@ -361,7 +366,7 @@ export function mountRails(opts: RailsOptions): Rails {
       banner.hidden = route === null;
     }
 
-    if (!radar.hidden) drawRadar(radarCanvas, world, data, controller.traffic);
+    if (!radar.hidden) drawRadar(radarCanvas, world, data, controller.traffic, controller.sitePos());
   };
 
   let raf = 0;
@@ -394,7 +399,7 @@ function capture(node: HTMLElement, e: PointerEvent): void {
 }
 
 /** Tiny radar: the ship at the center, planets as dots (the target in green), north up. */
-function drawRadar(canvas: HTMLCanvasElement, world: WorldState, data: GameData, traffic: Traffic | null): void {
+function drawRadar(canvas: HTMLCanvasElement, world: WorldState, data: GameData, traffic: Traffic | null, site: Vec2 | null): void {
   const g = canvas.getContext('2d');
   if (!g) return;
   const s = canvas.width;
@@ -404,7 +409,17 @@ function drawRadar(canvas: HTMLCanvasElement, world: WorldState, data: GameData,
   g.beginPath();
   g.arc(m, m, m - 1, 0, Math.PI * 2);
   g.stroke();
-  for (const b of radarBlips(world, data, m - 4, traffic)) {
+  for (const b of radarBlips(world, data, m - 4, traffic, site)) {
+    if (b.kind === 'site') {
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.moveTo(m + b.x, m + b.y - 4);
+      g.lineTo(m + b.x + 3, m + b.y);
+      g.lineTo(m + b.x, m + b.y + 4);
+      g.lineTo(m + b.x - 3, m + b.y);
+      g.fill();
+      continue;
+    }
     if (b.kind !== 'planet' && b.kind !== 'target' && b.kind !== 'npc') continue;
     g.fillStyle = b.kind === 'target' ? '#6fe36f' : b.kind === 'npc' ? (b.color ?? '#9fb4cc') : '#9fb4cc';
     g.beginPath();

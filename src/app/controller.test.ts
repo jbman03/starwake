@@ -590,4 +590,62 @@ describe('Controller trade, missions and routes', () => {
       expect(c.traffic.systemId).toBe(c.world.systemId);
     });
   });
+
+  describe('encounters', () => {
+    it('a hail lapses after 30 s', async () => {
+      const { c } = await setup();
+      c.startFlight();
+      c.forceEncounter('stranded-passenger');
+      expect(c.pending?.kind).toBe('hail');
+      for (let i = 0; i < 4 * 29; i++) c.update(0.25);
+      expect(c.pending).not.toBeNull();
+      for (let i = 0; i < 8; i++) c.update(0.25);
+      expect(c.pending).toBeNull();
+    });
+
+    it('leaving the system clears a pending encounter', async () => {
+      const data = { ...(await loadGameData()) };
+      const c = new Controller({ ...data, encounters: {} }, { ...DEFAULT_SETTINGS }, new EventTarget());
+      c.startFlight();
+      c.pending = { def: data.encounters['cargo-drift'], npcName: 'X', kind: 'site', pos: { x: 0, y: 0 } };
+      c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', t: 99 } };
+      c.update(0.1);
+      expect(c.world.systemId).toBe('vesk');
+      expect(c.pending).toBeNull();
+    });
+
+    it('the interact key opens the card (flight pauses); the context button does too', async () => {
+      const { c, target } = await setup();
+      const seen: ControllerEvent[] = [];
+      c.on('encounter', (e) => seen.push(e));
+      c.startFlight();
+      c.forceEncounter('stranded-passenger');
+      target.dispatchEvent(keyEvent('keydown', 'KeyY'));
+      c.update(0.1);
+      expect(seen).toHaveLength(1);
+      expect(c.isFlying).toBe(false);
+      c.startFlight();
+      c.doContextAction();
+      c.update(0.1);
+      expect(seen).toHaveLength(2);
+    });
+
+    it('choosing applies the outcome, clears the encounter and refuses a blocked choice', async () => {
+      const { c } = await setup();
+      c.forceEncounter('stranded-passenger');
+      const before = c.world.missions.length;
+      const r = c.chooseEncounter(0);
+      expect(r?.messages.length).toBeGreaterThan(0);
+      expect(c.world.missions).toHaveLength(before + 1);
+      expect(c.pending).toBeNull();
+
+      c.forceEncounter('cheap-goods-pedlar');
+      c.world = { ...c.world, credits: 0 };
+      const view = c.encounterView()!;
+      expect(view.choices.some((x) => x.blocked !== null)).toBe(true);
+      const idx = view.choices.findIndex((x) => x.blocked !== null);
+      expect(c.chooseEncounter(idx)).toBeNull();
+      expect(c.pending).not.toBeNull();
+    });
+  });
 });
