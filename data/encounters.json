@@ -1,0 +1,132 @@
+[
+  {
+    "id": "stranded-passenger", "kind": "hail", "weight": 10, "title": "Stranded passenger",
+    "text": "{ship} calls in on a thin carrier wave. Their drive is cooked, and one passenger would very much like to be somewhere else. \"I'll pay, and I'll be no trouble. Mostly.\"",
+    "choices": [
+      { "label": "Take them aboard", "outcomes": [{ "type": "mission", "missionType": "ferry" }, { "type": "message", "text": "A tired passenger climbs through the lock, thanks you twice and asks if the galley has tea." }] },
+      { "label": "Wish them luck", "outcomes": [{ "type": "message", "text": "You sign off. The carrier wave hangs in the static a little longer than it should." }] }
+    ]
+  },
+  {
+    "id": "lost-parcel", "kind": "hail", "weight": 8, "title": "A courier's lost parcel",
+    "text": "A courier on the {system} lane has lost a sealed parcel and the nerve to explain it to her employer. \"It's small, it's dull, and it's late. Could you carry it?\"",
+    "choices": [
+      { "label": "Take the parcel", "needs": { "cargoSpace": 1 }, "outcomes": [{ "type": "mission", "missionType": "rush" }, { "type": "message", "text": "The parcel is no heavier than a loaf. You decide not to wonder what is in it." }] },
+      { "label": "Not today", "outcomes": [{ "type": "message", "text": "\"Understood,\" she says, in the voice of someone rehearsing an apology." }] }
+    ]
+  },
+  {
+    "id": "cheap-goods-pedlar", "kind": "hail", "weight": 9, "title": "Pedlar with a bargain",
+    "text": "{ship} drifts alongside with a hold full of crates and a smile that has seen many sales. \"Food, fresh enough, ten tons for 400. You won't get kinder prices this side of a famine.\"",
+    "choices": [
+      { "label": "Buy 10 t of food (400 cr)", "needs": { "credits": 400, "cargoSpace": 10 }, "outcomes": [{ "type": "credits", "n": -400 }, { "type": "cargo", "good": "food", "tons": 10 }] },
+      { "label": "Decline politely", "outcomes": [{ "type": "message", "text": "\"Your loss,\" the pedlar sighs, \"and quite possibly your lunch.\"" }] }
+    ]
+  },
+  {
+    "id": "cargo-drift", "kind": "site", "weight": 10, "title": "Cargo adrift",
+    "text": "A string of loose crates tumbles slowly through the dark, their tags faded to nothing. Somebody lost a shift's worth of work here.",
+    "choices": [
+      { "label": "Scoop up the crates", "needs": { "cargoSpace": 8 }, "outcomes": [{ "type": "cargo", "good": "industrial", "tons": 8 }, { "type": "message", "text": "Eight tons of machine parts, still sealed. Finders keepers, in the oldest tradition." }] },
+      { "label": "Leave them", "outcomes": [{ "type": "message", "text": "You leave the crates to their slow tumble." }] }
+    ]
+  },
+  {
+    "id": "empty-derelict", "kind": "site", "weight": 8, "title": "An empty derelict",
+    "text": "A dead hull turns on its axis, airlocks open, bunks made. Whoever left did it neatly and in no hurry.",
+    "choices": [
+      { "label": "Search the cabins", "outcomes": [{ "type": "message", "text": "Nothing but a folded blanket and a pencil stub. You take neither and feel faintly respectful." }] },
+      { "label": "Read the flight recorder", "outcomes": [{ "type": "rumour", "text": "A derelict near {system} was left tidy and unlooted. Crews say the lanes there are kinder than they look." }] }
+    ]
+  },
+  {
+    "id": "salvage-derelict", "kind": "site", "weight": 7, "title": "A derelict worth stripping",
+    "text": "A gutted freighter hangs in the dark, her hold doors torn open. Most of her went long ago, but not all.",
+    "when": { "minDay": 3 },
+    "choices": [
+      { "label": "Haul out the plating", "needs": { "cargoSpace": 6 }, "outcomes": [{ "type": "cargo", "good": "metal", "tons": 6 }] },
+      { "label": "Sell her beacon", "outcomes": [{ "type": "credits", "n": 350 }, { "type": "message", "text": "A salvage broker pays for the beacon code without asking where it came from." }] },
+      { "label": "Leave her in peace", "outcomes": [{ "type": "message", "text": "You nod to the wreck and fly on." }] }
+    ]
+  },
+  {
+    "id": "fuel-starved-hauler", "kind": "hail", "weight": 9, "title": "Hauler running dry",
+    "text": "{ship}, a slow hauler, is coasting on fumes. \"One lane short of the next pump, friend. I'd be glad of twenty units, and I'll pay, or I'll owe you.\"",
+    "choices": [
+      { "label": "Give 20 fuel", "needs": { "fuel": 40 }, "outcomes": [{ "type": "fuel", "n": -20 }, { "type": "message", "text": "\"I'll tell every dock I pass that you're a decent sort,\" the hauler's captain promises." }] },
+      { "label": "Sell 20 fuel (240 cr)", "needs": { "fuel": 40 }, "outcomes": [{ "type": "fuel", "n": -20 }, { "type": "credits", "n": 240 }] },
+      { "label": "Cannot spare any", "outcomes": [{ "type": "message", "text": "\"No hard feelings,\" says the hauler, in a tone that suggests a few." }] }
+    ]
+  },
+  {
+    "id": "surveyors-beacon", "kind": "site", "weight": 6, "title": "A surveyor's beacon",
+    "text": "A small beacon blinks on the empty edge of {system}, still faithfully pinging a chart nobody collects. Its data crystal is a snap to pull.",
+    "choices": [
+      { "label": "Download the chart", "outcomes": [{ "type": "reveal", "jumps": 1 }, { "type": "message", "text": "The nearest lanes unfold on your map, neatly ruled and slightly out of date." }] },
+      { "label": "Leave it be", "outcomes": [{ "type": "message", "text": "The beacon keeps blinking at nothing, as it has for years." }] }
+    ]
+  },
+  {
+    "id": "rumour-broadcast", "kind": "hail", "weight": 9, "title": "A rumour on the air",
+    "text": "{ship} is broadcasting to anybody who'll listen, which today is you. It is the sort of gossip that keeps lanes interesting.",
+    "choices": [
+      { "label": "Listen and make a note", "outcomes": [{ "type": "rumour", "text": "A trader heard on the {system} lane says prices at the rim ports run high for anyone willing to bring food and medicine." }] },
+      { "label": "Switch the channel", "outcomes": [{ "type": "message", "text": "You mute the broadcast. The silence is restful." }] }
+    ]
+  },
+  {
+    "id": "pilgrim-convoy", "kind": "hail", "weight": 6, "title": "Pilgrim convoy",
+    "text": "A convoy of pilgrims in mismatched hulls files past, singing across all channels. {ship} asks if you can spare a little fuel for the road to the next shrine.",
+    "when": { "governments": ["independent", "free-reach"] },
+    "choices": [
+      { "label": "Share 10 fuel", "needs": { "fuel": 30 }, "outcomes": [{ "type": "fuel", "n": -10 }, { "type": "credits", "n": 120 }, { "type": "message", "text": "They bless your ship, tuck a few coins through the line, and resume singing." }] },
+      { "label": "Wave them on", "outcomes": [{ "type": "message", "text": "The song fades slowly behind you." }] }
+    ]
+  },
+  {
+    "id": "customs-free-trader", "kind": "hail", "weight": 7, "title": "A customs-free trader",
+    "text": "{ship} offers four tons of luxury goods at a price that does not mention a tariff, or a receipt. \"They fell off a cart,\" says the trader, \"in space. It's a very long fall.\"",
+    "when": { "governments": ["free-reach", "independent"], "minDay": 5 },
+    "choices": [
+      { "label": "Buy 4 t of luxuries (1200 cr)", "needs": { "credits": 1200, "cargoSpace": 4 }, "outcomes": [{ "type": "credits", "n": -1200 }, { "type": "cargo", "good": "luxury", "tons": 4 }] },
+      { "label": "No questions, no deal", "outcomes": [{ "type": "message", "text": "The trader shrugs and vanishes down a lane that is not on any chart you own." }] }
+    ]
+  },
+  {
+    "id": "old-chart-seller", "kind": "hail", "weight": 5, "title": "A seller of old charts",
+    "text": "{ship} sells charts by the dozen, folded as paper in a hold that smells of lamp oil. \"Only 300, and you'll know where the quiet lanes go.\"",
+    "when": { "minDay": 4, "tiers": [1, 2, 3] },
+    "choices": [
+      { "label": "Buy a chart (300 cr)", "needs": { "credits": 300 }, "outcomes": [{ "type": "credits", "n": -300 }, { "type": "reveal", "jumps": 2 }] },
+      { "label": "Not interested", "outcomes": [{ "type": "message", "text": "\"Suit yourself,\" says the seller, folding a map into a bird." }] }
+    ]
+  },
+  {
+    "id": "survey-beacon", "kind": "hail", "weight": 10, "once": true, "title": "A surveyor's old call",
+    "text": "A weak automated hail drifts out of the empty rim: a survey ship's recall code, looping for years, answering nobody. Its heading points where the charts go blank.",
+    "when": { "systems": ["skerry"], "requiresFlag": "survey-rumour", "notFlag": "hushwater-lane" },
+    "choices": [
+      { "label": "Follow the signal's heading", "outcomes": [{ "type": "flag", "flag": "hushwater-lane" }, { "type": "rumour", "text": "A looping survey recall points from Skerry to a lane the charts never drew. A place called Hushwater lies at the end of it." }] },
+      { "label": "Let it keep looping", "outcomes": [{ "type": "message", "text": "The signal repeats once more, patiently, and falls behind you." }] }
+    ]
+  },
+  {
+    "id": "long-patience", "kind": "site", "weight": 10, "once": true, "title": "The Long Patience",
+    "text": "She drifts in the still water, a survey ship older than the lane she came by. Her running lights are dark but her cabin is clean, and her log is still switched on.",
+    "when": { "systems": ["hushwater"] },
+    "choices": [
+      { "label": "Take her log and transponder", "outcomes": [{ "type": "flag", "flag": "survey-claim" }, { "type": "rumour", "text": "You hold the Long Patience's log and transponder. A Free Reach shipyard could rebuild a hull like her, given the right captain." }, { "type": "message", "text": "The log lights up as you plug in, and a quiet voice reads her last entry: \"Waiting for a pilot. No hurry.\"" }] },
+      { "label": "Strip her for parts", "outcomes": [{ "type": "credits", "n": 6000 }, { "type": "flag", "flag": "survey-stripped" }, { "type": "message", "text": "It takes an afternoon. The plating sells well. The silence afterwards is heavy." }] },
+      { "label": "Leave her as she is", "outcomes": [{ "type": "message", "text": "You leave her drifting. She has waited this long." }] }
+    ]
+  },
+  {
+    "id": "pearl-diver", "kind": "hail", "weight": 8, "title": "A diver with a pearl",
+    "text": "A diver from Quiet Shoal hails you from an open boat. \"We don't sell to just anybody,\" she says, \"but you came here on purpose. One pearl, 600.\"",
+    "when": { "systems": ["hushwater"] },
+    "choices": [
+      { "label": "Buy a Stillwater Pearl (600 cr)", "needs": { "credits": 600, "cargoSpace": 1 }, "outcomes": [{ "type": "credits", "n": -600 }, { "type": "cargo", "good": "stillwater-pearl", "tons": 1 }] },
+      { "label": "Wave and move on", "outcomes": [{ "type": "message", "text": "She dips a hand in the water as you go, which you take as courtesy." }] }
+    ]
+  }
+]

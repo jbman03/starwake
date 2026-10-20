@@ -20,5 +20,7 @@
   { "id": "mirren", "name": "Mirren", "mapPos": { "x": -490, "y": 300 }, "jumpDistance": 1600, "government": "independent", "links": ["vesk", "minster"], "starRadius": 80 },
   { "id": "lastlight", "name": "Lastlight", "mapPos": { "x": -40, "y": 530 }, "jumpDistance": 1700, "government": "independent", "links": ["vesk", "dunmore", "brackwater"], "starRadius": 75 },
   { "id": "brackwater", "name": "Brackwater", "mapPos": { "x": 280, "y": 490 }, "jumpDistance": 1700, "government": "independent", "links": ["lastlight", "saltmarsh", "skerry"], "starRadius": 85 },
-  { "id": "skerry", "name": "Skerry", "mapPos": { "x": 530, "y": 340 }, "jumpDistance": 1600, "government": "independent", "links": ["redwater", "brackwater"], "starRadius": 70 }
+  { "id": "skerry", "name": "Skerry", "mapPos": { "x": 530, "y": 340 }, "jumpDistance": 1600, "government": "independent", "links": ["redwater", "brackwater"], "hiddenLinks": ["hushwater"], "starRadius": 70 },
+
+  { "id": "hushwater", "name": "Hushwater", "mapPos": { "x": 580, "y": 430 }, "jumpDistance": 1400, "government": "independent", "links": [], "hiddenLinks": ["skerry"], "hidden": true, "traffic": [0, 0], "starRadius": 60 }
 ]

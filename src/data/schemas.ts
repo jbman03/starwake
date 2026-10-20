@@ -34,6 +34,9 @@ export const ShipSchema = z.object({
   hull: z.enum(['pod', 'dart', 'wedge', 'hauler', 'liner', 'carrier']),
   description: z.string(),
   soldBy: z.array(id).optional(), // government ids; absent = sold anywhere the tier allows
+  unique: z.boolean().optional(), // a one-off hull, sold once
+  requiresFlag: z.string().min(1).optional(), // story flag needed before it is offered
+  chartJumps: z.number().int().positive().optional(), // built-in chart: reveals this many jumps on arrival
 });
 
 const outfitBase = {
@@ -67,6 +70,9 @@ export const SystemSchema = z.object({
   links: z.array(id),
   starRadius: z.number().positive(),
   hazards: z.array(z.string()).optional(),
+  hiddenLinks: z.array(id).optional(), // lanes that stay out of sight until a story flag opens them
+  hidden: z.boolean().optional(), // never charted by local maps or routing until its lane is opened
+  traffic: z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]).optional(), // [min, max] NPC ships
 });
 
 export const PlanetSchema = z.object({
@@ -134,6 +140,59 @@ export const MissionTypeSchema = z.object({
   textTemplate: z.string(),
 });
 
+export const NamesSchema = z.object({
+  first: z.array(z.string().min(1)).min(1),
+  second: z.array(z.string().min(1)).min(1),
+});
+
+const count = z.number().int();
+
+export const OutcomeSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('credits'), n: count }),
+  z.object({ type: z.literal('cargo'), good: id, tons: z.number().int().positive() }),
+  z.object({ type: z.literal('fuel'), n: count }),
+  z.object({ type: z.literal('mission'), missionType: id, toSystem: id.optional() }),
+  z.object({ type: z.literal('reveal'), systems: z.array(id).optional(), jumps: z.number().int().positive().optional() }),
+  z.object({ type: z.literal('rumour'), text: z.string().min(1) }),
+  z.object({ type: z.literal('flag'), flag: id }),
+  z.object({ type: z.literal('message'), text: z.string().min(1) }),
+]);
+
+export const EncounterSchema = z.object({
+  id,
+  kind: z.enum(['hail', 'site']),
+  weight: z.number().positive(),
+  once: z.boolean().optional(),
+  title: z.string().min(1),
+  text: z.string().min(1), // may use {ship}, {system} and {pilot}
+  when: z
+    .object({
+      minDay: z.number().int().nonnegative().optional(),
+      governments: z.array(id).optional(),
+      tiers: z.array(tier).optional(),
+      systems: z.array(id).optional(),
+      requiresFlag: id.optional(),
+      notFlag: id.optional(),
+    })
+    .optional(),
+  choices: z
+    .array(
+      z.object({
+        label: z.string().min(1),
+        needs: z
+          .object({
+            fuel: z.number().nonnegative().optional(),
+            credits: z.number().nonnegative().optional(),
+            cargoSpace: z.number().nonnegative().optional(),
+          })
+          .optional(),
+        outcomes: z.array(OutcomeSchema),
+      }),
+    )
+    .min(1)
+    .max(3),
+});
+
 export const ConfigSchema = z.object({
   startSystemId: id,
   startPlanetId: id,
@@ -158,6 +217,8 @@ export type GovernmentDef = z.infer<typeof GovernmentSchema>;
 export type CommodityDef = z.infer<typeof CommoditySchema>;
 export type EventDef = z.infer<typeof EventSchema>;
 export type MissionTypeDef = z.infer<typeof MissionTypeSchema>;
+export type Outcome = z.infer<typeof OutcomeSchema>;
+export type EncounterDef = z.infer<typeof EncounterSchema>;
 export type GameConfig = z.infer<typeof ConfigSchema>;
 
 export interface GameData {
@@ -169,5 +230,7 @@ export interface GameData {
   commodities: Record<string, CommodityDef>;
   events: Record<string, EventDef>;
   missionTypes: Record<string, MissionTypeDef>;
+  names: { first: string[]; second: string[] };
+  encounters: Record<string, EncounterDef>;
   config: GameConfig;
 }

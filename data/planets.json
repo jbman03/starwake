@@ -227,5 +227,10 @@
     "id": "gull-rock", "name": "Gull Rock", "systemId": "skerry", "pos": { "x": 700, "y": -500 }, "radius": 36, "techTier": 1, "fuelPrice": 5, "kind": "planet",
     "services": [],
     "description": "A bare stack of black stone with one abandoned hut on top. The hut's door is unlocked, and someone keeps leaving the kettle full."
+  },
+  {
+    "id": "quiet-shoal", "name": "Quiet Shoal", "systemId": "hushwater", "pos": { "x": 300, "y": -350 }, "radius": 34, "techTier": 1, "fuelPrice": 6, "kind": "planet",
+    "services": ["exchange"], "market": { "stillwater-pearl": "low", "food": "high", "medical": "high" },
+    "description": "A pale, flat little world ringed by tide pools that never freeze and never quite boil. The few families here keep their voices low, as if the water were listening."
   }
 ]
