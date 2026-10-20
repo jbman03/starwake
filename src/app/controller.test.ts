@@ -534,4 +534,60 @@ describe('Controller trade, missions and routes', () => {
     c.clearRoute();
     expect(c.world.route).toEqual([]);
   });
+
+  describe('targeting ships', () => {
+    const tab = (target: EventTarget, c: Controller) => {
+      target.dispatchEvent(keyEvent('keydown', 'Tab'));
+      c.update(1 / 60);
+      target.dispatchEvent(keyEvent('keyup', 'Tab'));
+      c.update(1 / 60);
+    };
+
+    it('Tab cycles ships nearest first, then planets, then none', async () => {
+      const { c, data, target } = await setup();
+      const ports = Object.values(data.planets).filter((p) => p.systemId === c.world.systemId).length;
+      expect(ports).toBeGreaterThanOrEqual(2);
+      const fly = (id: string, dx: number) => ({
+        ...c.traffic.npcs[0],
+        id,
+        ship: { ...c.traffic.npcs[0].ship, pos: { x: c.world.ship.pos.x + dx, y: c.world.ship.pos.y } },
+      });
+      expect(c.traffic.npcs.length).toBeGreaterThanOrEqual(1);
+      c.traffic = { ...c.traffic, nextSpawnSec: 999, npcs: [fly('far', 900), fly('near', 300)] };
+      c.startFlight();
+      const seen: string[] = [];
+      for (let i = 0; i < 3 + ports; i++) {
+        tab(target, c);
+        seen.push(c.traffic.targetId ?? c.world.targetPlanetId ?? 'none');
+        if (c.traffic.targetId) expect(c.world.targetPlanetId).toBeNull();
+      }
+      expect(seen.slice(0, 2)).toEqual(['near', 'far']);
+      expect(c.data.planets[seen[2]]).toBeDefined();
+      expect(seen[2 + ports]).toBe('none');
+      expect(c.traffic.targetId).toBeNull();
+      expect(c.world.targetPlanetId).toBeNull();
+    });
+
+    it('targetShip targets a ship and clears the planet target; selectPlanet clears the ship', async () => {
+      const { c } = await setup();
+      const id = c.traffic.npcs[0].id;
+      c.selectPlanet('halcyon');
+      c.targetShip(id);
+      expect(c.traffic.targetId).toBe(id);
+      expect(c.world.targetPlanetId).toBeNull();
+      c.selectPlanet('halcyon');
+      expect(c.traffic.targetId).toBeNull();
+      c.targetShip(id);
+      c.targetShip(null);
+      expect(c.traffic.targetId).toBeNull();
+    });
+
+    it('reseeds when the pilot arrives in a new system', async () => {
+      const { c } = await setup();
+      c.traffic = { ...c.traffic, systemId: 'elsewhere', npcs: [] };
+      c.startFlight();
+      c.update(1 / 60);
+      expect(c.traffic.systemId).toBe(c.world.systemId);
+    });
+  });
 });

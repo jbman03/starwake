@@ -6,6 +6,7 @@ import { getInsets } from '../input/insets';
 import { pointerTypeOf } from '../input/pointer';
 import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
+import { isTargetable, npcLabel } from '../sim/traffic';
 import { JUMP_DURATION } from '../sim/world';
 import { skipLabel } from '../guide/guide';
 import { hotkeyFor } from '../ui/dom';
@@ -41,6 +42,8 @@ const PARALLAX = [0.08, 0.22, 0.45];
 export class SpaceScene extends Phaser.Scene {
   private stars: Phaser.GameObjects.TileSprite[] = [];
   private bodies: Phaser.GameObjects.Image[] = [];
+  /** One sprite per NPC ship, by NPC id. */
+  private npcSprites = new Map<string, Phaser.GameObjects.Image>();
   private ship!: Phaser.GameObjects.Image;
   private bracket!: Phaser.GameObjects.Graphics;
   private fx!: Phaser.GameObjects.Graphics;
@@ -148,7 +151,21 @@ export class SpaceScene extends Phaser.Scene {
       const c = this.cameras.main;
       return { x: c.x, y: c.y, w: c.width, h: c.height };
     };
-    hook.sidebar = () => ({ visible: this.sidebar.isVisible(), info: sidebarInfo(this.controller.world, this.controller.data) });
+    hook.sidebar = () => ({
+      visible: this.sidebar.isVisible(),
+      info: sidebarInfo(this.controller.world, this.controller.data, this.controller.traffic),
+    });
+    hook.traffic = () => {
+      const c = this.cameras.main;
+      return this.controller.traffic.npcs.map((n) => {
+        const img = this.npcSprites.get(n.id);
+        return {
+          id: n.id,
+          label: npcLabel(n, this.controller.data),
+          screen: img ? { x: c.x + (img.x - c.worldView.x) * c.zoom, y: c.y + (img.y - c.worldView.y) * c.zoom } : null,
+        };
+      });
+    };
     hook.flightSpriteTexture = () => this.ship.texture.key;
     hook.hudBanner = () => this.hud.bannerText();
     hook.hudCourse = () => this.hud.courseText();
@@ -219,10 +236,11 @@ export class SpaceScene extends Phaser.Scene {
       ts.setTilePosition(cam.scrollX * k, cam.scrollY * k);
     }
 
+    this.updateNpcs();
     this.drawBracket(world.targetPlanetId);
     this.drawJumpFx(x, y);
-    this.hud.update(world, data, dt, this.guideHint());
-    this.sidebar.update(world, data, dt);
+    this.hud.update(world, data, dt, this.guideHint(), this.controller.traffic);
+    this.sidebar.update(world, data, dt, this.controller.traffic);
   }
 
   /** The First Flight guide's current hint for the HUD, or null. */
@@ -236,18 +254,61 @@ export class SpaceScene extends Phaser.Scene {
   private drawBracket(targetId: string | null): void {
     const g = this.bracket;
     g.clear();
-    const p = targetId ? this.controller.data.planets[targetId] : undefined;
-    if (!p || p.systemId !== this.controller.world.systemId) return;
-    const r = p.radius + 10;
+    const { data, world } = this.controller.view();
+    const { traffic } = this.controller;
+    let cx0: number, cy0: number, r: number;
+    const npc = traffic.targetId ? traffic.npcs.find((n) => n.id === traffic.targetId && isTargetable(n)) : undefined;
+    const sprite = npc ? this.npcSprites.get(npc.id) : undefined;
+    if (npc && sprite) {
+      cx0 = sprite.x;
+      cy0 = sprite.y;
+      r = data.ships[npc.shipId].radius + 10;
+    } else {
+      const p = targetId ? data.planets[targetId] : undefined;
+      if (!p || p.systemId !== world.systemId) return;
+      cx0 = p.pos.x;
+      cy0 = p.pos.y;
+      r = p.radius + 10;
+    }
     const arm = Math.max(8, r * 0.3);
     g.lineStyle(2, 0x6fe36f, 0.9);
     for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-      const cx = p.pos.x + sx * r, cy = p.pos.y + sy * r;
+      const cx = cx0 + sx * r, cy = cy0 + sy * r;
       g.beginPath();
       g.moveTo(cx, cy - sy * arm);
       g.lineTo(cx, cy);
       g.lineTo(cx - sx * arm, cy);
       g.strokePath();
+    }
+  }
+
+  /** Keep one tinted sprite per NPC: create new ones, move and fade the rest, drop the departed. */
+  private updateNpcs(): void {
+    const { data } = this.controller;
+    const seen = new Set<string>();
+    for (const n of this.controller.traffic.npcs) {
+      seen.add(n.id);
+      const def = data.ships[n.shipId];
+      let img = this.npcSprites.get(n.id);
+      if (!img) {
+        img = this.add.image(n.ship.pos.x, n.ship.pos.y, shipTextureKey(def), shipFrame(n.ship.heading)).setDepth(9);
+        const color = data.governments[n.government]?.color;
+        if (color) img.setTint(parseInt(color.slice(1), 16));
+        const hit = Math.max(MIN_TAP_RADIUS, def.radius + TAP_MARGIN);
+        img.setInteractive(new Phaser.Geom.Circle(img.width / 2, img.height / 2, hit), Phaser.Geom.Circle.Contains);
+        img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => this.controller.targetShip(n.id));
+        this.addWorldObject(img);
+        this.npcSprites.set(n.id, img);
+      }
+      // Simple fades: arriving ships fade in, landing and leaving ones fade out.
+      const fade =
+        n.phase === 'jumpIn' ? Math.min(1, n.phaseT / 1.0) : n.phase === 'jumpOut' ? Math.max(0, 1 - n.phaseT / 1.0) : n.phase === 'land' ? Math.max(0, 1 - n.phaseT / 0.4) : 1;
+      img.setPosition(n.ship.pos.x, n.ship.pos.y).setFrame(shipFrame(n.ship.heading)).setAlpha(fade).setVisible(fade > 0);
+    }
+    for (const [id, img] of this.npcSprites) {
+      if (seen.has(id)) continue;
+      img.destroy();
+      this.npcSprites.delete(id);
     }
   }
 

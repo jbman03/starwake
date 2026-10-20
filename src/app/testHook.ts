@@ -23,6 +23,8 @@ export interface StarwakeTestHook {
   hudGuide?: () => { text: string; skip: { x: number; y: number; w: number; h: number } } | null;
   /** Set by SpaceScene: whether the PC sidebar is showing, and what it shows. */
   sidebar?: () => { visible: boolean; info: SidebarInfo };
+  /** Set by SpaceScene: the NPC ships in this system with their on-screen position (null before a sprite exists). */
+  traffic?: () => { id: string; label: string; screen: { x: number; y: number } | null }[];
   /** Set by SpaceScene: a planet's on-screen position, or null if not in the current system. */
   planetScreenPos?: (planetId: string) => { x: number; y: number } | null;
 }

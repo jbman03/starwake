@@ -4,6 +4,7 @@ import { cargoFree } from '../sim/cargo';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import { jumpDestination } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
+import { isTargetable, npcLabel, type Traffic } from '../sim/traffic';
 import type { WorldState } from '../sim/types';
 import { dist } from '../sim/vec';
 
@@ -39,16 +40,19 @@ export function nextHopText(world: WorldState, data: GameData): string | null {
 }
 
 /** HUD text shared by the desktop panel and the touch-mode rail HUD. */
-export function hudInfo(world: WorldState, data: GameData): HudInfo {
+export function hudInfo(world: WorldState, data: GameData, traffic: Traffic | null = null): HudInfo {
   const jumps = fuelJumps(world, data);
   const t = world.targetPlanetId ? data.planets[world.targetPlanetId] : undefined;
+  const ship = traffic?.targetId ? traffic.npcs.find((n) => n.id === traffic.targetId && isTargetable(n)) : undefined;
   return {
     system: data.systems[world.systemId]?.name ?? world.systemId,
     fuel: fuelText(jumps),
     fuelColor: fuelColor(jumps),
     credits: `Credits: ${Math.round(world.credits).toLocaleString('en-US')} cr`,
     cargo: `Cargo: ${cargoFree(world, data)}/${worldStats(world, data).cargo} t`,
-    target: t && t.systemId === world.systemId ? `Target: ${t.name}  ${Math.round(dist(t.pos, world.ship.pos))}` : 'Target: none',
+    target: ship
+      ? `Target: ${npcLabel(ship, data)}  ${Math.round(dist(ship.ship.pos, world.ship.pos))}`
+      : t && t.systemId === world.systemId ? `Target: ${t.name}  ${Math.round(dist(t.pos, world.ship.pos))}` : 'Target: none',
     nextHop: nextHopText(world, data),
   };
 }

@@ -23,6 +23,7 @@ import { buyShip, shipQuote, type ShipQuote } from '../sim/shipyard';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
+import { cycleTarget, isTargetable, seedTraffic, stepTraffic, type Traffic } from '../sim/traffic';
 import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
 import {
   applyRefuel,
@@ -90,6 +91,8 @@ export class Controller {
   /** On-screen touch controls feed this; merged with the keyboard every tick. */
   readonly touch: TouchSource;
 
+  /** The NPC ships in this system (seeded on arrival, stepped while flying). */
+  traffic: Traffic;
   /** Planet the ship is sitting on (planet screen open), or null. */
   landedPlanetId: string | null = null;
   /** Most recent planet landed on this session; saves are landed snapshots taken there. */
@@ -120,6 +123,7 @@ export class Controller {
     world: WorldState = newWorld(data),
   ) {
     this.world = world;
+    this.traffic = seedTraffic(world, data, this.maxNpcs());
     this.prevShip = world.ship;
     this.keyboard = new KeyboardSource(
       keyTarget,
@@ -171,6 +175,7 @@ export class Controller {
   /** Start playing `pilot`, landed at `planetId` (the planet screen comes next). */
   beginSession(world: WorldState, pilot: PilotMeta, planetId: string): void {
     this.world = world;
+    this.traffic = seedTraffic(world, this.data, this.maxNpcs());
     this.pilot = { ...pilot };
     // No autosave: a fresh load would only rotate away the older backup. New pilots call save().
     this.landAt(planetId, false);
@@ -406,6 +411,18 @@ export class Controller {
 
   selectPlanet(id: string | null): void {
     this.world = { ...this.world, targetPlanetId: id };
+    this.traffic = { ...this.traffic, targetId: null };
+  }
+
+  /** Target an NPC ship (or clear the target with null). A ship target replaces any planet target. */
+  targetShip(id: string | null): void {
+    if (id !== null && !this.traffic.npcs.some((n) => n.id === id && isTargetable(n))) return;
+    this.traffic = { ...this.traffic, targetId: id };
+    if (id !== null) this.world = { ...this.world, targetPlanetId: null };
+  }
+
+  private maxNpcs(): number {
+    return this.settings.quality === 'low' ? 4 : 8;
   }
 
   /**
@@ -450,6 +467,12 @@ export class Controller {
       }
       const pressed = new Set([...polled.pressed, ...this.queued]);
       this.queued.clear();
+      if (pressed.delete('nextTarget')) {
+        // Tab walks ships, then planets (the sim's own planet-only cycle is not used from here).
+        const pick = cycleTarget(this.world, this.data, this.traffic);
+        this.traffic = { ...this.traffic, targetId: pick.shipId };
+        this.world = { ...this.world, targetPlanetId: pick.planetId };
+      }
       const input: FrameInput = touch.stick
         ? { actions: polled.actions, pressed, stick: touch.stick }
         : { actions: polled.actions, pressed };
@@ -459,8 +482,23 @@ export class Controller {
       });
       this.world = r.world;
       this.handleEvents(r.events);
+      this.stepTraffic(dt);
     });
     this.checkContext();
+  }
+
+  /** Advance the NPCs one tick; reseed on a new system and drop a target that is no longer there. */
+  private stepTraffic(dt: number): void {
+    if (this.traffic.systemId !== this.world.systemId) {
+      this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+      return;
+    }
+    if (this.world.jump) return;
+    let t = stepTraffic(this.traffic, this.world, this.data, dt, this.maxNpcs()).traffic;
+    // A ship target that landed or left, or a planet the sim just targeted (landing autopilot), ends it.
+    const alive = t.targetId !== null && t.npcs.some((n) => n.id === t.targetId && isTargetable(n));
+    if (!alive || this.world.targetPlanetId !== null) t = { ...t, targetId: null };
+    this.traffic = t;
   }
 
   /** One poll per frame for whichever screen is open; with none, stale presses are drained. */
@@ -483,7 +521,10 @@ export class Controller {
     for (const e of events) {
       if (e.type === 'message') continue;
       if (e.type === 'landed' || e.type === 'towed') this.landAt(e.planetId);
-      else if (e.type === 'jumped') this.prevShip = this.world.ship; // no interpolation across systems
+      else if (e.type === 'jumped') {
+        this.prevShip = this.world.ship; // no interpolation across systems
+        this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+      }
       this.emit(e);
     }
     if (!towed && messages.length > 0) this.emit({ type: 'message', text: messages.join(' ') });

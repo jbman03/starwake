@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { GameData } from '../data/schemas';
+import type { Traffic } from '../sim/traffic';
 import type { WorldState } from '../sim/types';
 import { hudInfo, routeBannerText } from './hudInfo';
 
@@ -173,9 +174,9 @@ export class Hud {
     this.messageAge = 0;
   }
 
-  update(world: WorldState, data: GameData, dtSec: number, guide: HudGuide | null = null): void {
+  update(world: WorldState, data: GameData, dtSec: number, guide: HudGuide | null = null, traffic: Traffic | null = null): void {
     if (!this.touchMode && !this.sidebar) {
-      const info = hudInfo(world, data);
+      const info = hudInfo(world, data, traffic);
       this.system.setText(info.system);
       this.fuel.setText(info.fuel).setColor(info.fuelColor);
       this.credits.setText(info.credits);

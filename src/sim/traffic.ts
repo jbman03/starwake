@@ -209,3 +209,32 @@ export function npcLabel(npc: Npc, data: GameData): string {
   const role = def.role.replace(/([A-Z])/g, ' $1').toLowerCase();
   return `${npc.name} — ${gov} ${def.name.split(' ')[0]} (${role})`;
 }
+
+/** Ships a pilot can target: flying (or just arrived), not landing or leaving. */
+export const isTargetable = (n: Npc): boolean => n.phase === 'fly' || n.phase === 'jumpIn';
+
+export interface TargetPick {
+  /** Targeted NPC id, or null. */
+  shipId: string | null;
+  /** Targeted planet id, or null. At most one of the two is set. */
+  planetId: string | null;
+}
+
+/**
+ * The next target after the current one: ships nearest first, then planets nearest first, then
+ * nothing (so a phone player can clear it). With no target it picks the nearest ship, or the
+ * nearest planet when no ship is about.
+ */
+export function cycleTarget(world: WorldState, data: GameData, t: Traffic): TargetPick {
+  const pos = world.ship.pos;
+  const ships = t.npcs.filter(isTargetable).sort((a, b) => dist(pos, a.ship.pos) - dist(pos, b.ship.pos));
+  const planets = Object.values(data.planets)
+    .filter((p) => p.systemId === world.systemId)
+    .sort((a, b) => dist(pos, a.pos) - dist(pos, b.pos));
+  const order: TargetPick[] = [
+    ...ships.map((n) => ({ shipId: n.id, planetId: null })),
+    ...planets.map((p) => ({ shipId: null, planetId: p.id })),
+  ];
+  const idx = order.findIndex((o) => (t.targetId ? o.shipId === t.targetId : o.planetId !== null && o.planetId === world.targetPlanetId));
+  return idx + 1 < order.length ? order[idx + 1] : { shipId: null, planetId: null };
+}
