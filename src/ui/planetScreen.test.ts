@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Controller } from '../app/controller';
 import { loadGameData } from '../data/load';
 import { withoutPorts } from '../data/testData';
@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from '../save/settings';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { createUi } from './context';
-import { showPlanetScreen } from './planetScreen';
+import { COUNT_UP_SEC, showPlanetScreen } from './planetScreen';
 
 async function setup(credits: number, fuel: number, bindings = DEFAULT_SETTINGS.bindings, portId = 'halcyon') {
   const data = await loadGameData();
@@ -39,7 +39,7 @@ async function setup(credits: number, fuel: number, bindings = DEFAULT_SETTINGS.
     },
   } as UiContext;
   showPlanetScreen(ctx, portId);
-  return { root, c, calls };
+  return { root, c, calls, ctx };
 }
 
 describe('planet screen', () => {
@@ -154,5 +154,44 @@ describe('planet screen after a tow', () => {
     expect(screen.textContent).toContain('Mission failed: Job A — the deadline passed.');
     expect(screen.textContent).toContain('Mission failed: Job B — the deadline passed.');
     root.remove();
+  });
+});
+
+describe('credits count-up after jobs pay', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  async function paid(reduced: boolean) {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: reduced && q.includes('reduce'), media: q }));
+    vi.useFakeTimers();
+    const s = await setup(1000, 300);
+    const job = {
+      id: 'j1', typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 1, passengers: 0, pay: 700,
+      paidUpfront: false, deadlineDay: null, title: 'T', description: '', cargoName: 'crates',
+    };
+    s.c.world = { ...s.c.world, missions: [job] };
+    (s.c as unknown as { landAt(id: string): void }).landAt('merrow');
+    expect(s.c.world.credits).toBe(1700);
+    showPlanetScreen(s.ctx, 'merrow');
+    return s;
+  }
+  const shown = (root: HTMLElement) => root.querySelector('.sw-stats')!.textContent!.match(/Credits: ([\d,-]+) cr/)![1];
+
+  it('counts from the old value to the new one over 0.8 s', async () => {
+    const { root } = await paid(false);
+    expect(shown(root)).toBe('1,000');
+    vi.advanceTimersByTime((COUNT_UP_SEC * 1000) / 2);
+    const mid = Number(shown(root).replace(/,/g, ''));
+    expect(mid).toBeGreaterThan(1000);
+    expect(mid).toBeLessThan(1700);
+    vi.advanceTimersByTime((COUNT_UP_SEC * 1000) / 2 + 100);
+    expect(shown(root)).toBe('1,700');
+  });
+
+  it('jumps straight to the new value under prefers-reduced-motion', async () => {
+    const { root } = await paid(true);
+    expect(shown(root)).toBe('1,700');
   });
 });

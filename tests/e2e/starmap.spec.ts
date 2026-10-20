@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { leavePlanet, newPilot, trackErrors } from './helpers';
+import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
 
 const SHOT = '.superpowers/sdd/2026-10-16-starwake-cycle1-trade-missions/task-9-map.png';
 
@@ -75,7 +75,7 @@ test.describe('desktop', () => {
 
     await map.getByRole('button', { name: /^Close/ }).click();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar!().info.nav)).toBe('Tessaly · 1 jump');
 
     await page.keyboard.press('KeyG');
@@ -98,7 +98,7 @@ test.describe('desktop', () => {
     await expect(map.locator('[data-system="tessaly"] .sw-map-ring')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     expect(errors).toEqual([]);
   });
@@ -198,7 +198,7 @@ test.describe('phone (touch, landscape)', () => {
     await expect(page.getByTestId('planet-screen')).toBeVisible();
 
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     const course = page.getByTestId('rail-course');
@@ -216,7 +216,7 @@ test.describe('phone (touch, landscape)', () => {
     await checkFits(page);
     await map.getByRole('button', { name: /^Close/ }).tap();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     expect(errors).toEqual([]);
   });
 });

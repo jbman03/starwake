@@ -31,6 +31,15 @@ const MIN_TAP_RADIUS = 22;
 /** Narrowest window that gets the sidebar (keyboard mode). */
 const SIDEBAR_MIN_WINDOW = 700;
 
+/** How long the arrival streaks and flash last after coming out of a jump (seconds). */
+const ARRIVAL_FX_SEC = 0.5;
+/** NPC jump streaks are the player's, scaled down. */
+const NPC_STREAK_SCALE = 0.4;
+/** NPC jumpIn / jumpOut take this long (matches the sim's JUMP_SEC in traffic.ts). */
+const NPC_JUMP_SEC = 1.0;
+/** The ship shrinks to this scale as it lands. */
+const LANDED_SCALE = 0.2;
+
 /** Parallax factor per starfield layer (far → near). */
 const PARALLAX = [0.08, 0.22, 0.45];
 
@@ -53,6 +62,8 @@ export class SpaceScene extends Phaser.Scene {
   private sidebar!: Sidebar;
   private builtSystemId: string | null = null;
   private unsubs: (() => void)[] = [];
+  /** Seconds of arrival effect left (0 when none). */
+  private arrivalLeft = 0;
   private viewport: Rect = { x: 0, y: 0, w: 0, h: 0 };
 
   constructor(
@@ -101,6 +112,7 @@ export class SpaceScene extends Phaser.Scene {
 
     this.unsubs.push(
       this.controller.on('jumped', (e) => this.buildSystem(e.toSystemId)),
+      this.controller.on('arrived', () => (this.arrivalLeft = ARRIVAL_FX_SEC)),
       this.controller.on('message', (e) =>
         this.hud.showMessage(
           formatMessage(
@@ -227,7 +239,7 @@ export class SpaceScene extends Phaser.Scene {
     // and the fixed stepper already clamps long frames.
     const dt = this.game.loop.rawDelta / 1000;
     this.controller.update(dt);
-    const { world, prevShip, alpha, data } = this.controller.view();
+    const { world, prevShip, alpha, data, landingT, thrusting } = this.controller.view();
     if (world.systemId !== this.builtSystemId) this.buildSystem(world.systemId);
     this.applyLayout();
 
@@ -236,7 +248,14 @@ export class SpaceScene extends Phaser.Scene {
     const y = prevShip.pos.y + (world.ship.pos.y - prevShip.pos.y) * alpha;
     const shipKey = shipTextureKey(data.ships[world.shipId] ?? Object.values(data.ships)[0]!);
     if (this.ship.texture.key !== shipKey) this.ship.setTexture(shipKey);
-    this.ship.setPosition(x, y).setFrame(shipFrame(world.ship.heading));
+    // Landing shrinks and fades the ship (take-off runs it backwards); on the planet screen it is hidden.
+    const shrink = landingT ?? 0;
+    this.ship
+      .setPosition(x, y)
+      .setFrame(shipFrame(world.ship.heading))
+      .setScale(1 - (1 - LANDED_SCALE) * shrink)
+      .setAlpha(1 - shrink)
+      .setVisible(this.controller.landedPlanetId === null);
     const cam = this.cameras.main;
     cam.centerOn(x, y);
 
@@ -249,6 +268,10 @@ export class SpaceScene extends Phaser.Scene {
 
     this.updateNpcs();
     this.drawBracket(world.targetPlanetId);
+    this.fx.clear();
+    this.arrivalLeft = Math.max(0, this.arrivalLeft - dt);
+    if (thrusting && landingT === null) this.drawFlame(x, y, world.ship.heading, data.ships[world.shipId]?.radius ?? 14);
+    this.drawNpcFx();
     this.drawJumpFx(x, y);
     this.drawSite();
     this.hud.update(world, data, dt, this.guideHint(), this.controller.traffic, this.hailBanner());
@@ -358,32 +381,78 @@ export class SpaceScene extends Phaser.Scene {
     }
   }
 
-  /** Brief hyperspace effect: star streaks behind the ship, then a white flash. */
-  private drawJumpFx(x: number, y: number): void {
+  /** Engine flame: a flickering stack of triangles just behind a ship that is thrusting. */
+  private drawFlame(x: number, y: number, heading: number, radius: number): void {
     const g = this.fx;
-    g.clear();
-    const jump = this.controller.world.jump;
-    if (!jump) return;
-    const t = Math.min(1, jump.t / JUMP_DURATION);
-    const h = this.controller.world.ship.heading;
+    const dx = Math.cos(heading), dy = Math.sin(heading);
+    const flicker = 0.75 + 0.25 * Math.sin(this.time.now * 0.06 + x) + 0.1 * Math.sin(this.time.now * 0.17);
+    const layers: [number, number, number][] = [
+      [0xff7a2a, 1, 0.8],
+      [0xffc14a, 0.7, 0.9],
+      [0xffffff, 0.4, 0.95],
+    ];
+    for (const [color, size, alpha] of layers) {
+      const len = radius * 1.6 * size * flicker;
+      const half = radius * 0.4 * size;
+      const bx = x - dx * radius * 0.8, by = y - dy * radius * 0.8;
+      g.fillStyle(color, alpha);
+      g.fillTriangle(bx - dy * half, by + dx * half, bx + dy * half, by - dx * half, bx - dx * len, by - dy * len);
+    }
+  }
+
+  /** Flames behind thrusting NPCs, and jump streaks at NPCs arriving or leaving. */
+  private drawNpcFx(): void {
+    const { data } = this.controller;
+    for (const n of this.controller.traffic.npcs) {
+      const img = this.npcSprites.get(n.id);
+      if (!img) continue;
+      if (n.thrusting && n.phase === 'fly') this.drawFlame(n.ship.pos.x, n.ship.pos.y, n.ship.heading, data.ships[n.shipId]?.radius ?? 14);
+      if (n.phase === 'jumpIn' || n.phase === 'jumpOut') {
+        const t = Math.min(1, n.phaseT / NPC_JUMP_SEC);
+        this.drawStreaks(n.ship.pos.x, n.ship.pos.y, n.ship.heading, n.phase === 'jumpOut' ? t : 1 - t, NPC_STREAK_SCALE, 10);
+      }
+    }
+  }
+
+  /** Star streaks behind a ship at progress `t` (0 calm to 1 full), `scale` shrinking the whole pattern. */
+  private drawStreaks(x: number, y: number, h: number, t: number, scale: number, count: number): void {
+    const g = this.fx;
     const dx = Math.cos(h), dy = Math.sin(h);
-    const len = 60 + t * t * 900;
+    const len = (60 + t * t * 900) * scale;
     g.lineStyle(1.5, 0xcfe4ff, 0.35 + 0.5 * t);
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < count; i++) {
       // Deterministic spread so streaks don't flicker frame to frame.
-      const off = ((i * 97) % 28 - 14) * 22;
-      const ahead = ((i * 53) % 17) * 30 - 200;
+      const off = (((i * 97) % 28) - 14) * 22 * scale;
+      const ahead = (((i * 53) % 17) * 30 - 200) * scale;
       const sx = x - dy * off + dx * ahead, sy = y + dx * off + dy * ahead;
       g.beginPath();
       g.moveTo(sx, sy);
       g.lineTo(sx - dx * len, sy - dy * len);
       g.strokePath();
     }
-    const flash = t > 0.75 ? (t - 0.75) / 0.25 : 0;
-    if (flash > 0) {
-      const cam = this.cameras.main;
-      g.fillStyle(0xffffff, flash * 0.85);
-      g.fillRect(cam.scrollX, cam.scrollY, cam.width, cam.height);
+  }
+
+  private drawFlash(alpha: number): void {
+    if (alpha <= 0) return;
+    const cam = this.cameras.main;
+    this.fx.fillStyle(0xffffff, alpha * 0.85);
+    this.fx.fillRect(cam.scrollX, cam.scrollY, cam.width, cam.height);
+  }
+
+  /**
+   * Hyperspace effect around the player: star streaks behind the ship, then a white flash. On
+   * arrival the same effect plays backwards (streaks shorten, the flash fades) for ARRIVAL_FX_SEC.
+   */
+  private drawJumpFx(x: number, y: number): void {
+    const { jump, ship } = this.controller.world;
+    if (jump) {
+      const t = Math.min(1, jump.t / JUMP_DURATION);
+      this.drawStreaks(x, y, ship.heading, t, 1, 28);
+      this.drawFlash(t > 0.75 ? (t - 0.75) / 0.25 : 0);
+    } else if (this.arrivalLeft > 0) {
+      const t = this.arrivalLeft / ARRIVAL_FX_SEC;
+      this.drawStreaks(x, y, ship.heading, t, 1, 28);
+      this.drawFlash(t);
     }
   }
 }

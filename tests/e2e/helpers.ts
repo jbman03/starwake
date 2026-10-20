@@ -41,9 +41,14 @@ export async function newPilot(page: Page, name = 'Test Pilot', guide = false): 
   await expect(offer).toBeHidden();
 }
 
+/** Wait for flight to resume and the 0.4 s take-off effect to end (input is ignored until then). */
+export async function waitForFlight(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.__starwake!.controller.isFlying && window.__starwake!.controller.view().landingT === null);
+}
+
 /** From the planet screen, press Leave and wait for flight to resume. */
 export async function leavePlanet(page: Page): Promise<void> {
   await page.getByRole('button', { name: /^Leave/ }).click();
   await expect(page.getByTestId('planet-screen')).toBeHidden();
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
 }

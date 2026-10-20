@@ -74,7 +74,7 @@ describe('mountRails', () => {
     expect(btn.hidden).toBe(false);
     expect(btn.textContent).toBe('⬇ LAND ON HALCYON');
     btn.dispatchEvent(new Event('pointerdown'));
-    c.update(1 / 60);
+    for (let i = 0; i < 40; i++) c.update(1 / 60); // the landing effect runs first
     expect(c.landedPlanetId).toBe('halcyon');
     rails.update();
     expect(btn.hidden).toBe(true);

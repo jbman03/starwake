@@ -45,6 +45,8 @@ export const HAIL_SECONDS = 30;
 /** How far from the arrival point a site lies (px, min and spread). */
 const SITE_MIN_DIST = 500;
 const SITE_SPREAD = 400;
+/** The landing shrink-and-fade before the planet screen opens (also the take-off, reversed). */
+export const LANDING_FX_SEC = 0.4;
 
 /** The encounter waiting in this system: a hail that lapses, or a site to fly to. */
 export type PendingEncounter =
@@ -86,6 +88,13 @@ export interface FlightView {
   /** Interpolation factor between prevShip and world.ship, in [0,1). */
   alpha: number;
   data: GameData;
+  /**
+   * Landing progress for the scene: 0 to 1 while the ship shrinks and fades onto a planet, and 1
+   * back to 0 on take-off; null in ordinary flight.
+   */
+  landingT: number | null;
+  /** Whether the engine fired on the most recent tick (the flame). */
+  thrusting: boolean;
 }
 
 export interface PilotMeta {
@@ -110,6 +119,9 @@ export class Controller {
   private queued = new Set<ActionId>();
   private listeners = new Map<ControllerEventType, Set<(e: ControllerEvent) => void>>();
   private lastContext: ContextAction = null;
+  /** The landing (until the planet screen opens) or take-off effect in progress; input is ignored meanwhile. */
+  private fx: { kind: 'land'; planetId: string; t: number } | { kind: 'takeoff'; t: number } | null = null;
+  private thrusting = false;
   private uiInput: UiInput | null = null;
   readonly keyboard: KeyboardSource;
   /** On-screen touch controls feed this; merged with the keyboard every tick. */
@@ -213,6 +225,7 @@ export class Controller {
   endSession(): void {
     this.pauseFlight();
     this.pilot = null;
+    this.fx = null;
     this.landedPlanetId = null;
     this.lastPlanetId = null;
     this.completion = null;
@@ -254,6 +267,7 @@ export class Controller {
     if (!this.landedPlanetId) return;
     this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
     this.prevShip = this.world.ship;
+    this.fx = { kind: 'takeoff', t: 0 };
     this.startFlight();
   }
 
@@ -274,7 +288,9 @@ export class Controller {
   // ---- flight --------------------------------------------------------------
 
   view(): FlightView {
-    return { world: this.world, prevShip: this.prevShip, alpha: this.alpha, data: this.data };
+    const fx = this.fx;
+    const landingT = !fx ? null : fx.kind === 'land' ? Math.min(1, fx.t / LANDING_FX_SEC) : Math.max(0, 1 - fx.t / LANDING_FX_SEC);
+    return { world: this.world, prevShip: this.prevShip, alpha: this.alpha, data: this.data, landingT, thrusting: this.thrusting };
   }
 
   currentContext(): ContextAction {
@@ -286,7 +302,7 @@ export class Controller {
    * `plotCourse` opens the star map the way the map key does (flight pauses; closing resumes it).
    */
   doContextAction(): void {
-    if (!this.flying) return;
+    if (!this.flying || this.fx) return;
     const action = this.currentContext();
     if (action === 'plotCourse') {
       this.pauseFlight();
@@ -307,7 +323,7 @@ export class Controller {
    * tapped planet wins instead of the landing autopilot's "next planet" cycling.
    */
   tapPlanet(id: string, pointerType: string = 'touch'): void {
-    if (!this.flying || this.world.jump) return;
+    if (!this.flying || this.fx || this.world.jump) return;
     if (pointerType === 'mouse') {
       this.selectPlanet(id);
       return;
@@ -320,7 +336,7 @@ export class Controller {
 
   /** Planet a tow would take us to right now, or null when no tow is offered. */
   towDestination(): string | null {
-    if (this.landedPlanetId || this.world.jump) return null;
+    if (this.landedPlanetId || this.fx?.kind === 'land' || this.world.jump) return null;
     return towDestination(this.world, this.data);
   }
 
@@ -481,10 +497,22 @@ export class Controller {
       if (!this.flying) return; // a landing or menu earlier in this frame paused flight
       const keys = this.keyboard.poll('flight');
       const touch = this.touch.poll('flight');
-      const polled = {
-        actions: new Set([...keys.actions, ...touch.actions]),
-        pressed: new Set([...keys.pressed, ...touch.pressed]),
-      };
+      // Landing and take-off ignore input: it is polled (so it can't fire later) and dropped.
+      const locked = this.fx !== null;
+      if (this.fx?.kind === 'land') {
+        this.queued.clear();
+        this.thrusting = false;
+        this.fx.t += dt;
+        if (this.fx.t >= LANDING_FX_SEC - 1e-9) this.finishLanding(this.fx.planetId);
+        return;
+      }
+      if (locked) this.queued.clear();
+      const polled = locked
+        ? { actions: new Set<ActionId>(), pressed: new Set<ActionId>() }
+        : {
+            actions: new Set([...keys.actions, ...touch.actions]),
+            pressed: new Set([...keys.pressed, ...touch.pressed]),
+          };
       // No star map in hyperspace: the course can't change mid-jump, so the press is ignored.
       const menu = polled.pressed.has('pause')
         ? 'pause'
@@ -507,7 +535,7 @@ export class Controller {
         this.traffic = { ...this.traffic, targetId: pick.shipId };
         this.world = { ...this.world, targetPlanetId: pick.planetId };
       }
-      const input: FrameInput = touch.stick
+      const input: FrameInput = touch.stick && !locked
         ? { actions: polled.actions, pressed, stick: touch.stick }
         : { actions: polled.actions, pressed };
       this.prevShip = this.world.ship;
@@ -515,6 +543,11 @@ export class Controller {
         autoLandOnArrival: this.settings.autoLandOnArrival,
       });
       this.world = r.world;
+      this.thrusting = r.thrusting ?? false;
+      if (this.fx?.kind === 'takeoff') {
+        this.fx.t += dt;
+        if (this.fx.t >= LANDING_FX_SEC - 1e-9) this.fx = null;
+      }
       this.handleEvents(r.events);
       this.stepTraffic(dt);
       this.lapseHail(dt);
@@ -582,7 +615,7 @@ export class Controller {
    */
   openEncounter(): boolean {
     const p = this.pending;
-    if (!p || !this.flying) return false;
+    if (!p || !this.flying || this.fx) return false;
     if (p.kind === 'site' && !siteReachable(this.world, p.pos)) {
       this.emit({ type: 'message', text: 'Move closer to the site and slow down to open it.' });
       return false;
@@ -638,7 +671,13 @@ export class Controller {
     if (towed) this.notices.push(...messages);
     for (const e of events) {
       if (e.type === 'message') continue;
-      if (e.type === 'landed' || e.type === 'towed') this.landAt(e.planetId);
+      if (e.type === 'landed') {
+        // The ship shrinks onto the planet first; finishLanding does what landing used to do at once.
+        this.fx = { kind: 'land', planetId: e.planetId, t: 0 };
+        this.prevShip = this.world.ship;
+        continue;
+      }
+      if (e.type === 'towed') this.landAt(e.planetId);
       else if (e.type === 'jumped') {
         this.pending = null;
         this.prevShip = this.world.ship; // no interpolation across systems
@@ -650,7 +689,15 @@ export class Controller {
     if (!towed && messages.length > 0) this.emit({ type: 'message', text: messages.join(' ') });
   }
 
+  /** The landing effect is over: complete jobs, autosave and hand over to the planet screen. */
+  private finishLanding(planetId: string): void {
+    this.landAt(planetId);
+    this.emit({ type: 'landed', planetId });
+  }
+
   private landAt(planetId: string, autosave = true): void {
+    this.fx = null;
+    this.thrusting = false;
     this.pauseFlight();
     this.landedPlanetId = planetId;
     this.lastPlanetId = planetId;
@@ -667,7 +714,7 @@ export class Controller {
   }
 
   private checkContext(): void {
-    const c = this.flying ? this.currentContext() : null;
+    const c = this.flying && !this.fx ? this.currentContext() : null;
     if (c !== this.lastContext) {
       this.lastContext = c;
       this.emit({ type: 'contextChanged', action: c });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { newPilot, trackErrors } from './helpers';
+import { newPilot, trackErrors, waitForFlight } from './helpers';
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -60,7 +60,7 @@ test.describe('phone (touch, landscape)', () => {
 
     await page.getByRole('button', { name: /^Leave/ }).tap();
     await expect(page.getByTestId('planet-screen')).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     // Tap the empty top of the view: touch mode, rails visible.
     await page.touchscreen.tap(422, 30);
@@ -101,7 +101,7 @@ test.describe('phone (touch, landscape)', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Out');
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     await page.evaluate(() => {
@@ -128,7 +128,7 @@ test.describe('phone (touch, landscape)', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Plot');
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     // Fly clear of Halcyon (out of land range) with no course plotted: Calder has 4 lanes out.
@@ -144,7 +144,7 @@ test.describe('phone (touch, landscape)', () => {
     expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(false);
     await map.getByRole('button', { name: /^Close/ }).tap();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     expect(errors).toEqual([]);
   });
 
@@ -152,7 +152,7 @@ test.describe('phone (touch, landscape)', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Railmap');
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     await page.locator('[data-control="map"]').tap();
@@ -161,7 +161,7 @@ test.describe('phone (touch, landscape)', () => {
     expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(false);
     await map.getByRole('button', { name: /^Close/ }).tap();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     expect(errors).toEqual([]);
   });
 
@@ -169,7 +169,7 @@ test.describe('phone (touch, landscape)', () => {
     await page.setViewportSize({ width: 800, height: 600 });
     await newPilot(page, 'Tab');
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(400, 30);
     await waitForLayout(page, 800, 600);
     const { view, clear } = await layoutOf(page);
@@ -182,7 +182,7 @@ test.describe('phone (touch, landscape)', () => {
 test('keyboard mode: no rails, camera fills the window beside the PC sidebar, no rotate overlay', async ({ page }) => {
   await newPilot(page, 'Keys');
   await page.keyboard.press('KeyL');
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
   await expect(page.getByTestId('touch-rails')).toBeHidden();
   await expect(page.getByTestId('rotate-overlay')).toBeHidden();
   const size = page.viewportSize()!;

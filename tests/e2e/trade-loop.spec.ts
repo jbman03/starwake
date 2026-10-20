@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { leavePlanet, newPilot, trackErrors } from './helpers';
+import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
 
 test.describe('desktop', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
@@ -66,7 +66,7 @@ test.describe('desktop', () => {
     expect((await page.evaluate(() => window.__starwake!.world().route)).at(-1)).toBe(systemId);
     await map.getByRole('button', { name: /^Close/ }).click();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     // Autopilot out and jump, once per hop.
     while ((await page.evaluate(() => window.__starwake!.world().route.length)) > 0) {
@@ -89,7 +89,7 @@ test.describe('desktop', () => {
     expect(await page.evaluate(() => window.__starwake!.world().systemId)).toBe(systemId);
 
     // Land with the real controls: Tab to the port, then L autopilots in and lands.
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     for (let i = 0; i < 12 && (await page.evaluate(() => window.__starwake!.world().targetPlanetId)) !== portId; i++) {
       await page.keyboard.press('Tab');
       await page.waitForTimeout(50);

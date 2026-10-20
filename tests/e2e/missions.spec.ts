@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { newPilot, trackErrors } from './helpers';
+import { newPilot, trackErrors, waitForFlight } from './helpers';
 
 const SHOT = '.superpowers/sdd/2026-10-16-starwake-cycle1-trade-missions/task-11-missions.png';
 
@@ -95,14 +95,14 @@ test.describe('desktop', () => {
 
     // Leave; K in flight pauses and shows the log, Esc resumes.
     await page.keyboard.press('KeyL');
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.waitForTimeout(100);
     await page.keyboard.press('KeyK');
     await expect(log).toBeVisible();
     expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(false);
     await page.keyboard.press('Escape');
     await expect(log).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     // Course to the destination system, autopilot out, jump.
     expect(await page.evaluate((s) => window.__starwake!.controller.plotRoute(s).ok, offer.destSystem)).toBe(true);
@@ -132,7 +132,7 @@ test.describe('desktop', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Pause');
     await page.keyboard.press('KeyL');
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.waitForTimeout(100);
     await page.keyboard.press('Escape');
     await page.getByTestId('pause-menu').getByRole('button', { name: /^Mission Log/ }).click();
@@ -172,7 +172,7 @@ test.describe('phone (touch, landscape)', () => {
     await log.getByRole('button', { name: /^Done/ }).tap();
 
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30);
     const rails = page.getByTestId('touch-rails');
     await expect(rails).toBeVisible();

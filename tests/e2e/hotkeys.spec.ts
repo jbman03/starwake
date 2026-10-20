@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { leavePlanet, newPilot, trackErrors } from './helpers';
+import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
 
 const speed = (page: Page) =>
   page.evaluate(() => {
@@ -32,7 +32,7 @@ test('rebinding hotkeys: live and persisted', async ({ page }) => {
   // close settings -> pause menu -> resume; W thrusts
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await page.getByRole('button', { name: /^Resume/ }).click();
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
   expect(await speed(page)).toBe(0);
   await page.keyboard.down('KeyW');
   await page.waitForTimeout(800);

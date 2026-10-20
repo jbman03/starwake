@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { leavePlanet, newPilot, trackErrors } from './helpers';
+import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
 
 const force = (page: Page, id: string) => page.evaluate((i) => window.__starwake!.forceEncounter(i), id);
 
@@ -22,7 +22,7 @@ test('desktop: hail banner, Y answers, 1 takes the passenger, Done resumes', asy
 
   await card.getByRole('button', { name: /Done/ }).click();
   await expect(card).toBeHidden();
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
   expect(await page.evaluate(() => window.__starwake!.hudHail!())).toBeNull();
   expect(errors).toEqual([]);
 });
@@ -35,7 +35,7 @@ test.describe('phone', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Tap');
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30); // touch mode: rails on
 
     await force(page, 'stranded-passenger');
@@ -66,7 +66,7 @@ test.describe('phone', () => {
     await inside();
     await card.getByRole('button', { name: /Done/ }).tap();
     await expect(card).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     expect(await page.evaluate(() => window.__starwake!.world().missions.length)).toBe(1);
     await expect(page.locator('.sw-screen')).toHaveCount(0);
     expect(errors).toEqual([]);

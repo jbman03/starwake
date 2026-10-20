@@ -9,7 +9,12 @@ import { DEFAULT_SETTINGS } from '../save/settings';
 import { PilotStore } from '../save/store';
 import { canAccept } from '../sim/missions';
 import { newWorld } from '../sim/world';
-import { Controller, type ControllerEvent } from './controller';
+import { Controller, LANDING_FX_SEC, type ControllerEvent } from './controller';
+
+/** Run `sec` of frames at 60 fps (the landing and take-off effects take time). */
+function run(c: Controller, sec: number): void {
+  for (let i = 0; i < Math.round(sec * 60); i++) c.update(1 / 60);
+}
 
 const keyEvent = (type: string, code: string) => Object.assign(new Event(type), { code, repeat: false });
 
@@ -48,7 +53,7 @@ describe('Controller', () => {
     c.update(1 / 60);
     expect(events).toContainEqual({ type: 'contextChanged', action: 'land' });
     c.doContextAction();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
     expect(c.isFlying).toBe(false);
     expect(c.landedPlanetId).toBe('halcyon');
@@ -194,9 +199,9 @@ describe('Controller', () => {
     expect(c.pilot).toEqual({ id: 'p1', name: 'Ava' });
 
     c.leavePlanet();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     c.doContextAction();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     expect(c.landedPlanetId).toBe('halcyon');
     await c.lastSave;
     expect(saved).toHaveLength(1);
@@ -223,9 +228,9 @@ describe('Controller', () => {
     c.store = { save: async () => Promise.reject(new Error('disk full')) };
     c.beginSession(newWorld(c.data), { id: 'p1', name: 'Ava' }, 'halcyon');
     c.leavePlanet();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     c.doContextAction();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     await c.lastSave;
     expect(events).toContainEqual({ type: 'saved', ok: false, error: 'disk full' });
   });
@@ -367,7 +372,7 @@ describe('Controller', () => {
     c.startFlight();
     c.tapPlanet('halcyon');
     expect(c.world.targetPlanetId).toBe('halcyon');
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
   });
 
@@ -385,10 +390,11 @@ describe('Controller', () => {
     expect(events.some((e) => e.type === 'landed')).toBe(false);
 
     c.tapPlanet('halcyon', 'touch');
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
 
     c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.05);
     c.tapPlanet('merrow', 'pen');
     c.update(1 / 60);
     expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'planet', id: 'merrow' } });
@@ -416,6 +422,72 @@ describe('Controller', () => {
     c.tapPlanet('merrow');
     c.update(1 / 60);
     expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'planet', id: 'merrow' } });
+  });
+});
+
+describe('Controller landing and take-off effects', () => {
+  it('the landed event fires only after LANDING_FX_SEC of updates, and landing work waits for it', async () => {
+    const { c, events } = await setup();
+    const saved: PilotSave[] = [];
+    c.store = { save: async (p) => void saved.push(p) };
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.05);
+    events.length = 0;
+    c.doContextAction();
+    run(c, LANDING_FX_SEC - 0.1);
+    expect(events.some((e) => e.type === 'landed')).toBe(false);
+    expect(c.landedPlanetId).toBeNull();
+    expect(c.isFlying).toBe(true);
+    const mid = c.view().landingT;
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(1);
+    run(c, 0.15);
+    expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
+    expect(c.landedPlanetId).toBe('halcyon');
+    expect(c.isFlying).toBe(false);
+    expect(c.view().landingT).toBeNull();
+    await c.lastSave;
+    expect(saved).toHaveLength(1);
+  });
+
+  it('input is ignored while landing', async () => {
+    const { c, target, events } = await setup();
+    c.startFlight();
+    c.doContextAction();
+    c.update(1 / 60);
+    expect(c.view().landingT).not.toBeNull();
+    const t = c.world.timeSec;
+    target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+    target.dispatchEvent(keyEvent('keydown', 'Escape'));
+    run(c, 0.1);
+    expect(events.some((e) => e.type === 'menu')).toBe(false);
+    expect(c.world.timeSec).toBe(t);
+    expect(c.world.ship.vel).toEqual({ x: 0, y: 0 });
+    c.doContextAction();
+    c.tapPlanet('merrow');
+    expect(c.world.targetPlanetId).toBe('halcyon');
+    run(c, LANDING_FX_SEC);
+    expect(events.filter((e) => e.type === 'landed')).toHaveLength(1);
+    expect(events.some((e) => e.type === 'menu')).toBe(false);
+  });
+
+  it('take-off runs the effect in reverse and ignores input until it ends', async () => {
+    const { c, target } = await setup();
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    c.leavePlanet();
+    expect(c.view().landingT).toBe(1);
+    target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+    run(c, 0.2);
+    expect(c.view().landingT).toBeCloseTo(0.5, 1);
+    expect(Math.hypot(c.world.ship.vel.x, c.world.ship.vel.y)).toBe(0);
+    run(c, 0.25);
+    expect(c.view().landingT).toBeNull();
+    target.dispatchEvent(keyEvent('keyup', 'ArrowUp'));
+    target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+    run(c, 0.2);
+    expect(Math.hypot(c.world.ship.vel.x, c.world.ship.vel.y)).toBeGreaterThan(0);
+    expect(c.view().thrusting).toBe(true);
   });
 });
 

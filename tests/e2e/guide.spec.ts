@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { newPilot, trackErrors } from './helpers';
+import { newPilot, trackErrors, waitForFlight } from './helpers';
 
 type Rect = { x: number; y: number; w: number; h: number };
 const intersects = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -68,7 +68,7 @@ test.describe('desktop', () => {
     await expect(planet).toBeVisible();
     expect(await screenHint(page)).toBe('Leave the planet (L).');
     await page.keyboard.press('KeyL');
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     // 6: with the PC sidebar the status panel is gone, so the hint sits top-left, wrapped to its width.
     expect(await hudHint(page, /^Fly:/)).toBe('Fly: ↑ thrust, ← → turn, X stop.');
@@ -93,7 +93,7 @@ test.describe('desktop', () => {
     await map.getByRole('button', { name: 'Set course' }).click();
     await map.getByRole('button', { name: /^Close/ }).click();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     // 8: autopilot out and jump until we arrive.
     expect(await hudHint(page, /Jump/)).toContain('(G autopilot) and Jump (J)');
@@ -118,7 +118,7 @@ test.describe('desktop', () => {
     const land = (await hudHint(page, /^Land at/)).match(/^Land at (.+) \(Tab to target, L to land\)\.$/);
     expect(land).not.toBeNull();
     const port = (await idOf(page, 'planets', land![1]))!;
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     for (let i = 0; i < 12 && (await page.evaluate(() => window.__starwake!.world().targetPlanetId)) !== port; i++) {
       await page.keyboard.press('Tab');
       await page.waitForTimeout(50);
@@ -160,7 +160,7 @@ test.describe('desktop', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('planet-screen')).toBeVisible();
     await page.keyboard.press('KeyL');
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await expect.poll(() => step(page)).toBe(6);
     await page.keyboard.down('ArrowUp');
     await expect.poll(() => step(page), { timeout: 20_000 }).toBe(7);
@@ -279,7 +279,7 @@ test.describe('phone (touch, landscape)', () => {
     // Flight: the hint moves into the stick rail.
     await page.setViewportSize({ width: 844, height: 390 });
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await expect.poll(() => step(page)).toBe(6);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     await expect(page.getByTestId('rail-guide')).toHaveText('Push the stick to fly, STOP to brake.');
@@ -294,7 +294,7 @@ test.describe('phone (touch, landscape)', () => {
       await page.locator('[data-control="radar"]').tap();
       await screenFits(page, 'star-map');
       await page.getByTestId('star-map').getByRole('button', { name: /^Close/ }).tap();
-      await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+      await waitForFlight(page);
     }
 
     // Step 7: push the stick until the ship has flown 300 px; the rail then names the destination.
@@ -319,7 +319,7 @@ test.describe('phone (touch, landscape)', () => {
     await expect(dialog).toBeVisible();
     expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(false);
     await dialog.getByRole('button', { name: 'Skip guide' }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await expect(page.getByTestId('rail-guide')).toBeHidden();
     await expect(page.locator('[data-control="guide-skip"]')).toBeHidden();
     expect(errors).toEqual([]);

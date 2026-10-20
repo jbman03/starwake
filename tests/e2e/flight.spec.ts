@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { leavePlanet, newPilot, trackErrors } from './helpers';
+import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
 
 type Vec = { x: number; y: number };
 
@@ -46,7 +46,7 @@ test('L lands at the start planet, pauses flight, and L on the planet screen dep
   expect(await page.evaluate(() => window.__starwake!.world().timeSec)).toBe(t1); // paused
 
   await page.keyboard.press('KeyL');
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
   expect(await page.evaluate(() => window.__starwake!.controller.landedPlanetId)).toBeNull();
   await expect(page.getByTestId('planet-screen')).toBeHidden();
 

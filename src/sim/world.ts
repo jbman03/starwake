@@ -276,7 +276,7 @@ export function stepWorld(
   input: FrameInput,
   dt: number,
   opts: { autoLandOnArrival: boolean },
-): { world: WorldState; events: SimEvent[] } {
+): { world: WorldState; events: SimEvent[]; thrusting?: boolean } {
   const def = data.ships[world.shipId];
   const events: SimEvent[] = [];
   let w: WorldState = { ...world, timeSec: world.timeSec + dt };
@@ -403,5 +403,5 @@ export function stepWorld(
       ship = { ...ship, fuel: Math.min(stats.fuelCapacity, ship.fuel + (stats.fuelPerMin * dt) / 60) };
     }
   }
-  return { world: { ...w, ship }, events };
+  return { world: { ...w, ship }, events, thrusting: (jumpFlight ?? flight).thrust };
 }
