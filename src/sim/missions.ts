@@ -46,6 +46,50 @@ function cargoNameFor(type: MissionTypeDef, r: () => number, names: string[]): s
   return names.length > 0 ? pick(r, names).toLowerCase() : 'goods';
 }
 
+/** One offer of `type` from `portId` to `dest`; draws tons, passengers and cargo name from `r`, in that order. */
+export function buildOffer(
+  world: WorldState,
+  data: GameData,
+  type: MissionTypeDef,
+  portId: string,
+  dest: { portId: string; hops: number },
+  r: () => number,
+  names: string[],
+  offerId: string,
+): MissionOffer {
+  const tons = randInt(r, type.tons[0], type.tons[1]);
+  const passengers = randInt(r, type.passengers[0], type.passengers[1]);
+  const cargoName = cargoNameFor(type, r, names);
+  const pay = roundPay(
+    (type.basePay + type.perHop * dest.hops + type.perTon * tons + type.perPassenger * passengers) * type.urgency,
+  );
+  const days = type.deadline ? type.deadline.perHop * dest.hops + type.deadline.plus : null;
+  const target = data.planets[dest.portId];
+  const vars = {
+    dest: target.name,
+    system: data.systems[target.systemId].name,
+    cargo: cargoName,
+    pay: pay.toLocaleString('en-US'),
+    tons,
+    pax: passengers,
+    days: days ?? '',
+  };
+  return {
+    offerId,
+    typeId: type.id,
+    originId: portId,
+    destId: dest.portId,
+    tons,
+    passengers,
+    pay,
+    paidUpfront: type.paidUpfront,
+    deadlineDay: days === null ? null : world.day + days,
+    title: fill(type.titleTemplate, vars),
+    description: fill(type.textTemplate, vars),
+    cargoName,
+  };
+}
+
 /** Jobs at `portId` today: 3–7, identical for the same (seed, port, day) and fresh each day. */
 export function offersAt(world: WorldState, data: GameData, portId: string): MissionOffer[] {
   const r = mulberry32(hashString(world.seed, portId, world.day));
@@ -66,38 +110,7 @@ export function offersAt(world: WorldState, data: GameData, portId: string): Mis
         const nearest = Math.min(...dests.map((d) => d.hops));
         pool = dests.filter((d) => d.hops === nearest);
       }
-      const dest = pick(r, pool);
-      const tons = randInt(r, type.tons[0], type.tons[1]);
-      const passengers = randInt(r, type.passengers[0], type.passengers[1]);
-      const cargoName = cargoNameFor(type, r, names);
-      const pay = roundPay(
-        (type.basePay + type.perHop * dest.hops + type.perTon * tons + type.perPassenger * passengers) * type.urgency,
-      );
-      const days = type.deadline ? type.deadline.perHop * dest.hops + type.deadline.plus : null;
-      const target = data.planets[dest.portId];
-      const vars = {
-        dest: target.name,
-        system: data.systems[target.systemId].name,
-        cargo: cargoName,
-        pay: pay.toLocaleString('en-US'),
-        tons,
-        pax: passengers,
-        days: days ?? '',
-      };
-      made = {
-        offerId: `${portId}:${world.day}:${index}`,
-        typeId: type.id,
-        originId: portId,
-        destId: dest.portId,
-        tons,
-        passengers,
-        pay,
-        paidUpfront: type.paidUpfront,
-        deadlineDay: days === null ? null : world.day + days,
-        title: fill(type.titleTemplate, vars),
-        description: fill(type.textTemplate, vars),
-        cargoName,
-      };
+      made = buildOffer(world, data, type, portId, pick(r, pool), r, names, `${portId}:${world.day}:${index}`);
     }
     if (!made) break; // no type has a destination from here
     offers.push(made);
