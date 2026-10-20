@@ -10,6 +10,7 @@ import {
   localNews,
   priceOf,
   rumor,
+  SURVEY_RUMOUR,
 } from './economy';
 import type { MarketEvent, WorldState } from './types';
 import { advanceDays, newWorld } from './world';
@@ -209,5 +210,22 @@ describe('news and rumors', () => {
     expect(rumor(w, data, home.id)).toBe(
       `Traders say ${far.name} is short of ${data.commodities[shortage.commodity].name}.`,
     );
+  });
+});
+
+describe('survey rumour', () => {
+  const w = (day: number, flags: string[] = []): WorldState => ({ ...newWorld(data, 3), day, flags });
+  const hearsOn = (flags: string[] = []) => Array.from({ length: 60 }, (_, i) => i + 5).filter((d) => rumor(w(d, flags), data, 'vanterre') === SURVEY_RUMOUR);
+
+  it('never before day 5; about one day in three after; deterministic', () => {
+    for (let d = 0; d < 5; d++) expect(rumor(w(d), data, 'vanterre')).not.toBe(SURVEY_RUMOUR);
+    const days = hearsOn();
+    expect(days.length).toBeGreaterThan(10);
+    expect(days.length).toBeLessThan(35);
+    expect(hearsOn()).toEqual(days);
+  });
+
+  it('stops once survey-rumour is set', () => {
+    expect(hearsOn(['survey-rumour'])).toEqual([]);
   });
 });

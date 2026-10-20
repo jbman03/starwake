@@ -86,3 +86,17 @@ describe('shipQuote / buyShip', () => {
     for (const k of ['credits', 'cargo', 'passengers', 'owned', 'notSold'] as const) expect(SHIP_BLOCK_TEXT[k]).toBeTruthy();
   });
 });
+
+describe('survey hull gating', () => {
+  const YARD = 'wrenhold';
+  it('is locked without the claim and open with it', () => {
+    expect(shipQuote(base(), data, YARD, 'patience').check).toEqual({ ok: false, reason: 'locked' });
+    expect(SHIP_BLOCK_TEXT.locked).toBe('Ask about the old survey ship');
+    expect(shipQuote(base({ flags: ['survey-claim'] }), data, YARD, 'patience').check).toEqual({ ok: true });
+  });
+  it('records the purchase and is then owned', () => {
+    const r = buyShip(base({ flags: ['survey-claim'] }), data, YARD, 'patience');
+    expect(r.world.flags).toContain('bought:patience');
+    expect(shipQuote(r.world, data, YARD, 'patience').check).toEqual({ ok: false, reason: 'owned' });
+  });
+});

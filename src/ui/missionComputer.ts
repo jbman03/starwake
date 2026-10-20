@@ -1,6 +1,6 @@
 import { formatDate } from '../sim/calendar';
 import { berthsFree, cargoFree } from '../sim/cargo';
-import { rumor } from '../sim/economy';
+import { rumor, SURVEY_RUMOUR } from '../sim/economy';
 import { canAccept, MAX_MISSIONS, type MissionOffer } from '../sim/missions';
 import type { UiContext } from './context';
 import { worldStats } from '../sim/shipStats';
@@ -69,6 +69,8 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
     render(); // the taken job drops out; the same index is now the next job
   }
 
+  let heardSurvey = false;
+
   function render(): void {
     const w = controller.world;
     offers = controller.offers();
@@ -80,7 +82,12 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
       el('span', { text: `Berths: ${berthsFree(w, data)}/${worldStats(w, data).passengers}` }),
       el('span', { text: `Missions: ${w.missions.length}/${MAX_MISSIONS}` }),
     );
-    rumorLine.textContent = rumor(w, data, portId) ?? '';
+    const heard = rumor(w, data, portId);
+    if (heard === SURVEY_RUMOUR) {
+      controller.noteRumour(SURVEY_RUMOUR); // the flag stops it recurring; keep showing it on this visit
+      heardSurvey = true;
+    }
+    rumorLine.textContent = heard ?? (heardSurvey ? SURVEY_RUMOUR : '');
 
     list.replaceChildren(
       ...(offers.length === 0

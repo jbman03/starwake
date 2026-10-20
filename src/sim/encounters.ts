@@ -94,9 +94,15 @@ export function choiceBlock(world: WorldState, data: GameData, choice: Choice, d
   return null;
 }
 
-/** Fill {ship}, {system} and {pilot} in encounter text. */
-export function fillText(text: string, ctx: { ship: string; system: string; pilot: string }): string {
-  return text.replace(/\{(ship|system|pilot)\}/g, (_, k: 'ship' | 'system' | 'pilot') => ctx[k]);
+/** The world whose shipyard restores the Patience-class surveyor: the {hub} in the claim note. */
+export function hubName(data: GameData): string {
+  const id = data.ships.patience?.soldAt?.[0];
+  return (id && data.planets[id]?.name) || 'a Free Reach yard';
+}
+
+/** Fill {ship}, {system}, {pilot} and {hub} (the world whose yard restores the survey hull) in encounter text. */
+export function fillText(text: string, ctx: { ship: string; system: string; pilot: string; hub?: string }): string {
+  return text.replace(/\{(ship|system|pilot|hub)\}/g, (_, k: 'ship' | 'system' | 'pilot' | 'hub') => ctx[k] ?? '');
 }
 
 /** A mission of `typeId` from a port here to `toSystem`'s first port, or to a known port 1-3 jumps away. */
@@ -147,7 +153,7 @@ function runChoice(
   ctx: { npcName: string },
 ): { world: WorldState; messages: string[]; missions: Mission[]; refused: boolean } {
   let refused = false;
-  const text = { ship: ctx.npcName, system: data.systems[world.systemId]?.name ?? world.systemId, pilot: world.shipName };
+  const text = { ship: ctx.npcName, system: data.systems[world.systemId]?.name ?? world.systemId, pilot: world.shipName, hub: hubName(data) };
   const messages: string[] = [];
   const missions: Mission[] = [];
   let w = world;

@@ -19,6 +19,18 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
       const q = controller.shipQuote(def.id);
       const w = controller.world;
       const owned = w.shipId === def.id;
+      if (q.check.ok === false && q.check.reason === 'locked') {
+        const silhouette = shipIcon(def, 56);
+        silhouette.style.filter = 'brightness(0) opacity(0.35)';
+        return {
+          id: def.id,
+          name: '???',
+          icon: () => silhouette,
+          canBuy: false,
+          reason: SHIP_BLOCK_TEXT.locked,
+          info: () => infoBlock('???', 'A hull the yard will not talk about. Someone here knows more than they say.', []),
+        };
+      }
       const fitted = Object.values(w.outfits).reduce((n, c) => n + c, 0);
       const notes =
         fitted > 0 && !owned

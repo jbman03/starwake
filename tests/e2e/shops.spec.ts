@@ -56,6 +56,30 @@ test.describe('desktop', () => {
   });
 });
 
+test.describe('survey hull teaser', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('the Free Reach hub shipyard shows a ??? tile with Buy disabled', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Rumour');
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      h.controller.world = { ...h.controller.world, credits: 500_000 };
+      h.teleport('wrenhold');
+    });
+    await expect(page.getByTestId('planet-screen')).toContainText('Wrenhold');
+    await page.keyboard.press('KeyY');
+    const shop = page.getByTestId('shipyard');
+    await expect(shop).toBeVisible();
+    const tile = shop.locator('[data-item="patience"]');
+    await expect(tile).toContainText('???');
+    await tile.click();
+    await expect(shop.getByRole('button', { name: 'Buy', exact: true })).toBeDisabled();
+    await expect(page.getByTestId('shipyard-status')).toContainText('Ask about the old survey ship');
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('phone (touch, landscape)', () => {
   test.use({ hasTouch: true, viewport: { width: 844, height: 390 } });
 

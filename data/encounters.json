@@ -115,7 +115,7 @@
     "text": "She drifts in the still water, a survey ship older than the lane she came by. Her running lights are dark but her cabin is clean, and her log is still switched on.",
     "when": { "systems": ["hushwater"] },
     "choices": [
-      { "label": "Take her log and transponder", "outcomes": [{ "type": "flag", "flag": "survey-claim" }, { "type": "rumour", "text": "You hold the Long Patience's log and transponder. A Free Reach shipyard could rebuild a hull like her, given the right captain." }, { "type": "message", "text": "The log lights up as you plug in, and a quiet voice reads her last entry: \"Waiting for a pilot. No hurry.\"" }] },
+      { "label": "Take her log and transponder", "outcomes": [{ "type": "flag", "flag": "survey-claim" }, { "type": "rumour", "text": "The Free Reach yards at {hub} can restore the Long Patience." }, { "type": "message", "text": "The log lights up as you plug in, and a quiet voice reads her last entry: \"Waiting for a pilot. No hurry.\"" }] },
       { "label": "Strip her for parts", "outcomes": [{ "type": "credits", "n": 6000 }, { "type": "flag", "flag": "survey-stripped" }, { "type": "message", "text": "It takes an afternoon. The plating sells well. The silence afterwards is heavy." }] },
       { "label": "Leave her as she is", "outcomes": [{ "type": "message", "text": "You leave her drifting. She has waited this long." }] }
     ]

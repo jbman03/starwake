@@ -220,6 +220,9 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     for (const g of item.soldBy ?? []) {
       if (!(g in governments)) shopIssues.push(fmt(file, `${item.id}.soldBy`, `unknown government "${g}"`));
     }
+    for (const pid of (item as { soldAt?: string[] }).soldAt ?? []) {
+      if (!(pid in planets)) shopIssues.push(fmt(file, `${item.id}.soldAt`, `unknown planet "${pid}"`));
+    }
     const sellers = Object.values(planets).filter((p) => p.services.includes(shop) && sells(p.id, item, partial));
     if (sellers.length === 0) shopIssues.push(fmt(file, item.id, 'no port sells this'));
     for (const g of item.soldBy ?? []) {

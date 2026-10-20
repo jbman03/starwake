@@ -2,7 +2,7 @@ import type { GameData, PlanetDef } from '../data/schemas';
 import { autopilotInput, autoStopInput, faceInput, reverseInput } from './assists';
 import { stepShip } from './flight';
 import { economyDay } from './economy';
-import { hopDistance, lanesOf, revealOnArrival, routeBetween } from './galaxy';
+import { hopDistance, lanesOf, revealOnArrival, revealWithin, routeBetween } from './galaxy';
 import { failOverdue } from './missions';
 import { hashString } from './random';
 import {
@@ -136,7 +136,10 @@ export function setRoute(
 
 /** Enter `systemId`: it becomes known and its neighbours seen. The date is advanceDays' job. */
 function enterSystem(world: WorldState, data: GameData, systemId: string): WorldState {
-  return { ...world, ...revealOnArrival(world.known, world.seen, data, systemId, world.flags) };
+  const arrived = revealOnArrival(world.known, world.seen, data, systemId, world.flags);
+  const jumps = data.ships[world.shipId]?.chartJumps; // a built-in chart table
+  const charted = jumps ? revealWithin(arrived.known, arrived.seen, data, systemId, jumps, world.flags) : arrived;
+  return { ...world, ...charted };
 }
 
 export function interruptAutopilot(world: WorldState): WorldState {

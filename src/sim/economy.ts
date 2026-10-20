@@ -110,10 +110,15 @@ export function localNews(world: WorldState, data: GameData, portId: string): st
   return port && tpl ? fillPort(tpl.text, port) : null;
 }
 
+export const SURVEY_RUMOUR = 'Old spacers swear a survey ship still drifts beyond Skerry, where the charts go blank.';
+
 /** Hearsay about an active event at another port within RUMOR_HOPS jumps; deterministic by day. */
 export function rumor(world: WorldState, data: GameData, portId: string): string | null {
   const here = data.planets[portId];
   if (!here) return null;
+  // From day 5 the survey-ship rumour turns up on one day in three, until the player has heard it.
+  if (world.day >= 5 && !world.flags.includes('survey-rumour') && mulberry32(hashString(world.seed, 'survey-rumour', world.day))() < 1 / 3)
+    return SURVEY_RUMOUR;
   const near = world.events.filter((e) => {
     const there = data.planets[e.portId];
     return (

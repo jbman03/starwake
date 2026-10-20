@@ -1,9 +1,10 @@
 import type { GameData } from '../data/schemas';
 import { cargoUsed } from './cargo';
+import { hasFlag, setFlag } from './story';
 import { shipStock } from './stock';
 import type { WorldState } from './types';
 
-export type ShipBlock = 'credits' | 'cargo' | 'passengers' | 'owned' | 'notSold';
+export type ShipBlock = 'credits' | 'cargo' | 'passengers' | 'owned' | 'notSold' | 'locked';
 
 export interface ShipQuote {
   price: number;
@@ -18,7 +19,11 @@ export const SHIP_BLOCK_TEXT: Record<ShipBlock, string> = {
   passengers: 'That hull has too few berths for your passengers.',
   owned: 'You already fly this ship.',
   notSold: 'This yard does not build that hull.',
+  locked: 'Ask about the old survey ship',
 };
+
+/** Flag set when a one-off hull is bought, so it can never be bought twice. */
+export const boughtFlag = (shipId: string): string => `bought:${shipId}`;
 
 /** What the yard pays for the current ship: 75% of the hull plus 50% of every fitted outfit. */
 export function tradeInValue(world: WorldState, data: GameData): number {
@@ -30,7 +35,7 @@ export function tradeInValue(world: WorldState, data: GameData): number {
   return total;
 }
 
-/** Price, trade-in, net cost and whether the swap is allowed. Check order: notSold, owned, cargo, passengers, credits. */
+/** Price, trade-in, net cost and whether the swap is allowed. Check order: notSold, owned, locked, cargo, passengers, credits. */
 export function shipQuote(world: WorldState, data: GameData, planetId: string, shipId: string): ShipQuote {
   const hull = data.ships[shipId];
   const tradeIn = tradeInValue(world, data);
@@ -38,7 +43,8 @@ export function shipQuote(world: WorldState, data: GameData, planetId: string, s
   const net = price - tradeIn;
   const result = (check: ShipQuote['check']): ShipQuote => ({ price, tradeIn, net, check });
   if (!hull || !shipStock(planetId, data).some((s) => s.id === shipId)) return result({ ok: false, reason: 'notSold' });
-  if (world.shipId === shipId) return result({ ok: false, reason: 'owned' });
+  if (world.shipId === shipId || (hull.unique && hasFlag(world, boughtFlag(shipId)))) return result({ ok: false, reason: 'owned' });
+  if (hull.requiresFlag && !hasFlag(world, hull.requiresFlag)) return result({ ok: false, reason: 'locked' });
   if (cargoUsed(world) > hull.cargo) return result({ ok: false, reason: 'cargo' });
   const riders = world.missions.reduce((n, m) => n + m.passengers, 0);
   if (riders > hull.passengers) return result({ ok: false, reason: 'passengers' });
@@ -55,9 +61,10 @@ export function buyShip(
 ): { world: WorldState; quote: ShipQuote } {
   const quote = shipQuote(world, data, planetId, shipId);
   if (!quote.check.ok) return { world, quote };
+  const bought = data.ships[shipId].unique ? setFlag(world, boughtFlag(shipId)) : world;
   return {
     world: {
-      ...world,
+      ...bought,
       shipId,
       shipName: data.ships[shipId].name,
       outfits: {},

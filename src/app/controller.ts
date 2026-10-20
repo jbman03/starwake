@@ -6,7 +6,7 @@ import { TouchSource } from '../input/touch';
 import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import type { Settings } from '../save/settings';
 import { contextAction, siteReachable, type ContextAction } from '../sim/context';
-import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, rollEncounter } from '../sim/encounters';
+import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, hubName, rollEncounter } from '../sim/encounters';
 import { hashString, mulberry32 } from '../sim/random';
 import { buy, sell, type BuyResult, type SellResult } from '../sim/cargo';
 import { buyOutfit, outfitBuyCheck, sellOutfit, type BuyCheck, type SellCheck } from '../sim/outfitter';
@@ -22,6 +22,7 @@ import {
   type MissionOffer,
 } from '../sim/missions';
 import { buyShip, shipQuote, type ShipQuote } from '../sim/shipyard';
+import { addNote, setFlag } from '../sim/story';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
@@ -407,6 +408,11 @@ export class Controller {
     return r.quote;
   }
 
+  /** The pilot has read the survey-ship rumour: remember it as a flag and a note. */
+  noteRumour(text: string): void {
+    this.world = addNote(setFlag(this.world, 'survey-rumour'), text);
+  }
+
   /** What swapping to this ship would cost right now, without doing it. */
   shipQuote(shipId: string): ShipQuote {
     return shipQuote(this.world, this.data, this.landedPlanetId ?? '', shipId);
@@ -590,7 +596,7 @@ export class Controller {
   encounterView(): EncounterView | null {
     const p = this.pending;
     if (!p) return null;
-    const ctx = { ship: p.npcName, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: this.world.shipName };
+    const ctx = { ship: p.npcName, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: this.world.shipName, hub: hubName(this.data) };
     return {
       title: fillText(p.def.title, ctx),
       text: fillText(p.def.text, ctx),
