@@ -381,7 +381,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
     drawNodes(world);
 
     // Plotted course (faint), then the selected system's route: solid while the fuel lasts.
-    const summary = routeSummary(world, data, selected, { anyLane: preview !== undefined });
+    const summary = routeSummary(world, data, selected, { anyLane: preview?.systemId === selected });
     routeLayer.replaceChildren();
     if (world.route.length > 0) {
       routeLayer.append(svg('polyline', { points: points([world.systemId, ...world.route], data), class: 'sw-map-course' }));
@@ -408,7 +408,9 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
     routeText.textContent = summary.text;
     routeText.classList.toggle('sw-map-short', summary.short);
 
-    const hasRoute = !!summary.route && summary.route.length > 0;
+    // A previewed (not yet accepted) job's route may cross uncharted lanes that setRoute refuses: Set course needs a plottable one.
+    const plottable = preview?.systemId === selected ? routeSummary(world, data, selected).route : summary.route;
+    const hasRoute = !!plottable && plottable.length > 0;
     setBtn.disabled = !hasRoute || world.route.at(-1) === selected;
     clearBtn.disabled = world.route.length === 0;
     applyView();

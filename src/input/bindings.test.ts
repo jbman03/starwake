@@ -48,7 +48,7 @@ describe('bindings', () => {
     expect(ACTION_GROUP.map).not.toBe(ACTION_GROUP.openMissions);
   });
 
-  it('opens the flight map with N (M kept as the second key) and the planet map with N', () => {
+  it('binds the flight map to N then M, and the planet map to N', () => {
     expect(DEFAULT_BINDINGS.map).toEqual(['KeyN', 'KeyM']);
     expect(DEFAULT_BINDINGS.openMap).toEqual(['KeyN', null]);
   });

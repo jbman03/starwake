@@ -249,6 +249,18 @@ describe('showStarMap', () => {
     expect(c.world.route).toEqual(['tessaly']);
   });
 
+  it('a preview of an unexplored destination shows an honest route but Set course stays off until the job is accepted', () => {
+    const { c, root, btn, sys } = setup(undefined, undefined, { preview: { systemId: 'lastlight', label: 'Mission: x' } });
+    const text = () => root.querySelector('[data-testid="map-route"]')!.textContent;
+    expect(text()).toMatch(/^2 jumps \(through unexplored space\)/);
+    expect(btn('Set course').disabled).toBe(true);
+    sys('tessaly').dispatchEvent(new Event('click', { bubbles: true })); // not the preview's destination: ordinary rules
+    expect(text()).toBe('1 jump · fuel needed 1 · you have 3');
+    sys('skerry').dispatchEvent(new Event('click', { bubbles: true }));
+    expect(text()).toBe('No known route');
+    expect(c.world.route).toEqual([]);
+  });
+
   it('a preview centres and zooms the view on its system', () => {
     const { root } = setup(undefined, undefined, { preview: { systemId: 'tessaly', label: 'Mission: x' } });
     const [x, y, w, h] = root.querySelector('svg')!.getAttribute('viewBox')!.split(' ').map(Number);
