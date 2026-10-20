@@ -682,4 +682,10 @@ describe('setRoute to a mission destination', () => {
     expect(r.ok).toBe(true);
     expect(r.world.route.at(-1)).toBe('thistle');
   });
+
+  it('newWorld starts with empty story fields and the start ship name', () => {
+    const w = newWorld(data, 1);
+    expect(w).toMatchObject({ flags: [], notes: [], stats: { jobsDone: 0 }, lastEncounterDay: null });
+    expect(w.shipName).toBe(data.ships[data.config.startShipId].name);
+  });
 });

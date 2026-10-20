@@ -59,6 +59,7 @@ export function buyShip(
     world: {
       ...world,
       shipId,
+      shipName: data.ships[shipId].name,
       outfits: {},
       credits: world.credits - quote.net,
       ship: { ...world.ship, fuel: data.ships[shipId].fuelCapacity },

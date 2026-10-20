@@ -74,7 +74,7 @@ describe('pilot', () => {
       planetId: 'vesk-outpost', gameTimeSec: 40, savedAt: '2026-01-01T00:00:00.000Z',
     };
     const p = upgradeSave(JSON.parse(JSON.stringify(v1)));
-    expect(p.version).toBe(3);
+    expect(p.version).toBe(4);
     expect(p).toMatchObject({ day: 0, seed: hashString('old-pilot'), cargo: {}, missions: [], route: [], known: [], seen: [] });
     const w = worldFromPilot(p, data);
     expect(w.systemId).toBe('vesk');
@@ -102,22 +102,22 @@ describe('pilot', () => {
     const { outfits: _o, ...rest } = v3;
     const v2 = { ...rest, version: 2 };
     const up = upgradeSave(JSON.parse(JSON.stringify(v2)));
-    expect(up.version).toBe(3);
+    expect(up.version).toBe(4);
     expect(up.outfits).toEqual({});
-    expect(up).toEqual(v3);
+    expect(up).toEqual({ ...v3, shipName: v3.shipId }); // migration placeholder; worldFromPilot restores the hull name
     const w = worldFromPilot(up, data);
     expect(w.outfits).toEqual({});
     expect(w.cargo).toEqual({ food: 3 });
     expect(w.missions).toEqual([mission]);
   });
 
-  it('upgrades a v1 save through to v3', () => {
+  it('upgrades a v1 save through to v4', () => {
     const v1 = {
       version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
       planetId: 'vesk-outpost', gameTimeSec: 1, savedAt: '2026-01-01T00:00:00.000Z',
     };
     const p = upgradeSave(v1);
-    expect(p.version).toBe(3);
+    expect(p.version).toBe(4);
     expect(p.outfits).toEqual({});
   });
 
@@ -140,8 +140,41 @@ describe('pilot', () => {
     );
   });
 
-  it('a version-4 save -> futureVersion', () => {
+  it('a version-5 save -> futureVersion', () => {
     const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
-    expect(() => upgradeSave({ ...p, version: 4 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
+    expect(() => upgradeSave({ ...p, version: 5 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
+  });
+
+  it('migration 3 -> 4 fills the story fields; shipName falls back to the ship id', () => {
+    const v4 = pilotFromWorld(newWorld(data, 5), start, { id: 'a', name: 'A' });
+    const { flags: _f, notes: _n, shipName: _s, stats: _st, lastEncounterDay: _l, ...rest } = v4;
+    const up = upgradeSave(JSON.parse(JSON.stringify({ ...rest, version: 3 })));
+    expect(up).toMatchObject({ version: 4, flags: [], notes: [], shipName: v4.shipId, stats: { jobsDone: 0 }, lastEncounterDay: null });
+    // worldFromPilot swaps the placeholder for the hull's real name.
+    expect(worldFromPilot(up, data).shipName).toBe(data.ships[v4.shipId].name);
+  });
+
+  it('a v3 save with missions and outfits round-trips through v4', () => {
+    const mission = {
+      id: 'm1', typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 2, passengers: 0, pay: 300,
+      paidUpfront: false, deadlineDay: 20, title: 'T', description: 'd', cargoName: 'crates',
+    };
+    const v4 = pilotFromWorld({ ...newWorld(data, 5), missions: [mission], outfits: { 'cargo-pod': 2 } }, start, { id: 'a', name: 'A' });
+    const { flags: _f, notes: _n, shipName: _s, stats: _st, lastEncounterDay: _l, ...rest } = v4;
+    const up = upgradeSave(JSON.parse(JSON.stringify({ ...rest, version: 3 })));
+    const w = worldFromPilot(up, data);
+    expect(w.missions).toEqual([mission]);
+    expect(w.outfits).toEqual({ 'cargo-pod': 2 });
+    expect(w.flags).toEqual([]);
+    expect(w.stats).toEqual({ jobsDone: 0 });
+  });
+
+  it('round-trips the v4 story fields', () => {
+    const w = {
+      ...newWorld(data, 5), flags: ['met-ship'], notes: [{ day: 3, text: 'hello' }], shipName: 'Wren',
+      stats: { jobsDone: 7 }, lastEncounterDay: 4,
+    };
+    const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
+    for (const k of ['flags', 'notes', 'shipName', 'stats', 'lastEncounterDay'] as const) expect(back[k]).toEqual(w[k]);
   });
 });

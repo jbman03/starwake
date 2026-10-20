@@ -79,6 +79,7 @@ describe('shipQuote / buyShip', () => {
     expect(r.quote.net).toBe(10000 - 52500);
     expect(r.quote.check).toEqual({ ok: true });
     expect(r.world.credits).toBe(42500);
+    expect(r.world.shipName).toBe(data.ships.shuttle.name);
   });
 
   it('has block text for every reason', () => {

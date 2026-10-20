@@ -519,6 +519,14 @@ describe('Controller trade, missions and routes', () => {
     expect(saved[0].missions).toEqual([]);
   });
 
+  it('completing two missions on landing adds 2 to stats.jobsDone', async () => {
+    const { c } = await setup();
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    c.world = { ...c.world, missions: [{ ...deliver(), id: 'j1' }, { ...deliver(), id: 'j2' }] };
+    (c as unknown as { landAt(id: string): void }).landAt('merrow');
+    expect(c.world.stats.jobsDone).toBe(2);
+  });
+
   it('plotRoute returns the setRoute result; clearRoute empties the course', async () => {
     const { c } = await setup();
     expect(c.plotRoute('vesk')).toEqual({ ok: true });

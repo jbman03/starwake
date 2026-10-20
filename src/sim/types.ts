@@ -70,6 +70,15 @@ export interface WorldState {
   takenOffers: string[];
   /** Owned outfits: outfit id -> count. Only counts > 0; maps (category 'map') are never stored. */
   outfits: Record<string, number>;
+  /** Story flags that have been set (see src/sim/story.ts). */
+  flags: string[];
+  /** Captain's log, newest first, at most 20. */
+  notes: { day: number; text: string }[];
+  /** The player's name for the ship. */
+  shipName: string;
+  stats: { jobsDone: number };
+  /** Day of the last random encounter, or null if none yet. */
+  lastEncounterDay: number | null;
 }
 
 export type SimEvent =

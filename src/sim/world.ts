@@ -80,6 +80,11 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     events: [],
     takenOffers: [],
     outfits: {},
+    flags: [],
+    notes: [],
+    shipName: def.name,
+    stats: { jobsDone: 0 },
+    lastEncounterDay: null,
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
 }

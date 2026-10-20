@@ -498,7 +498,7 @@ export class Controller {
     // Pay lands in the world first so the autosave below includes it.
     const done = completeAt(this.world, planetId);
     if (done.completed.length > 0) {
-      this.world = done.world;
+      this.world = { ...done.world, stats: { ...done.world.stats, jobsDone: done.world.stats.jobsDone + done.completed.length } };
       this.completion = { missions: done.completed, pay: done.pay };
       this.emit({ type: 'missionsCompleted', missions: done.completed, pay: done.pay });
     }

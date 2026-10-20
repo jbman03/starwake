@@ -5,7 +5,7 @@ import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 3;
+export const CURRENT_SAVE_VERSION = 4;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -39,7 +39,7 @@ const MarketEventSchema = z.object({
 });
 
 export const PilotSaveSchema = z.object({
-  version: z.literal(3),
+  version: z.literal(4),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -64,6 +64,12 @@ export const PilotSaveSchema = z.object({
   takenOffers: z.array(z.string()),
   // v3: owned outfits (outfit id -> count).
   outfits: z.record(z.string(), z.number().int().positive()),
+  // v4: story flags, captain's log, ship name, stats, last encounter.
+  flags: z.array(z.string()),
+  notes: z.array(z.object({ day: z.number().finite(), text: z.string() })).max(20),
+  shipName: z.string(),
+  stats: z.object({ jobsDone: z.number().int().nonnegative() }),
+  lastEncounterDay: z.number().finite().nullable(),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
@@ -88,6 +94,16 @@ export const migrations: Record<number, (s: any) => any> = {
   }),
   // v2 -> v3: no outfits owned.
   2: (s) => ({ ...s, version: 3, outfits: {} }),
+  // v3 -> v4. Data-free: shipName starts as the ship id; worldFromPilot swaps in the hull's name.
+  3: (s) => ({
+    ...s,
+    version: 4,
+    flags: [],
+    notes: [],
+    shipName: String(s.shipId),
+    stats: { jobsDone: 0 },
+    lastEncounterDay: null,
+  }),
 };
 
 export function upgradeSave(raw: unknown): PilotSave {
@@ -134,6 +150,11 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
     events: world.events.map((e) => ({ ...e })),
     takenOffers: [...world.takenOffers],
     outfits: { ...world.outfits },
+    flags: [...world.flags],
+    notes: world.notes.map((n) => ({ ...n })),
+    shipName: world.shipName,
+    stats: { ...world.stats },
+    lastEncounterDay: world.lastEncounterDay,
   };
 }
 
@@ -170,6 +191,12 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     takenOffers: [...p.takenOffers],
     // Charts are one-time map reveals, never fitted gear: a crafted save can't hold them.
     outfits: Object.fromEntries(Object.entries(p.outfits).filter(([id]) => data.outfits[id].category !== 'map')),
+    flags: [...p.flags],
+    notes: p.notes.map((n) => ({ ...n })),
+    // A migrated v3 save carries the ship id here; show the hull's real name instead.
+    shipName: p.shipName === p.shipId ? data.ships[p.shipId].name : p.shipName,
+    stats: { ...p.stats },
+    lastEncounterDay: p.lastEncounterDay,
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
 }
