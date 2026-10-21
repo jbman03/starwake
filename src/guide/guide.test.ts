@@ -50,9 +50,9 @@ describe('Guide', () => {
     const { guide, host } = setup();
     guide.start();
     guide.update(state(host.world, 'exchange', 'halcyon'));
-    expect(guide.current()?.text).toMatch(/is cheap here\. Buy 10 t \(B\)\.$/);
+    expect(guide.current()?.text).toMatch(/is cheap here\. Buy 20 t \(B\)\.$/);
     guide.update(state(host.world, 'planet', 'halcyon'));
-    expect(guide.current()?.text).toMatch(/^Open the exchange \(C\) and buy 10 t of /);
+    expect(guide.current()?.text).toMatch(/^Open the exchange \(C\) and buy 20 t of /);
     guide.update(state(host.world, 'flight'));
     expect(guide.current()?.text).toMatch(/ at Halcyon\.$/);
   });
@@ -63,7 +63,7 @@ describe('Guide', () => {
     let w: WorldState = host.world;
     guide.update(state(w, 'exchange', 'halcyon'));
     expect(guide.current()?.step).toBe(2);
-    w = { ...w, cargo: { [target.good]: 10 }, credits: w.credits - 500 };
+    w = { ...w, cargo: { [target.good]: 20 }, credits: w.credits - 500 };
     guide.update(state(w, 'exchange', 'halcyon'));
     expect(guide.current()?.step).toBe(3);
     guide.update(state(w, 'missions', 'halcyon'));
@@ -91,7 +91,7 @@ describe('Guide', () => {
   it('records the start position the first time step 6 sees flight', () => {
     const { guide, host } = setup();
     guide.start();
-    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    const w = { ...host.world, cargo: { [target.good]: 20 } };
     guide.update(state(w, 'exchange', 'halcyon'));
     guide.update(state(w, 'missions', 'halcyon'));
     guide.update(state(w, 'planet', 'halcyon'));
@@ -106,7 +106,7 @@ describe('Guide', () => {
   it('resumes at the same step after a reload', () => {
     const { guide, make, host } = setup();
     guide.start();
-    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    const w = { ...host.world, cargo: { [target.good]: 20 } };
     guide.update(state(w, 'exchange', 'halcyon'));
     guide.update(state(w, 'missions', 'halcyon'));
     expect(guide.current()?.step).toBe(4);
@@ -121,7 +121,7 @@ describe('Guide', () => {
   it('keeps the start position across a reload', () => {
     const { guide, make, host } = setup();
     guide.start();
-    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    const w = { ...host.world, cargo: { [target.good]: 20 } };
     for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
     guide.update(state(w, 'flight'));
     host.world = w;
@@ -141,20 +141,20 @@ describe('Guide', () => {
   it('sold back before leaving: the hold no longer has the good, so it rewinds to the Buy step', () => {
     const { guide, host } = setup();
     guide.start();
-    let w = { ...host.world, cargo: { [target.good]: 10 } };
+    let w = { ...host.world, cargo: { [target.good]: 20 } };
     guide.update(state(w, 'exchange', 'halcyon'));
     expect(guide.current()?.step).toBe(3);
     w = { ...w, cargo: {} };
     guide.update(state(w, 'exchange', 'halcyon'));
     expect(guide.current()?.step).toBe(2);
-    expect(guide.current()?.text).toContain('Buy 10 t (B)');
+    expect(guide.current()?.text).toContain('Buy 20 t (B)');
   });
 
   it('reload at step 7 with the purchase not saved, landed at the buy port: rewinds to step 2', () => {
     const storage = memory();
     const { guide, host, make } = setup(storage);
     guide.start();
-    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    const w = { ...host.world, cargo: { [target.good]: 20 } };
     for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
     guide.update(state(w, 'flight'));
     guide.update(state(moved(w, 400), 'flight'));
@@ -172,7 +172,7 @@ describe('Guide', () => {
     const storage = memory();
     const { guide, host } = setup(storage);
     guide.start();
-    let w = { ...host.world, cargo: { [target.good]: 10 } };
+    let w = { ...host.world, cargo: { [target.good]: 20 } };
     for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
     guide.update(state(w, 'flight'));
     guide.update(state(moved(w, 400), 'flight'));
@@ -202,7 +202,7 @@ describe('Guide', () => {
 
     const odd = { ...target, good: 'luxury' }; // no port the player knows buys this cheap here
     saveProgress('p1', { step: 7, done: false, target: odd, startCredits: 1000 }, storage);
-    host.world = { ...host.world, cargo: { [odd.good]: 10 } };
+    host.world = { ...host.world, cargo: { [odd.good]: 20 } };
     const b = make();
     b.start();
     expect(b.current()?.step).toBe(7);
@@ -212,7 +212,7 @@ describe('Guide', () => {
   it('jumping to a different system leaves step 8 waiting', () => {
     const { guide, host } = setup();
     guide.start();
-    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    const w = { ...host.world, cargo: { [target.good]: 20 } };
     for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
     guide.update(state(w, 'flight'));
     guide.update(state(moved(w, 400), 'flight'));
@@ -230,7 +230,7 @@ describe('Guide', () => {
   it('mission steps are optional: leaving at step 3 flows on to step 6 in flight', () => {
     const { guide, host } = setup();
     guide.start();
-    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    const w = { ...host.world, cargo: { [target.good]: 20 } };
     guide.update(state(w, 'exchange', 'halcyon'));
     guide.update(state(w, 'planet', 'halcyon'));
     expect(guide.current()?.step).toBe(3); // Halcyon has a Mission Computer: still suggested
@@ -249,7 +249,7 @@ describe('Guide', () => {
     const good = g.target()!.good;
     g.update(state(host.world, 'exchange', 'merrow'));
     expect(g.current()?.step).toBe(2);
-    g.update(state({ ...host.world, cargo: { [good]: 10 } }, 'exchange', 'merrow'));
+    g.update(state({ ...host.world, cargo: { [good]: 20 } }, 'exchange', 'merrow'));
     expect(g.current()?.step).toBe(5);
     expect(g.current()?.text).toBe('Leave the planet (L).');
   });
@@ -295,7 +295,7 @@ describe('Guide', () => {
     guide.update(state(host.world, 'exchange', 'halcyon')); // nothing new
     expect(fn).toHaveBeenCalledTimes(1);
     off();
-    guide.update(state({ ...host.world, cargo: { [target.good]: 10 } }, 'exchange', 'halcyon'));
+    guide.update(state({ ...host.world, cargo: { [target.good]: 20 } }, 'exchange', 'halcyon'));
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
@@ -326,7 +326,7 @@ describe('Guide', () => {
   it('freezes the final profit and says so neutrally when there is none', () => {
     const { guide, host } = setup();
     guide.start();
-    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    const w = { ...host.world, cargo: { [target.good]: 20 } };
     for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
     guide.update(state(w, 'flight'));
     guide.update(state(moved(w, 500), 'flight'));
@@ -343,7 +343,7 @@ describe('Guide', () => {
   it('clears a stale step-6 start when the player lands or jumps', () => {
     const { guide, host } = setup();
     guide.start();
-    const w = { ...host.world, cargo: { [target.good]: 10 } };
+    const w = { ...host.world, cargo: { [target.good]: 20 } };
     for (const s of ['exchange', 'missions', 'planet'] as const) guide.update(state(w, s, 'halcyon'));
     guide.update(state(moved(w, 0), 'flight')); // start recorded at x=0
     guide.update(state(w, 'planet', 'halcyon')); // landed again
@@ -403,7 +403,7 @@ describe('Guide', () => {
     const toStep7 = () => {
       const ctx = setup();
       ctx.guide.start();
-      const w = { ...ctx.host.world, cargo: { [target.good]: 10 }, credits: ctx.host.world.credits - 500 };
+      const w = { ...ctx.host.world, cargo: { [target.good]: 20 }, credits: ctx.host.world.credits - 500 };
       ctx.guide.update(state(w, 'exchange', 'halcyon'));
       ctx.guide.update(state(w, 'missions', 'halcyon'));
       ctx.guide.update(state(w, 'planet', 'halcyon'));

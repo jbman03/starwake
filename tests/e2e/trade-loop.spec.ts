@@ -42,14 +42,15 @@ test.describe('desktop', () => {
 
     const credits0 = await page.evaluate(() => window.__starwake!.world().credits);
 
-    // Buy 10 t at Halcyon.
+    // Buy 20 t at Halcyon (the guide's amount: two presses of Buy 10).
     await page.getByRole('button', { name: /^Commodity Exchange/ }).click();
     const ex = page.getByTestId('exchange');
     await expect(ex).toBeVisible();
     await ex.locator(`[data-good="${good}"]`).click();
     await ex.getByRole('button', { name: 'Buy 10' }).click();
-    await expect(ex.locator(`[data-good="${good}"] .sw-ex-held`)).toHaveText('10 t');
-    expect(await page.evaluate(() => window.__starwake!.world().cargo)).toEqual({ [good]: 10 });
+    await ex.getByRole('button', { name: 'Buy 10' }).click();
+    await expect(ex.locator(`[data-good="${good}"] .sw-ex-held`)).toHaveText('20 t');
+    expect(await page.evaluate(() => window.__starwake!.world().cargo)).toEqual({ [good]: 20 });
     const credits1 = await page.evaluate(() => window.__starwake!.world().credits);
     expect(credits1).toBeLessThan(credits0);
     await ex.getByRole('button', { name: /^Done/ }).click();

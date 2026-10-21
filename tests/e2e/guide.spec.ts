@@ -47,13 +47,14 @@ test.describe('desktop', () => {
     // 2: buy the named good.
     const ex = page.getByTestId('exchange');
     await expect(ex).toBeVisible();
-    const buy = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 10 t \(B\)\.$/);
+    const buy = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 20 t \(B\)\.$/);
     expect(buy).not.toBeNull();
     const good = (await idOf(page, 'commodities', buy![1]))!;
     expect(good).not.toBeNull();
     await ex.locator(`[data-good="${good}"]`).click();
     await page.keyboard.press('KeyB');
-    await expect(ex.locator(`[data-good="${good}"] .sw-ex-held`)).toHaveText('10 t');
+    await page.keyboard.press('KeyB');
+    await expect(ex.locator(`[data-good="${good}"] .sw-ex-held`)).toHaveText('20 t');
     const creditsAfterBuy = await page.evaluate(() => window.__starwake!.world().credits);
 
     // 3–5: close, mission computer, close, leave.
@@ -153,6 +154,7 @@ test.describe('desktop', () => {
     const good = (await idOf(page, 'commodities', goodName))!;
     await page.getByTestId('exchange').locator(`[data-good="${good}"]`).click();
     await page.keyboard.press('KeyB');
+    await page.keyboard.press('KeyB');
     await expect.poll(() => step(page)).toBe(3);
     await page.keyboard.press('Escape');
     await page.keyboard.press('KeyM');
@@ -176,7 +178,7 @@ test.describe('desktop', () => {
     expect(await page.evaluate((g) => window.__starwake!.world().cargo[g] ?? 0, good)).toBe(0);
     expect(await step(page)).toBe(2);
     expect(await page.evaluate(() => window.__starwake!.controller.guide!.target())).toEqual(before);
-    expect(await screenHint(page)).toBe(`Open the exchange (C) and buy 10 t of ${goodName}.`);
+    expect(await screenHint(page)).toBe(`Open the exchange (C) and buy 20 t of ${goodName}.`);
 
     await page.getByTestId('guide-skip').click();
     const dialog = page.getByRole('dialog', { name: 'Skip the guide?' });
@@ -261,9 +263,10 @@ test.describe('phone (touch, landscape)', () => {
       await page.getByRole('button', { name: /^Commodity Exchange/ }).tap();
       await screenFits(page, 'exchange');
       if (!bought) {
-        const name = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 10 t\.$/)![1];
+        const name = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 20 t\.$/)![1];
         const good = (await idOf(page, 'commodities', name))!;
         await page.getByTestId('exchange').locator(`[data-good="${good}"]`).tap();
+        await page.getByRole('button', { name: /^Buy 10/ }).tap();
         await page.getByRole('button', { name: /^Buy 10/ }).tap();
         await expect.poll(() => step(page)).toBe(3);
         bought = true;

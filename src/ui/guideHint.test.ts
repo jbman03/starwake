@@ -58,7 +58,7 @@ describe('guide session wiring', () => {
     const { data, c } = await setup({ session: false });
     const target = pickTarget(newWorld(data, 1), data, 'halcyon')!;
     saveProgress('resume-me', { step: 7, done: false, target, startCredits: 1000, buyPort: 'halcyon' });
-    const holding = { ...newWorld(data, 1), cargo: { [target.good]: 10 } };
+    const holding = { ...newWorld(data, 1), cargo: { [target.good]: 20 } };
     c.beginSession(holding, { id: 'resume-me', name: 'R' }, 'halcyon');
     expect(c.guide?.current()?.step).toBe(7);
   });
@@ -96,12 +96,13 @@ describe('guide hints in screen panels', () => {
     btn('Commodity Exchange')!.click();
     const h = hint()!;
     expect(h.closest('.sw-exchange')).not.toBeNull();
-    expect(h.textContent).toContain('Buy 10 t (B).');
+    expect(h.textContent).toContain('Buy 20 t (B).');
     expect(before(h, root.querySelector('.sw-ex-actions')!)).toBe(true);
     const good = c.guide!.target()!.good;
     root.querySelector<HTMLElement>(`tr[data-good="${good}"]`)!.click();
     btn('Buy 10')!.click();
-    expect(c.world.cargo[good]).toBe(10);
+    btn('Buy 10')!.click();
+    expect(c.world.cargo[good]).toBe(20);
     vi.advanceTimersByTime(300);
     expect(hint()!.textContent).toContain('Mission Computer (M)');
     expect(data.commodities[good]).toBeDefined();
@@ -111,7 +112,7 @@ describe('guide hints in screen panels', () => {
     const { c, ctx, hint, root, data } = await setup();
     const target = pickTarget(newWorld(data, 1), data, 'halcyon')!;
     saveProgress(c.pilot!.id, { step: 3, done: false, target, startCredits: 1000, buyPort: 'halcyon' });
-    c.world = { ...c.world, cargo: { [target.good]: 10 } };
+    c.world = { ...c.world, cargo: { [target.good]: 20 } };
     c.guide!.start();
     showMissionComputer(ctx, 'halcyon', () => ctx.go.planet('halcyon'));
     const h = hint()!;
@@ -126,7 +127,7 @@ describe('guide hints in screen panels', () => {
     const { c, ctx, hint, root, data } = await setup();
     const target = pickTarget(newWorld(data, 1), data, 'halcyon')!;
     saveProgress(c.pilot!.id, { step: 7, done: false, target, startCredits: 1000, buyPort: 'halcyon' });
-    c.world = { ...c.world, cargo: { [target.good]: 10 } };
+    c.world = { ...c.world, cargo: { [target.good]: 20 } };
     c.guide!.start();
     ctx.go.map({ onClose: () => ctx.go.planet('halcyon') });
     const h = hint()!;
@@ -139,7 +140,7 @@ describe('guide hints in screen panels', () => {
     const { c, ctx, hint, data } = await setup();
     const target = pickTarget(newWorld(data, 1), data, 'halcyon')!;
     saveProgress(c.pilot!.id, { step: 7, done: false, target, startCredits: 1000, buyPort: 'halcyon' });
-    c.world = { ...c.world, cargo: { [target.good]: 10 } };
+    c.world = { ...c.world, cargo: { [target.good]: 20 } };
     c.guide!.start();
     ctx.go.planet('halcyon');
     expect(hint()!.textContent).toContain('Open the Star Map (N)');

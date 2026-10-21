@@ -25,8 +25,8 @@ describe('step completion predicates', () => {
     expect(done(1, st({ screen: 'exchange' }))).toBe(true);
     expect(done(1, st())).toBe(false);
   });
-  it('2 holds >= 10 t', () => {
-    expect(done(2, st({ w: { cargo: { food: 10 } } }))).toBe(true);
+  it('2 holds >= 20 t', () => {
+    expect(done(2, st({ w: { cargo: { food: 20 } } }))).toBe(true);
     expect(done(2, st({ w: { cargo: { food: 9 } } }))).toBe(false);
     expect(done(2, st({ w: { cargo: { metal: 50 } } }))).toBe(false);
   });
@@ -74,7 +74,7 @@ describe('step completion predicates', () => {
   it('10 hold has none of the good', () => {
     expect(done(10, st({ w: { cargo: {} } }))).toBe(true);
     expect(done(10, st({ w: { cargo: { food: 0 } } }))).toBe(true);
-    expect(done(10, st({ w: { cargo: { food: 10 } } }))).toBe(false);
+    expect(done(10, st({ w: { cargo: { food: 20 } } }))).toBe(false);
   });
   it('11 only ends when dismissed', () => {
     expect(done(11, st({ screen: 'exchange' }))).toBe(false);
@@ -140,16 +140,16 @@ describe('step text', () => {
 
   describe('follows the screen and route', () => {
     it('step 2 on the exchange: the good is cheap here, buy it', () => {
-      expect(STEPS[1].text(ctx({ screen: 'exchange' }))).toBe('Food is cheap here. Buy 10 t (KeyB).');
-      expect(STEPS[1].text(ctx({ screen: 'exchange', mode: 'touch' }))).toBe('Food is cheap here. Buy 10 t.');
+      expect(STEPS[1].text(ctx({ screen: 'exchange' }))).toBe('Food is cheap here. Buy 20 t (KeyB).');
+      expect(STEPS[1].text(ctx({ screen: 'exchange', mode: 'touch' }))).toBe('Food is cheap here. Buy 20 t.');
     });
     it('step 2 off the exchange at the buy port: open the exchange first', () => {
-      expect(STEPS[1].text(ctx())).toBe('Open the exchange (KeyC) and buy 10 t of Food.');
-      expect(STEPS[1].text(ctx({ mode: 'touch' }))).toBe('Exchange: buy 10 t of Food.');
+      expect(STEPS[1].text(ctx())).toBe('Open the exchange (KeyC) and buy 20 t of Food.');
+      expect(STEPS[1].text(ctx({ mode: 'touch' }))).toBe('Exchange: buy 20 t of Food.');
     });
     it('step 2 away from the buy port names it', () => {
       for (const where of [{ landedPlanetId: 'merrow' }, flying]) {
-        expect(STEPS[1].text(ctx(where))).toBe('Open the exchange and buy 10 t of Food at Halcyon.');
+        expect(STEPS[1].text(ctx(where))).toBe('Open the exchange and buy 20 t of Food at Halcyon.');
         expect(STEPS[1].text(ctx({ mode: 'touch', ...where }))).toBe('Buy Food at Halcyon.');
       }
     });

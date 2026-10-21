@@ -98,9 +98,9 @@ describe('offersAt', () => {
     }
   });
 
-  it('prices by the formula: rush of 2 t over 1 hop pays 2250', () => {
+  it('prices by the formula: rush of 2 t over 1 hop pays 1500', () => {
     const rush = sweep().find((s) => s.offer.typeId === 'rush' && s.hops === 1 && s.offer.tons === 2)!;
-    expect(rush.offer.pay).toBe(2250); // (400 + 500 + 300*2) * 1.5
+    expect(rush.offer.pay).toBe(1500); // (400 + 500 + 150*2) * 1.25
     for (const { offer: o, hops } of sweep()) {
       const t = data.missionTypes[o.typeId];
       const raw = (t.basePay + t.perHop * hops + t.perTon * o.tons + t.perPassenger * o.passengers) * t.urgency;

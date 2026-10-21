@@ -20,7 +20,7 @@ const portWith = (good: string) => Object.values(data.planets).find((p) => p.mar
 
 describe('prices', () => {
   it('level multipliers', () => {
-    expect(LEVEL_MULT).toEqual({ low: 0.75, med: 1.0, high: 1.3 });
+    expect(LEVEL_MULT).toEqual({ low: 0.7, med: 1.0, high: 1.35 });
   });
 
   it('noise stays within ±6% and is stable', () => {

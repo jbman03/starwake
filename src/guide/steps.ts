@@ -51,7 +51,7 @@ export const FLY_DISTANCE = 300;
  * The final card (step 11) is never shown in the rail.
  */
 export const TOUCH_HINT_MAX_CHARS = 44;
-export const BUY_TONS = 10;
+export const BUY_TONS = 20;
 
 const goodName = (c: TextCtx): string => c.data.commodities[c.target.good]?.name ?? c.target.good;
 const systemName = (c: TextCtx): string => c.data.systems[c.target.system]?.name ?? c.target.system;

@@ -6,7 +6,7 @@ import type { MarketEvent, WorldState } from './types';
 
 export type Level = 'low' | 'med' | 'high';
 
-export const LEVEL_MULT: Record<Level, number> = { low: 0.75, med: 1.0, high: 1.3 };
+export const LEVEL_MULT: Record<Level, number> = { low: 0.7, med: 1.0, high: 1.35 };
 /** Pressure change per 10 t traded (buying raises, selling lowers). */
 export const PRESSURE_PER_10T = 0.03;
 export const PRESSURE_MIN = 0.7;

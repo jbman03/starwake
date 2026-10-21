@@ -1,4 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import { testData } from './testData';
+import { newWorld } from '../sim/world';
+import { bestLoopPerJump, guideTradeProfit, jobsToAfford, medianMissionPerJump, medianMissionPay } from '../sim/balance';
+import { pickTarget } from '../guide/target';
+import { BUY_TONS } from '../guide/steps';
 import ships from '../../data/ships.json';
 
 type S = (typeof ships)[number];
@@ -33,5 +38,34 @@ describe('ship balance', () => {
   });
   it('starter has the lowest price', () => {
     for (const s of others('starter')) expect(by('starter').price).toBeLessThan(s.price);
+  });
+});
+
+describe('earning curve (spec section 7)', () => {
+  const data = testData();
+  const world = newWorld(data, 1);
+  const loop = bestLoopPerJump(world, data, data.config.startShipId);
+  const mission = medianMissionPerJump(world, data, 60);
+  const jobs = jobsToAfford(world, data, data.ships.courier.price);
+
+  it('best shuttle loop earns at least 40% of the median mission per jump', () => {
+    expect(loop, `loop ${loop.toFixed(0)}/jump, median mission ${mission.toFixed(0)}/jump, ratio ${(loop / mission).toFixed(2)}`).toBeGreaterThanOrEqual(0.4 * mission);
+  });
+  it('the courier is affordable after 8 to 14 median jobs', () => {
+    expect(jobs, `${jobs} jobs (median pay ${medianMissionPay(world, data, 60)})`).toBeGreaterThanOrEqual(8);
+    expect(jobs).toBeLessThanOrEqual(14);
+  });
+  it('the guide trade makes at least 300 cr on 20 t', () => {
+    const t = pickTarget(world, data, data.config.startPlanetId)!;
+    expect(t).not.toBeNull();
+    const profit = guideTradeProfit(data, t.good, BUY_TONS);
+    expect(profit, `${t.good} x${BUY_TONS}`).toBeGreaterThanOrEqual(300);
+    expect(BUY_TONS).toBe(20);
+  });
+  it('Stillwater Pearl sells high at one or two known core ports', () => {
+    const buyers = Object.values(data.planets).filter((p) => p.market?.['stillwater-pearl'] === 'high');
+    expect(buyers.length).toBeGreaterThanOrEqual(1);
+    expect(buyers.length).toBeLessThanOrEqual(2);
+    for (const p of buyers) expect(data.config.knownAtStart).toContain(p.systemId);
   });
 });
