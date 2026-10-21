@@ -106,29 +106,33 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
     case 'flying':
       return [
         { heading: 'Steer and brake', text: `${k('thrust')} thrusts, ${k('turnLeft')} and ${k('turnRight')} turn, ${k('reverse')} reverses. ${k('autoStop')} turns you around and brakes to a stop. On a phone, push the stick to fly and tap STOP to brake.` },
-        { heading: 'Targets', text: `${k('nextTarget')} picks the next planet or station to target and ${k('faceTarget')} turns you to face it. ${k('autopilot')} flies to the targeted planet, or out to the jump point when nothing is targeted; press it again, or any steering key, to take over.` },
+        { heading: 'Targets', text: `${k('nextTarget')} cycles through the ships in the system, then the planets and stations; ${k('faceTarget')} turns you to face the target. Click or tap a ship or planet to target it. A targeted ship's name, faction, hull and role show on the target line. ${k('autopilot')} flies to the targeted planet, or out to the jump point when nothing is targeted; press it again, or any steering key, to take over.` },
+        { heading: 'Other ships', text: 'The galaxy is busy. Ships jump in, land, take off and pass through, and the busy core sees more of them than the quiet fringe. For now they are all just going about their business.' },
+        { heading: 'Hails and sites', text: `Now and then a ship hails you on the radio, or a white diamond appears in space, on the view and the radar. ${k('interact')} answers a hail. To open a site, fly close and slow, then press ${k('interact')}. On a phone, the bottom button changes to Answer hail or Open site. An encounter is a short card: press ${k('encounterChoice1')}, ${k('encounterChoice2')} or ${k('encounterChoice3')} to choose, then Done (or Esc) to carry on.` },
         { heading: 'Weapons', text: 'Weapons and combat arrive in a later update. The fire keys are bindable already but do nothing yet.' },
         { heading: 'Landing', text: `Target a planet or station, fly close, slow right down, then press ${k('land')}. On a phone, tap the planet or the LAND ON button.` },
+        { heading: 'Sound', text: `${k('toggleSound')} turns sound on or off. Volume and mute are also in Settings → General.` },
         { heading: 'Pause', text: `${k('pause')} pauses the game and opens the pause menu, where you can save, change settings or quit.` },
       ];
     case 'trade':
       return [
         { heading: 'Buy low, sell high', text: 'Each exchange shows a price level for every good: Low, Med or High. Buy where a good is Low, fly to a port where it is High, and sell.' },
         { heading: 'Buying and selling', text: `Select a good, then ${k('buyGoods')} buys and ${k('sellGoods')} sells 10 t at a time; hold Shift or long-press the button for 1 t. Buy max and Sell all fill or empty the line. The starter shuttle's hold fits ${ship.cargo} t; the Shipyard and Outfitter sell bigger holds.` },
+        { heading: 'Price spreads', text: 'Prices differ more from port to port now, so a good run pays better. The first-flight guide shows one: it follows the route you actually fly and has you carry a 20 t trade.' },
         { heading: 'Prices move', text: 'Prices drift from day to day. News events cause a surplus or shortage at one port. Your own trading counts too: heavy buying pushes a price up, heavy selling pushes it down, and both ease back over a few days.' },
         { heading: 'Credits', text: 'Trading never takes your credits below zero. A pilot in debt (after a tow) can sell but not buy.' },
       ];
     case 'missions':
       return [
         { heading: 'Taking a job', text: `The Mission Computer (${k('openMissions')}) lists jobs posted at the port: deliveries, rush deliveries, passenger trips and garbage runs. Each shows its destination, pay and any deadline. You can hold up to ${MAX_MISSIONS} jobs; cargo and passengers use your hold and berths.` },
-        { heading: 'Getting paid', text: 'Land at the destination port before the deadline. Most jobs pay on landing; some pay an advance up front. A job that runs past its deadline fails.' },
-        { heading: 'Mission Log', text: `The Mission Log (${k('missionLog')} on a planet, ${k('flightMissionLog')} in flight) lists your active jobs. Show on map marks a job's destination on the star map.` },
+        { heading: 'Getting paid', text: 'Land at the destination port before the deadline. Rush jobs pay less than they used to, so take one when you are headed that way anyway. Most jobs pay on landing; some pay an advance up front. A job that runs past its deadline fails.' },
+        { heading: 'Mission Log', text: `The Mission Log (${k('missionLog')} on a planet, ${k('flightMissionLog')} in flight) lists your active jobs. Show on map marks a job's destination on the star map. Its Notes section keeps the rumours and leads you pick up; some of them lead somewhere worth going. Some shipyards also tease ships you can't buy yet.` },
         { heading: 'Abandoning', text: 'You can give up a job from the log. Nothing is paid and the cargo is freed. If it paid an advance, the advance is taken back, so you need enough credits to return it.' },
       ];
     case 'travel':
       return [
         { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses ${perJump} fuel and takes one day. The starter shuttle's tank holds ${tank} jumps' worth; the Outfitter sells bigger tanks. With nothing targeted, ${k('autopilot')} flies you out to the jump point.` },
-        { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE, or the Map button (always shown, on every planet screen too).` },
+        { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map; N is the map key everywhere, and M still works in flight. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE, or the Map button (always shown, on every planet screen too).` },
         { heading: 'Refuelling', text: `Every port sells fuel; press ${k('refuel')} to refuel. Fuel is charged per unit, and fringe ports charge more, so top up in the core worlds when you can.` },
         { heading: 'Stranded?', text: `With less than one jump of fuel and no port in the system, you can call a tow from the pause menu or the CALL TOW button. It costs ${data.config.towFee} cr, which can leave you in debt. The tow takes you to the nearest port, uses days on the way, and jobs that pass their deadline fail.` },
       ];

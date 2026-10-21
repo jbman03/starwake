@@ -253,4 +253,22 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    screen and the phone rail, mission previews on the map, and the PC sidebar.
 3. **Missions and bar** — spaceport bar, story missions that unlock ships,
    gear and areas; pilot card on the main menu.
+4. **Living galaxy (fun pass, 2026-10-20)** — built from the fun review:
+   NPC traffic (ships jump in, land, take off and pass through; Tab cycles ships
+   then planets; click or tap to target; the target line shows name, faction,
+   hull and role), in-flight encounters (radio hails answered with Y, white-diamond
+   sites opened close and slow, short choice cards on 1/2/3), a Notes section in the
+   Mission Log for rumours and leads, and one survey-ship thread (a rumour leads
+   to a beacon in Skerry, which opens a hidden lane to Hushwater, where the derelict
+   Long Patience can be claimed to unlock the one-off Patience-class Surveyor at
+   Wrenhold). Also: the juice pass (engine flame, arrival flash, landing and
+   take-off animation, credits count-up), synthesised sound with volume and mute
+   (V), a balance pass (rush jobs pay less, wider price spreads, the guide trade is
+   20 t and follows the pilot's route), N as the map key everywhere (M still works
+   in flight), and the pilot card on the main menu with ship naming after a purchase.
+   *Fun-review items built:* 1 (living traffic), 2 (encounters), 4 (juice and
+   sound), 5 (earning curve and balance), 10 (pilot card) and 11 (friction fixes).
+   *Partly built:* 3 (story hook, via the survey thread), 7 (rare ships, one hull)
+   and 8 (discovery rewards, the hidden lane). Phone rule held: only the context
+   button changes for hails and sites, with no banner over the view.
 Later: combat, reputation and police, boarding, contraband, more regions.
