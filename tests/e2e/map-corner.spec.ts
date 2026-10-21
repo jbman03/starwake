@@ -16,6 +16,9 @@ async function checkCorner(page: Page, headingSel: string): Promise<void> {
   expect(geo.n).toBeGreaterThan(0);
   expect(geo.w).toBeLessThan(140);
   expect(geo.hit).toBe(false);
+  // Phone-size screens have no keyboard: the corner button shows no key chip.
+  const short = page.viewportSize()!.height <= 500;
+  await (short ? expect(page.locator('.sw-map-corner .sw-key')).toBeHidden() : expect(page.locator('.sw-map-corner .sw-key')).toBeVisible());
 }
 
 for (const vp of [
