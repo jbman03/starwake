@@ -123,7 +123,6 @@ test('V toggles sound in flight and on a planet, and the setting is saved', asyn
   await expect(page.locator('.sw-status')).toHaveText('Sound off');
   expect(await muted()).toBe(true);
   await leavePlanet(page);
-  await page.waitForTimeout(200);
   // flying: the HUD message line carries it
   await page.keyboard.press('KeyV');
   await expect.poll(() => page.evaluate(() => window.__starwake!.hudMessage?.() ?? null)).toBe('Sound on');

@@ -96,9 +96,24 @@ export class SoundBoard {
   unlock(): void {
     try {
       this.ctx ??= this.ctxFactory();
-      if (this.ctx.state !== 'running') void Promise.resolve(this.ctx.resume()).catch(() => undefined);
+      this.wake(this.ctx);
     } catch {
       this.ctx = null; // no audio on this device: every call stays a no-op
+    }
+  }
+
+  /** Whether the context exists and is running (a gesture has really unlocked audio). */
+  running(): boolean {
+    return this.ctx?.state === 'running';
+  }
+
+  /** Ask a suspended context to resume; the caller drops its sound meanwhile. */
+  private wake(ctx: AudioContext): void {
+    if (ctx.state === 'running') return;
+    try {
+      void Promise.resolve(ctx.resume()).catch(() => undefined);
+    } catch {
+      // ignore
     }
   }
 
@@ -108,10 +123,11 @@ export class SoundBoard {
   }
 
   play(s: Sfx): void {
-    if (s === 'thrust') return this.setThrust(true);
+    if (s === 'thrust') return; // the hum follows setThrust, never a one-shot
     const ctx = this.ctx;
     const vol = this.level();
     if (!ctx || vol <= 0) return;
+    if (ctx.state !== 'running') return this.wake(ctx); // dropped, not queued
     try {
       const r = RECIPES[s];
       for (const t of r.tones ?? []) this.tone(ctx, t, vol);
@@ -175,6 +191,7 @@ export class SoundBoard {
   setThrust(on: boolean): void {
     const ctx = this.ctx;
     if (!ctx) return;
+    if (ctx.state !== 'running') return this.wake(ctx);
     const target = on ? HUM_GAIN * this.level() : 0;
     if (target === this.humLevel) return;
     try {

@@ -15,14 +15,18 @@ function param() {
 }
 
 function fakeCtx() {
-  const made = { osc: 0, noise: 0, gains: [] as ReturnType<typeof param>[], resumed: 0 };
+  const made = { osc: 0, noise: 0, gains: [] as ReturnType<typeof param>[], resumed: 0, autoRun: true };
   const node = () => ({ connect: (n: unknown) => n, disconnect: () => undefined });
   const ctx = {
     currentTime: 0,
     sampleRate: 8000,
-    state: 'suspended',
+    state: 'suspended' as string,
     destination: node(),
-    resume: () => ((made.resumed += 1), Promise.resolve()),
+    resume: () => {
+      made.resumed += 1;
+      if (made.autoRun) ctx.state = 'running';
+      return Promise.resolve();
+    },
     createOscillator: () => {
       made.osc += 1;
       return { ...node(), type: 'sine', frequency: param(), start: () => undefined, stop: () => undefined };
@@ -89,8 +93,8 @@ describe('SoundBoard', () => {
     expect(made.osc).toBeGreaterThan(0);
   });
 
-  it('every sound can be played', () => {
-    for (const id of ['thrust', 'jump', 'arrive', 'land', 'takeoff', 'trade', 'paid', 'hail', 'site'] as const) {
+  it('every one-shot can be played', () => {
+    for (const id of ['jump', 'arrive', 'land', 'takeoff', 'trade', 'paid', 'hail', 'site'] as const) {
       const { sb, made } = board();
       sb.unlock();
       sb.play(id);
@@ -119,6 +123,28 @@ describe('SoundBoard', () => {
     s.muted = true;
     sb.setThrust(true);
     expect(hum.calls[hum.calls.length - 1]).toBe('lin 0');
+  });
+
+  it('a context that stays suspended drops sounds, retries resume, and plays once running', () => {
+    const { sb, made, ctx } = board();
+    made.autoRun = false;
+    sb.unlock();
+    expect(sb.running()).toBe(false);
+    sb.play('jump');
+    sb.setThrust(true);
+    expect(made.osc + made.noise).toBe(0);
+    expect(made.resumed).toBe(3); // unlock, play and setThrust each ask again
+    (ctx as unknown as { state: string }).state = 'running';
+    expect(sb.running()).toBe(true);
+    sb.play('jump'); // the dropped one is not replayed, new ones play
+    expect(made.osc).toBe(1);
+  });
+
+  it("play('thrust') does not start the hum", () => {
+    const { sb, made } = board();
+    sb.unlock();
+    sb.play('thrust');
+    expect(made.noise).toBe(0);
   });
 
   it('survives a context that cannot be made', () => {

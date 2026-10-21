@@ -45,13 +45,14 @@ async function boot(): Promise<void> {
 
   // Sound: the audio context wakes on the first key or tap; events play their effects.
   const sound = new SoundBoard(() => settings);
+  // Touch pointerdown and Escape are not activating gestures, so keep listening until the context runs.
+  const unlockEvents = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown', 'keyup'];
   const unlockSound = () => {
     sound.unlock();
-    window.removeEventListener('pointerdown', unlockSound);
-    window.removeEventListener('keydown', unlockSound);
+    if (!sound.running()) return;
+    for (const t of unlockEvents) window.removeEventListener(t, unlockSound);
   };
-  window.addEventListener('pointerdown', unlockSound);
-  window.addEventListener('keydown', unlockSound);
+  for (const t of unlockEvents) window.addEventListener(t, unlockSound);
   controller.on('arrived', () => sound.play('arrive'));
   controller.on('landed', () => sound.play('land'));
   controller.on('missionsCompleted', () => sound.play('paid'));
