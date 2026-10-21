@@ -747,6 +747,71 @@ describe('Controller trade, missions and routes', () => {
       expect(seen).toHaveLength(2);
     });
 
+    it('a tow clears the pending encounter', async () => {
+      const { c, data } = await setup(['vesk']);
+      const w = newWorld(data);
+      c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 } }, { id: 'p1', name: 'Ava' }, 'halcyon');
+      c.leavePlanet();
+      c.world = { ...c.world, systemId: 'vesk' };
+      c.forceEncounter('stranded-passenger');
+      expect(c.pending).not.toBeNull();
+      c.pauseFlight();
+      expect(c.callTow()).toBe(true);
+      expect(c.pending).toBeNull();
+      expect(c.traffic.systemId).toBe(c.world.systemId);
+    });
+
+    it('declining a hail clears it; a site stays', async () => {
+      const { c } = await setup();
+      c.startFlight();
+      c.forceEncounter('stranded-passenger');
+      c.declineEncounter();
+      expect(c.pending).toBeNull();
+      c.forceEncounter('cargo-drift');
+      c.declineEncounter();
+      expect(c.pending?.kind).toBe('site');
+    });
+
+    it('a hail cannot be answered while in hyperspace', async () => {
+      const { c } = await setup();
+      c.startFlight();
+      c.forceEncounter('stranded-passenger');
+      c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 0.1 } };
+      expect(c.openEncounter()).toBe(false);
+      expect(c.isFlying).toBe(true);
+    });
+
+    it('pausing flight stops the engine flame', async () => {
+      const { c, target } = await setup();
+      c.startFlight();
+      target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+      c.update(0.1);
+      expect(c.view().thrusting).toBe(true);
+      c.pauseFlight();
+      expect(c.view().thrusting).toBe(false);
+      c.startFlight();
+      c.update(0.1);
+      expect(c.view().thrusting).toBe(true);
+      c.releaseInputs();
+      expect(c.view().thrusting).toBe(false);
+    });
+
+    it('an offered encounter counts toward the no-two-days-in-a-row rule', async () => {
+      const data = await loadGameData();
+      let found = false;
+      for (let day = 1; day < 200 && !found; day++) {
+        const c = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget());
+        c.startFlight();
+        c.world = { ...c.world, day, route: ['vesk'], jump: { toSystemId: 'vesk', t: 99 } };
+        c.update(0.1);
+        if (c.pending) {
+          found = true;
+          expect(c.world.lastEncounterDay).toBe(c.world.day);
+        } else expect(c.world.lastEncounterDay).toBeNull();
+      }
+      expect(found).toBe(true);
+    });
+
     it('choosing applies the outcome, clears the encounter and refuses a blocked choice', async () => {
       const { c } = await setup();
       c.forceEncounter('stranded-passenger');

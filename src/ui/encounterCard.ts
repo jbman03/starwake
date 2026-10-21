@@ -31,7 +31,11 @@ export function showEncounterCard(ctx: UiContext, view: EncounterView, onChoose:
   });
   const choices = el('div', { class: 'sw-enc-choices' }, choiceBtns);
   const outcome = el('div', { class: 'sw-enc-outcome', attrs: { 'data-testid': 'encounter-outcome', 'aria-live': 'polite' } });
-  const notNow = button('Not now', close, { hotkey: hotkeyFor(bindings, 'back') });
+  const decline = () => {
+    if (view.kind === 'hail') controller.declineEncounter();
+    close();
+  };
+  const notNow = button('Not now', decline, { hotkey: hotkeyFor(bindings, 'back') });
   const doneBtn = button('Done', close, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'back') });
   const actions = el('div', { class: 'sw-ex-actions' }, [notNow]);
 
@@ -59,7 +63,7 @@ export function showEncounterCard(ctx: UiContext, view: EncounterView, onChoose:
   ctx.mount(screen, {
     groups: ['menus'],
     onPress: (pressed) => {
-      if (pressed.has('back')) return close();
+      if (pressed.has('back')) return done ? close() : decline();
       CHOICE_ACTIONS.forEach((a, i) => {
         if (pressed.has(a)) choose(i);
       });

@@ -154,6 +154,16 @@ describe('contextAction', () => {
       ship: { ...newWorld(data).ship, pos: { x: 100 + gap, y: 100 }, vel: { x: speed, y: 0 } },
     });
 
+    it('a plotted jump or autopilot-out outranks a hail; without a course the hail shows', () => {
+      const hail = { kind: 'hail' as const };
+      const jumpable = at({ ...newWorld(data), route: ['vesk'] }, { x: -2100, y: 0 });
+      expect(contextAction(jumpable, data, hail)).toBe('jump');
+      const h = data.planets.halcyon;
+      const close = at({ ...newWorld(data), route: ['vesk'] }, { x: h.pos.x, y: h.pos.y - 601 });
+      expect(contextAction(close, data, hail)).toBe('autopilotOut');
+      expect(contextAction(newWorld(data), data, hail)).toBe('answerHail');
+    });
+
     it('answerHail while a hail is pending', () => {
       expect(contextAction(newWorld(data), data, { kind: 'hail' })).toBe('answerHail');
     });

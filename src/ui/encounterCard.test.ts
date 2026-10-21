@@ -72,13 +72,29 @@ describe('encounter card', () => {
     expect(root.querySelectorAll('.sw-mc-row')).toHaveLength(1);
   });
 
-  it('Not now closes without using the encounter', async () => {
+  it('Not now on a site closes without using it; the site stays', async () => {
     const { c, open, btn } = await setup();
-    c.forceEncounter('stranded-passenger');
+    c.forceEncounter('cargo-drift');
     open();
     btn(/Not now/).click();
     expect(c.isFlying).toBe(true);
     expect(c.pending).not.toBeNull();
+  });
+
+  it('Not now (and Esc) on a hail clears the hail', async () => {
+    const a = await setup();
+    a.c.forceEncounter('stranded-passenger');
+    a.open();
+    a.btn(/Not now/).click();
+    expect(a.c.isFlying).toBe(true);
+    expect(a.c.pending).toBeNull();
+
+    const b = await setup();
+    b.c.forceEncounter('stranded-passenger');
+    b.open();
+    b.state.onPress!(new Set<ActionId>(['back']));
+    expect(b.c.pending).toBeNull();
+    expect(b.c.isFlying).toBe(true);
   });
 });
 

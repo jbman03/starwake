@@ -55,6 +55,7 @@ export type PendingEncounter =
 
 /** What the encounter card shows. `blocked` is the reason a choice can't be taken, or null. */
 export interface EncounterView {
+  kind: 'hail' | 'site';
   title: string;
   text: string;
   choices: { label: string; blocked: string | null }[];
@@ -196,6 +197,7 @@ export class Controller {
   pauseFlight(): void {
     const changed = this.flying;
     this.flying = false;
+    this.thrusting = false;
     this.queued.clear();
     if (changed) this.emit({ type: 'flying', flying: false });
   }
@@ -204,6 +206,7 @@ export class Controller {
   releaseInputs(): void {
     this.keyboard.releaseAll();
     this.touch.releaseAll();
+    this.thrusting = false;
   }
 
   get isFlying(): boolean {
@@ -629,7 +632,7 @@ export class Controller {
    */
   openEncounter(): boolean {
     const p = this.pending;
-    if (!p || !this.flying || this.fx) return false;
+    if (!p || !this.flying || this.fx || this.world.jump) return false;
     if (p.kind === 'site' && !siteReachable(this.world, p.pos)) {
       this.emit({ type: 'message', text: 'Move closer to the site and slow down to open it.' });
       return false;
@@ -639,12 +642,21 @@ export class Controller {
     return true;
   }
 
+  /** "Not now" on a hail: it lapses at once. A site stays where it is. */
+  declineEncounter(): void {
+    if (this.pending?.kind === 'hail') {
+      this.pending = null;
+      this.checkContext();
+    }
+  }
+
   /** The pending encounter as the card shows it (text filled in, blocked choices marked), or null. */
   encounterView(): EncounterView | null {
     const p = this.pending;
     if (!p) return null;
     const ctx = { ship: p.npcName, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: shipDisplayName(this.world.shipName, this.world.shipId, this.data), hub: hubName(this.data) };
     return {
+      kind: p.kind,
       title: fillText(p.def.title, ctx),
       text: fillText(p.def.text, ctx),
       choices: p.def.choices.map((c) => {
@@ -704,14 +716,18 @@ export class Controller {
         this.prevShip = this.world.ship;
         continue;
       }
-      if (e.type === 'towed') this.landAt(e.planetId);
-      else if (e.type === 'jumped') {
+      if (e.type === 'towed') {
+        this.pending = null;
+        this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+        this.landAt(e.planetId);
+      } else if (e.type === 'jumped') {
         this.pending = null;
         this.prevShip = this.world.ship; // no interpolation across systems
         this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
       }
       if (e.type === 'arrived') {
         this.pending = this.rollPending();
+        if (this.pending) this.world = { ...this.world, lastEncounterDay: this.world.day };
         this.emit(e);
         if (this.pending) this.emit({ type: 'sfx', sfx: this.pending.kind });
         continue;

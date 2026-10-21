@@ -24,8 +24,8 @@ export type ContextAction = 'takeControl' | 'tow' | 'answerHail' | 'openSite' | 
 
 /**
  * The one action a context button should offer right now, by priority:
- * takeControl > tow > answerHail / openSite > land (a planet is targeted, at any range) > jump / autopilotOut (a course is
- * set, nothing targeted, no assist) > land (a planet is in range) > plotCourse. `plotCourse` (open the star map)
+ * takeControl > tow > openSite > land (a planet is targeted, at any range) > jump / autopilotOut (a course is
+ * set, nothing targeted, no assist) > answerHail > land (a planet is in range) > plotCourse. `plotCourse` (open the star map)
  * covers the phone dead end: no jump destination can be chosen (no usable course and more than
  * one lane out), no assist running and no planet in range.
  */
@@ -33,7 +33,6 @@ export function contextAction(world: WorldState, data: GameData, pending: Pendin
   if (world.jump) return null;
   if (world.assist.kind === 'autopilot') return 'takeControl';
   if (towDestination(world, data)) return 'tow';
-  if (pending?.kind === 'hail') return 'answerHail';
   if (pending?.kind === 'site' && siteReachable(world, pending.pos)) return 'openSite';
   // A targeted planet wins at any range: land does what the L key does (autopilot in, then land).
   if (world.targetPlanetId && data.planets[world.targetPlanetId]) return 'land';
@@ -42,6 +41,8 @@ export function contextAction(world: WorldState, data: GameData, pending: Pendin
     const out = leaveAction(world, data);
     if (out) return out;
   }
+  // A hail never blocks leaving: a plotted jump or autopilot-out outranks it.
+  if (pending?.kind === 'hail') return 'answerHail';
   const nearest = planetsByDistance(world, data)[0];
   if (nearest && dist(nearest.pos, world.ship.pos) <= LAND_CONTEXT_RANGE) return 'land';
   if (world.assist.kind === 'none' && !jumpDestination(world, data) && lanesOf(data, world.systemId, world.flags).length > 1) {

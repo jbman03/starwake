@@ -71,4 +71,26 @@ test.describe('phone', () => {
     await expect(page.locator('.sw-screen')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
+
+  test('phone: Not now dismisses a hail and the context button goes back to flying actions', async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Nope');
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await waitForFlight(page);
+    await page.touchscreen.tap(422, 30);
+
+    await force(page, 'stranded-passenger');
+    const ctxBtn = page.getByTestId('context-button');
+    await expect(ctxBtn).toHaveText('Answer hail');
+    await ctxBtn.tap();
+    const card = page.getByTestId('encounter-card');
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: /Not now/ }).tap();
+    await expect(card).toBeHidden();
+    await waitForFlight(page);
+    expect(await page.evaluate(() => window.__starwake!.controller.pending)).toBeNull();
+    await expect(ctxBtn).not.toHaveText('Answer hail');
+    expect(errors).toEqual([]);
+  });
 });
