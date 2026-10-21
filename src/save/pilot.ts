@@ -94,13 +94,13 @@ export const migrations: Record<number, (s: any) => any> = {
   }),
   // v2 -> v3: no outfits owned.
   2: (s) => ({ ...s, version: 3, outfits: {} }),
-  // v3 -> v4. Data-free: shipName starts as the ship id; worldFromPilot swaps in the hull's name.
+  // v3 -> v4. Data-free: shipName starts empty, which means "use the hull's name" wherever it is shown.
   3: (s) => ({
     ...s,
     version: 4,
     flags: [],
     notes: [],
-    shipName: String(s.shipId),
+    shipName: '',
     stats: { jobsDone: 0 },
     lastEncounterDay: null,
   }),
@@ -193,8 +193,8 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     outfits: Object.fromEntries(Object.entries(p.outfits).filter(([id]) => data.outfits[id].category !== 'map')),
     flags: [...p.flags],
     notes: p.notes.map((n) => ({ ...n })),
-    // A migrated v3 save carries the ship id here; show the hull's real name instead.
-    shipName: p.shipName === p.shipId ? data.ships[p.shipId].name : p.shipName,
+    // '' (a migrated v3 save, or never named) stays as is; shipDisplayName resolves it for display.
+    shipName: p.shipName,
     stats: { ...p.stats },
     lastEncounterDay: p.lastEncounterDay,
   };

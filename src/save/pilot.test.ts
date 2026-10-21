@@ -3,6 +3,7 @@ import { testData } from '../data/testData';
 import { newWorld } from '../sim/world';
 import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
+import { shipDisplayName } from '../sim/shipyard';
 import { CURRENT_SAVE_VERSION, pilotFromWorld, SaveError, upgradeSave, worldFromPilot } from './pilot';
 
 const data = testData();
@@ -104,7 +105,7 @@ describe('pilot', () => {
     const up = upgradeSave(JSON.parse(JSON.stringify(v2)));
     expect(up.version).toBe(4);
     expect(up.outfits).toEqual({});
-    expect(up).toEqual({ ...v3, shipName: v3.shipId }); // migration placeholder; worldFromPilot restores the hull name
+    expect(up).toEqual({ ...v3, shipName: '' }); // migration writes an empty name = use the hull name
     const w = worldFromPilot(up, data);
     expect(w.outfits).toEqual({});
     expect(w.cargo).toEqual({ food: 3 });
@@ -145,13 +146,15 @@ describe('pilot', () => {
     expect(() => upgradeSave({ ...p, version: 5 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
   });
 
-  it('migration 3 -> 4 fills the story fields; shipName falls back to the ship id', () => {
+  it('migration 3 -> 4 fills the story fields; shipName starts empty', () => {
     const v4 = pilotFromWorld(newWorld(data, 5), start, { id: 'a', name: 'A' });
     const { flags: _f, notes: _n, shipName: _s, stats: _st, lastEncounterDay: _l, ...rest } = v4;
     const up = upgradeSave(JSON.parse(JSON.stringify({ ...rest, version: 3 })));
-    expect(up).toMatchObject({ version: 4, flags: [], notes: [], shipName: v4.shipId, stats: { jobsDone: 0 }, lastEncounterDay: null });
-    // worldFromPilot swaps the placeholder for the hull's real name.
-    expect(worldFromPilot(up, data).shipName).toBe(data.ships[v4.shipId].name);
+    expect(up).toMatchObject({ version: 4, flags: [], notes: [], shipName: '', stats: { jobsDone: 0 }, lastEncounterDay: null });
+    // The loader keeps '' as is; shipDisplayName resolves it to the hull's name.
+    const w = worldFromPilot(up, data);
+    expect(w.shipName).toBe('');
+    expect(shipDisplayName(w.shipName, w.shipId, data)).toBe(data.ships[v4.shipId].name);
   });
 
   it('a v3 save with missions and outfits round-trips through v4', () => {

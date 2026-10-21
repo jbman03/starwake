@@ -112,6 +112,7 @@
 }
 .sw-pilot-meta { min-width: 0; flex: 1 1 160px; }
 .sw-pilot-name { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-pilot-ship { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sw-pilot-saved { font-size: 13px; color: var(--sw-dim); }
 .sw-pilot-actions { display: flex; gap: 6px; }
 .sw-pilot-actions > .sw-btn { width: auto; justify-content: center; }

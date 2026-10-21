@@ -4,6 +4,7 @@ import { HIDDEN_LANE_FLAG, hopDistance, revealOnArrival, revealWithin } from './
 import { accept, buildOffer } from './missions';
 import { hashString, mulberry32, pick } from './random';
 import { worldStats } from './shipStats';
+import { shipDisplayName } from './shipyard';
 import { addNote, hasFlag, setFlag } from './story';
 import type { Mission, WorldState } from './types';
 
@@ -153,7 +154,7 @@ function runChoice(
   ctx: { npcName: string },
 ): { world: WorldState; messages: string[]; missions: Mission[]; refused: boolean } {
   let refused = false;
-  const text = { ship: ctx.npcName, system: data.systems[world.systemId]?.name ?? world.systemId, pilot: world.shipName, hub: hubName(data) };
+  const text = { ship: ctx.npcName, system: data.systems[world.systemId]?.name ?? world.systemId, pilot: shipDisplayName(world.shipName, world.shipId, data), hub: hubName(data) };
   const messages: string[] = [];
   const missions: Mission[] = [];
   let w = world;

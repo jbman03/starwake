@@ -26,13 +26,23 @@ export const SHIP_BLOCK_TEXT: Record<ShipBlock, string> = {
 export const boughtFlag = (shipId: string): string => `bought:${shipId}`;
 
 /** What the yard pays for the current ship: 75% of the hull plus 50% of every fitted outfit. */
-export function tradeInValue(world: WorldState, data: GameData): number {
+export function tradeInValue(world: Pick<WorldState, 'shipId' | 'outfits'>, data: GameData): number {
   let total = Math.floor(0.75 * data.ships[world.shipId].price);
   for (const [id, count] of Object.entries(world.outfits)) {
     const def = data.outfits[id];
     if (def && count > 0) total += Math.floor(0.5 * def.price * count);
   }
   return total;
+}
+
+/** Credits plus what the yard would pay for the ship and its fitted outfits. */
+export function netWorth(w: Pick<WorldState, 'credits' | 'shipId' | 'outfits'>, data: GameData): number {
+  return w.credits + tradeInValue(w, data);
+}
+
+/** The name to show for a ship: its own name, or the hull's when it has none ('' means unnamed). */
+export function shipDisplayName(shipName: string, shipId: string, data: GameData): string {
+  return shipName || data.ships[shipId]?.name || shipId;
 }
 
 /** Price, trade-in, net cost and whether the swap is allowed. Check order: notSold, owned, locked, cargo, passengers, credits. */

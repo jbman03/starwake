@@ -2,7 +2,8 @@ import { jumpsOf } from '../sim/fuel';
 import { SHIP_BLOCK_TEXT } from '../sim/shipyard';
 import { shipStock } from '../sim/stock';
 import type { UiContext } from './context';
-import { confirmDialog, formatCredits } from './dom';
+import { confirmDialog, formatCredits, promptDialog } from './dom';
+import { cleanPilotName, NAME_MAX } from './mainMenu';
 import { shipIcon } from './icons';
 import { infoBlock, showShop, type ShopItem } from './shop';
 
@@ -84,8 +85,18 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
       });
       if (!ok) return;
       const r = controller.buyShip(id);
-      if (r.check.ok) say(`You now fly the ${to}.`);
-      else say(SHIP_BLOCK_TEXT[r.check.reason], true);
+      if (!r.check.ok) return say(SHIP_BLOCK_TEXT[r.check.reason], true);
+      // Cancel (Esc) keeps the hull's own name.
+      const raw = await promptDialog(ctx.root, {
+        title: `Name your ${to}`,
+        label: 'Ship name',
+        value: to,
+        maxLength: NAME_MAX,
+        confirm: 'Name ship',
+      });
+      const named = raw === null ? to : cleanPilotName(raw);
+      controller.nameShip(named);
+      say(named === to ? `You now fly the ${to}.` : `You now fly the ${to}, ${named}.`);
     },
   });
 }

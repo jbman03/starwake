@@ -1,11 +1,15 @@
-import { SaveError, worldFromPilot } from '../save/pilot';
+import { SaveError, worldFromPilot, type PilotSave } from '../save/pilot';
+import type { GameData } from '../data/schemas';
+import { formatDate } from '../sim/calendar';
+import { visibleSystems } from '../sim/galaxy';
+import { netWorth, shipDisplayName } from '../sim/shipyard';
 import { importPilot } from '../save/transfer';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { replayWhere } from './guideHint';
 import { showHowToPlay } from './howToPlay';
 import { showSettings } from './settingsScreen';
-import { button, confirmDialog, el, hotkeyFor, promptDialog } from './dom';
+import { button, confirmDialog, el, formatCredits, hotkeyFor, promptDialog } from './dom';
 import { randomPilotName } from '../save/pilotNames';
 
 export const NAME_MAX = 24;
@@ -25,9 +29,33 @@ export function saveErrorText(err: unknown, verb: string): string {
   return `This pilot couldn't be ${verb}: the file or save is damaged.`;
 }
 
-function formatSavedAt(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : `Saved ${d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`;
+/** The lines of a pilot's main-menu card. */
+export interface PilotCard {
+  name: string;
+  shipLine: string;
+  credits: string;
+  netWorth: string;
+  date: string;
+  explored: string;
+  jobs: string;
+}
+
+export function pilotCard(save: PilotSave, data: GameData): PilotCard {
+  const hull = data.ships[save.shipId]?.name ?? save.shipId;
+  const ship = shipDisplayName(save.shipName, save.shipId, data).slice(0, NAME_MAX);
+  const visible = new Set(visibleSystems(data, save.flags).map((s) => s.id));
+  // A pre-chart save has no known systems; count the opening chart plus where the pilot is, like the loader.
+  const known = save.known.length ? save.known : [...data.config.knownAtStart, save.systemId];
+  const seen = new Set(known.filter((id) => visible.has(id)));
+  return {
+    name: save.name,
+    shipLine: `${ship} — ${hull}`,
+    credits: formatCredits(save.credits),
+    netWorth: formatCredits(netWorth(save, data)),
+    date: formatDate(save.day, data.config),
+    explored: `${seen.size}/${visible.size} systems`,
+    jobs: `${save.stats.jobsDone} ${save.stats.jobsDone === 1 ? 'job' : 'jobs'}`,
+  };
 }
 
 /** Title screen: pilot list (Load / Rename / Delete), New Pilot and Import. */
@@ -60,19 +88,22 @@ export function showMainMenu(ctx: UiContext): void {
       return;
     }
     list.replaceChildren(
-      ...pilots.map((p) =>
-        el('li', { class: 'sw-pilot' }, [
+      ...pilots.map((p) => {
+        const c = pilotCard(p.save, data);
+        return el('li', { class: 'sw-pilot' }, [
           el('div', { class: 'sw-pilot-meta' }, [
-            el('div', { class: 'sw-pilot-name', text: p.name }),
-            el('div', { class: 'sw-pilot-saved', text: formatSavedAt(p.savedAt) }),
+            el('div', { class: 'sw-pilot-name', text: c.name }),
+            el('div', { class: 'sw-pilot-ship', text: c.shipLine }),
+            el('div', { class: 'sw-pilot-saved', text: `${c.credits} · net worth ${c.netWorth}` }),
+            el('div', { class: 'sw-pilot-saved', text: `${c.date} · ${c.explored} · ${c.jobs} done` }),
           ]),
           el('div', { class: 'sw-pilot-actions' }, [
             button('Load', guarded(() => load(p.id)), { class: 'sw-btn-primary' }),
             button('Rename', guarded(() => rename(p.id, p.name))),
             button('Delete', guarded(() => remove(p.id, p.name)), { class: 'sw-btn-danger' }),
           ]),
-        ]),
-      ),
+        ]);
+      }),
     );
   }
 

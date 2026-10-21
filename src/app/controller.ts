@@ -21,7 +21,7 @@ import {
   type AcceptCheck,
   type MissionOffer,
 } from '../sim/missions';
-import { buyShip, shipQuote, type ShipQuote } from '../sim/shipyard';
+import { buyShip, shipDisplayName, shipQuote, type ShipQuote } from '../sim/shipyard';
 import { addNote, setFlag } from '../sim/story';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
@@ -429,6 +429,11 @@ export class Controller {
     return r.quote;
   }
 
+  /** Name the ship the pilot flies (the caller cleans the text first). */
+  nameShip(name: string): void {
+    this.world = { ...this.world, shipName: name };
+  }
+
   /** The pilot has read the survey-ship rumour: remember it as a flag and a note. */
   noteRumour(text: string): void {
     this.world = addNote(setFlag(this.world, 'survey-rumour'), text);
@@ -638,7 +643,7 @@ export class Controller {
   encounterView(): EncounterView | null {
     const p = this.pending;
     if (!p) return null;
-    const ctx = { ship: p.npcName, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: this.world.shipName, hub: hubName(this.data) };
+    const ctx = { ship: p.npcName, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: shipDisplayName(this.world.shipName, this.world.shipId, this.data), hub: hubName(this.data) };
     return {
       title: fillText(p.def.title, ctx),
       text: fillText(p.def.text, ctx),

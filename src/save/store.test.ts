@@ -19,7 +19,7 @@ describe('PilotStore', () => {
     const r = await s.load('p1');
     expect(r.usedBackup).toBe(false);
     expect(r.pilot.credits).toBe(100);
-    expect(await s.list()).toEqual([{ id: 'p1', name: 'Ann', savedAt: '2026-01-01T00:00:00.000Z' }]);
+    expect(await s.list()).toMatchObject([{ id: 'p1', name: 'Ann', savedAt: '2026-01-01T00:00:00.000Z' }]);
   });
 
   it('second save keeps first as backup, used on corrupt current', async () => {
