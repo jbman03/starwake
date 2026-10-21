@@ -4,7 +4,7 @@ import { hasFlag, setFlag } from './story';
 import { shipStock } from './stock';
 import type { WorldState } from './types';
 
-export type ShipBlock = 'credits' | 'cargo' | 'passengers' | 'owned' | 'notSold' | 'locked';
+export type ShipBlock = 'credits' | 'cargo' | 'passengers' | 'owned' | 'gone' | 'notSold' | 'locked';
 
 export interface ShipQuote {
   price: number;
@@ -18,6 +18,7 @@ export const SHIP_BLOCK_TEXT: Record<ShipBlock, string> = {
   cargo: 'Your cargo will not fit in that hold.',
   passengers: 'That hull has too few berths for your passengers.',
   owned: 'You already fly this ship.',
+  gone: "Sold once — she's gone.",
   notSold: 'This yard does not build that hull.',
   locked: 'Ask about the old survey ship',
 };
@@ -27,7 +28,9 @@ export const boughtFlag = (shipId: string): string => `bought:${shipId}`;
 
 /** What the yard pays for the current ship: 75% of the hull plus 50% of every fitted outfit. */
 export function tradeInValue(world: Pick<WorldState, 'shipId' | 'outfits'>, data: GameData): number {
-  let total = Math.floor(0.75 * data.ships[world.shipId].price);
+  const hull = data.ships[world.shipId];
+  if (!hull) return 0; // a hull this version doesn't have: the yard can't price it
+  let total = Math.floor(0.75 * hull.price);
   for (const [id, count] of Object.entries(world.outfits)) {
     const def = data.outfits[id];
     if (def && count > 0) total += Math.floor(0.5 * def.price * count);
@@ -45,7 +48,12 @@ export function shipDisplayName(shipName: string, shipId: string, data: GameData
   return shipName || data.ships[shipId]?.name || shipId;
 }
 
-/** Price, trade-in, net cost and whether the swap is allowed. Check order: notSold, owned, locked, cargo, passengers, credits. */
+/** Is the hull withdrawn from the yard's list because the story flag that hides it is set? */
+export function shipHidden(world: Pick<WorldState, 'flags'>, hull: { hiddenByFlag?: string }): boolean {
+  return !!hull.hiddenByFlag && world.flags.includes(hull.hiddenByFlag);
+}
+
+/** Price, trade-in, net cost and whether the swap is allowed. Check order: notSold, owned, gone, locked, cargo, passengers, credits. */
 export function shipQuote(world: WorldState, data: GameData, planetId: string, shipId: string): ShipQuote {
   const hull = data.ships[shipId];
   const tradeIn = tradeInValue(world, data);
@@ -53,7 +61,8 @@ export function shipQuote(world: WorldState, data: GameData, planetId: string, s
   const net = price - tradeIn;
   const result = (check: ShipQuote['check']): ShipQuote => ({ price, tradeIn, net, check });
   if (!hull || !shipStock(planetId, data).some((s) => s.id === shipId)) return result({ ok: false, reason: 'notSold' });
-  if (world.shipId === shipId || (hull.unique && hasFlag(world, boughtFlag(shipId)))) return result({ ok: false, reason: 'owned' });
+  if (world.shipId === shipId) return result({ ok: false, reason: 'owned' });
+  if (hull.unique && hasFlag(world, boughtFlag(shipId))) return result({ ok: false, reason: 'gone' });
   if (hull.requiresFlag && !hasFlag(world, hull.requiresFlag)) return result({ ok: false, reason: 'locked' });
   if (cargoUsed(world) > hull.cargo) return result({ ok: false, reason: 'cargo' });
   const riders = world.missions.reduce((n, m) => n + m.passengers, 0);

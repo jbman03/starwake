@@ -82,10 +82,15 @@ function pickHull(data: GameData, systemId: string, r: () => number): ShipDef {
   return pool[pool.length - 1];
 }
 
+/** The lanes NPCs travel: never into a hidden system, so Hushwater stays off the traffic map. */
+export function npcLanes(world: WorldState, data: GameData): string[] {
+  return lanesOf(data, world.systemId, world.flags).filter((l) => !data.systems[l]?.hidden);
+}
+
 /** The lane an NPC uses to enter or leave, chosen from its id so it never needs storing. */
 function laneDir(world: WorldState, data: GameData, id: string, salt: string): { dir: Vec2; toId: string | null } {
   const sys = data.systems[world.systemId];
-  const lanes = lanesOf(data, world.systemId, world.flags);
+  const lanes = npcLanes(world, data);
   if (lanes.length === 0) return { dir: { x: 1, y: 0 }, toId: null };
   const toId = lanes[hashString(world.seed, salt, id) % lanes.length];
   const d = norm(sub(data.systems[toId].mapPos, sys.mapPos));

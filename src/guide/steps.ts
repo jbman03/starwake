@@ -85,10 +85,12 @@ function buyText(c: TextCtx): string {
   }
   // The exchange moves 10 t per press, so say how many presses are left.
   const left = BUY_TONS - (c.heldTons ?? 0);
+  const presses = Math.max(1, Math.ceil(left / 10));
+  const times = presses === 1 ? 'once' : presses === 2 ? 'twice' : `${presses} times`;
   if (left < BUY_TONS && left > 0) {
-    return touch(c) ? `${good}: tap Buy 10 once more.` : `${good} is cheap here. Buy ${left} more t (press ${c.key('buyGoods')}).`;
+    return touch(c) ? `${good}: tap Buy 10 ${presses === 1 ? 'once more' : `${times} more`}.` : `${good} is cheap here. Buy ${left} more t (press ${c.key('buyGoods')}${presses === 1 ? '' : ` ${times}`}).`;
   }
-  return touch(c) ? `${good}: tap Buy 10 twice.` : `${good} is cheap here. Buy ${BUY_TONS} t (press ${c.key('buyGoods')} twice).`;
+  return touch(c) ? `${good}: tap Buy 10 ${times}.` : `${good} is cheap here. Buy ${BUY_TONS} t (press ${c.key('buyGoods')} ${times}).`;
 }
 
 /** The 11 First Flight steps (spec 2.2). Each completes by itself when the player does the thing. */

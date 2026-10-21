@@ -73,7 +73,7 @@ describe('the survey-ship thread', () => {
     expect(shipQuote(bought, data, 'wrenhold', 'patience').check).toEqual({ ok: false, reason: 'owned' });
     // Swap away: the one-off hull can never be bought again.
     const away = buyShip({ ...bought, credits: 500_000 }, data, 'wrenhold', 'shuttle');
-    expect(shipQuote(away.world, data, 'wrenhold', 'patience').check).toEqual({ ok: false, reason: 'owned' });
+    expect(shipQuote(away.world, data, 'wrenhold', 'patience').check).toEqual({ ok: false, reason: 'gone' });
   });
 
   it('stripping the wreck pays 6000 and never unlocks the hull', () => {

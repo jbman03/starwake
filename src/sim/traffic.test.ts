@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import type { GameData } from '../data/schemas';
-import { npcLabel, seedTraffic, stepTraffic, trafficLevel, type Traffic } from './traffic';
+import { HIDDEN_LANE_FLAG, lanesOf } from './galaxy';
+import { npcLabel, npcLanes, seedTraffic, stepTraffic, trafficLevel, type Traffic } from './traffic';
 import { newWorld } from './world';
 import type { WorldState } from './types';
 
@@ -165,5 +166,17 @@ describe('npcLabel', () => {
     const w = worldIn('calder');
     const npc = { ...seedTraffic(w, data, 8).npcs[0], shipId: 'mule', government: 'concord', name: 'Brass Heron' };
     expect(npcLabel(npc, data)).toBe('Brass Heron — Concord Mule (freighter)');
+  });
+});
+
+describe('hidden systems', () => {
+  it('NPC lanes leave out a hidden system even with its lane open', () => {
+    const hid = Object.values(data.systems).find((s) => s.hidden)!;
+    expect(hid).toBeTruthy();
+    const from = Object.values(data.systems).find((s) => s.hiddenLinks?.includes(hid.id))!;
+    const w = { ...worldIn(from.id), flags: [HIDDEN_LANE_FLAG] };
+    expect(lanesOf(data, from.id, w.flags)).toContain(hid.id);
+    expect(npcLanes(w, data)).not.toContain(hid.id);
+    expect(npcLanes(w, data).length).toBeGreaterThan(0);
   });
 });

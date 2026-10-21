@@ -37,6 +37,7 @@ export const ShipSchema = z.object({
   soldAt: z.array(id).optional(), // port ids; absent = any port the tier and government allow
   unique: z.boolean().optional(), // a one-off hull, sold once
   requiresFlag: z.string().min(1).optional(), // story flag needed before it is offered
+  hiddenByFlag: z.string().min(1).optional(), // once this flag is set the yard no longer lists the hull
   chartJumps: z.number().int().positive().optional(), // built-in chart: reveals this many jumps on arrival
 });
 

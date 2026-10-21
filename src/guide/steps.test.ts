@@ -102,6 +102,14 @@ describe('step text', () => {
     expect(STEPS[6].text(ctx())).toContain('Tessaly');
     expect(STEPS[8].text(ctx())).toContain('Vanterre');
   });
+  it('counts presses from the tons still to buy', () => {
+    const e = (heldTons: number, mode: 'touch' | 'keyboard') => STEPS[1].text(ctx({ screen: 'exchange', mode, heldTons }));
+    expect(e(0, 'touch')).toBe('Food: tap Buy 10 twice.');
+    expect(e(5, 'touch')).toBe('Food: tap Buy 10 twice more.');
+    expect(e(10, 'touch')).toBe('Food: tap Buy 10 once more.');
+    expect(e(5, 'keyboard')).toContain('Buy 15 more t (press KeyB twice)');
+    expect(e(10, 'keyboard')).toContain('Buy 10 more t (press KeyB)');
+  });
   it('uses the supplied key labels', () => {
     expect(STEPS[1].text(ctx({ screen: 'exchange', key: (a) => (a === 'buyGoods' ? 'Q' : '?') }))).toContain('press Q twice');
   });

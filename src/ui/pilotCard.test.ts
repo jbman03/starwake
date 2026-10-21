@@ -30,6 +30,11 @@ describe('pilotCard', () => {
     expect(c.jobs).toBe('3 jobs');
   });
 
+  it('a save with a hull this version lacks still gets a card; net worth is its credits', () => {
+    const c = pilotCard(save({ shipId: 'gone-hull', shipName: '' }), data);
+    expect(c.netWorth).toBe('1,234 cr');
+  });
+
   it('an empty ship name shows the hull name', () => {
     const hull = data.ships[newWorld(data, 5).shipId].name;
     expect(pilotCard(save({ shipName: '' }), data).shipLine).toBe(`${hull} — ${hull}`);

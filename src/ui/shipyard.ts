@@ -1,5 +1,5 @@
 import { jumpsOf } from '../sim/fuel';
-import { SHIP_BLOCK_TEXT } from '../sim/shipyard';
+import { SHIP_BLOCK_TEXT, shipHidden } from '../sim/shipyard';
 import { shipStock } from '../sim/stock';
 import type { UiContext } from './context';
 import { confirmDialog, formatCredits, promptDialog } from './dom';
@@ -16,7 +16,9 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
   const port = data.planets[planetId];
 
   const items = (): ShopItem[] =>
-    shipStock(planetId, data).map((def) => {
+    shipStock(planetId, data)
+      .filter((def) => !shipHidden(controller.world, def))
+      .map((def) => {
       const q = controller.shipQuote(def.id);
       const w = controller.world;
       const owned = w.shipId === def.id;
