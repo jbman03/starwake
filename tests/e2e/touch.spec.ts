@@ -206,25 +206,46 @@ test.describe('phone (touch, landscape)', () => {
     });
     await expect(page.getByTestId('context-button')).toHaveText(/open site/i);
 
-    // Nothing in the DOM covers the camera view except the rails, the context button and the canvas's own ancestors.
-    const offenders = await page.evaluate((v) => {
-      const out: string[] = [];
-      const canvas = document.querySelector('canvas');
-      const allowed = [document.querySelector('[data-testid="touch-rails"]'), document.querySelector('[data-testid="context-button"]')];
-      for (const e of Array.from(document.body.querySelectorAll('*'))) {
-        if (e === canvas || e.contains(canvas) || allowed.some((a) => a && e.contains(a)) || e.closest('[data-testid="touch-rails"]') || e.closest('[data-testid="context-button"]')) continue;
-        const cs = getComputedStyle(e);
-        if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
-        if (e.childElementCount === 0 && !e.textContent?.trim() && cs.pointerEvents === 'none') continue; // an empty click-through layer (#ui with no screen open)
-        const r = e.getBoundingClientRect();
-        if (r.width === 0 || r.height === 0) continue;
-        if (r.left < v.x + v.w && v.x < r.right && r.top < v.y + v.h && v.y < r.bottom) {
-          out.push(`${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}.${String((e as HTMLElement).className)} ${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+    // No autopilot is running, so the route banner (inside the clear region) must be empty.
+    await expect(page.getByTestId('route-banner')).toHaveText('');
+
+    // Nothing in the DOM covers the camera view except the two rails, the context button, and the
+    // transparent #touch / #ui layers. Everything else (banner, scrims, dialogs) is reported.
+    const findOverlaps = (v: Rect): Promise<string[]> =>
+      page.evaluate((v) => {
+        const out: string[] = [];
+        const canvas = document.querySelector('canvas');
+        const transparent = (e: Element) => {
+          const cs = getComputedStyle(e);
+          return cs.pointerEvents === 'none' && cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.backgroundImage === 'none';
+        };
+        for (const e of Array.from(document.body.querySelectorAll('*'))) {
+          if (e === canvas || e.contains(canvas)) continue;
+          if (e.closest('[data-rail]') || e.closest('[data-testid="context-button"]')) continue;
+          if (e.id === 'ui' && e.childElementCount === 0 && transparent(e)) continue;
+          if ((e.id === 'touch' || e.getAttribute('data-testid') === 'touch-rails') && transparent(e)) continue;
+          const cs = getComputedStyle(e);
+          if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
+          const r = e.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+          if (r.left < v.x + v.w && v.x < r.right && r.top < v.y + v.h && v.y < r.bottom) {
+            out.push(`${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}.${String((e as HTMLElement).className)} ${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+          }
         }
-      }
-      return out;
-    }, view);
+        return out;
+      }, v);
+    const offenders = await findOverlaps(view);
     expect(offenders).toEqual([]);
+
+    // Negative control: a 100x100 box in the view centre must be reported.
+    await page.evaluate((v) => {
+      const d = document.createElement('div');
+      d.id = 'overlap-probe';
+      d.style.cssText = `position:fixed;left:${v.x + v.w / 2 - 50}px;top:${v.y + v.h / 2 - 50}px;width:100px;height:100px;background:red`;
+      document.body.appendChild(d);
+    }, view);
+    expect((await findOverlaps(view)).some((o) => o.includes('#overlap-probe'))).toBe(true);
+    await page.evaluate(() => document.getElementById('overlap-probe')!.remove());
     expect(errors).toEqual([]);
   });
 
