@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { newPilot } from './helpers';
+import { newPilot, waitForFlight } from './helpers';
 
 test('PC sidebar shows on a wide window, narrows the view, and its Map button opens the map', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -26,7 +26,7 @@ test.describe('touch mode', () => {
   test('the sidebar is not shown in touch mode, even on a wide window', async ({ page }) => {
     await newPilot(page);
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(640, 30);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar?.().visible)).toBe(false);

@@ -33,6 +33,8 @@ export interface TextCtx {
   buyPort?: string;
   /** The plotted route ends in the target system (or the ship is there or jumping there). */
   routeOk: boolean;
+  /** Tons of the target good in the hold, for the Buy step's progress. */
+  heldTons?: number;
 }
 
 export interface StepDef {
@@ -51,7 +53,7 @@ export const FLY_DISTANCE = 300;
  * The final card (step 11) is never shown in the rail.
  */
 export const TOUCH_HINT_MAX_CHARS = 44;
-export const BUY_TONS = 10;
+export const BUY_TONS = 20;
 
 const goodName = (c: TextCtx): string => c.data.commodities[c.target.good]?.name ?? c.target.good;
 const systemName = (c: TextCtx): string => c.data.systems[c.target.system]?.name ?? c.target.system;
@@ -81,7 +83,14 @@ function buyText(c: TextCtx): string {
   if (c.screen !== 'exchange') {
     return touch(c) ? `Exchange: buy ${BUY_TONS} t of ${good}.` : `Open the exchange (${c.key('openExchange')}) and buy ${BUY_TONS} t of ${good}.`;
   }
-  return touch(c) ? `${good} is cheap here. Buy ${BUY_TONS} t.` : `${good} is cheap here. Buy ${BUY_TONS} t (${c.key('buyGoods')}).`;
+  // The exchange moves 10 t per press, so say how many presses are left.
+  const left = BUY_TONS - (c.heldTons ?? 0);
+  const presses = Math.max(1, Math.ceil(left / 10));
+  const times = presses === 1 ? 'once' : presses === 2 ? 'twice' : `${presses} times`;
+  if (left < BUY_TONS && left > 0) {
+    return touch(c) ? `${good}: tap Buy 10 ${presses === 1 ? 'once more' : `${times} more`}.` : `${good} is cheap here. Buy ${left} more t (press ${c.key('buyGoods')}${presses === 1 ? '' : ` ${times}`}).`;
+  }
+  return touch(c) ? `${good}: tap Buy 10 ${times}.` : `${good} is cheap here. Buy ${BUY_TONS} t (press ${c.key('buyGoods')} ${times}).`;
 }
 
 /** The 11 First Flight steps (spec 2.2). Each completes by itself when the player does the thing. */

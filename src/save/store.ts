@@ -35,13 +35,14 @@ export class PilotStore {
     return get(keyOf(id), this.store);
   }
 
-  async list(): Promise<{ id: string; name: string; savedAt: string }[]> {
-    const out: { id: string; name: string; savedAt: string }[] = [];
+  /** One row per readable pilot; `save` is the full upgraded save, for the main menu's pilot card. */
+  async list(): Promise<{ id: string; name: string; savedAt: string; save: PilotSave }[]> {
+    const out: { id: string; name: string; savedAt: string; save: PilotSave }[] = [];
     for (const k of await keys(this.store)) {
       if (typeof k !== 'string' || !k.startsWith(PREFIX)) continue;
       const entry = await get(k, this.store);
       const p = tryUpgrade(entry?.current) ?? tryUpgrade(entry?.backup);
-      if (p) out.push({ id: p.id, name: p.name, savedAt: p.savedAt });
+      if (p) out.push({ id: p.id, name: p.name, savedAt: p.savedAt, save: p });
     }
     return out;
   }

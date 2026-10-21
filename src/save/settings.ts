@@ -11,6 +11,7 @@ export interface Settings {
     vibration: boolean;
   };
   volume: number; // 0-1
+  muted: boolean;
   quality: 'low' | 'high';
   autoLandOnArrival: boolean;
 }
@@ -21,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   bindings: resetBindings(),
   touch: { mirror: false, buttonSize: 'M', opacity: 0.85, steering: 'point', vibration: true },
   volume: 0.8,
+  muted: false,
   quality: 'high',
   autoLandOnArrival: true,
 };
@@ -44,6 +46,9 @@ function mergeBindings(raw: unknown): Bindings {
     if (Array.isArray(v) && v.length === 2 && isSlot(v[0]) && isSlot(v[1])) out[id] = [v[0], v[1]];
     else fresh.push(id);
   }
+  // The old default for the star map was ['KeyM', null]; move it to the new default when KeyN is free.
+  const m = out.map;
+  if (m[0] === 'KeyM' && m[1] === null && !findConflict(out, 'map', 'KeyN')) out.map = ['KeyN', 'KeyM'];
   // Actions added since these settings were saved keep their default keys only where the pilot
   // hasn't already put that key on another action in the same group.
   for (const id of fresh) {
@@ -66,6 +71,7 @@ function merge(raw: unknown): Settings {
       vibration: bool(t.vibration, d.touch.vibration),
     },
     volume: num(raw.volume, d.volume, 0, 1),
+    muted: bool(raw.muted, d.muted),
     quality: oneOf(raw.quality, ['low', 'high'] as const, d.quality),
     autoLandOnArrival: bool(raw.autoLandOnArrival, d.autoLandOnArrival),
   };

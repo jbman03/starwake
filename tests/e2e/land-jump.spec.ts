@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { newPilot, trackErrors } from './helpers';
+import { newPilot, trackErrors, waitForFlight } from './helpers';
 
 const pilots = (page: import('@playwright/test').Page) =>
   page.evaluate(() => window.__starwake!.store.list());
@@ -22,7 +22,7 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   // L on the planet screen leaves.
   await page.keyboard.press('KeyL');
   await expect(planet).toBeHidden();
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
 
   // L in flight lands (parked at the edge, so immediately); planet screen returns and autosaves.
   await page.waitForTimeout(100);
@@ -37,7 +37,7 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   // Vesk is plotted through the test hook (starmap.spec.ts plots one on the star map).
   await page.getByRole('button', { name: /^Leave/ }).click();
   await expect(planet).toBeHidden();
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
   expect(await page.evaluate(() => window.__starwake!.world().targetPlanetId)).toBeNull();
   expect(await page.evaluate(() => window.__starwake!.controller.plotRoute('vesk').ok)).toBe(true);
   await page.waitForTimeout(100);
@@ -71,7 +71,7 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   // Escape (back) resumes.
   await page.keyboard.press('Escape');
   await expect(pause).toBeHidden();
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
 
   // M opens the map (on the current system, now Vesk); M closes it.
   await page.keyboard.press('KeyM');
@@ -81,7 +81,7 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
   await expect(map.getByTestId('map-route')).toHaveText('You are here');
   await page.keyboard.press('KeyM');
   await expect(map).toBeHidden();
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
 
   expect(errors).toEqual([]);
 });
@@ -90,7 +90,7 @@ test('quit to main menu asks for confirmation; load and delete pilots', async ({
   const errors = trackErrors(page);
   await newPilot(page, 'Bo');
   await page.keyboard.press('KeyL');
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
   await page.waitForTimeout(100);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Quit to main menu' }).click();
@@ -104,7 +104,7 @@ test('quit to main menu asks for confirmation; load and delete pilots', async ({
   await menu.getByRole('button', { name: 'Load' }).click();
   await expect(page.getByTestId('planet-screen')).toContainText('Halcyon');
   await page.keyboard.press('KeyL');
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
   await page.waitForTimeout(100);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Quit to main menu' }).click();

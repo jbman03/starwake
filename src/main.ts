@@ -1,4 +1,5 @@
 import './ui/styles.css';
+import { SoundBoard } from './audio/sfx';
 import { Controller } from './app/controller';
 import { WakeLockManager, vibrateIfEnabled, type WakeLockApi } from './app/device';
 import { installTestHook, testFlags } from './app/testHook';
@@ -41,6 +42,23 @@ async function boot(): Promise<void> {
   controller.store = store;
   installTestHook(controller, data, store);
   const inputMode = new InputMode(window, () => settings.bindings);
+
+  // Sound: the audio context wakes on the first key or tap; events play their effects.
+  const sound = new SoundBoard(() => settings);
+  // Touch pointerdown and Escape are not activating gestures, so keep listening until the context runs.
+  const unlockEvents = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown', 'keyup'];
+  const unlockSound = () => {
+    sound.unlock();
+    if (!sound.running()) return;
+    for (const t of unlockEvents) window.removeEventListener(t, unlockSound);
+  };
+  for (const t of unlockEvents) window.addEventListener(t, unlockSound);
+  controller.on('arrived', () => sound.play('arrive'));
+  controller.on('landed', () => sound.play('land'));
+  controller.on('missionsCompleted', () => sound.play('paid'));
+  controller.on('sfx', (e) => sound.play(e.sfx));
+  // The hum follows the engine, and stops whenever flight is paused or the ship is not flying.
+  setInterval(() => sound.setThrust(document.visibilityState === 'visible' && controller.isFlying && controller.view().thrusting), 50);
 
   // Nothing stays held when the app is backgrounded.
   const releaseInputs = () => controller.releaseInputs();

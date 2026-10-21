@@ -11,7 +11,7 @@ const none = () => null;
 describe('formatMessage', () => {
   it('uses default bindings', () => {
     expect(formatMessage(MSG_TOO_CLOSE, defaults, false)).toBe('Too close to the star to jump. Use autopilot (G) to fly out.');
-    expect(formatMessage(MSG_NO_DESTINATION, defaults, false)).toBe('Choose a destination on the star map (M).');
+    expect(formatMessage(MSG_NO_DESTINATION, defaults, false)).toBe('Choose a destination on the star map (N).');
   });
   it('follows a rebound key', () => {
     const k = (a: ActionId) => (a === 'autopilot' ? 'P' : a === 'map' ? 'N' : null);

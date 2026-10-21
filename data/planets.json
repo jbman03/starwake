@@ -33,7 +33,7 @@
 
   {
     "id": "concordance", "name": "Concordance", "systemId": "aurelle", "pos": { "x": 500, "y": -600 }, "radius": 72, "techTier": 5, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions", "outfitter"], "market": { "luxury": "high", "industrial": "low", "equipment": "low", "medical": "med", "food": "high", "glowmoss": "high" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "luxury": "high", "stillwater-pearl": "high", "industrial": "low", "equipment": "low", "medical": "med", "food": "high", "glowmoss": "high" },
     "description": "The seat of the Concord, a planet of white arcades and lantern-lined boulevards. Every treaty in the core was signed here, usually after a very good lunch."
   },
   {
@@ -82,7 +82,7 @@
 
   {
     "id": "hollis-landing", "name": "Hollis Landing", "systemId": "hollis", "pos": { "x": 600, "y": -350 }, "radius": 56, "techTier": 4, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "equipment": "low", "metal": "high", "food": "med", "industrial": "med", "luxury": "high" },
+    "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "equipment": "low", "metal": "high", "food": "med", "industrial": "med", "luxury": "high", "stillwater-pearl": "high" },
     "description": "The last proper Concord port before the Reach, all outfitters and survey offices. Prospectors buy their tools here and their courage somewhere else."
   },
   {
@@ -227,5 +227,10 @@
     "id": "gull-rock", "name": "Gull Rock", "systemId": "skerry", "pos": { "x": 700, "y": -500 }, "radius": 36, "techTier": 1, "fuelPrice": 5, "kind": "planet",
     "services": [],
     "description": "A bare stack of black stone with one abandoned hut on top. The hut's door is unlocked, and someone keeps leaving the kettle full."
+  },
+  {
+    "id": "quiet-shoal", "name": "Quiet Shoal", "systemId": "hushwater", "pos": { "x": 300, "y": -350 }, "radius": 34, "techTier": 1, "fuelPrice": 6, "kind": "planet",
+    "services": ["exchange"], "market": { "stillwater-pearl": "low", "food": "high", "medical": "high" },
+    "description": "A pale, flat little world ringed by tide pools that never freeze and never quite boil. The few families here keep their voices low, as if the water were listening."
   }
 ]

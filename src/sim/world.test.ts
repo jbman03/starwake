@@ -668,7 +668,7 @@ describe('setRoute to a mission destination', () => {
     const r = setRoute(taken, data, 'brackwater');
     expect(r.ok).toBe(true);
     expect(r.world.route.at(-1)).toBe('brackwater');
-    expect(r.world.route.length).toBe(hopDistance(data, w.systemId, 'brackwater'));
+    expect(r.world.route.length).toBe(hopDistance(data, w.systemId, 'brackwater', []));
   });
 
   it('routes through any lane only for an active mission target', () => {
@@ -681,5 +681,11 @@ describe('setRoute to a mission destination', () => {
     const r = setRoute({ ...w, missions: [m] }, data, 'thistle');
     expect(r.ok).toBe(true);
     expect(r.world.route.at(-1)).toBe('thistle');
+  });
+
+  it('newWorld starts with empty story fields and the start ship name', () => {
+    const w = newWorld(data, 1);
+    expect(w).toMatchObject({ flags: [], notes: [], stats: { jobsDone: 0 }, lastEncounterDay: null });
+    expect(w.shipName).toBe(data.ships[data.config.startShipId].name);
   });
 });

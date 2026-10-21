@@ -9,18 +9,19 @@ export function governmentOf(planetId: string, data: GameData): string {
 /** True when the port's tier is high enough and, if the item is restricted, its government is listed. */
 export function sells(
   planetId: string,
-  item: { techTier: number; soldBy?: string[] },
+  item: { techTier: number; soldBy?: string[]; soldAt?: string[] },
   data: GameData,
 ): boolean {
   const p = data.planets[planetId];
   if (!p || p.techTier < item.techTier) return false;
+  if (item.soldAt && !item.soldAt.includes(planetId)) return false;
   return !item.soldBy || item.soldBy.includes(governmentOf(planetId, data));
 }
 
 const byTierThenPrice = (a: { techTier: number; price: number }, b: { techTier: number; price: number }) =>
   a.techTier - b.techTier || a.price - b.price;
 
-function stock<T extends { techTier: number; price: number; soldBy?: string[] }>(
+function stock<T extends { techTier: number; price: number; soldBy?: string[]; soldAt?: string[] }>(
   planetId: string,
   service: 'shipyard' | 'outfitter',
   items: Record<string, T>,

@@ -8,11 +8,13 @@ import commodities from '../../data/commodities.json';
 import events from '../../data/events.json';
 import missionTypes from '../../data/missionTypes.json';
 import outfits from '../../data/outfits.json';
+import names from '../../data/names.json';
+import encounters from '../../data/encounters.json';
 import { parseGameData, DataError, loadGameData } from './load';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
-  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits }) as {
+  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters }) as {
   ships: any[];
   systems: any[];
   planets: any[];
@@ -22,6 +24,8 @@ const raw = () =>
   events: any[];
   missionTypes: any[];
   outfits: any[];
+  names: { first: string[]; second: string[] };
+  encounters: any[];
 };
 
 const port = (r: ReturnType<typeof raw>, id: string) => r.planets.find((p) => p.id === id);
@@ -41,7 +45,7 @@ describe('game data', () => {
     const d = parseGameData(raw());
     expect(d.ships.shuttle.maxSpeed).toBe(300);
     expect(d.systems.calder.links[0]).toBe('vesk');
-    expect(Object.keys(d.systems)).toHaveLength(20);
+    expect(Object.keys(d.systems)).toHaveLength(21);
     expect(d.config.startPlanetId).toBe('halcyon');
   });
 
@@ -198,15 +202,15 @@ describe('galaxy content', () => {
     return out;
   }
 
-  it('has exactly 20 systems: 7 concord, 8 free-reach, 5 independent', () => {
-    expect(systemList).toHaveLength(20);
+  it('has 21 systems: 7 concord, 8 free-reach, 6 independent (including hidden Hushwater)', () => {
+    expect(systemList).toHaveLength(21);
     expect(govOf('concord')).toHaveLength(7);
     expect(govOf('free-reach')).toHaveLength(8);
-    expect(govOf('independent')).toHaveLength(5);
+    expect(govOf('independent')).toHaveLength(6);
   });
 
   it('every system has 2-4 links and 0-4 ports', () => {
-    for (const s of systemList) {
+    for (const s of systemList.filter((x) => !x.hidden)) {
       expect(s.links.length, s.id).toBeGreaterThanOrEqual(2);
       expect(s.links.length, s.id).toBeLessThanOrEqual(4);
       expect(portsIn(s.id).length, s.id).toBeLessThanOrEqual(4);
@@ -278,7 +282,10 @@ describe('galaxy content', () => {
   });
 
   it('three unique goods: low only at origin, high at 2-3 ports not next to the origin', () => {
-    const uniques = Object.values(d.commodities).filter((c) => c.origin);
+    // Stillwater Pearl is Hushwater's own good (no lanes in, so no hop rules); it is covered separately.
+    const uniques = Object.values(d.commodities).filter(
+      (c) => c.origin && !d.systems[d.planets[c.origin].systemId].hidden,
+    );
     expect(uniques).toHaveLength(3);
     expect(d.commodities.glowmoss?.origin).toBe('tallow-rock');
     expect(d.commodities.copperwine?.origin).toBe('halcyon');
@@ -435,5 +442,122 @@ describe('ship and outfit cross-checks', () => {
     const r = raw();
     ship(r, 'courier').price = 5000;
     has(failure(r), 'startShipId');
+  });
+});
+
+describe('living-galaxy data', () => {
+  const enc = (r: ReturnType<typeof raw>, id: string) => r.encounters.find((e) => e.id === id);
+
+  it('names.json has at least 20 entries in each list', () => {
+    const d = parseGameData(raw());
+    expect(d.names.first.length).toBeGreaterThanOrEqual(20);
+    expect(d.names.second.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('ships a rich encounter set keyed by id', () => {
+    const d = parseGameData(raw());
+    expect(Object.keys(d.encounters).length).toBeGreaterThanOrEqual(15);
+    expect(d.encounters['survey-beacon'].kind).toBe('hail');
+    expect(d.encounters['survey-beacon'].when).toMatchObject({
+      systems: ['skerry'],
+      requiresFlag: 'survey-rumour',
+      notFlag: 'hushwater-lane',
+    });
+    expect(d.encounters['survey-beacon'].once).toBe(true);
+    expect(d.encounters['long-patience'].kind).toBe('site');
+    expect(d.encounters['long-patience'].when?.systems).toEqual(['hushwater']);
+  });
+
+  it('rejects an encounter with 0 choices', () => {
+    const r = raw();
+    enc(r, 'cargo-drift').choices = [];
+    expect(failure(r).issues.some((i) => i.startsWith('encounters.json → cargo-drift.choices'))).toBe(true);
+  });
+
+  it('rejects an encounter with 4 choices', () => {
+    const r = raw();
+    const e = enc(r, 'cargo-drift');
+    e.choices = [e.choices[0], e.choices[0], e.choices[0], e.choices[0]];
+    expect(failure(r).issues.some((i) => i.startsWith('encounters.json → cargo-drift.choices'))).toBe(true);
+  });
+
+  it('rejects an unknown outcome type', () => {
+    const r = raw();
+    enc(r, 'cargo-drift').choices[0].outcomes = [{ type: 'teleport', n: 1 }];
+    expect(failure(r).issues.some((i) => i.startsWith('encounters.json → cargo-drift.choices.0.outcomes'))).toBe(true);
+  });
+
+  it('rejects a hiddenLinks target that is not a system', () => {
+    const r = raw();
+    r.systems.find((s) => s.id === 'skerry').hiddenLinks = ['ghost'];
+    expect(failure(r).issues.some((i) => i.startsWith('systems.json → skerry.hiddenLinks'))).toBe(true);
+  });
+
+  it('keeps hidden lanes two-way and the hidden system reachable through them', () => {
+    const d = parseGameData(raw());
+    expect(d.systems.hushwater.hidden).toBe(true);
+    expect(d.systems.hushwater.links).toEqual([]);
+    expect(d.systems.skerry.hiddenLinks).toEqual(['hushwater']);
+    expect(d.systems.skerry.links).not.toContain('hushwater');
+    const r = raw();
+    r.systems.find((s) => s.id === 'hushwater').hiddenLinks = [];
+    expect(failure(r).issues).toContain('systems.json → skerry.hiddenLinks: link to hushwater is not mirrored');
+  });
+
+  it('every encounter references known goods, systems, governments and mission types', () => {
+    const d = parseGameData(raw());
+    for (const e of Object.values(d.encounters)) {
+      for (const s of e.when?.systems ?? []) expect(d.systems[s], `${e.id} system ${s}`).toBeDefined();
+      for (const g of e.when?.governments ?? []) expect(d.governments[g], `${e.id} gov ${g}`).toBeDefined();
+      for (const c of e.choices)
+        for (const o of c.outcomes) {
+          if (o.type === 'cargo') expect(d.commodities[o.good], `${e.id} good`).toBeDefined();
+          if (o.type === 'mission') {
+            expect(d.missionTypes[o.missionType], `${e.id} mission`).toBeDefined();
+            if (o.toSystem) expect(d.systems[o.toSystem]).toBeDefined();
+          }
+          if (o.type === 'reveal') for (const s of o.systems ?? []) expect(d.systems[s]).toBeDefined();
+        }
+    }
+  });
+
+  it('rejects an encounter outcome naming an unknown good, system or mission type', () => {
+    const r = raw();
+    enc(r, 'cargo-drift').choices[0].outcomes = [{ type: 'cargo', good: 'spice', tons: 3 }];
+    expect(failure(r).issues).toContain('encounters.json → cargo-drift.choices.0.outcomes.0: unknown commodity "spice"');
+    const r2 = raw();
+    enc(r2, 'cargo-drift').choices[0].outcomes = [{ type: 'mission', missionType: 'heist' }];
+    expect(failure(r2).issues.some((i) => i.includes('unknown mission type "heist"'))).toBe(true);
+    const r3 = raw();
+    enc(r3, 'cargo-drift').when = { systems: ['nowhere'] };
+    expect(failure(r3).issues.some((i) => i.includes('unknown system "nowhere"'))).toBe(true);
+  });
+
+  it('has the Hushwater world, the Stillwater Pearl and the Patience surveyor', () => {
+    const d = parseGameData(raw());
+    expect(d.planets['quiet-shoal'].systemId).toBe('hushwater');
+    expect(d.planets['quiet-shoal'].services).toContain('exchange');
+    expect(d.planets['quiet-shoal'].fuelPrice).toBeGreaterThan(0);
+    expect(d.commodities['stillwater-pearl']).toMatchObject({ basePrice: 900, origin: 'quiet-shoal' });
+    expect(d.ships.patience).toMatchObject({
+      price: 60000,
+      cargo: 40,
+      techTier: 3,
+      role: 'scout',
+      unique: true,
+      requiresFlag: 'survey-claim',
+      chartJumps: 2,
+      fuelCapacity: d.ships.scout.fuelCapacity,
+      maxSpeed: d.ships.courier.maxSpeed,
+    });
+  });
+
+  it('survey thread flags and rewards are wired', () => {
+    const d = parseGameData(raw());
+    const outs = (id: string) => d.encounters[id].choices.flatMap((c) => c.outcomes);
+    expect(outs('survey-beacon')).toContainEqual({ type: 'flag', flag: 'hushwater-lane' });
+    expect(outs('long-patience')).toContainEqual({ type: 'flag', flag: 'survey-claim' });
+    expect(outs('long-patience')).toContainEqual({ type: 'flag', flag: 'survey-stripped' });
+    expect(outs('long-patience')).toContainEqual({ type: 'credits', n: 6000 });
   });
 });

@@ -4,7 +4,8 @@ import { testData } from '../data/testData';
 import { hopDistance } from '../sim/galaxy';
 import { setRoute } from '../sim/world';
 import { newWorld } from '../sim/world';
-import { pickTarget, pickTargetNear } from './target';
+import { priceOf } from '../sim/economy';
+import { bestSellPort, pickTarget, pickTargetNear } from './target';
 
 const data = testData();
 const world = newWorld(data, 1);
@@ -19,7 +20,7 @@ describe('pickTarget', () => {
     expect(data.planets[t.port].systemId).toBe(t.system);
     expect(world.known).toContain(t.system);
     expect(t.system).not.toBe('calder');
-    const hops = hopDistance(data, 'calder', t.system);
+    const hops = hopDistance(data, 'calder', t.system, []);
     expect(hops).toBeGreaterThanOrEqual(1);
     expect(hops).toBeLessThanOrEqual(3);
   });
@@ -34,10 +35,10 @@ describe('pickTarget', () => {
   it('picks the nearest selling port, ties broken by port id', () => {
     const t = pickTarget(world, data, 'halcyon');
     if (!t) throw new Error('no target');
-    const best = hopDistance(data, 'calder', t.system);
+    const best = hopDistance(data, 'calder', t.system, []);
     for (const p of Object.values(data.planets)) {
       if (p.market?.[t.good] !== 'high' || !world.known.includes(p.systemId) || p.systemId === 'calder') continue;
-      const h = hopDistance(data, 'calder', p.systemId);
+      const h = hopDistance(data, 'calder', p.systemId, []);
       expect(h > best || (h === best && p.id >= t.port)).toBe(true);
     }
   });
@@ -135,5 +136,41 @@ describe('pickTargetNear', () => {
   });
   it('is null when nothing is tradeable', () => {
     expect(pickTargetNear({ ...world, known: ['calder'] }, data)).toBeNull();
+  });
+});
+
+describe('bestSellPort', () => {
+  // a-b-c chain, you are at a. Food: med at a, high at b (1 jump) and c (2 jumps), low at c's twin.
+  const mk = (id: string, sys: string, lvl: 'low' | 'med' | 'high') => ({ id, systemId: sys, services: ['exchange'], market: { food: lvl } });
+  const build = (planets: Record<string, unknown>) =>
+    ({
+      ...data,
+      systems: { a: { id: 'a', links: ['b'] }, b: { id: 'b', links: ['a', 'c'] }, c: { id: 'c', links: ['b'] } },
+      planets,
+      commodities: { food: data.commodities.food },
+    }) as unknown as GameData;
+  const w = (known: string[]) => ({ ...world, systemId: 'a', known, seen: [], pressure: {}, events: [], ship: { ...world.ship, fuel: 1000 } });
+  const base = data.commodities.food.basePrice;
+
+  it('picks the nearest known port that pays more than was paid', () => {
+    const d = build({ pa: mk('pa', 'a', 'low'), pb: mk('pb', 'b', 'high'), pc: mk('pc', 'c', 'high') });
+    expect(bestSellPort(w(['a', 'b', 'c']), d, 'food', base)).toEqual({ system: 'b', port: 'pb' });
+  });
+
+  it('skips ports that pay no more than was paid, even when nearer', () => {
+    const d = build({ pb: mk('pb', 'b', 'low'), pc: mk('pc', 'c', 'high') });
+    expect(bestSellPort(w(['a', 'b', 'c']), d, 'food', base)).toEqual({ system: 'c', port: 'pc' });
+  });
+
+  it('ignores unknown ports and breaks jump ties by the higher price', () => {
+    const d = build({ pc: mk('pc', 'c', 'high'), pb1: mk('pb1', 'b', 'med'), pb2: mk('pb2', 'b', 'high') });
+    expect(bestSellPort(w(['a', 'b']), d, 'food', Math.round(base * 0.5))).toEqual({ system: 'b', port: 'pb2' });
+    expect(priceOf(w(['a', 'b']), d, 'pb2', 'food')).toBeGreaterThan(priceOf(w(['a', 'b']), d, 'pb1', 'food') ?? 0);
+  });
+
+  it('is null when no known port pays more', () => {
+    const d = build({ pb: mk('pb', 'b', 'low'), pc: mk('pc', 'c', 'high') });
+    expect(bestSellPort(w(['a', 'b']), d, 'food', base)).toBeNull();
+    expect(bestSellPort(w(['a', 'b', 'c']), d, 'food', base * 10)).toBeNull();
   });
 });

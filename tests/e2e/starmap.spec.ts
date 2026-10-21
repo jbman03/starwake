@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { leavePlanet, newPilot, trackErrors } from './helpers';
+import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
 
 const SHOT = '.superpowers/sdd/2026-10-16-starwake-cycle1-trade-missions/task-9-map.png';
 
@@ -27,6 +27,17 @@ async function checkFits(page: Page): Promise<void> {
 
 test.describe('desktop', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('N opens the star map in flight', async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Nkey');
+    await leavePlanet(page);
+    await page.waitForTimeout(100);
+    await page.keyboard.press('KeyN');
+    await expect(page.getByTestId('star-map')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
 
   test('M opens the star map; plot a course to a known neighbour, then autopilot out and J jumps there', async ({ page }) => {
     test.setTimeout(60_000);
@@ -64,7 +75,7 @@ test.describe('desktop', () => {
 
     await map.getByRole('button', { name: /^Close/ }).click();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar!().info.nav)).toBe('Tessaly · 1 jump');
 
     await page.keyboard.press('KeyG');
@@ -87,7 +98,7 @@ test.describe('desktop', () => {
     await expect(map.locator('[data-system="tessaly"] .sw-map-ring')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     expect(errors).toEqual([]);
   });
@@ -187,7 +198,7 @@ test.describe('phone (touch, landscape)', () => {
     await expect(page.getByTestId('planet-screen')).toBeVisible();
 
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     const course = page.getByTestId('rail-course');
@@ -205,7 +216,7 @@ test.describe('phone (touch, landscape)', () => {
     await checkFits(page);
     await map.getByRole('button', { name: /^Close/ }).tap();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     expect(errors).toEqual([]);
   });
 });

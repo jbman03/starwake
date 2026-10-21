@@ -1,11 +1,13 @@
-import type { GameData } from '../data/schemas';
+import type { EncounterDef, GameData } from '../data/schemas';
 import type { Guide } from '../guide/guide';
-import type { ActionGroup, ActionId } from '../input/actions';
+import { ACTION_GROUP, type ActionGroup, type ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
 import { pilotFromWorld, type PilotSave } from '../save/pilot';
-import type { Settings } from '../save/settings';
-import { contextAction, type ContextAction } from '../sim/context';
+import { saveSettings, type Settings } from '../save/settings';
+import { contextAction, siteReachable, type ContextAction } from '../sim/context';
+import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, hubName, rollEncounter } from '../sim/encounters';
+import { hashString, mulberry32 } from '../sim/random';
 import { buy, sell, type BuyResult, type SellResult } from '../sim/cargo';
 import { buyOutfit, outfitBuyCheck, sellOutfit, type BuyCheck, type SellCheck } from '../sim/outfitter';
 import {
@@ -19,10 +21,13 @@ import {
   type AcceptCheck,
   type MissionOffer,
 } from '../sim/missions';
-import { buyShip, shipQuote, type ShipQuote } from '../sim/shipyard';
+import { buyShip, shipDisplayName, shipQuote, type ShipQuote } from '../sim/shipyard';
+import { addNote, setFlag } from '../sim/story';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
+import { cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic } from '../sim/traffic';
+import type { Vec2 } from '../sim/vec';
 import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
 import {
   applyRefuel,
@@ -35,8 +40,31 @@ import {
   stepWorld,
 } from '../sim/world';
 
+/** How long a hail stays open (flight seconds). */
+export const HAIL_SECONDS = 30;
+/** How far from the arrival point a site lies (px, min and spread). */
+const SITE_MIN_DIST = 500;
+const SITE_SPREAD = 400;
+/** The landing shrink-and-fade before the planet screen opens (also the take-off, reversed). */
+export const LANDING_FX_SEC = 0.4;
+
+/** The encounter waiting in this system: a hail that lapses, or a site to fly to. */
+export type PendingEncounter =
+  | { def: EncounterDef; npcName: string; kind: 'hail'; expiresSec: number }
+  | { def: EncounterDef; npcName: string; kind: 'site'; pos: Vec2 };
+
+/** What the encounter card shows. `blocked` is the reason a choice can't be taken, or null. */
+export interface EncounterView {
+  kind: 'hail' | 'site';
+  title: string;
+  text: string;
+  choices: { label: string; blocked: string | null }[];
+}
+
 export type ControllerEvent =
   | SimEvent
+  /** The player opened the pending encounter; flight is already paused. */
+  | { type: 'encounter' }
   | { type: 'contextChanged'; action: ContextAction }
   /** Jobs finished by the landing that just happened; emitted before the autosave. */
   | { type: 'missionsCompleted'; missions: Mission[]; pay: number }
@@ -49,7 +77,9 @@ export type ControllerEvent =
   /** A pilot session began (beginSession) or ended (endSession). */
   | { type: 'session'; active: boolean }
   /** The flight HUD or rail asked to skip the First Flight guide (the UI confirms). */
-  | { type: 'guideSkip' };
+  | { type: 'guideSkip' }
+  /** Something happened that has a sound but no event of its own (arrival, landing and pay have theirs). */
+  | { type: 'sfx'; sfx: 'jump' | 'takeoff' | 'trade' | 'hail' | 'site' };
 
 export type ControllerEventType = ControllerEvent['type'];
 type EventOf<T extends ControllerEventType> = Extract<ControllerEvent, { type: T }>;
@@ -61,6 +91,13 @@ export interface FlightView {
   /** Interpolation factor between prevShip and world.ship, in [0,1). */
   alpha: number;
   data: GameData;
+  /**
+   * Landing progress for the scene: 0 to 1 while the ship shrinks and fades onto a planet, and 1
+   * back to 0 on take-off; null in ordinary flight.
+   */
+  landingT: number | null;
+  /** Whether the engine fired on the most recent tick (the flame). */
+  thrusting: boolean;
 }
 
 export interface PilotMeta {
@@ -85,11 +122,18 @@ export class Controller {
   private queued = new Set<ActionId>();
   private listeners = new Map<ControllerEventType, Set<(e: ControllerEvent) => void>>();
   private lastContext: ContextAction = null;
+  /** The landing (until the planet screen opens) or take-off effect in progress; input is ignored meanwhile. */
+  private fx: { kind: 'land'; planetId: string; t: number } | { kind: 'takeoff'; t: number } | null = null;
+  private thrusting = false;
   private uiInput: UiInput | null = null;
   readonly keyboard: KeyboardSource;
   /** On-screen touch controls feed this; merged with the keyboard every tick. */
   readonly touch: TouchSource;
 
+  /** The NPC ships in this system (seeded on arrival, stepped while flying). */
+  traffic: Traffic;
+  /** The hail or site waiting in this system, or null. */
+  pending: PendingEncounter | null = null;
   /** Planet the ship is sitting on (planet screen open), or null. */
   landedPlanetId: string | null = null;
   /** Most recent planet landed on this session; saves are landed snapshots taken there. */
@@ -120,6 +164,7 @@ export class Controller {
     world: WorldState = newWorld(data),
   ) {
     this.world = world;
+    this.traffic = seedTraffic(world, data, this.maxNpcs());
     this.prevShip = world.ship;
     this.keyboard = new KeyboardSource(
       keyTarget,
@@ -152,6 +197,7 @@ export class Controller {
   pauseFlight(): void {
     const changed = this.flying;
     this.flying = false;
+    this.thrusting = false;
     this.queued.clear();
     if (changed) this.emit({ type: 'flying', flying: false });
   }
@@ -160,6 +206,7 @@ export class Controller {
   releaseInputs(): void {
     this.keyboard.releaseAll();
     this.touch.releaseAll();
+    this.thrusting = false;
   }
 
   get isFlying(): boolean {
@@ -171,6 +218,8 @@ export class Controller {
   /** Start playing `pilot`, landed at `planetId` (the planet screen comes next). */
   beginSession(world: WorldState, pilot: PilotMeta, planetId: string): void {
     this.world = world;
+    this.traffic = seedTraffic(world, this.data, this.maxNpcs());
+    this.pending = null;
     this.pilot = { ...pilot };
     // No autosave: a fresh load would only rotate away the older backup. New pilots call save().
     this.landAt(planetId, false);
@@ -181,6 +230,7 @@ export class Controller {
   endSession(): void {
     this.pauseFlight();
     this.pilot = null;
+    this.fx = null;
     this.landedPlanetId = null;
     this.lastPlanetId = null;
     this.completion = null;
@@ -222,7 +272,9 @@ export class Controller {
     if (!this.landedPlanetId) return;
     this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
     this.prevShip = this.world.ship;
+    this.fx = { kind: 'takeoff', t: 0 };
     this.startFlight();
+    this.emit({ type: 'sfx', sfx: 'takeoff' });
   }
 
   /** What Refuel would buy at the current planet, or null when not landed. */
@@ -242,11 +294,13 @@ export class Controller {
   // ---- flight --------------------------------------------------------------
 
   view(): FlightView {
-    return { world: this.world, prevShip: this.prevShip, alpha: this.alpha, data: this.data };
+    const fx = this.fx;
+    const landingT = !fx ? null : fx.kind === 'land' ? Math.min(1, fx.t / LANDING_FX_SEC) : Math.max(0, 1 - fx.t / LANDING_FX_SEC);
+    return { world: this.world, prevShip: this.prevShip, alpha: this.alpha, data: this.data, landingT, thrusting: this.thrusting };
   }
 
   currentContext(): ContextAction {
-    return contextAction(this.world, this.data);
+    return contextAction(this.world, this.data, this.pending);
   }
 
   /**
@@ -254,12 +308,13 @@ export class Controller {
    * `plotCourse` opens the star map the way the map key does (flight pauses; closing resumes it).
    */
   doContextAction(): void {
-    if (!this.flying) return;
+    if (!this.flying || this.fx) return;
     const action = this.currentContext();
     if (action === 'plotCourse') {
       this.pauseFlight();
       this.emit({ type: 'menu', action: 'map' });
-    } else if (action === 'takeControl') this.world = interruptAutopilot(this.world);
+    } else if (action === 'answerHail' || action === 'openSite') this.openEncounter();
+    else if (action === 'takeControl') this.world = interruptAutopilot(this.world);
     else if (action === 'tow') this.callTow();
     else if (action === 'land') this.queued.add('land');
     else if (action === 'autopilotOut') this.world = autopilotToJumpPoint(this.world);
@@ -274,7 +329,7 @@ export class Controller {
    * tapped planet wins instead of the landing autopilot's "next planet" cycling.
    */
   tapPlanet(id: string, pointerType: string = 'touch'): void {
-    if (!this.flying || this.world.jump) return;
+    if (!this.flying || this.fx || this.world.jump) return;
     if (pointerType === 'mouse') {
       this.selectPlanet(id);
       return;
@@ -287,7 +342,7 @@ export class Controller {
 
   /** Planet a tow would take us to right now, or null when no tow is offered. */
   towDestination(): string | null {
-    if (this.landedPlanetId || this.world.jump) return null;
+    if (this.landedPlanetId || this.fx?.kind === 'land' || this.world.jump) return null;
     return towDestination(this.world, this.data);
   }
 
@@ -335,6 +390,7 @@ export class Controller {
     if (!this.landedPlanetId) return { world: this.world, tons: 0, cost: 0, reason: 'notTraded' };
     const r = buy(this.world, this.data, this.landedPlanetId, commodityId, tons);
     this.world = r.world;
+    if (r.tons > 0) this.emit({ type: 'sfx', sfx: 'trade' });
     return r;
   }
 
@@ -342,6 +398,7 @@ export class Controller {
     if (!this.landedPlanetId) return { world: this.world, tons: 0, revenue: 0, reason: 'notTraded' };
     const r = sell(this.world, this.data, this.landedPlanetId, commodityId, tons);
     this.world = r.world;
+    if (r.tons > 0) this.emit({ type: 'sfx', sfx: 'trade' });
     return r;
   }
 
@@ -375,6 +432,16 @@ export class Controller {
     return r.quote;
   }
 
+  /** Name the ship the pilot flies (the caller cleans the text first). */
+  nameShip(name: string): void {
+    this.world = { ...this.world, shipName: name };
+  }
+
+  /** The pilot has read the survey-ship rumour: remember it as a flag and a note. */
+  noteRumour(text: string): void {
+    this.world = addNote(setFlag(this.world, 'survey-rumour'), text);
+  }
+
   /** What swapping to this ship would cost right now, without doing it. */
   shipQuote(shipId: string): ShipQuote {
     return shipQuote(this.world, this.data, this.landedPlanetId ?? '', shipId);
@@ -406,6 +473,18 @@ export class Controller {
 
   selectPlanet(id: string | null): void {
     this.world = { ...this.world, targetPlanetId: id };
+    this.traffic = { ...this.traffic, targetId: null };
+  }
+
+  /** Target an NPC ship (or clear the target with null). A ship target replaces any planet target. */
+  targetShip(id: string | null): void {
+    if (id !== null && !this.traffic.npcs.some((n) => n.id === id && isTargetable(n))) return;
+    this.traffic = { ...this.traffic, targetId: id };
+    if (id !== null) this.world = { ...this.world, targetPlanetId: null };
+  }
+
+  private maxNpcs(): number {
+    return this.settings.quality === 'low' ? 4 : 8;
   }
 
   /**
@@ -429,12 +508,25 @@ export class Controller {
     }
     this.alpha = this.stepper.advance(elapsedSec, (dt) => {
       if (!this.flying) return; // a landing or menu earlier in this frame paused flight
-      const keys = this.keyboard.poll('flight');
+      const keys = this.keyboard.poll(['flight', 'menus']);
+      if (keys.pressed.delete('toggleSound')) this.toggleSound();
       const touch = this.touch.poll('flight');
-      const polled = {
-        actions: new Set([...keys.actions, ...touch.actions]),
-        pressed: new Set([...keys.pressed, ...touch.pressed]),
-      };
+      // Landing and take-off ignore input: it is polled (so it can't fire later) and dropped.
+      const locked = this.fx !== null;
+      if (this.fx?.kind === 'land') {
+        this.queued.clear();
+        this.thrusting = false;
+        this.fx.t += dt;
+        if (this.fx.t >= LANDING_FX_SEC - 1e-9) this.finishLanding(this.fx.planetId);
+        return;
+      }
+      if (locked) this.queued.clear();
+      const polled = locked
+        ? { actions: new Set<ActionId>(), pressed: new Set<ActionId>() }
+        : {
+            actions: new Set([...keys.actions, ...touch.actions]),
+            pressed: new Set([...keys.pressed, ...touch.pressed]),
+          };
       // No star map in hyperspace: the course can't change mid-jump, so the press is ignored.
       const menu = polled.pressed.has('pause')
         ? 'pause'
@@ -450,25 +542,161 @@ export class Controller {
       }
       const pressed = new Set([...polled.pressed, ...this.queued]);
       this.queued.clear();
-      const input: FrameInput = touch.stick
+      if (pressed.delete('interact') && this.openEncounter()) return;
+      if (pressed.delete('nextTarget')) {
+        // Tab walks ships, then planets (the sim's own planet-only cycle is not used from here).
+        const pick = cycleTarget(this.world, this.data, this.traffic);
+        this.traffic = { ...this.traffic, targetId: pick.shipId };
+        this.world = { ...this.world, targetPlanetId: pick.planetId };
+      }
+      const input: FrameInput = touch.stick && !locked
         ? { actions: polled.actions, pressed, stick: touch.stick }
         : { actions: polled.actions, pressed };
       this.prevShip = this.world.ship;
+      const wasJumping = this.world.jump !== null;
       const r = stepWorld(this.world, this.data, input, dt, {
         autoLandOnArrival: this.settings.autoLandOnArrival,
       });
       this.world = r.world;
+      this.thrusting = r.thrusting ?? false;
+      if (!wasJumping && this.world.jump) this.emit({ type: 'sfx', sfx: 'jump' });
+      if (this.fx?.kind === 'takeoff') {
+        this.fx.t += dt;
+        if (this.fx.t >= LANDING_FX_SEC - 1e-9) this.fx = null;
+      }
       this.handleEvents(r.events);
+      this.stepTraffic(dt);
+      this.lapseHail(dt);
     });
     this.checkContext();
+  }
+
+  /** Advance the NPCs one tick; reseed on a new system and drop a target that is no longer there. */
+  private stepTraffic(dt: number): void {
+    if (this.traffic.systemId !== this.world.systemId) {
+      this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+      return;
+    }
+    if (this.world.jump) return;
+    let t = stepTraffic(this.traffic, this.world, this.data, dt, this.maxNpcs()).traffic;
+    // A ship target that landed or left, or a planet the sim just targeted (landing autopilot), ends it.
+    const alive = targetedNpc(t) !== undefined;
+    if (!alive || this.world.targetPlanetId !== null) t = { ...t, targetId: null };
+    this.traffic = t;
+  }
+
+  // ---- encounters ----------------------------------------------------------
+
+  /** The encounter an arrival brings today, placed in space (sites) or on the air (hails), or null. */
+  private rollPending(): PendingEncounter | null {
+    const def = rollEncounter(this.world, this.data, { guideActive: (this.guide?.current() ?? null) !== null });
+    if (!def) return null;
+    const r = mulberry32(hashString(this.world.seed, 'encpos', this.world.systemId, this.world.day));
+    const npcName = shipName(r, this.data);
+    if (def.kind === 'hail') return { def, npcName, kind: 'hail', expiresSec: HAIL_SECONDS };
+    const angle = r() * Math.PI * 2;
+    const d = SITE_MIN_DIST + r() * SITE_SPREAD;
+    const ship = this.world.ship.pos;
+    return { def, npcName, kind: 'site', pos: { x: ship.x + Math.cos(angle) * d, y: ship.y + Math.sin(angle) * d } };
+  }
+
+  /** Where the pending site lies, or null (no site; a hail has no place). */
+  sitePos(): Vec2 | null {
+    return this.pending?.kind === 'site' ? this.pending.pos : null;
+  }
+
+  private lapseHail(dt: number): void {
+    const p = this.pending;
+    if (p?.kind !== 'hail') return;
+    const left = p.expiresSec - dt;
+    this.pending = left <= 1e-9 ? null : { ...p, expiresSec: left };
+  }
+
+  /** Test aid: make `id` the pending encounter (a hail now, or a site 200 px ahead). */
+  forceEncounter(id: string): void {
+    const def = this.data.encounters[id];
+    if (!def) throw new Error(`forceEncounter: unknown encounter ${id}`);
+    const npcName = shipName(mulberry32(hashString(this.world.seed, 'encforce', id)), this.data);
+    const { pos, heading } = this.world.ship;
+    this.pending =
+      def.kind === 'hail'
+        ? { def, npcName, kind: 'hail', expiresSec: HAIL_SECONDS }
+        : { def, npcName, kind: 'site', pos: { x: pos.x + Math.cos(heading) * 200, y: pos.y + Math.sin(heading) * 200 } };
+    this.emit({ type: 'sfx', sfx: this.pending.kind });
+    this.checkContext();
+  }
+
+  /**
+   * Answer the hail or open the site: flight pauses and the encounter card is asked for. A site
+   * out of reach says so instead. False when nothing opened.
+   */
+  openEncounter(): boolean {
+    const p = this.pending;
+    if (!p || !this.flying || this.fx || this.world.jump) return false;
+    if (p.kind === 'site' && !siteReachable(this.world, p.pos)) {
+      this.emit({ type: 'message', text: 'Move closer to the site and slow down to open it.' });
+      return false;
+    }
+    this.pauseFlight();
+    this.emit({ type: 'encounter' });
+    return true;
+  }
+
+  /** "Not now" on a hail: it lapses at once. A site stays where it is. */
+  declineEncounter(): void {
+    if (this.pending?.kind === 'hail') {
+      this.pending = null;
+      this.checkContext();
+    }
+  }
+
+  /** The pending encounter as the card shows it (text filled in, blocked choices marked), or null. */
+  encounterView(): EncounterView | null {
+    const p = this.pending;
+    if (!p) return null;
+    const ctx = { ship: p.npcName, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: shipDisplayName(this.world.shipName, this.world.shipId, this.data), hub: hubName(this.data) };
+    return {
+      kind: p.kind,
+      title: fillText(p.def.title, ctx),
+      text: fillText(p.def.text, ctx),
+      choices: p.def.choices.map((c) => {
+        const block = choiceBlock(this.world, this.data, c, p.def.id);
+        return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null };
+      }),
+    };
+  }
+
+  /** Take choice `idx`: null if there is no encounter or the choice is blocked; else the outcome lines. */
+  chooseEncounter(idx: number): { messages: string[] } | null {
+    const p = this.pending;
+    const choice = p?.def.choices[idx];
+    if (!p || !choice || choiceBlock(this.world, this.data, choice, p.def.id)) return null;
+    const r = applyChoice(this.world, this.data, p.def, idx, { npcName: p.npcName });
+    this.world = r.world;
+    this.pending = null;
+    this.checkContext();
+    return { messages: [...r.messages, ...r.missions.map((m) => `New job: ${m.title}`)] };
+  }
+
+  /** Flip mute, save it and say so (the HUD shows the message in flight, the planet screen while landed). */
+  toggleSound(): void {
+    this.settings.muted = !this.settings.muted;
+    saveSettings(this.settings);
+    this.emit({ type: 'message', text: this.settings.muted ? 'Sound off' : 'Sound on' });
   }
 
   /** One poll per frame for whichever screen is open; with none, stale presses are drained. */
   private updateUi(): void {
     const ui = this.uiInput;
-    const { pressed } = this.keyboard.poll(ui?.groups ?? 'menus');
+    const { pressed } = this.keyboard.poll(ui ? [...new Set<ActionGroup>([...ui.groups, 'menus'])] : 'menus');
     this.touch.poll('flight'); // drain: a tap made while paused must not fire on resume
-    if (ui && pressed.size > 0) ui.handler(pressed);
+    // The sound key works on every screen, whatever groups the screen listens to.
+    if (pressed.delete('toggleSound')) this.toggleSound();
+    if (ui) {
+      // The screen sees only the groups it asked for.
+      for (const id of [...pressed]) if (!ui.groups.includes(ACTION_GROUP[id])) pressed.delete(id);
+      if (pressed.size > 0) ui.handler(pressed);
+    }
   }
 
   /**
@@ -482,14 +710,42 @@ export class Controller {
     if (towed) this.notices.push(...messages);
     for (const e of events) {
       if (e.type === 'message') continue;
-      if (e.type === 'landed' || e.type === 'towed') this.landAt(e.planetId);
-      else if (e.type === 'jumped') this.prevShip = this.world.ship; // no interpolation across systems
+      if (e.type === 'landed') {
+        // The ship shrinks onto the planet first; finishLanding does what landing used to do at once.
+        this.fx = { kind: 'land', planetId: e.planetId, t: 0 };
+        this.prevShip = this.world.ship;
+        continue;
+      }
+      if (e.type === 'towed') {
+        this.pending = null;
+        this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+        this.landAt(e.planetId);
+      } else if (e.type === 'jumped') {
+        this.pending = null;
+        this.prevShip = this.world.ship; // no interpolation across systems
+        this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+      }
+      if (e.type === 'arrived') {
+        this.pending = this.rollPending();
+        if (this.pending) this.world = { ...this.world, lastEncounterDay: this.world.day };
+        this.emit(e);
+        if (this.pending) this.emit({ type: 'sfx', sfx: this.pending.kind });
+        continue;
+      }
       this.emit(e);
     }
     if (!towed && messages.length > 0) this.emit({ type: 'message', text: messages.join(' ') });
   }
 
+  /** The landing effect is over: complete jobs, autosave and hand over to the planet screen. */
+  private finishLanding(planetId: string): void {
+    this.landAt(planetId);
+    this.emit({ type: 'landed', planetId });
+  }
+
   private landAt(planetId: string, autosave = true): void {
+    this.fx = null;
+    this.thrusting = false;
     this.pauseFlight();
     this.landedPlanetId = planetId;
     this.lastPlanetId = planetId;
@@ -498,7 +754,7 @@ export class Controller {
     // Pay lands in the world first so the autosave below includes it.
     const done = completeAt(this.world, planetId);
     if (done.completed.length > 0) {
-      this.world = done.world;
+      this.world = { ...done.world, stats: { ...done.world.stats, jobsDone: done.world.stats.jobsDone + done.completed.length } };
       this.completion = { missions: done.completed, pay: done.pay };
       this.emit({ type: 'missionsCompleted', missions: done.completed, pay: done.pay });
     }
@@ -506,7 +762,7 @@ export class Controller {
   }
 
   private checkContext(): void {
-    const c = this.flying ? this.currentContext() : null;
+    const c = this.flying && !this.fx ? this.currentContext() : null;
     if (c !== this.lastContext) {
       this.lastContext = c;
       this.emit({ type: 'contextChanged', action: c });

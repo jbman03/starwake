@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import type { GameData } from '../data/schemas';
+import type { Traffic } from '../sim/traffic';
+import type { Vec2 } from '../sim/vec';
 import type { WorldState } from '../sim/types';
 import { fitText, radarBlips, radarHeadingTip, sidebarInfo, type SidebarInfo } from './sidebarInfo';
 
@@ -125,9 +127,9 @@ export class Sidebar {
     this.mapBtn.setPosition(b.x, b.y);
   }
 
-  update(world: WorldState, data: GameData, _dtSec: number): void {
+  update(world: WorldState, data: GameData, _dtSec: number, traffic: Traffic | null = null, site: Vec2 | null = null): void {
     if (!this.visible) return;
-    const info = sidebarInfo(world, data);
+    const info = sidebarInfo(world, data, traffic);
     const L = this.labels;
     L.shields.setText('Shields');
     L.armor.setText('Armor');
@@ -141,10 +143,10 @@ export class Sidebar {
     L.date.setText(info.date);
     const key = this.mapKeyLabel();
     this.mapBtn.setText(key ? `Map (${key})` : 'Map');
-    this.draw(world, data, info);
+    this.draw(world, data, info, traffic, site);
   }
 
-  private draw(world: WorldState, data: GameData, info: SidebarInfo): void {
+  private draw(world: WorldState, data: GameData, info: SidebarInfo, traffic: Traffic | null, site: Vec2 | null): void {
     const g = this.g;
     g.clear();
     g.fillStyle(0x0b1018, 0.94);
@@ -177,13 +179,24 @@ export class Sidebar {
     r.lineStyle(1, 0x7fb2ff, 0.4);
     r.strokeCircle(cx, cy, RADAR_R);
     r.strokeCircle(cx, cy, RADAR_R / 2);
-    for (const b of radarBlips(world, data, RADAR_R - 4)) {
+    for (const b of radarBlips(world, data, RADAR_R - 4, traffic, site)) {
       if (b.kind === 'star') {
         r.fillStyle(0xffd27a, 1);
         r.fillCircle(cx + b.x, cy + b.y, 4);
       } else if (b.kind === 'jumpRing') {
         r.lineStyle(1, 0x7fb2ff, 0.9);
         r.strokeCircle(cx + b.x, cy + b.y, 4);
+      } else if (b.kind === 'site') {
+        r.fillStyle(0xffffff, 1);
+        r.fillTriangle(cx + b.x, cy + b.y - 4, cx + b.x + 3, cy + b.y, cx + b.x - 3, cy + b.y);
+        r.fillTriangle(cx + b.x, cy + b.y + 4, cx + b.x + 3, cy + b.y, cx + b.x - 3, cy + b.y);
+      } else if (b.kind === 'npc') {
+        r.fillStyle(parseInt((b.color ?? '#9fb4cc').slice(1), 16), 1);
+        r.fillCircle(cx + b.x, cy + b.y, 2);
+        if (b.targeted) {
+          r.lineStyle(1, 0x6fe36f, 1);
+          r.strokeCircle(cx + b.x, cy + b.y, 4.5);
+        }
       } else {
         r.fillStyle(b.kind === 'target' ? 0x6fe36f : 0x9fb4cc, 1);
         r.fillCircle(cx + b.x, cy + b.y, 2.5);

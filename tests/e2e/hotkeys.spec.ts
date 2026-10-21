@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { leavePlanet, newPilot, trackErrors } from './helpers';
+import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
 
 const speed = (page: Page) =>
   page.evaluate(() => {
@@ -32,7 +32,7 @@ test('rebinding hotkeys: live and persisted', async ({ page }) => {
   // close settings -> pause menu -> resume; W thrusts
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await page.getByRole('button', { name: /^Resume/ }).click();
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
   expect(await speed(page)).toBe(0);
   await page.keyboard.down('KeyW');
   await page.waitForTimeout(800);
@@ -79,5 +79,53 @@ test('hotkey editor: conflict swap and reset to defaults', async ({ page }) => {
   await expect(page.getByTestId('slot-thrust-1')).toHaveText(/—/);
   await expect(page.getByTestId('slot-land-0')).toHaveText(/L/);
 
+  expect(errors).toEqual([]);
+});
+
+test('hotkey works right after the Mission complete dialog', async ({ page }) => {
+  const errors = trackErrors(page);
+  await newPilot(page);
+  await page.evaluate(() => {
+    const c = window.__starwake!.controller;
+    const mission = {
+      id: 'm-guard',
+      typeId: 'delivery',
+      originId: 'halcyon',
+      destId: 'brinefield',
+      tons: 1,
+      passengers: 0,
+      pay: 100,
+      paidUpfront: false,
+      deadlineDay: null,
+      title: 'Deliver rations to Brinefield',
+      description: 'Test job.',
+      cargoName: 'Rations',
+    };
+    c.world = { ...c.world, missions: [mission], ship: { ...c.world.ship, fuel: 0 }, credits: 5000 };
+    window.__starwake!.teleport('brinefield');
+  });
+  const dialog = page.getByRole('dialog', { name: 'Mission complete' });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('KeyR'); // immediately, no waiting
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('planet-screen')).toContainText(/Bought \d+ fuel/);
+  expect(errors).toEqual([]);
+});
+
+test('V toggles sound in flight and on a planet, and the setting is saved', async ({ page }) => {
+  const errors = trackErrors(page);
+  const muted = () => page.evaluate(() => JSON.parse(localStorage.getItem('starwake.settings')!).muted);
+  await newPilot(page);
+  await expect(page.getByRole('button', { name: /^Leave/ })).toBeVisible();
+  // landed: the planet screen's status line carries the note
+  await page.keyboard.press('KeyV');
+  await expect(page.locator('.sw-status')).toHaveText('Sound off');
+  expect(await muted()).toBe(true);
+  await leavePlanet(page);
+  // flying: the HUD message line carries it
+  await page.keyboard.press('KeyV');
+  await expect.poll(() => page.evaluate(() => window.__starwake!.hudMessage?.() ?? null)).toBe('Sound on');
+  expect(await muted()).toBe(false);
   expect(errors).toEqual([]);
 });

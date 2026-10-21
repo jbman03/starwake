@@ -25,13 +25,13 @@ function fill(template: string, vars: Record<string, string | number>): string {
 }
 
 /** Ports a type may send the pilot to from `originId`, each with its hop count. */
-function destinations(data: GameData, originId: string, type: MissionTypeDef): { portId: string; hops: number }[] {
+function destinations(data: GameData, flags: readonly string[], originId: string, type: MissionTypeDef): { portId: string; hops: number }[] {
   const origin = data.planets[originId];
   const out: { portId: string; hops: number }[] = [];
   for (const p of Object.values(data.planets)) {
     if (p.id === originId) continue;
     if (type.toDumpSite && !p.dumpSite) continue;
-    const hops = hopDistance(data, origin.systemId, p.systemId);
+    const hops = hopDistance(data, origin.systemId, p.systemId, flags);
     if (!Number.isFinite(hops) || hops < type.hops[0] || hops > type.hops[1]) continue;
     if (hops >= 1 && p.systemId === origin.systemId) continue;
     out.push({ portId: p.id, hops });
@@ -44,6 +44,50 @@ function cargoNameFor(type: MissionTypeDef, r: () => number, names: string[]): s
   if (type.id === 'ferry') return 'passengers';
   if (type.toDumpSite) return 'waste';
   return names.length > 0 ? pick(r, names).toLowerCase() : 'goods';
+}
+
+/** One offer of `type` from `portId` to `dest`; draws tons, passengers and cargo name from `r`, in that order. */
+export function buildOffer(
+  world: WorldState,
+  data: GameData,
+  type: MissionTypeDef,
+  portId: string,
+  dest: { portId: string; hops: number },
+  r: () => number,
+  names: string[],
+  offerId: string,
+): MissionOffer {
+  const tons = randInt(r, type.tons[0], type.tons[1]);
+  const passengers = randInt(r, type.passengers[0], type.passengers[1]);
+  const cargoName = cargoNameFor(type, r, names);
+  const pay = roundPay(
+    (type.basePay + type.perHop * dest.hops + type.perTon * tons + type.perPassenger * passengers) * type.urgency,
+  );
+  const days = type.deadline ? type.deadline.perHop * dest.hops + type.deadline.plus : null;
+  const target = data.planets[dest.portId];
+  const vars = {
+    dest: target.name,
+    system: data.systems[target.systemId].name,
+    cargo: cargoName,
+    pay: pay.toLocaleString('en-US'),
+    tons,
+    pax: passengers,
+    days: days ?? '',
+  };
+  return {
+    offerId,
+    typeId: type.id,
+    originId: portId,
+    destId: dest.portId,
+    tons,
+    passengers,
+    pay,
+    paidUpfront: type.paidUpfront,
+    deadlineDay: days === null ? null : world.day + days,
+    title: fill(type.titleTemplate, vars),
+    description: fill(type.textTemplate, vars),
+    cargoName,
+  };
 }
 
 /** Jobs at `portId` today: 3–7, identical for the same (seed, port, day) and fresh each day. */
@@ -59,45 +103,14 @@ export function offersAt(world: WorldState, data: GameData, portId: string): Mis
     let made: MissionOffer | null = null;
     for (let k = 0; k < types.length && !made; k++) {
       const type = types[(start + k) % types.length];
-      const dests = destinations(data, portId, type);
+      const dests = destinations(data, world.flags, portId, type);
       if (dests.length === 0) continue;
       let pool = dests;
       if (type.toDumpSite) {
         const nearest = Math.min(...dests.map((d) => d.hops));
         pool = dests.filter((d) => d.hops === nearest);
       }
-      const dest = pick(r, pool);
-      const tons = randInt(r, type.tons[0], type.tons[1]);
-      const passengers = randInt(r, type.passengers[0], type.passengers[1]);
-      const cargoName = cargoNameFor(type, r, names);
-      const pay = roundPay(
-        (type.basePay + type.perHop * dest.hops + type.perTon * tons + type.perPassenger * passengers) * type.urgency,
-      );
-      const days = type.deadline ? type.deadline.perHop * dest.hops + type.deadline.plus : null;
-      const target = data.planets[dest.portId];
-      const vars = {
-        dest: target.name,
-        system: data.systems[target.systemId].name,
-        cargo: cargoName,
-        pay: pay.toLocaleString('en-US'),
-        tons,
-        pax: passengers,
-        days: days ?? '',
-      };
-      made = {
-        offerId: `${portId}:${world.day}:${index}`,
-        typeId: type.id,
-        originId: portId,
-        destId: dest.portId,
-        tons,
-        passengers,
-        pay,
-        paidUpfront: type.paidUpfront,
-        deadlineDay: days === null ? null : world.day + days,
-        title: fill(type.titleTemplate, vars),
-        description: fill(type.textTemplate, vars),
-        cargoName,
-      };
+      made = buildOffer(world, data, type, portId, pick(r, pool), r, names, `${portId}:${world.day}:${index}`);
     }
     if (!made) break; // no type has a destination from here
     offers.push(made);

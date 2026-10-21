@@ -2,7 +2,7 @@ import type { GameData, PlanetDef } from '../data/schemas';
 import { autopilotInput, autoStopInput, faceInput, reverseInput } from './assists';
 import { stepShip } from './flight';
 import { economyDay } from './economy';
-import { hopDistance, revealOnArrival, routeBetween } from './galaxy';
+import { hopDistance, lanesOf, revealOnArrival, revealWithin, routeBetween } from './galaxy';
 import { failOverdue } from './missions';
 import { hashString } from './random';
 import {
@@ -59,7 +59,7 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
   const { startSystemId, startPlanetId, startShipId, startCredits, knownAtStart } = data.config;
   const def = data.ships[startShipId];
   let map = { known: [] as string[], seen: [] as string[] };
-  for (const id of new Set([...knownAtStart, startSystemId])) map = revealOnArrival(map.known, map.seen, data, id);
+  for (const id of new Set([...knownAtStart, startSystemId])) map = revealOnArrival(map.known, map.seen, data, id, []);
   const base: WorldState = {
     systemId: startSystemId,
     shipId: startShipId,
@@ -80,6 +80,11 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     events: [],
     takenOffers: [],
     outfits: {},
+    flags: [],
+    notes: [],
+    shipName: def.name,
+    stats: { jobsDone: 0 },
+    lastEncounterDay: null,
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
 }
@@ -120,9 +125,9 @@ export function setRoute(
   const charted = new Set([...world.known, ...world.seen]);
   const missionTarget = world.missions.some((m) => data.planets[m.destId]?.systemId === toSystemId);
   const route = missionTarget
-    ? routeBetween(data, world.systemId, toSystemId, () => true)
+    ? routeBetween(data, world.systemId, toSystemId, () => true, world.flags)
     : charted.has(toSystemId)
-      ? routeBetween(data, world.systemId, toSystemId, (id) => charted.has(id))
+      ? routeBetween(data, world.systemId, toSystemId, (id) => charted.has(id), world.flags)
       : null;
   if (!route) return { world, ok: false, reason: 'noRoute' };
   // Setting a course means leaving: drop the planet target so the context button offers Jump.
@@ -131,7 +136,10 @@ export function setRoute(
 
 /** Enter `systemId`: it becomes known and its neighbours seen. The date is advanceDays' job. */
 function enterSystem(world: WorldState, data: GameData, systemId: string): WorldState {
-  return { ...world, ...revealOnArrival(world.known, world.seen, data, systemId) };
+  const arrived = revealOnArrival(world.known, world.seen, data, systemId, world.flags);
+  const jumps = data.ships[world.shipId]?.chartJumps; // a built-in chart table
+  const charted = jumps ? revealWithin(arrived.known, arrived.seen, data, systemId, jumps, world.flags) : arrived;
+  return { ...world, ...charted };
 }
 
 export function interruptAutopilot(world: WorldState): WorldState {
@@ -177,14 +185,14 @@ export function applyTow(world: WorldState, data: GameData): { world: WorldState
   const planetId = towDestination(world, data);
   if (!planetId) return { world, events: [] };
   const toSystemId = data.planets[planetId].systemId;
-  const days = Math.max(1, hopDistance(data, world.systemId, toSystemId));
+  const days = Math.max(1, hopDistance(data, world.systemId, toSystemId, world.flags));
   const moved = departFrom(
     { ...world, credits: world.credits - data.config.towFee, targetPlanetId: null },
     data,
     planetId,
   );
   let route = moved.route.slice(moved.route.indexOf(toSystemId) + 1); // indexOf -1 keeps it whole
-  if (route.length > 0 && !data.systems[toSystemId].links.includes(route[0])) route = [];
+  if (route.length > 0 && !lanesOf(data, toSystemId, world.flags).includes(route[0])) route = [];
   const entered = enterSystem({ ...moved, route }, data, toSystemId);
   const after = advanceDays(entered, data, days);
   return { world: after.world, events: [{ type: 'towed', planetId }, ...after.events] };
@@ -268,7 +276,7 @@ export function stepWorld(
   input: FrameInput,
   dt: number,
   opts: { autoLandOnArrival: boolean },
-): { world: WorldState; events: SimEvent[] } {
+): { world: WorldState; events: SimEvent[]; thrusting?: boolean } {
   const def = data.ships[world.shipId];
   const events: SimEvent[] = [];
   let w: WorldState = { ...world, timeSec: world.timeSec + dt };
@@ -395,5 +403,5 @@ export function stepWorld(
       ship = { ...ship, fuel: Math.min(stats.fuelCapacity, ship.fuel + (stats.fuelPerMin * dt) / 60) };
     }
   }
-  return { world: { ...w, ship }, events };
+  return { world: { ...w, ship }, events, thrusting: (jumpFlight ?? flight).thrust };
 }

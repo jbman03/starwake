@@ -18,7 +18,7 @@ function sweep(days = 12): { offer: MissionOffer; hops: number }[] {
   for (let d = 0; d < days; d++) {
     for (const p of ports) {
       for (const offer of offersAt(at(d), data, p.id)) {
-        out.push({ offer, hops: hopDistance(data, p.systemId, sysOf(offer.destId)) });
+        out.push({ offer, hops: hopDistance(data, p.systemId, sysOf(offer.destId), []) });
       }
     }
   }
@@ -92,15 +92,15 @@ describe('offersAt', () => {
       const nearest = Math.min(
         ...Object.values(data.planets)
           .filter((p) => p.dumpSite && p.systemId !== origin.systemId)
-          .map((p) => hopDistance(data, origin.systemId, p.systemId)),
+          .map((p) => hopDistance(data, origin.systemId, p.systemId, [])),
       );
       expect(hops).toBe(nearest);
     }
   });
 
-  it('prices by the formula: rush of 2 t over 1 hop pays 2250', () => {
+  it('prices by the formula: rush of 2 t over 1 hop pays 1500', () => {
     const rush = sweep().find((s) => s.offer.typeId === 'rush' && s.hops === 1 && s.offer.tons === 2)!;
-    expect(rush.offer.pay).toBe(2250); // (400 + 500 + 300*2) * 1.5
+    expect(rush.offer.pay).toBe(1500); // (400 + 500 + 150*2) * 1.25
     for (const { offer: o, hops } of sweep()) {
       const t = data.missionTypes[o.typeId];
       const raw = (t.basePay + t.perHop * hops + t.perTon * o.tons + t.perPassenger * o.passengers) * t.urgency;
@@ -113,7 +113,7 @@ describe('offersAt', () => {
     for (const p of ports) {
       for (const o of offersAt(w, data, p.id)) {
         const t = data.missionTypes[o.typeId];
-        const hops = hopDistance(data, p.systemId, sysOf(o.destId));
+        const hops = hopDistance(data, p.systemId, sysOf(o.destId), []);
         expect(o.deadlineDay).toBe(t.deadline ? 5 + t.deadline.perHop * hops + t.deadline.plus : null);
         expect(o.title).not.toMatch(/[{}]/);
         expect(o.description).not.toMatch(/[{}]/);

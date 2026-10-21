@@ -14,6 +14,12 @@ import { showMissionLog } from './missionLog';
 import { showOutfitter } from './outfitter';
 import { showShipyard } from './shipyard';
 
+/** How long the credits value takes to count up to a job's pay (seconds). */
+export const COUNT_UP_SEC = 0.8;
+const COUNT_TICK_MS = 40;
+
+const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
   full: 'Fuel tank is full.',
   noCredits: 'Not enough credits to buy fuel.',
@@ -78,11 +84,33 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     ctx.unmount();
   };
 
+  // Pay from a landing counts up on screen: while `countTimer` runs the credits stat shows the tick value.
+  let creditsNode: HTMLElement | null = null;
+  let countTimer: ReturnType<typeof setInterval> | undefined;
+  const stopCount = () => {
+    if (countTimer !== undefined) clearInterval(countTimer);
+    countTimer = undefined;
+  };
+  const showCredits = (n: number) => {
+    if (creditsNode) creditsNode.textContent = `Credits: ${formatCredits(n)}`;
+  };
+  const countUp = (from: number, to: number) => {
+    if (reducedMotion() || from === to) return;
+    const start = Date.now();
+    showCredits(from);
+    countTimer = setInterval(() => {
+      const k = Math.min(1, (Date.now() - start) / (COUNT_UP_SEC * 1000));
+      showCredits(k >= 1 ? controller.world.credits : Math.round(from + (to - from) * k));
+      if (k >= 1) stopCount();
+    }, COUNT_TICK_MS);
+  };
+
   function render(): void {
     const w = controller.world;
+    creditsNode = el('div', { class: 'sw-stat', text: `Credits: ${formatCredits(w.credits)}` });
     stats.replaceChildren(
       el('div', { class: 'sw-stat', text: formatDate(w.day, data.config) }),
-      el('div', { class: 'sw-stat', text: `Credits: ${formatCredits(w.credits)}` }),
+      creditsNode,
       el('div', { class: 'sw-stat', text: fuelText(jumpsOf(w.ship.fuel, data.config.fuelPerJump)) }),
       el('div', { class: 'sw-stat', text: `Cargo: ${cargoFree(w, data)}/${worldStats(w, data).cargo} t` }),
     );
@@ -131,6 +159,9 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     if (!e.ok) status.textContent = `Autosave failed: ${e.error ?? 'unknown error'}. Use Export from the pause menu to keep a copy.`;
   });
 
+  // Messages raised while landed (the sound key says "Sound off") go where the screen keeps its notes.
+  const offMessage = controller.on('message', (e) => (status.textContent = e.text));
+
   ctx.mount(screen, {
     groups: ['planet'],
     onPress: (pressed) => {
@@ -145,7 +176,9 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       else if (pressed.has('refuel') && (controller.refuelQuote()?.units ?? 0) > 0) refuel();
     },
     cleanup: () => {
+      stopCount();
       offSaved();
+      offMessage();
       hint.dispose();
     },
     guide: 'planet',
@@ -155,6 +188,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   // mounting so the dialog sits above the screen.
   const done = controller.takeCompletion();
   if (done) {
+    countUp(controller.world.credits - done.pay, controller.world.credits);
     const lines = done.missions.map((m) => `Mission complete: ${m.title}`);
     if (done.pay > 0) lines.push(`Paid ${Math.round(done.pay).toLocaleString('en-US')} cr.`);
     void alertDialog(ctx.root, { title: done.missions.length === 1 ? 'Mission complete' : 'Missions complete', message: lines.join('\n') });

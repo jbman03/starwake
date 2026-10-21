@@ -1,11 +1,13 @@
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
-import { fuelCheck } from '../sim/galaxy';
+import { fuelCheck, lanesOf, routeBetween, visibleSystems } from '../sim/galaxy';
 import type { WorldState } from '../sim/types';
 import { setRoute } from '../sim/world';
 import type { UiContext } from './context';
 import { button, el, hotkeyFor } from './dom';
 import { guideCard } from './guideHint';
+
+export { visibleSystemCount } from '../sim/galaxy';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 /** Unknown systems: a plain grey outline, whatever their owner. */
@@ -47,7 +49,7 @@ function stateOf(world: WorldState, id: string): SystemState {
 /** What the star map draws: systems by exploration state, the lanes you know of, mission flags. */
 export function mapModel(world: WorldState, data: GameData): MapModel {
   const flagged = new Set(world.missions.map((m) => data.planets[m.destId]?.systemId).filter((id) => id !== undefined));
-  const nodes: MapNode[] = Object.values(data.systems).map((s) => {
+  const nodes: MapNode[] = visibleSystems(data, world.flags).map((s) => {
     const state = stateOf(world, s.id);
     return {
       id: s.id,
@@ -62,8 +64,8 @@ export function mapModel(world: WorldState, data: GameData): MapModel {
   });
   const lanes: [string, string][] = [];
   const drawn = new Set<string>();
-  for (const s of Object.values(data.systems)) {
-    for (const l of s.links) {
+  for (const s of visibleSystems(data, world.flags)) {
+    for (const l of lanesOf(data, s.id, world.flags)) {
       const key = [s.id, l].sort().join('|');
       if (drawn.has(key) || !data.systems[l]) continue;
       drawn.add(key);
@@ -89,14 +91,17 @@ const jumps = (n: number) => `${n} ${n === 1 ? 'jump' : 'jumps'}`;
  * Fewest-hops route as setRoute plots it (charted systems, or any lane to a mission's system),
  * with "N jumps · fuel needed N · you have M" (in jumps).
  */
-export function routeSummary(world: WorldState, data: GameData, toId: string): RouteSummary {
+export function routeSummary(world: WorldState, data: GameData, toId: string, opts: { anyLane?: boolean } = {}): RouteSummary {
   const reachable = fuelCheck(world.ship.fuel, 0, data.config).reachable;
   if (toId === world.systemId) return { route: [], text: 'You are here', short: false, reachable };
-  const r = setRoute(world, data, toId);
-  if (!r.ok) return { route: null, text: 'No known route', short: false, reachable };
-  const route = r.world.route;
+  // anyLane previews a mission's course (accepting one charts any lane), so it may cross unexplored space.
+  const plotted = opts.anyLane ? routeBetween(data, world.systemId, toId, () => true, world.flags) : null;
+  const r = plotted ? null : setRoute(world, data, toId);
+  const route = plotted ?? (r?.ok ? r.world.route : null);
+  if (!route) return { route: null, text: 'No known route', short: false, reachable };
   const n = route.length;
-  return { route, text: `${jumps(n)} · fuel needed ${n} · you have ${reachable}`, short: reachable < n, reachable };
+  const unexplored = opts.anyLane && route.some((id) => !world.known.includes(id)) ? ' (through unexplored space)' : '';
+  return { route, text: `${jumps(n)}${unexplored} · fuel needed ${n} · you have ${reachable}`, short: reachable < n, reachable };
 }
 
 export interface SystemDetails {
@@ -169,7 +174,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
   };
 
   // ---- view box: zoom and pan ---------------------------------------------
-  const all = Object.values(data.systems);
+  const all = visibleSystems(data, controller.world.flags);
   const bx = Math.min(...all.map((s) => s.mapPos.x)) - PAD;
   const by = Math.min(...all.map((s) => s.mapPos.y)) - PAD;
   const bw = Math.max(...all.map((s) => s.mapPos.x)) + PAD - bx;
@@ -378,7 +383,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
     drawNodes(world);
 
     // Plotted course (faint), then the selected system's route: solid while the fuel lasts.
-    const summary = routeSummary(world, data, selected);
+    const summary = routeSummary(world, data, selected, { anyLane: preview?.systemId === selected });
     routeLayer.replaceChildren();
     if (world.route.length > 0) {
       routeLayer.append(svg('polyline', { points: points([world.systemId, ...world.route], data), class: 'sw-map-course' }));
@@ -405,7 +410,9 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
     routeText.textContent = summary.text;
     routeText.classList.toggle('sw-map-short', summary.short);
 
-    const hasRoute = !!summary.route && summary.route.length > 0;
+    // A previewed (not yet accepted) job's route may cross uncharted lanes that setRoute refuses: Set course needs a plottable one.
+    const plottable = preview?.systemId === selected ? routeSummary(world, data, selected).route : summary.route;
+    const hasRoute = !!plottable && plottable.length > 0;
     setBtn.disabled = !hasRoute || world.route.at(-1) === selected;
     clearBtn.disabled = world.route.length === 0;
     applyView();

@@ -34,6 +34,11 @@ const mkWorld = (p: Partial<WorldState> = {}, ship: Partial<WorldState['ship']> 
   events: [],
   takenOffers: [],
   outfits: {},
+  flags: [],
+  notes: [],
+  shipName: 'Shuttle',
+  stats: { jobsDone: 0 },
+  lastEncounterDay: null,
   ...p,
   ship: { pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, heading: 0, fuel: 300, ...ship },
 });

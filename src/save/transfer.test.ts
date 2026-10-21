@@ -5,9 +5,9 @@ import { exportFileName, exportPilot, importPilot } from './transfer';
 
 const data = testData();
 const p: PilotSave = {
-  version: 3, id: 'p1', name: 'A/B:c', credits: 100, shipId: 'shuttle', fuel: 5, systemId: 'calder',
+  version: 4, id: 'p1', name: 'A/B:c', credits: 100, shipId: 'shuttle', fuel: 5, systemId: 'calder',
   planetId: 'halcyon', gameTimeSec: 1, savedAt: '2026-01-01T00:00:00.000Z',
-  day: 0, seed: 1, cargo: {}, missions: [], route: [], known: ['calder'], seen: [], pressure: {}, events: [], takenOffers: [], outfits: {},
+  day: 0, seed: 1, cargo: {}, missions: [], route: [], known: ['calder'], seen: [], pressure: {}, events: [], takenOffers: [], outfits: {}, flags: [], notes: [], shipName: 'Shuttle', stats: { jobsDone: 0 }, lastEncounterDay: null,
 };
 
 describe('transfer', () => {

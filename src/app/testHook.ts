@@ -19,10 +19,20 @@ export interface StarwakeTestHook {
   hudBanner?: () => string | null;
   /** Set by SpaceScene: the desktop HUD course line, or null when hidden. */
   hudCourse?: () => string | null;
+  /** Set by SpaceScene: the HUD message line's text while it shows, or null. */
+  hudMessage?: () => string | null;
+  /** Set by SpaceScene: the incoming-hail banner text, or null when hidden. */
+  hudHail?: () => string | null;
+  /** Set by SpaceScene: the pending site's on-screen position, or null when there is none. */
+  siteScreenPos?: () => { x: number; y: number } | null;
+  /** Test-only: make `id` the pending encounter (a hail now, or a site 200 px ahead of the ship). */
+  forceEncounter: (id: string) => void;
   /** Set by SpaceScene: the desktop HUD's guide hint and its skip control's screen box, or null when hidden. */
   hudGuide?: () => { text: string; skip: { x: number; y: number; w: number; h: number } } | null;
   /** Set by SpaceScene: whether the PC sidebar is showing, and what it shows. */
   sidebar?: () => { visible: boolean; info: SidebarInfo };
+  /** Set by SpaceScene: the NPC ships in this system with their on-screen position (null before a sprite exists). */
+  traffic?: () => { id: string; label: string; texture: string | null; tint: number | null; screen: { x: number; y: number } | null }[];
   /** Set by SpaceScene: a planet's on-screen position, or null if not in the current system. */
   planetScreenPos?: (planetId: string) => { x: number; y: number } | null;
 }
@@ -76,5 +86,5 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     c.landAt(planetId);
     c.emit({ type: 'landed', planetId });
   };
-  window.__starwake = { world: () => controller.world, data, controller, store, teleport };
+  window.__starwake = { world: () => controller.world, data, controller, store, teleport, forceEncounter: (id) => controller.forceEncounter(id) };
 }

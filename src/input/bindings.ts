@@ -17,9 +17,10 @@ export const DEFAULT_BINDINGS: Bindings = {
   land: ['KeyL', null],
   jump: ['KeyJ', null],
   autopilot: ['KeyG', null],
-  map: ['KeyM', null],
+  map: ['KeyN', 'KeyM'],
   flightMissionLog: ['KeyK', null],
   pause: ['Escape', null],
+  interact: ['KeyY', null],
   openExchange: ['KeyC', null],
   openMissions: ['KeyM', null],
   openShipyard: ['KeyY', null],
@@ -37,6 +38,10 @@ export const DEFAULT_BINDINGS: Bindings = {
   shopNextPage: ['PageDown', 'BracketRight'],
   back: ['Escape', null],
   menuHowToPlay: ['KeyH', null],
+  encounterChoice1: ['Digit1', null],
+  encounterChoice2: ['Digit2', null],
+  encounterChoice3: ['Digit3', null],
+  toggleSound: ['KeyV', null],
 };
 
 export const MUST_KEEP_ESCAPE: readonly ActionId[] = ['pause', 'back'];
@@ -68,11 +73,15 @@ function assertEscape(b: Bindings): void {
   }
 }
 
-/** Another action in the same group already using `code`, or null. */
+/** Actions polled on every screen: their keys must be free in every group. */
+export const GLOBAL_ACTIONS: ReadonlySet<ActionId> = new Set<ActionId>(['toggleSound']);
+
+/** Another action in the same group (or any action, if either is global) already using `code`, or null. */
 export function findConflict(b: Bindings, action: ActionId, code: string): ActionId | null {
   const group = ACTION_GROUP[action];
   for (const id of ACTION_IDS) {
-    if (id === action || ACTION_GROUP[id] !== group) continue;
+    if (id === action) continue;
+    if (ACTION_GROUP[id] !== group && !GLOBAL_ACTIONS.has(id) && !GLOBAL_ACTIONS.has(action)) continue;
     if (b[id].includes(code)) return id;
   }
   return null;

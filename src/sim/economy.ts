@@ -1,11 +1,12 @@
 import type { GameData, PlanetDef } from '../data/schemas';
-import { hopDistance } from './galaxy';
+import { HIDDEN_LANE_FLAG, hopDistance } from './galaxy';
+import { hasFlag } from './story';
 import { hashString, mulberry32, pick, randInt } from './random';
 import type { MarketEvent, WorldState } from './types';
 
 export type Level = 'low' | 'med' | 'high';
 
-export const LEVEL_MULT: Record<Level, number> = { low: 0.75, med: 1.0, high: 1.3 };
+export const LEVEL_MULT: Record<Level, number> = { low: 0.7, med: 1.0, high: 1.35 };
 /** Pressure change per 10 t traded (buying raises, selling lowers). */
 export const PRESSURE_PER_10T = 0.03;
 export const PRESSURE_MIN = 0.7;
@@ -80,7 +81,10 @@ export function economyDay(world: WorldState, data: GameData): WorldState {
   if (templates.length === 0) return w;
   const tpl = pick(rng, templates);
   const ports = Object.values(data.planets).filter(
-    (p) => p.market?.[tpl.commodity] && !events.some((e) => e.portId === p.id && e.commodityId === tpl.commodity),
+    (p) =>
+      p.market?.[tpl.commodity] &&
+      (!data.systems[p.systemId]?.hidden || hasFlag(w, HIDDEN_LANE_FLAG)) &&
+      !events.some((e) => e.portId === p.id && e.commodityId === tpl.commodity),
   );
   if (ports.length === 0) return w;
   const port = pick(rng, ports);
@@ -106,14 +110,19 @@ export function localNews(world: WorldState, data: GameData, portId: string): st
   return port && tpl ? fillPort(tpl.text, port) : null;
 }
 
+export const SURVEY_RUMOUR = 'Old spacers swear a survey ship still drifts beyond Skerry, where the charts go blank.';
+
 /** Hearsay about an active event at another port within RUMOR_HOPS jumps; deterministic by day. */
 export function rumor(world: WorldState, data: GameData, portId: string): string | null {
   const here = data.planets[portId];
   if (!here) return null;
+  // From day 5 the survey-ship rumour turns up on one day in three, until the player has heard it.
+  if (world.day >= 5 && !world.flags.includes('survey-rumour') && mulberry32(hashString(world.seed, 'survey-rumour', world.day))() < 1 / 3)
+    return SURVEY_RUMOUR;
   const near = world.events.filter((e) => {
     const there = data.planets[e.portId];
     return (
-      there && e.portId !== portId && isActive(world, e) && hopDistance(data, here.systemId, there.systemId) <= RUMOR_HOPS
+      there && e.portId !== portId && isActive(world, e) && hopDistance(data, here.systemId, there.systemId, world.flags) <= RUMOR_HOPS
     );
   });
   if (near.length === 0) return null;

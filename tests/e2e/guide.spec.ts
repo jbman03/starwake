@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { newPilot, trackErrors } from './helpers';
+import { newPilot, trackErrors, waitForFlight } from './helpers';
 
 type Rect = { x: number; y: number; w: number; h: number };
 const intersects = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -47,13 +47,14 @@ test.describe('desktop', () => {
     // 2: buy the named good.
     const ex = page.getByTestId('exchange');
     await expect(ex).toBeVisible();
-    const buy = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 10 t \(B\)\.$/);
+    const buy = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 20 t \(press B twice\)\.$/);
     expect(buy).not.toBeNull();
     const good = (await idOf(page, 'commodities', buy![1]))!;
     expect(good).not.toBeNull();
     await ex.locator(`[data-good="${good}"]`).click();
     await page.keyboard.press('KeyB');
-    await expect(ex.locator(`[data-good="${good}"] .sw-ex-held`)).toHaveText('10 t');
+    await page.keyboard.press('KeyB');
+    await expect(ex.locator(`[data-good="${good}"] .sw-ex-held`)).toHaveText('20 t');
     const creditsAfterBuy = await page.evaluate(() => window.__starwake!.world().credits);
 
     // 3–5: close, mission computer, close, leave.
@@ -68,7 +69,7 @@ test.describe('desktop', () => {
     await expect(planet).toBeVisible();
     expect(await screenHint(page)).toBe('Leave the planet (L).');
     await page.keyboard.press('KeyL');
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     // 6: with the PC sidebar the status panel is gone, so the hint sits top-left, wrapped to its width.
     expect(await hudHint(page, /^Fly:/)).toBe('Fly: ↑ thrust, ← → turn, X stop.');
@@ -83,7 +84,7 @@ test.describe('desktop', () => {
     // 7: plot the course the hint names.
     const plot = (await hudHint(page, /Star Map/)).match(/set a course to (.+)\. (.+) pays well there\.$/);
     expect(plot).not.toBeNull();
-    expect(await hudHint(page, /Star Map/)).toContain('Open the Star Map (M)');
+    expect(await hudHint(page, /Star Map/)).toContain('Open the Star Map (N)');
     const system = (await idOf(page, 'systems', plot![1]))!;
     await page.keyboard.press('KeyM');
     const map = page.getByTestId('star-map');
@@ -93,7 +94,7 @@ test.describe('desktop', () => {
     await map.getByRole('button', { name: 'Set course' }).click();
     await map.getByRole('button', { name: /^Close/ }).click();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     // 8: autopilot out and jump until we arrive.
     expect(await hudHint(page, /Jump/)).toContain('(G autopilot) and Jump (J)');
@@ -118,7 +119,7 @@ test.describe('desktop', () => {
     const land = (await hudHint(page, /^Land at/)).match(/^Land at (.+) \(Tab to target, L to land\)\.$/);
     expect(land).not.toBeNull();
     const port = (await idOf(page, 'planets', land![1]))!;
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     for (let i = 0; i < 12 && (await page.evaluate(() => window.__starwake!.world().targetPlanetId)) !== port; i++) {
       await page.keyboard.press('Tab');
       await page.waitForTimeout(50);
@@ -153,6 +154,7 @@ test.describe('desktop', () => {
     const good = (await idOf(page, 'commodities', goodName))!;
     await page.getByTestId('exchange').locator(`[data-good="${good}"]`).click();
     await page.keyboard.press('KeyB');
+    await page.keyboard.press('KeyB');
     await expect.poll(() => step(page)).toBe(3);
     await page.keyboard.press('Escape');
     await page.keyboard.press('KeyM');
@@ -160,7 +162,7 @@ test.describe('desktop', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('planet-screen')).toBeVisible();
     await page.keyboard.press('KeyL');
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await expect.poll(() => step(page)).toBe(6);
     await page.keyboard.down('ArrowUp');
     await expect.poll(() => step(page), { timeout: 20_000 }).toBe(7);
@@ -176,7 +178,7 @@ test.describe('desktop', () => {
     expect(await page.evaluate((g) => window.__starwake!.world().cargo[g] ?? 0, good)).toBe(0);
     expect(await step(page)).toBe(2);
     expect(await page.evaluate(() => window.__starwake!.controller.guide!.target())).toEqual(before);
-    expect(await screenHint(page)).toBe(`Open the exchange (C) and buy 10 t of ${goodName}.`);
+    expect(await screenHint(page)).toBe(`Open the exchange (C) and buy 20 t of ${goodName}.`);
 
     await page.getByTestId('guide-skip').click();
     const dialog = page.getByRole('dialog', { name: 'Skip the guide?' });
@@ -261,9 +263,10 @@ test.describe('phone (touch, landscape)', () => {
       await page.getByRole('button', { name: /^Commodity Exchange/ }).tap();
       await screenFits(page, 'exchange');
       if (!bought) {
-        const name = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 10 t\.$/)![1];
+        const name = (await screenHint(page)).match(/^(.+): tap Buy 10 twice\.$/)![1];
         const good = (await idOf(page, 'commodities', name))!;
         await page.getByTestId('exchange').locator(`[data-good="${good}"]`).tap();
+        await page.getByRole('button', { name: /^Buy 10/ }).tap();
         await page.getByRole('button', { name: /^Buy 10/ }).tap();
         await expect.poll(() => step(page)).toBe(3);
         bought = true;
@@ -279,7 +282,7 @@ test.describe('phone (touch, landscape)', () => {
     // Flight: the hint moves into the stick rail.
     await page.setViewportSize({ width: 844, height: 390 });
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await expect.poll(() => step(page)).toBe(6);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     await expect(page.getByTestId('rail-guide')).toHaveText('Push the stick to fly, STOP to brake.');
@@ -294,7 +297,7 @@ test.describe('phone (touch, landscape)', () => {
       await page.locator('[data-control="radar"]').tap();
       await screenFits(page, 'star-map');
       await page.getByTestId('star-map').getByRole('button', { name: /^Close/ }).tap();
-      await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+      await waitForFlight(page);
     }
 
     // Step 7: push the stick until the ship has flown 300 px; the rail then names the destination.
@@ -319,7 +322,7 @@ test.describe('phone (touch, landscape)', () => {
     await expect(dialog).toBeVisible();
     expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(false);
     await dialog.getByRole('button', { name: 'Skip guide' }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await expect(page.getByTestId('rail-guide')).toBeHidden();
     await expect(page.locator('[data-control="guide-skip"]')).toBeHidden();
     expect(errors).toEqual([]);

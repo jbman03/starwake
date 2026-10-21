@@ -146,4 +146,38 @@ describe('contextAction', () => {
     const w = { ...at(newWorld(data), { x: 2100, y: 0 }), jump: { toSystemId: 'vesk', t: 0.5 } };
     expect(contextAction(w, data)).toBeNull();
   });
+
+  describe('encounters', () => {
+    const site = { kind: 'site' as const, pos: { x: 100, y: 100 } };
+    const near = (speed: number, gap: number) => ({
+      ...newWorld(data),
+      ship: { ...newWorld(data).ship, pos: { x: 100 + gap, y: 100 }, vel: { x: speed, y: 0 } },
+    });
+
+    it('a plotted jump or autopilot-out outranks a hail; without a course the hail shows', () => {
+      const hail = { kind: 'hail' as const };
+      const jumpable = at({ ...newWorld(data), route: ['vesk'] }, { x: -2100, y: 0 });
+      expect(contextAction(jumpable, data, hail)).toBe('jump');
+      const h = data.planets.halcyon;
+      const close = at({ ...newWorld(data), route: ['vesk'] }, { x: h.pos.x, y: h.pos.y - 601 });
+      expect(contextAction(close, data, hail)).toBe('autopilotOut');
+      expect(contextAction(newWorld(data), data, hail)).toBe('answerHail');
+    });
+
+    it('answerHail while a hail is pending', () => {
+      expect(contextAction(newWorld(data), data, { kind: 'hail' })).toBe('answerHail');
+    });
+
+    it('openSite only within 60 px and below 40 speed', () => {
+      expect(contextAction(near(0, 60), data, site)).toBe('openSite');
+      expect(contextAction(near(39, 0), data, site)).toBe('openSite');
+      expect(contextAction(near(0, 61), data, site)).not.toBe('openSite');
+      expect(contextAction(near(40, 0), data, site)).not.toBe('openSite');
+    });
+
+    it('takeControl and tow still win over an encounter', () => {
+      const w: WorldState = { ...newWorld(data), assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
+      expect(contextAction(w, data, { kind: 'hail' })).toBe('takeControl');
+    });
+  });
 });

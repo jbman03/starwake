@@ -1,8 +1,9 @@
 import { jumpsOf } from '../sim/fuel';
-import { SHIP_BLOCK_TEXT } from '../sim/shipyard';
+import { SHIP_BLOCK_TEXT, shipHidden } from '../sim/shipyard';
 import { shipStock } from '../sim/stock';
 import type { UiContext } from './context';
-import { confirmDialog, formatCredits } from './dom';
+import { confirmDialog, formatCredits, promptDialog } from './dom';
+import { cleanPilotName, NAME_MAX } from './mainMenu';
 import { shipIcon } from './icons';
 import { infoBlock, showShop, type ShopItem } from './shop';
 
@@ -15,10 +16,24 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
   const port = data.planets[planetId];
 
   const items = (): ShopItem[] =>
-    shipStock(planetId, data).map((def) => {
+    shipStock(planetId, data)
+      .filter((def) => !shipHidden(controller.world, def))
+      .map((def) => {
       const q = controller.shipQuote(def.id);
       const w = controller.world;
       const owned = w.shipId === def.id;
+      if (q.check.ok === false && q.check.reason === 'locked') {
+        const silhouette = shipIcon(def, 56);
+        silhouette.style.filter = 'brightness(0) opacity(0.35)';
+        return {
+          id: def.id,
+          name: '???',
+          icon: () => silhouette,
+          canBuy: false,
+          reason: SHIP_BLOCK_TEXT.locked,
+          info: () => infoBlock('???', 'A hull the yard will not talk about. Someone here knows more than they say.', []),
+        };
+      }
       const fitted = Object.values(w.outfits).reduce((n, c) => n + c, 0);
       const notes =
         fitted > 0 && !owned
@@ -72,8 +87,18 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
       });
       if (!ok) return;
       const r = controller.buyShip(id);
-      if (r.check.ok) say(`You now fly the ${to}.`);
-      else say(SHIP_BLOCK_TEXT[r.check.reason], true);
+      if (!r.check.ok) return say(SHIP_BLOCK_TEXT[r.check.reason], true);
+      // Cancel (Esc) keeps the hull's own name.
+      const raw = await promptDialog(ctx.root, {
+        title: `Name your ${to}`,
+        label: 'Ship name',
+        value: to,
+        maxLength: NAME_MAX,
+        confirm: 'Name ship',
+      });
+      const named = raw === null ? to : cleanPilotName(raw);
+      controller.nameShip(named);
+      say(named === to ? `You now fly the ${to}.` : `You now fly the ${to}, ${named}.`);
     },
   });
 }

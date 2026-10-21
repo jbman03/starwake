@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
-import { buyShip, shipQuote, SHIP_BLOCK_TEXT, tradeInValue } from './shipyard';
+import { buyShip, shipHidden, shipQuote, SHIP_BLOCK_TEXT, tradeInValue } from './shipyard';
 import type { Mission, WorldState } from './types';
 import { newWorld } from './world';
 
@@ -79,9 +79,35 @@ describe('shipQuote / buyShip', () => {
     expect(r.quote.net).toBe(10000 - 52500);
     expect(r.quote.check).toEqual({ ok: true });
     expect(r.world.credits).toBe(42500);
+    expect(r.world.shipName).toBe(data.ships.shuttle.name);
   });
 
   it('has block text for every reason', () => {
     for (const k of ['credits', 'cargo', 'passengers', 'owned', 'notSold'] as const) expect(SHIP_BLOCK_TEXT[k]).toBeTruthy();
+  });
+});
+
+describe('survey hull gating', () => {
+  const YARD = 'wrenhold';
+  it('is locked without the claim and open with it', () => {
+    expect(shipQuote(base(), data, YARD, 'patience').check).toEqual({ ok: false, reason: 'locked' });
+    expect(SHIP_BLOCK_TEXT.locked).toBe('Ask about the old survey ship');
+    expect(shipQuote(base({ flags: ['survey-claim'] }), data, YARD, 'patience').check).toEqual({ ok: true });
+  });
+  it('is hidden once the wreck is stripped, and sold-once reads as gone', () => {
+    expect(shipHidden(base({ flags: ['survey-claim'] }), data.ships.patience)).toBe(false);
+    expect(shipHidden(base({ flags: ['survey-stripped'] }), data.ships.patience)).toBe(true);
+    expect(shipHidden(base({ flags: ['survey-stripped'] }), data.ships.shuttle)).toBe(false);
+    const sold = base({ flags: ['survey-claim', 'bought:patience'] });
+    expect(shipQuote(sold, data, YARD, 'patience').check).toEqual({ ok: false, reason: 'gone' });
+    expect(SHIP_BLOCK_TEXT.gone).toBe("Sold once — she's gone.");
+  });
+  it('an unknown ship trades in for nothing', () => {
+    expect(tradeInValue(base({ shipId: 'nope' }), data)).toBe(0);
+  });
+  it('records the purchase and is then owned', () => {
+    const r = buyShip(base({ flags: ['survey-claim'] }), data, YARD, 'patience');
+    expect(r.world.flags).toContain('bought:patience');
+    expect(shipQuote(r.world, data, YARD, 'patience').check).toEqual({ ok: false, reason: 'owned' });
   });
 });

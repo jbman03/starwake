@@ -5,11 +5,17 @@ import { loadGameData } from '../data/load';
 import { withoutPorts } from '../data/testData';
 import type { PilotSave } from '../save/pilot';
 import { worldFromPilot } from '../save/pilot';
+import type { ActionId } from '../input/actions';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import { PilotStore } from '../save/store';
 import { canAccept } from '../sim/missions';
 import { newWorld } from '../sim/world';
-import { Controller, type ControllerEvent } from './controller';
+import { Controller, LANDING_FX_SEC, type ControllerEvent } from './controller';
+
+/** Run `sec` of frames at 60 fps (the landing and take-off effects take time). */
+function run(c: Controller, sec: number): void {
+  for (let i = 0; i < Math.round(sec * 60); i++) c.update(1 / 60);
+}
 
 const keyEvent = (type: string, code: string) => Object.assign(new Event(type), { code, repeat: false });
 
@@ -48,7 +54,7 @@ describe('Controller', () => {
     c.update(1 / 60);
     expect(events).toContainEqual({ type: 'contextChanged', action: 'land' });
     c.doContextAction();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
     expect(c.isFlying).toBe(false);
     expect(c.landedPlanetId).toBe('halcyon');
@@ -60,6 +66,50 @@ describe('Controller', () => {
     expect(c.isFlying).toBe(true);
     expect(c.landedPlanetId).toBeNull();
     expect(c.world.targetPlanetId).toBeNull();
+  });
+
+  it('the sound key flips mute and says so, flying and on a planet screen', async () => {
+    const { c, target } = await setup();
+    const messages: string[] = [];
+    c.on('message', (e) => messages.push(e.text));
+    c.startFlight();
+    target.dispatchEvent(keyEvent('keydown', 'KeyV'));
+    c.update(1 / 60);
+    expect(c.settings.muted).toBe(true);
+    expect(messages).toEqual(['Sound off']);
+    target.dispatchEvent(keyEvent('keyup', 'KeyV'));
+    c.pauseFlight();
+    target.dispatchEvent(keyEvent('keydown', 'KeyV'));
+    c.update(1 / 60); // no screen open: the key still works
+    expect(c.settings.muted).toBe(false);
+    expect(messages).toEqual(['Sound off', 'Sound on']);
+  });
+
+  it('the sound key works on a screen that listens only to the planet group, and hides other menu keys from it', async () => {
+    const { c, target } = await setup();
+    const seen: ActionId[][] = [];
+    c.setUiInput(['planet'], (p) => seen.push([...p]));
+    target.dispatchEvent(keyEvent('keydown', 'KeyV'));
+    target.dispatchEvent(keyEvent('keydown', 'KeyH'));
+    c.update(1 / 60);
+    expect(c.settings.muted).toBe(true);
+    expect(seen).toEqual([['howToPlay']]);
+  });
+
+  it('announces effects that have no event of their own', async () => {
+    const { c } = await setup();
+    const sfx: string[] = [];
+    c.on('sfx', (e) => sfx.push(e.sfx));
+    c.startFlight();
+    c.doContextAction();
+    run(c, LANDING_FX_SEC + 0.05);
+    c.buy('food', 10);
+    expect(sfx).toEqual(['trade']);
+    c.sell('food', 0); // nothing sold: silent
+    c.leavePlanet();
+    expect(sfx).toEqual(['trade', 'takeoff']);
+    c.forceEncounter(Object.keys(c.data.encounters)[0]);
+    expect(sfx).toContain(c.pending!.kind);
   });
 
   it('the autopilotOut context action engages the autopilot to the jump point', async () => {
@@ -194,9 +244,9 @@ describe('Controller', () => {
     expect(c.pilot).toEqual({ id: 'p1', name: 'Ava' });
 
     c.leavePlanet();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     c.doContextAction();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     expect(c.landedPlanetId).toBe('halcyon');
     await c.lastSave;
     expect(saved).toHaveLength(1);
@@ -223,9 +273,9 @@ describe('Controller', () => {
     c.store = { save: async () => Promise.reject(new Error('disk full')) };
     c.beginSession(newWorld(c.data), { id: 'p1', name: 'Ava' }, 'halcyon');
     c.leavePlanet();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     c.doContextAction();
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     await c.lastSave;
     expect(events).toContainEqual({ type: 'saved', ok: false, error: 'disk full' });
   });
@@ -367,7 +417,7 @@ describe('Controller', () => {
     c.startFlight();
     c.tapPlanet('halcyon');
     expect(c.world.targetPlanetId).toBe('halcyon');
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
   });
 
@@ -385,10 +435,11 @@ describe('Controller', () => {
     expect(events.some((e) => e.type === 'landed')).toBe(false);
 
     c.tapPlanet('halcyon', 'touch');
-    c.update(1 / 60);
+    run(c, LANDING_FX_SEC + 0.05);
     expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
 
     c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.05);
     c.tapPlanet('merrow', 'pen');
     c.update(1 / 60);
     expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'planet', id: 'merrow' } });
@@ -416,6 +467,72 @@ describe('Controller', () => {
     c.tapPlanet('merrow');
     c.update(1 / 60);
     expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'planet', id: 'merrow' } });
+  });
+});
+
+describe('Controller landing and take-off effects', () => {
+  it('the landed event fires only after LANDING_FX_SEC of updates, and landing work waits for it', async () => {
+    const { c, events } = await setup();
+    const saved: PilotSave[] = [];
+    c.store = { save: async (p) => void saved.push(p) };
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.05);
+    events.length = 0;
+    c.doContextAction();
+    run(c, LANDING_FX_SEC - 0.1);
+    expect(events.some((e) => e.type === 'landed')).toBe(false);
+    expect(c.landedPlanetId).toBeNull();
+    expect(c.isFlying).toBe(true);
+    const mid = c.view().landingT;
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(1);
+    run(c, 0.15);
+    expect(events).toContainEqual({ type: 'landed', planetId: 'halcyon' });
+    expect(c.landedPlanetId).toBe('halcyon');
+    expect(c.isFlying).toBe(false);
+    expect(c.view().landingT).toBeNull();
+    await c.lastSave;
+    expect(saved).toHaveLength(1);
+  });
+
+  it('input is ignored while landing', async () => {
+    const { c, target, events } = await setup();
+    c.startFlight();
+    c.doContextAction();
+    c.update(1 / 60);
+    expect(c.view().landingT).not.toBeNull();
+    const t = c.world.timeSec;
+    target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+    target.dispatchEvent(keyEvent('keydown', 'Escape'));
+    run(c, 0.1);
+    expect(events.some((e) => e.type === 'menu')).toBe(false);
+    expect(c.world.timeSec).toBe(t);
+    expect(c.world.ship.vel).toEqual({ x: 0, y: 0 });
+    c.doContextAction();
+    c.tapPlanet('merrow');
+    expect(c.world.targetPlanetId).toBe('halcyon');
+    run(c, LANDING_FX_SEC);
+    expect(events.filter((e) => e.type === 'landed')).toHaveLength(1);
+    expect(events.some((e) => e.type === 'menu')).toBe(false);
+  });
+
+  it('take-off runs the effect in reverse and ignores input until it ends', async () => {
+    const { c, target } = await setup();
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    c.leavePlanet();
+    expect(c.view().landingT).toBe(1);
+    target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+    run(c, 0.2);
+    expect(c.view().landingT).toBeCloseTo(0.5, 1);
+    expect(Math.hypot(c.world.ship.vel.x, c.world.ship.vel.y)).toBe(0);
+    run(c, 0.25);
+    expect(c.view().landingT).toBeNull();
+    target.dispatchEvent(keyEvent('keyup', 'ArrowUp'));
+    target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+    run(c, 0.2);
+    expect(Math.hypot(c.world.ship.vel.x, c.world.ship.vel.y)).toBeGreaterThan(0);
+    expect(c.view().thrusting).toBe(true);
   });
 });
 
@@ -519,11 +636,198 @@ describe('Controller trade, missions and routes', () => {
     expect(saved[0].missions).toEqual([]);
   });
 
+  it('completing two missions on landing adds 2 to stats.jobsDone', async () => {
+    const { c } = await setup();
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    c.world = { ...c.world, missions: [{ ...deliver(), id: 'j1' }, { ...deliver(), id: 'j2' }] };
+    (c as unknown as { landAt(id: string): void }).landAt('merrow');
+    expect(c.world.stats.jobsDone).toBe(2);
+  });
+
   it('plotRoute returns the setRoute result; clearRoute empties the course', async () => {
     const { c } = await setup();
     expect(c.plotRoute('vesk')).toEqual({ ok: true });
     expect(c.world.route).toEqual(['vesk']);
     c.clearRoute();
     expect(c.world.route).toEqual([]);
+  });
+
+  describe('targeting ships', () => {
+    const tab = (target: EventTarget, c: Controller) => {
+      target.dispatchEvent(keyEvent('keydown', 'Tab'));
+      c.update(1 / 60);
+      target.dispatchEvent(keyEvent('keyup', 'Tab'));
+      c.update(1 / 60);
+    };
+
+    it('Tab cycles ships nearest first, then planets, then none', async () => {
+      const { c, data, target } = await setup();
+      const ports = Object.values(data.planets).filter((p) => p.systemId === c.world.systemId).length;
+      expect(ports).toBeGreaterThanOrEqual(2);
+      const fly = (id: string, dx: number) => ({
+        ...c.traffic.npcs[0],
+        id,
+        ship: { ...c.traffic.npcs[0].ship, pos: { x: c.world.ship.pos.x + dx, y: c.world.ship.pos.y } },
+      });
+      expect(c.traffic.npcs.length).toBeGreaterThanOrEqual(1);
+      c.traffic = { ...c.traffic, nextSpawnSec: 999, npcs: [fly('far', 900), fly('near', 300)] };
+      c.startFlight();
+      const seen: string[] = [];
+      for (let i = 0; i < 3 + ports; i++) {
+        tab(target, c);
+        seen.push(c.traffic.targetId ?? c.world.targetPlanetId ?? 'none');
+        if (c.traffic.targetId) expect(c.world.targetPlanetId).toBeNull();
+      }
+      expect(seen.slice(0, 2)).toEqual(['near', 'far']);
+      expect(c.data.planets[seen[2]]).toBeDefined();
+      expect(seen[2 + ports]).toBe('none');
+      expect(c.traffic.targetId).toBeNull();
+      expect(c.world.targetPlanetId).toBeNull();
+    });
+
+    it('targetShip targets a ship and clears the planet target; selectPlanet clears the ship', async () => {
+      const { c } = await setup();
+      const id = c.traffic.npcs[0].id;
+      c.selectPlanet('halcyon');
+      c.targetShip(id);
+      expect(c.traffic.targetId).toBe(id);
+      expect(c.world.targetPlanetId).toBeNull();
+      c.selectPlanet('halcyon');
+      expect(c.traffic.targetId).toBeNull();
+      c.targetShip(id);
+      c.targetShip(null);
+      expect(c.traffic.targetId).toBeNull();
+    });
+
+    it('reseeds when the pilot arrives in a new system', async () => {
+      const { c } = await setup();
+      c.traffic = { ...c.traffic, systemId: 'elsewhere', npcs: [] };
+      c.startFlight();
+      c.update(1 / 60);
+      expect(c.traffic.systemId).toBe(c.world.systemId);
+    });
+  });
+
+  describe('encounters', () => {
+    it('a hail lapses after 30 s', async () => {
+      const { c } = await setup();
+      c.startFlight();
+      c.forceEncounter('stranded-passenger');
+      expect(c.pending?.kind).toBe('hail');
+      for (let i = 0; i < 4 * 29; i++) c.update(0.25);
+      expect(c.pending).not.toBeNull();
+      for (let i = 0; i < 8; i++) c.update(0.25);
+      expect(c.pending).toBeNull();
+    });
+
+    it('leaving the system clears a pending encounter', async () => {
+      const data = { ...(await loadGameData()) };
+      const c = new Controller({ ...data, encounters: {} }, { ...DEFAULT_SETTINGS }, new EventTarget());
+      c.startFlight();
+      c.pending = { def: data.encounters['cargo-drift'], npcName: 'X', kind: 'site', pos: { x: 0, y: 0 } };
+      c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', t: 99 } };
+      c.update(0.1);
+      expect(c.world.systemId).toBe('vesk');
+      expect(c.pending).toBeNull();
+    });
+
+    it('the interact key opens the card (flight pauses); the context button does too', async () => {
+      const { c, target } = await setup();
+      const seen: ControllerEvent[] = [];
+      c.on('encounter', (e) => seen.push(e));
+      c.startFlight();
+      c.forceEncounter('stranded-passenger');
+      target.dispatchEvent(keyEvent('keydown', 'KeyY'));
+      c.update(0.1);
+      expect(seen).toHaveLength(1);
+      expect(c.isFlying).toBe(false);
+      c.startFlight();
+      c.doContextAction();
+      c.update(0.1);
+      expect(seen).toHaveLength(2);
+    });
+
+    it('a tow clears the pending encounter', async () => {
+      const { c, data } = await setup(['vesk']);
+      const w = newWorld(data);
+      c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 } }, { id: 'p1', name: 'Ava' }, 'halcyon');
+      c.leavePlanet();
+      c.world = { ...c.world, systemId: 'vesk' };
+      c.forceEncounter('stranded-passenger');
+      expect(c.pending).not.toBeNull();
+      c.pauseFlight();
+      expect(c.callTow()).toBe(true);
+      expect(c.pending).toBeNull();
+      expect(c.traffic.systemId).toBe(c.world.systemId);
+    });
+
+    it('declining a hail clears it; a site stays', async () => {
+      const { c } = await setup();
+      c.startFlight();
+      c.forceEncounter('stranded-passenger');
+      c.declineEncounter();
+      expect(c.pending).toBeNull();
+      c.forceEncounter('cargo-drift');
+      c.declineEncounter();
+      expect(c.pending?.kind).toBe('site');
+    });
+
+    it('a hail cannot be answered while in hyperspace', async () => {
+      const { c } = await setup();
+      c.startFlight();
+      c.forceEncounter('stranded-passenger');
+      c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 0.1 } };
+      expect(c.openEncounter()).toBe(false);
+      expect(c.isFlying).toBe(true);
+    });
+
+    it('pausing flight stops the engine flame', async () => {
+      const { c, target } = await setup();
+      c.startFlight();
+      target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+      c.update(0.1);
+      expect(c.view().thrusting).toBe(true);
+      c.pauseFlight();
+      expect(c.view().thrusting).toBe(false);
+      c.startFlight();
+      c.update(0.1);
+      expect(c.view().thrusting).toBe(true);
+      c.releaseInputs();
+      expect(c.view().thrusting).toBe(false);
+    });
+
+    it('an offered encounter counts toward the no-two-days-in-a-row rule', async () => {
+      const data = await loadGameData();
+      let found = false;
+      for (let day = 1; day < 200 && !found; day++) {
+        const c = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget());
+        c.startFlight();
+        c.world = { ...c.world, day, route: ['vesk'], jump: { toSystemId: 'vesk', t: 99 } };
+        c.update(0.1);
+        if (c.pending) {
+          found = true;
+          expect(c.world.lastEncounterDay).toBe(c.world.day);
+        } else expect(c.world.lastEncounterDay).toBeNull();
+      }
+      expect(found).toBe(true);
+    });
+
+    it('choosing applies the outcome, clears the encounter and refuses a blocked choice', async () => {
+      const { c } = await setup();
+      c.forceEncounter('stranded-passenger');
+      const before = c.world.missions.length;
+      const r = c.chooseEncounter(0);
+      expect(r?.messages.length).toBeGreaterThan(0);
+      expect(c.world.missions).toHaveLength(before + 1);
+      expect(c.pending).toBeNull();
+
+      c.forceEncounter('cheap-goods-pedlar');
+      c.world = { ...c.world, credits: 0 };
+      const view = c.encounterView()!;
+      expect(view.choices.some((x) => x.blocked !== null)).toBe(true);
+      const idx = view.choices.findIndex((x) => x.blocked !== null);
+      expect(c.chooseEncounter(idx)).toBeNull();
+      expect(c.pending).not.toBeNull();
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { newPilot, trackErrors } from './helpers';
+import { newPilot, trackErrors, waitForFlight } from './helpers';
 
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -60,7 +60,7 @@ test.describe('phone (touch, landscape)', () => {
 
     await page.getByRole('button', { name: /^Leave/ }).tap();
     await expect(page.getByTestId('planet-screen')).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
 
     // Tap the empty top of the view: touch mode, rails visible.
     await page.touchscreen.tap(422, 30);
@@ -101,7 +101,7 @@ test.describe('phone (touch, landscape)', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Out');
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     await page.evaluate(() => {
@@ -128,7 +128,7 @@ test.describe('phone (touch, landscape)', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Plot');
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     // Fly clear of Halcyon (out of land range) with no course plotted: Calder has 4 lanes out.
@@ -144,7 +144,7 @@ test.describe('phone (touch, landscape)', () => {
     expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(false);
     await map.getByRole('button', { name: /^Close/ }).tap();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     expect(errors).toEqual([]);
   });
 
@@ -152,7 +152,7 @@ test.describe('phone (touch, landscape)', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Railmap');
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(422, 30);
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     await page.locator('[data-control="map"]').tap();
@@ -161,7 +161,138 @@ test.describe('phone (touch, landscape)', () => {
     expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(false);
     await map.getByRole('button', { name: /^Close/ }).tap();
     await expect(map).toBeHidden();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
+    expect(errors).toEqual([]);
+  });
+
+  test('NPC ships and the site diamond render inside the view; only the rails and context button overlap it', async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Sights');
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await waitForFlight(page);
+    await page.touchscreen.tap(422, 30);
+    await expect(page.getByTestId('touch-rails')).toBeVisible();
+    await waitForLayout(page, 844, 390);
+    const { view } = await layoutOf(page);
+
+    // Hold the sim, park a ship beside the pilot, then raise a site 200 px ahead.
+    await expect.poll(() => page.evaluate(() => window.__starwake!.traffic!().length), { timeout: 25_000 }).toBeGreaterThanOrEqual(1);
+    await page.evaluate(() => {
+      const c = window.__starwake!.controller;
+      const n = c.traffic.npcs.find((m) => m.phase === 'fly')!;
+      const pos = { x: c.world.ship.pos.x + 150, y: c.world.ship.pos.y + 20 };
+      c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((m) => (m.id === n.id ? { ...m, vel: { x: 0, y: 0 }, ship: { ...m.ship, pos, vel: { x: 0, y: 0 } } } : m)) };
+      c.forceEncounter('cargo-drift');
+    });
+    await expect.poll(() => page.evaluate(() => window.__starwake!.siteScreenPos!())).not.toBeNull();
+
+    const inView = (p: { x: number; y: number }) => p.x >= view.x && p.x <= view.x + view.w && p.y >= view.y && p.y <= view.y + view.h;
+    const site = (await page.evaluate(() => window.__starwake!.siteScreenPos!()))!;
+    expect(inView(site), `site ${JSON.stringify(site)} in ${JSON.stringify(view)}`).toBe(true);
+    await expect
+      .poll(async () => (await page.evaluate(() => window.__starwake!.traffic!())).some((n) => n.screen !== null && inView(n.screen)))
+      .toBe(true);
+
+    // Close and slow, the context button offers the site (it is the one control allowed over the view).
+    await page.evaluate(() => {
+      const c = window.__starwake!.controller;
+      c.world = { ...c.world, ship: { ...c.world.ship, vel: { x: 0, y: 0 } } };
+    });
+    await page.evaluate(() => {
+      const c = window.__starwake!.controller;
+      const sp = c.sitePos()!;
+      c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: sp.x - 20, y: sp.y }, vel: { x: 0, y: 0 } } };
+    });
+    await expect(page.getByTestId('context-button')).toHaveText(/open site/i);
+
+    // No autopilot is running, so the route banner (inside the clear region) must be empty.
+    await expect(page.getByTestId('route-banner')).toHaveText('');
+
+    // Nothing in the DOM covers the camera view except the two rails, the context button, and the
+    // transparent #touch / #ui layers. Everything else (banner, scrims, dialogs) is reported.
+    const findOverlaps = (v: Rect): Promise<string[]> =>
+      page.evaluate((v) => {
+        const out: string[] = [];
+        const canvas = document.querySelector('canvas');
+        const transparent = (e: Element) => {
+          const cs = getComputedStyle(e);
+          return cs.pointerEvents === 'none' && cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.backgroundImage === 'none';
+        };
+        for (const e of Array.from(document.body.querySelectorAll('*'))) {
+          if (e === canvas || e.contains(canvas)) continue;
+          if (e.closest('[data-rail]') || e.closest('[data-testid="context-button"]')) continue;
+          if (e.id === 'ui' && e.childElementCount === 0 && transparent(e)) continue;
+          if ((e.id === 'touch' || e.getAttribute('data-testid') === 'touch-rails') && transparent(e)) continue;
+          const cs = getComputedStyle(e);
+          if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
+          const r = e.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+          if (r.left < v.x + v.w && v.x < r.right && r.top < v.y + v.h && v.y < r.bottom) {
+            out.push(`${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}.${String((e as HTMLElement).className)} ${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+          }
+        }
+        return out;
+      }, v);
+    const offenders = await findOverlaps(view);
+    expect(offenders).toEqual([]);
+
+    // Negative control: a 100x100 box in the view centre must be reported.
+    await page.evaluate((v) => {
+      const d = document.createElement('div');
+      d.id = 'overlap-probe';
+      d.style.cssText = `position:fixed;left:${v.x + v.w / 2 - 50}px;top:${v.y + v.h / 2 - 50}px;width:100px;height:100px;background:red`;
+      document.body.appendChild(d);
+    }, view);
+    expect((await findOverlaps(view)).some((o) => o.includes('#overlap-probe'))).toBe(true);
+    await page.evaluate(() => document.getElementById('overlap-probe')!.remove());
+    expect(errors).toEqual([]);
+  });
+
+  test('ship-name prompt and the main-menu pilot card fit the phone screen', async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Phoneward');
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      h.controller.world = { ...h.controller.world, credits: 500_000 };
+      h.teleport('dunmore-crossing');
+    });
+    await expect(page.getByTestId('planet-screen')).toContainText('Dunmore Crossing');
+    await page.getByRole('button', { name: /Shipyard/ }).tap();
+    const shop = page.getByTestId('shipyard');
+    await shop.locator('[data-item="mule"]').tap();
+    await page.getByRole('button', { name: /^Buy/ }).first().tap();
+    await page.getByRole('button', { name: 'Buy ship' }).tap();
+
+    const fits = async (loc: ReturnType<Page['locator']>) => {
+      const b = (await loc.boundingBox())!;
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.y).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(844);
+      expect(b.y + b.height).toBeLessThanOrEqual(390);
+    };
+    const prompt = page.getByRole('dialog', { name: /Name your/ });
+    await expect(prompt).toBeVisible();
+    await fits(prompt);
+    await fits(prompt.getByLabel('Ship name'));
+    await fits(prompt.getByRole('button', { name: 'Name ship' }));
+    await prompt.getByLabel('Ship name').fill('Dawn Kettle');
+    await prompt.getByRole('button', { name: 'Name ship' }).tap();
+    await expect(prompt).toBeHidden();
+    expect(await page.evaluate(() => window.__starwake!.controller.world.shipName)).toBe('Dawn Kettle');
+
+    // Save, quit to the main menu and read the pilot card.
+    await page.evaluate(() => window.__starwake!.controller.save());
+    await page.reload();
+    const menu = page.getByTestId('main-menu');
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText('Phoneward');
+    await expect(menu).toContainText('Dawn Kettle');
+    await expect(menu).toContainText('systems');
+    await expect(menu).toContainText('jobs');
+    await fits(menu.locator('.sw-panel, .sw-menu').first());
+    for (const b of await menu.getByRole('button').all()) await fits(b);
     expect(errors).toEqual([]);
   });
 
@@ -169,7 +300,7 @@ test.describe('phone (touch, landscape)', () => {
     await page.setViewportSize({ width: 800, height: 600 });
     await newPilot(page, 'Tab');
     await page.getByRole('button', { name: /^Leave/ }).tap();
-    await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+    await waitForFlight(page);
     await page.touchscreen.tap(400, 30);
     await waitForLayout(page, 800, 600);
     const { view, clear } = await layoutOf(page);
@@ -182,7 +313,7 @@ test.describe('phone (touch, landscape)', () => {
 test('keyboard mode: no rails, camera fills the window beside the PC sidebar, no rotate overlay', async ({ page }) => {
   await newPilot(page, 'Keys');
   await page.keyboard.press('KeyL');
-  await page.waitForFunction(() => window.__starwake!.controller.isFlying);
+  await waitForFlight(page);
   await expect(page.getByTestId('touch-rails')).toBeHidden();
   await expect(page.getByTestId('rotate-overlay')).toBeHidden();
   const size = page.viewportSize()!;

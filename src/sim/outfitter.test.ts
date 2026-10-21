@@ -56,7 +56,7 @@ describe('outfitBuyCheck / buyOutfit', () => {
     expect(r.check).toEqual({ ok: true });
     expect(r.world.credits).toBe(w.credits - 1000);
     expect(r.world.outfits['local-chart']).toBeUndefined();
-    for (const id of systemsWithin(data, 'calder', 4)) expect(r.world.known).toContain(id);
+    for (const id of systemsWithin(data, 'calder', 4, [])) expect(r.world.known).toContain(id);
     expect(r.world.known.length).toBeGreaterThan(w.known.length);
     expect(r.world.seen.filter((id) => r.world.known.includes(id))).toEqual([]);
   });

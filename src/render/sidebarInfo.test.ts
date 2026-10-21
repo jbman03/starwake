@@ -2,11 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import { worldStats } from '../sim/shipStats';
 import type { WorldState } from '../sim/types';
+import { npcLabel, type Npc, type Traffic } from '../sim/traffic';
 import { newWorld } from '../sim/world';
 import { fitText, radarBlips, radarHeadingTip, RADAR_RANGE, sidebarInfo } from './sidebarInfo';
 
 const data = testData();
 const base = (): WorldState => newWorld(data);
+const npcAt = (id: string, x: number, y: number, government = 'free-reach'): Npc => ({
+  id,
+  name: 'Brass Heron',
+  shipId: 'meridian',
+  government,
+  errand: 'pass',
+  ship: { pos: { x, y }, vel: { x: 0, y: 0 }, heading: 0, fuel: 100 },
+  portId: null,
+  phase: 'fly',
+  phaseT: 0,
+  thrusting: false,
+});
+const trafficOf = (npcs: Npc[], targetId: string | null = null): Traffic => ({ systemId: base().systemId, npcs, spawnCount: 0, nextSpawnSec: 99, targetId });
 const at = (w: WorldState, x: number, y: number): WorldState => ({ ...w, ship: { ...w.ship, pos: { x, y } } });
 
 describe('sidebarInfo', () => {
@@ -37,6 +51,15 @@ describe('sidebarInfo', () => {
     expect(i.targetDetail).toBe(`${p.kind === 'station' ? 'Station' : 'Planet'} · 1,234`);
   });
 
+  it('a targeted ship shows its label and distance', () => {
+    const w = base();
+    const npc = npcAt('a', w.ship.pos.x + 500, w.ship.pos.y);
+    const i = sidebarInfo(w, data, trafficOf([npc], 'a'));
+    expect(i.target).toBe(npcLabel(npc, data));
+    expect(i.target).toContain('— Free Meridian (trader)');
+    expect(i.targetDetail).toBe('Ship · 500');
+  });
+
   it('shields and armor equal the ship maxima', () => {
     const w = base();
     const i = sidebarInfo(w, data);
@@ -65,6 +88,27 @@ describe('radarBlips', () => {
       Object.values(data.planets).filter((q) => q.systemId === w.systemId).length - 1,
     );
     for (const b of blips) expect(Math.hypot(b.x, b.y)).toBeLessThanOrEqual(50 + 1e-9);
+  });
+});
+
+describe('radarBlips with traffic', () => {
+  it('adds an NPC dot in the government colour and flags the targeted one', () => {
+    const w = base();
+    const a = npcAt('a', w.ship.pos.x + 250, w.ship.pos.y, 'concord');
+    const b = npcAt('b', w.ship.pos.x, w.ship.pos.y - 250, 'free-reach');
+    const blips = radarBlips(w, data, 50, trafficOf([a, b], 'b'));
+    const npcs = blips.filter((x) => x.kind === 'npc');
+    expect(npcs).toHaveLength(2);
+    expect(npcs[0].color).toBe(data.governments.concord.color);
+    expect(npcs[0].x).toBeCloseTo(250 * (50 / RADAR_RANGE));
+    expect(npcs[1].color).toBe(data.governments['free-reach'].color);
+    expect(npcs.map((x) => x.targeted)).toEqual([false, true]);
+  });
+
+  it('skips ships that are landing or gone', () => {
+    const w = base();
+    const landing = { ...npcAt('a', 0, 0), phase: 'land' as const };
+    expect(radarBlips(w, data, 50, trafficOf([landing])).filter((x) => x.kind === 'npc')).toHaveLength(0);
   });
 });
 

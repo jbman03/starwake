@@ -1,4 +1,5 @@
 import type { GameData, PlanetDef } from '../data/schemas';
+import { lanesOf } from './galaxy';
 import type { WorldState } from './types';
 import { add, dist, len, norm, scale, sub, type Vec2 } from './vec';
 
@@ -47,7 +48,7 @@ export function canJump(world: WorldState, data: GameData): JumpCheck {
 /** True when the route's next hop is set but not linked from the current system. */
 export function routeBroken(world: WorldState, data: GameData): boolean {
   const next = world.route[0];
-  return next !== undefined && !data.systems[world.systemId].links.includes(next);
+  return next !== undefined && !lanesOf(data, world.systemId, world.flags).includes(next);
 }
 
 /**
@@ -55,7 +56,7 @@ export function routeBroken(world: WorldState, data: GameData): boolean {
  * else the only link when there is exactly one; else null (the player must plot a course).
  */
 export function jumpDestination(world: WorldState, data: GameData): string | null {
-  const links = data.systems[world.systemId].links;
+  const links = lanesOf(data, world.systemId, world.flags);
   const next = world.route[0];
   if (next !== undefined && links.includes(next)) return next;
   return links.length === 1 ? links[0] : null;
@@ -99,13 +100,13 @@ export function towDestination(world: WorldState, data: GameData): string | null
   if (fuelIn(world.systemId).length > 0) return null;
 
   const seen = new Set<string>([world.systemId]);
-  const queue = [...data.systems[world.systemId].links];
+  const queue = lanesOf(data, world.systemId, world.flags);
   queue.forEach((s) => seen.add(s));
   while (queue.length) {
     const sysId = queue.shift()!;
     const found = fuelIn(sysId).sort((a, b) => dist(a.pos, SYSTEM_CENTER) - dist(b.pos, SYSTEM_CENTER));
     if (found.length) return found[0].id;
-    for (const next of data.systems[sysId]?.links ?? []) {
+    for (const next of lanesOf(data, sysId, world.flags)) {
       if (!seen.has(next)) {
         seen.add(next);
         queue.push(next);
