@@ -115,6 +115,15 @@ describe('SoundBoard', () => {
     expect(made.noise).toBe(1); // reuses the same source
   });
 
+  it('thrust off does not poke a suspended context awake', () => {
+    const { sb, made } = board();
+    made.autoRun = false;
+    sb.unlock();
+    const before = made.resumed;
+    sb.setThrust(false);
+    expect(made.resumed).toBe(before);
+  });
+
   it('thrust hum goes quiet when muted', () => {
     const { sb, s, made } = board();
     sb.unlock();
@@ -133,7 +142,7 @@ describe('SoundBoard', () => {
     sb.play('jump');
     sb.setThrust(true);
     expect(made.osc + made.noise).toBe(0);
-    expect(made.resumed).toBe(3); // unlock, play and setThrust each ask again
+    expect(made.resumed).toBe(3); // unlock, play and setThrust(true) each ask again
     (ctx as unknown as { state: string }).state = 'running';
     expect(sb.running()).toBe(true);
     sb.play('jump'); // the dropped one is not replayed, new ones play

@@ -46,6 +46,9 @@ function mergeBindings(raw: unknown): Bindings {
     if (Array.isArray(v) && v.length === 2 && isSlot(v[0]) && isSlot(v[1])) out[id] = [v[0], v[1]];
     else fresh.push(id);
   }
+  // The old default for the star map was ['KeyM', null]; move it to the new default when KeyN is free.
+  const m = out.map;
+  if (m[0] === 'KeyM' && m[1] === null && !findConflict(out, 'map', 'KeyN')) out.map = ['KeyN', 'KeyM'];
   // Actions added since these settings were saved keep their default keys only where the pilot
   // hasn't already put that key on another action in the same group.
   for (const id of fresh) {

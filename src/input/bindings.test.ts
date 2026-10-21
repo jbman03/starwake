@@ -19,6 +19,13 @@ describe('bindings', () => {
     }
   });
 
+  it('the sound key conflicts with any key in every group, and the reverse', () => {
+    expect(findConflict(DEFAULT_BINDINGS, 'thrust', 'KeyV')).toBe('toggleSound');
+    expect(findConflict(DEFAULT_BINDINGS, 'buyGoods', 'KeyV')).toBe('toggleSound');
+    expect(findConflict(DEFAULT_BINDINGS, 'toggleSound', 'KeyX')).toBe('autoStop');
+    expect(findConflict(DEFAULT_BINDINGS, 'toggleSound', 'KeyV')).toBeNull();
+  });
+
   it('binds the trade, mission and map actions to their default keys and groups', () => {
     const expected: [string, string, string][] = [
       ['openExchange', 'planet', 'KeyC'],

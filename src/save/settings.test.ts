@@ -15,6 +15,27 @@ describe('settings', () => {
     expect(DEFAULT_SETTINGS.autoLandOnArrival).toBe(true);
     expect(DEFAULT_SETTINGS.bindings).toEqual(resetBindings());
   });
+  it('a fresh sound key skips V when V is already used in another group', () => {
+    const b = resetBindings();
+    b.openOutfitter = ['KeyV', null];
+    const { toggleSound: _t, ...rest } = b;
+    localStorage.setItem(KEY, JSON.stringify({ bindings: rest }));
+    expect(loadSettings().bindings.toggleSound).toEqual([null, null]);
+    expect(loadSettings().bindings.openOutfitter).toEqual(['KeyV', null]);
+  });
+  it('upgrades the old star map default [M, none] but not a custom one', () => {
+    const old = resetBindings();
+    old.map = ['KeyM', null];
+    localStorage.setItem(KEY, JSON.stringify({ bindings: old }));
+    expect(loadSettings().bindings.map).toEqual(['KeyN', 'KeyM']);
+    old.map = ['KeyM', 'KeyP'];
+    localStorage.setItem(KEY, JSON.stringify({ bindings: old }));
+    expect(loadSettings().bindings.map).toEqual(['KeyM', 'KeyP']);
+    old.map = ['KeyM', null];
+    old.autoStop = ['KeyN', null]; // N already taken in the flight group
+    localStorage.setItem(KEY, JSON.stringify({ bindings: old }));
+    expect(loadSettings().bindings.map).toEqual(['KeyM', null]);
+  });
   it('garbage json -> defaults', () => {
     localStorage.setItem(KEY, '{garbage');
     expect(loadSettings()).toEqual(DEFAULT_SETTINGS);

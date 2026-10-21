@@ -73,11 +73,15 @@ function assertEscape(b: Bindings): void {
   }
 }
 
-/** Another action in the same group already using `code`, or null. */
+/** Actions polled on every screen: their keys must be free in every group. */
+export const GLOBAL_ACTIONS: ReadonlySet<ActionId> = new Set<ActionId>(['toggleSound']);
+
+/** Another action in the same group (or any action, if either is global) already using `code`, or null. */
 export function findConflict(b: Bindings, action: ActionId, code: string): ActionId | null {
   const group = ACTION_GROUP[action];
   for (const id of ACTION_IDS) {
-    if (id === action || ACTION_GROUP[id] !== group) continue;
+    if (id === action) continue;
+    if (ACTION_GROUP[id] !== group && !GLOBAL_ACTIONS.has(id) && !GLOBAL_ACTIONS.has(action)) continue;
     if (b[id].includes(code)) return id;
   }
   return null;

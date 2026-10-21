@@ -58,7 +58,7 @@ async function boot(): Promise<void> {
   controller.on('missionsCompleted', () => sound.play('paid'));
   controller.on('sfx', (e) => sound.play(e.sfx));
   // The hum follows the engine, and stops whenever flight is paused or the ship is not flying.
-  setInterval(() => sound.setThrust(controller.isFlying && controller.view().thrusting), 50);
+  setInterval(() => sound.setThrust(document.visibilityState === 'visible' && controller.isFlying && controller.view().thrusting), 50);
 
   // Nothing stays held when the app is backgrounded.
   const releaseInputs = () => controller.releaseInputs();

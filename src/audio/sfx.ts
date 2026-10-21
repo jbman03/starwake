@@ -191,7 +191,10 @@ export class SoundBoard {
   setThrust(on: boolean): void {
     const ctx = this.ctx;
     if (!ctx) return;
-    if (ctx.state !== 'running') return this.wake(ctx);
+    if (ctx.state !== 'running') {
+      if (on) this.wake(ctx);
+      return;
+    }
     const target = on ? HUM_GAIN * this.level() : 0;
     if (target === this.humLevel) return;
     try {
