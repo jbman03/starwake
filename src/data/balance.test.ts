@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { testData } from './testData';
 import { newWorld } from '../sim/world';
-import { bestLoopPerJump, guideTradeProfit, jobsToAfford, medianMissionPerJump, medianMissionPay } from '../sim/balance';
+import { bestLoopPerJump, jobsToAfford, maxMissionPerJump, medianMissionPay, medianMissionPerJump, SAMPLE_DAYS, tradeProfit } from '../sim/balance';
 import { pickTarget } from '../guide/target';
 import { BUY_TONS } from '../guide/steps';
 import ships from '../../data/ships.json';
@@ -45,22 +45,32 @@ describe('earning curve (spec section 7)', () => {
   const data = testData();
   const world = newWorld(data, 1);
   const loop = bestLoopPerJump(world, data, data.config.startShipId);
-  const mission = medianMissionPerJump(world, data, 60);
+  const mission = medianMissionPerJump(world, data, SAMPLE_DAYS);
   const jobs = jobsToAfford(world, data, data.ships.courier.price);
 
   it('best shuttle loop earns at least 40% of the median mission per jump', () => {
     expect(loop, `loop ${loop.toFixed(0)}/jump, median mission ${mission.toFixed(0)}/jump, ratio ${(loop / mission).toFixed(2)}`).toBeGreaterThanOrEqual(0.4 * mission);
   });
+  it('no offer the shuttle can carry out-earns the best loop per jump', () => {
+    const top = maxMissionPerJump(world, data, SAMPLE_DAYS);
+    expect(top, `richest offer ${top.toFixed(0)}/jump, best loop ${loop.toFixed(0)}/jump`).toBeLessThanOrEqual(loop);
+  });
   it('the courier is affordable after 8 to 14 median jobs', () => {
-    expect(jobs, `${jobs} jobs (median pay ${medianMissionPay(world, data, 60)})`).toBeGreaterThanOrEqual(8);
+    expect(jobs, `${jobs} jobs (median pay ${medianMissionPay(world, data, SAMPLE_DAYS)})`).toBeGreaterThanOrEqual(8);
     expect(jobs).toBeLessThanOrEqual(14);
   });
-  it('the guide trade makes at least 300 cr on 20 t', () => {
-    const t = pickTarget(world, data, data.config.startPlanetId)!;
+  it('the guide trade makes at least 300 cr on the guide amount', () => {
+    const start = data.config.startPlanetId;
+    const t = pickTarget(world, data, start)!;
     expect(t).not.toBeNull();
-    const profit = guideTradeProfit(data, t.good, BUY_TONS);
-    expect(profit, `${t.good} x${BUY_TONS}`).toBeGreaterThanOrEqual(300);
-    expect(BUY_TONS).toBe(20);
+    const profit = tradeProfit(world, data, start, t.port, t.good, BUY_TONS);
+    expect(profit, `${t.good} x${BUY_TONS} ${start} -> ${t.port}`).toBeGreaterThanOrEqual(300);
+  });
+  it('profit follows the real market: a port that stops being Low or High loses the trade', () => {
+    const start = data.config.startPlanetId;
+    const t = pickTarget(world, data, start)!;
+    const flat = { ...data, planets: { ...data.planets, [t.port]: { ...data.planets[t.port], market: { ...data.planets[t.port].market, [t.good]: 'low' as const } } } };
+    expect(tradeProfit(world, flat, start, t.port, t.good, BUY_TONS)).toBeLessThan(300);
   });
   it('Stillwater Pearl sells high at one or two known core ports', () => {
     const buyers = Object.values(data.planets).filter((p) => p.market?.['stillwater-pearl'] === 'high');

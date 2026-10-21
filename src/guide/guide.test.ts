@@ -50,7 +50,7 @@ describe('Guide', () => {
     const { guide, host } = setup();
     guide.start();
     guide.update(state(host.world, 'exchange', 'halcyon'));
-    expect(guide.current()?.text).toMatch(/is cheap here\. Buy 20 t \(B\)\.$/);
+    expect(guide.current()?.text).toMatch(/is cheap here\. Buy 20 t \(press B twice\)\.$/);
     guide.update(state(host.world, 'planet', 'halcyon'));
     expect(guide.current()?.text).toMatch(/^Open the exchange \(C\) and buy 20 t of /);
     guide.update(state(host.world, 'flight'));
@@ -147,7 +147,7 @@ describe('Guide', () => {
     w = { ...w, cargo: {} };
     guide.update(state(w, 'exchange', 'halcyon'));
     expect(guide.current()?.step).toBe(2);
-    expect(guide.current()?.text).toContain('Buy 20 t (B)');
+    expect(guide.current()?.text).toContain('Buy 20 t (press B twice)');
   });
 
   it('reload at step 7 with the purchase not saved, landed at the buy port: rewinds to step 2', () => {

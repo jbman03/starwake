@@ -96,7 +96,7 @@ describe('guide hints in screen panels', () => {
     btn('Commodity Exchange')!.click();
     const h = hint()!;
     expect(h.closest('.sw-exchange')).not.toBeNull();
-    expect(h.textContent).toContain('Buy 20 t (B).');
+    expect(h.textContent).toContain('Buy 20 t (press B twice).');
     expect(before(h, root.querySelector('.sw-ex-actions')!)).toBe(true);
     const good = c.guide!.target()!.good;
     root.querySelector<HTMLElement>(`tr[data-good="${good}"]`)!.click();

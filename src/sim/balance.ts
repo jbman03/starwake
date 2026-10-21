@@ -1,5 +1,5 @@
 import type { GameData } from '../data/schemas';
-import { LEVEL_MULT, PRESSURE_PER_10T } from './economy';
+import { buy, sell } from './cargo';
 import { hopDistance } from './galaxy';
 import { offersAt } from './missions';
 import type { WorldState } from './types';
@@ -9,44 +9,38 @@ import type { WorldState } from './types';
  * the running game calls them.
  */
 
-/** Profit of buying `tons` at the `buyLevel` port and selling at the `sellLevel` port, at base prices with market pressure. */
-function legProfit(basePrice: number, buyLevel: keyof typeof LEVEL_MULT, sellLevel: keyof typeof LEVEL_MULT, tons: number): number {
-  const impact = (tons / 10) * PRESSURE_PER_10T;
-  const cost = Math.round(basePrice * LEVEL_MULT[buyLevel] * (1 + impact)) * tons;
-  const revenue = Math.round(basePrice * LEVEL_MULT[sellLevel] * (1 - impact)) * tons;
-  return revenue - cost;
-}
+/** Days of offers every mission helper samples. */
+export const SAMPLE_DAYS = 60;
 
-/** Profit of the guide's trade (buy `good` Low, sell it High) for `tons` at base prices. */
-export function guideTradeProfit(data: GameData, good: string, tons: number): number {
-  return legProfit(data.commodities[good].basePrice, 'low', 'high', tons);
+/** Profit of buying `tons` of `good` at `fromId` and selling it all at `toId`, through the real buy/sell (prices, pressure, credits, hold). */
+export function tradeProfit(world: WorldState, data: GameData, fromId: string, toId: string, good: string, tons: number): number {
+  const bought = buy(world, data, fromId, good, tons);
+  if (bought.tons <= 0) return 0;
+  const sold = sell(bought.world, data, toId, good, bought.tons);
+  return sold.revenue - bought.cost;
 }
 
 /**
  * Best 2-port round trip among start-known systems, in profit per jump: a full hold each way,
- * limited by credits, at base levels with no events and no noise.
+ * limited by credits, through the real prices and market pressure (no events; the world's day).
  */
 export function bestLoopPerJump(world: WorldState, data: GameData, shipId: string): number {
-  const hold = data.ships[shipId].cargo;
-  const ports = Object.values(data.planets).filter((p) => p.market && world.known.includes(p.systemId));
+  const w: WorldState = { ...world, shipId, cargo: {}, events: [], pressure: {} };
+  const ports = Object.values(data.planets).filter((p) => p.market && w.known.includes(p.systemId));
+  const leg = (from: string, to: string): number => {
+    let top = 0;
+    for (const good of Object.keys(data.planets[from].market ?? {})) {
+      if (data.planets[to].market?.[good]) top = Math.max(top, tradeProfit(w, data, from, to, good, Infinity));
+    }
+    return top;
+  };
   let best = 0;
   for (const a of ports) {
     for (const b of ports) {
       if (a.id >= b.id) continue;
-      const hops = hopDistance(data, a.systemId, b.systemId, world.flags);
+      const hops = hopDistance(data, a.systemId, b.systemId, w.flags);
       if (!Number.isFinite(hops) || hops < 1) continue;
-      const leg = (from: typeof a, to: typeof a): number => {
-        let top = 0;
-        for (const [good, level] of Object.entries(from.market ?? {})) {
-          const sell = to.market?.[good];
-          if (!sell) continue;
-          const base = data.commodities[good].basePrice;
-          const tons = Math.min(hold, Math.floor(world.credits / (base * LEVEL_MULT[level])));
-          top = Math.max(top, legProfit(base, level, sell, tons));
-        }
-        return top;
-      };
-      best = Math.max(best, (leg(a, b) + leg(b, a)) / (2 * hops));
+      best = Math.max(best, (leg(a.id, b.id) + leg(b.id, a.id)) / (2 * hops));
     }
   }
   return best;
@@ -80,6 +74,11 @@ export function medianMissionPerJump(world: WorldState, data: GameData, samples:
   return median(carryableOffers(world, data, samples).map((o) => o.pay / o.hops));
 }
 
+/** The richest carryable offer, in pay per jump. */
+export function maxMissionPerJump(world: WorldState, data: GameData, samples: number): number {
+  return Math.max(0, ...carryableOffers(world, data, samples).map((o) => o.pay / o.hops));
+}
+
 /** Median pay of those offers. */
 export function medianMissionPay(world: WorldState, data: GameData, samples: number): number {
   return median(carryableOffers(world, data, samples).map((o) => o.pay));
@@ -87,6 +86,6 @@ export function medianMissionPay(world: WorldState, data: GameData, samples: num
 
 /** Median-pay jobs needed to take the pilot's credits from the start to `price`. */
 export function jobsToAfford(world: WorldState, data: GameData, price: number): number {
-  const pay = medianMissionPay(world, data, 60);
+  const pay = medianMissionPay(world, data, SAMPLE_DAYS);
   return pay > 0 ? Math.ceil(Math.max(0, price - world.credits) / pay) : Infinity;
 }

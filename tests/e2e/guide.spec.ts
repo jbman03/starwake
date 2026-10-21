@@ -47,7 +47,7 @@ test.describe('desktop', () => {
     // 2: buy the named good.
     const ex = page.getByTestId('exchange');
     await expect(ex).toBeVisible();
-    const buy = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 20 t \(B\)\.$/);
+    const buy = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 20 t \(press B twice\)\.$/);
     expect(buy).not.toBeNull();
     const good = (await idOf(page, 'commodities', buy![1]))!;
     expect(good).not.toBeNull();
@@ -263,7 +263,7 @@ test.describe('phone (touch, landscape)', () => {
       await page.getByRole('button', { name: /^Commodity Exchange/ }).tap();
       await screenFits(page, 'exchange');
       if (!bought) {
-        const name = (await screenHint(page)).match(/^(.+) is cheap here\. Buy 20 t\.$/)![1];
+        const name = (await screenHint(page)).match(/^(.+): tap Buy 10 twice\.$/)![1];
         const good = (await idOf(page, 'commodities', name))!;
         await page.getByTestId('exchange').locator(`[data-good="${good}"]`).tap();
         await page.getByRole('button', { name: /^Buy 10/ }).tap();

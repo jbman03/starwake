@@ -103,7 +103,7 @@ describe('step text', () => {
     expect(STEPS[8].text(ctx())).toContain('Vanterre');
   });
   it('uses the supplied key labels', () => {
-    expect(STEPS[1].text(ctx({ screen: 'exchange', key: (a) => (a === 'buyGoods' ? 'Q' : '?') }))).toContain('(Q)');
+    expect(STEPS[1].text(ctx({ screen: 'exchange', key: (a) => (a === 'buyGoods' ? 'Q' : '?') }))).toContain('press Q twice');
   });
   it('switches to phone wording', () => {
     const c = ctx({ mode: 'touch', ...flying });
@@ -140,8 +140,10 @@ describe('step text', () => {
 
   describe('follows the screen and route', () => {
     it('step 2 on the exchange: the good is cheap here, buy it', () => {
-      expect(STEPS[1].text(ctx({ screen: 'exchange' }))).toBe('Food is cheap here. Buy 20 t (KeyB).');
-      expect(STEPS[1].text(ctx({ screen: 'exchange', mode: 'touch' }))).toBe('Food is cheap here. Buy 20 t.');
+      expect(STEPS[1].text(ctx({ screen: 'exchange' }))).toBe('Food is cheap here. Buy 20 t (press KeyB twice).');
+      expect(STEPS[1].text(ctx({ screen: 'exchange', heldTons: 10 }))).toBe('Food is cheap here. Buy 10 more t (press KeyB).');
+      expect(STEPS[1].text(ctx({ screen: 'exchange', mode: 'touch', heldTons: 10 }))).toBe('Food: tap Buy 10 once more.');
+      expect(STEPS[1].text(ctx({ screen: 'exchange', mode: 'touch' }))).toBe('Food: tap Buy 10 twice.');
     });
     it('step 2 off the exchange at the buy port: open the exchange first', () => {
       expect(STEPS[1].text(ctx())).toBe('Open the exchange (KeyC) and buy 20 t of Food.');

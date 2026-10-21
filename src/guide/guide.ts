@@ -217,6 +217,7 @@ export class Guide {
       screen: this.last?.screen ?? (landed ? 'planet' : 'flight'),
       landedPlanetId: landed,
       buyPort: p.buyPort,
+      heldTons: world.cargo[p.target.good] ?? 0,
       routeOk: world.route[world.route.length - 1] === sys || (world.jump ? world.jump.toSystemId === sys : world.systemId === sys),
     });
     return { text, step: p.step, total: STEP_COUNT };

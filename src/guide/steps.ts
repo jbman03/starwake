@@ -33,6 +33,8 @@ export interface TextCtx {
   buyPort?: string;
   /** The plotted route ends in the target system (or the ship is there or jumping there). */
   routeOk: boolean;
+  /** Tons of the target good in the hold, for the Buy step's progress. */
+  heldTons?: number;
 }
 
 export interface StepDef {
@@ -81,7 +83,12 @@ function buyText(c: TextCtx): string {
   if (c.screen !== 'exchange') {
     return touch(c) ? `Exchange: buy ${BUY_TONS} t of ${good}.` : `Open the exchange (${c.key('openExchange')}) and buy ${BUY_TONS} t of ${good}.`;
   }
-  return touch(c) ? `${good} is cheap here. Buy ${BUY_TONS} t.` : `${good} is cheap here. Buy ${BUY_TONS} t (${c.key('buyGoods')}).`;
+  // The exchange moves 10 t per press, so say how many presses are left.
+  const left = BUY_TONS - (c.heldTons ?? 0);
+  if (left < BUY_TONS && left > 0) {
+    return touch(c) ? `${good}: tap Buy 10 once more.` : `${good} is cheap here. Buy ${left} more t (press ${c.key('buyGoods')}).`;
+  }
+  return touch(c) ? `${good}: tap Buy 10 twice.` : `${good} is cheap here. Buy ${BUY_TONS} t (press ${c.key('buyGoods')} twice).`;
 }
 
 /** The 11 First Flight steps (spec 2.2). Each completes by itself when the player does the thing. */
