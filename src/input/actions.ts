@@ -43,6 +43,7 @@ export const ACTION_IDS = [
   'encounterChoice1',
   'encounterChoice2',
   'encounterChoice3',
+  'toggleSound',
 ] as const;
 
 export type ActionId = (typeof ACTION_IDS)[number];
@@ -87,6 +88,7 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   encounterChoice1: 'menus',
   encounterChoice2: 'menus',
   encounterChoice3: 'menus',
+  toggleSound: 'menus',
 };
 
 export const ACTION_LABEL: Record<ActionId, string> = {
@@ -127,4 +129,5 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   encounterChoice1: 'Encounter choice 1',
   encounterChoice2: 'Encounter choice 2',
   encounterChoice3: 'Encounter choice 3',
+  toggleSound: 'Sound on / off',
 };

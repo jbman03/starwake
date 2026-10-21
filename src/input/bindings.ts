@@ -41,6 +41,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   encounterChoice1: ['Digit1', null],
   encounterChoice2: ['Digit2', null],
   encounterChoice3: ['Digit3', null],
+  toggleSound: ['KeyV', null],
 };
 
 export const MUST_KEEP_ESCAPE: readonly ActionId[] = ['pause', 'back'];

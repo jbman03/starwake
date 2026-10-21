@@ -189,6 +189,11 @@ export class Hud {
     g.fillRect(10, top + 4, 3, h - 8);
   }
 
+  /** The message line's text while it is showing, else null (for tests). */
+  messageText(): string | null {
+    return this.messageAge === Infinity || this.message.alpha <= 0 ? null : this.message.text;
+  }
+
   showMessage(text: string): void {
     this.message.setText(text).setAlpha(1);
     this.messageAge = 0;

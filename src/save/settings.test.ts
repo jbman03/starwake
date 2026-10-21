@@ -49,6 +49,15 @@ describe('settings', () => {
     expect(s.bindings.map).toEqual(resetBindings().map);
     expect(s.bindings.land).toEqual(resetBindings().land);
   });
+  it('migration fills muted: false and keeps a saved muted', () => {
+    localStorage.setItem(KEY, JSON.stringify({ volume: 0.5 }));
+    expect(loadSettings().muted).toBe(false);
+    expect(loadSettings().bindings.toggleSound).toEqual(['KeyV', null]);
+    localStorage.setItem(KEY, JSON.stringify({ muted: true, muted2: 1 }));
+    expect(loadSettings().muted).toBe(true);
+    localStorage.setItem(KEY, JSON.stringify({ muted: 'yes' }));
+    expect(loadSettings().muted).toBe(false);
+  });
   it('invalid values fall back, opacity clamped', () => {
     localStorage.setItem(
       KEY,

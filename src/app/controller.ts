@@ -1,10 +1,10 @@
 import type { EncounterDef, GameData } from '../data/schemas';
 import type { Guide } from '../guide/guide';
-import type { ActionGroup, ActionId } from '../input/actions';
+import { ACTION_GROUP, type ActionGroup, type ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
 import { pilotFromWorld, type PilotSave } from '../save/pilot';
-import type { Settings } from '../save/settings';
+import { saveSettings, type Settings } from '../save/settings';
 import { contextAction, siteReachable, type ContextAction } from '../sim/context';
 import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, hubName, rollEncounter } from '../sim/encounters';
 import { hashString, mulberry32 } from '../sim/random';
@@ -76,7 +76,9 @@ export type ControllerEvent =
   /** A pilot session began (beginSession) or ended (endSession). */
   | { type: 'session'; active: boolean }
   /** The flight HUD or rail asked to skip the First Flight guide (the UI confirms). */
-  | { type: 'guideSkip' };
+  | { type: 'guideSkip' }
+  /** Something happened that has a sound but no event of its own (arrival, landing and pay have theirs). */
+  | { type: 'sfx'; sfx: 'jump' | 'takeoff' | 'trade' | 'hail' | 'site' };
 
 export type ControllerEventType = ControllerEvent['type'];
 type EventOf<T extends ControllerEventType> = Extract<ControllerEvent, { type: T }>;
@@ -269,6 +271,7 @@ export class Controller {
     this.prevShip = this.world.ship;
     this.fx = { kind: 'takeoff', t: 0 };
     this.startFlight();
+    this.emit({ type: 'sfx', sfx: 'takeoff' });
   }
 
   /** What Refuel would buy at the current planet, or null when not landed. */
@@ -384,6 +387,7 @@ export class Controller {
     if (!this.landedPlanetId) return { world: this.world, tons: 0, cost: 0, reason: 'notTraded' };
     const r = buy(this.world, this.data, this.landedPlanetId, commodityId, tons);
     this.world = r.world;
+    if (r.tons > 0) this.emit({ type: 'sfx', sfx: 'trade' });
     return r;
   }
 
@@ -391,6 +395,7 @@ export class Controller {
     if (!this.landedPlanetId) return { world: this.world, tons: 0, revenue: 0, reason: 'notTraded' };
     const r = sell(this.world, this.data, this.landedPlanetId, commodityId, tons);
     this.world = r.world;
+    if (r.tons > 0) this.emit({ type: 'sfx', sfx: 'trade' });
     return r;
   }
 
@@ -495,7 +500,8 @@ export class Controller {
     }
     this.alpha = this.stepper.advance(elapsedSec, (dt) => {
       if (!this.flying) return; // a landing or menu earlier in this frame paused flight
-      const keys = this.keyboard.poll('flight');
+      const keys = this.keyboard.poll(['flight', 'menus']);
+      if (keys.pressed.delete('toggleSound')) this.toggleSound();
       const touch = this.touch.poll('flight');
       // Landing and take-off ignore input: it is polled (so it can't fire later) and dropped.
       const locked = this.fx !== null;
@@ -539,11 +545,13 @@ export class Controller {
         ? { actions: polled.actions, pressed, stick: touch.stick }
         : { actions: polled.actions, pressed };
       this.prevShip = this.world.ship;
+      const wasJumping = this.world.jump !== null;
       const r = stepWorld(this.world, this.data, input, dt, {
         autoLandOnArrival: this.settings.autoLandOnArrival,
       });
       this.world = r.world;
       this.thrusting = r.thrusting ?? false;
+      if (!wasJumping && this.world.jump) this.emit({ type: 'sfx', sfx: 'jump' });
       if (this.fx?.kind === 'takeoff') {
         this.fx.t += dt;
         if (this.fx.t >= LANDING_FX_SEC - 1e-9) this.fx = null;
@@ -606,6 +614,7 @@ export class Controller {
       def.kind === 'hail'
         ? { def, npcName, kind: 'hail', expiresSec: HAIL_SECONDS }
         : { def, npcName, kind: 'site', pos: { x: pos.x + Math.cos(heading) * 200, y: pos.y + Math.sin(heading) * 200 } };
+    this.emit({ type: 'sfx', sfx: this.pending.kind });
     this.checkContext();
   }
 
@@ -652,12 +661,25 @@ export class Controller {
     return { messages: [...r.messages, ...r.missions.map((m) => `New job: ${m.title}`)] };
   }
 
+  /** Flip mute, save it and say so (the HUD shows the message in flight, the planet screen while landed). */
+  toggleSound(): void {
+    this.settings.muted = !this.settings.muted;
+    saveSettings(this.settings);
+    this.emit({ type: 'message', text: this.settings.muted ? 'Sound off' : 'Sound on' });
+  }
+
   /** One poll per frame for whichever screen is open; with none, stale presses are drained. */
   private updateUi(): void {
     const ui = this.uiInput;
-    const { pressed } = this.keyboard.poll(ui?.groups ?? 'menus');
+    const { pressed } = this.keyboard.poll(ui ? [...new Set<ActionGroup>([...ui.groups, 'menus'])] : 'menus');
     this.touch.poll('flight'); // drain: a tap made while paused must not fire on resume
-    if (ui && pressed.size > 0) ui.handler(pressed);
+    // The sound key works on every screen, whatever groups the screen listens to.
+    if (pressed.delete('toggleSound')) this.toggleSound();
+    if (ui) {
+      // The screen sees only the groups it asked for.
+      for (const id of [...pressed]) if (!ui.groups.includes(ACTION_GROUP[id])) pressed.delete(id);
+      if (pressed.size > 0) ui.handler(pressed);
+    }
   }
 
   /**
@@ -683,7 +705,12 @@ export class Controller {
         this.prevShip = this.world.ship; // no interpolation across systems
         this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
       }
-      if (e.type === 'arrived') this.pending = this.rollPending();
+      if (e.type === 'arrived') {
+        this.pending = this.rollPending();
+        this.emit(e);
+        if (this.pending) this.emit({ type: 'sfx', sfx: this.pending.kind });
+        continue;
+      }
       this.emit(e);
     }
     if (!towed && messages.length > 0) this.emit({ type: 'message', text: messages.join(' ') });

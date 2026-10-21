@@ -64,6 +64,7 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   encounterChoice3: 'Tap the choice',
   back: 'Back or Close button',
   menuHowToPlay: 'Tap the button',
+  toggleSound: 'Settings → General → Mute sound'
 };
 
 /** Actions the game accepts and binds but that do nothing yet (no combat in this version). */

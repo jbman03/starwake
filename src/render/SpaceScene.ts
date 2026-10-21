@@ -186,6 +186,7 @@ export class SpaceScene extends Phaser.Scene {
     hook.flightSpriteTexture = () => this.ship.texture.key;
     hook.hudBanner = () => this.hud.bannerText();
     hook.hudHail = () => this.hud.hailText();
+    hook.hudMessage = () => this.hud.messageText();
     hook.siteScreenPos = () => {
       const pos = this.controller.sitePos();
       const c = this.cameras.main;

@@ -112,3 +112,21 @@ test('hotkey works right after the Mission complete dialog', async ({ page }) =>
   await expect(page.getByTestId('planet-screen')).toContainText(/Bought \d+ fuel/);
   expect(errors).toEqual([]);
 });
+
+test('V toggles sound in flight and on a planet, and the setting is saved', async ({ page }) => {
+  const errors = trackErrors(page);
+  const muted = () => page.evaluate(() => JSON.parse(localStorage.getItem('starwake.settings')!).muted);
+  await newPilot(page);
+  await expect(page.getByRole('button', { name: /^Leave/ })).toBeVisible();
+  // landed: the planet screen's status line carries the note
+  await page.keyboard.press('KeyV');
+  await expect(page.locator('.sw-status')).toHaveText('Sound off');
+  expect(await muted()).toBe(true);
+  await leavePlanet(page);
+  await page.waitForTimeout(200);
+  // flying: the HUD message line carries it
+  await page.keyboard.press('KeyV');
+  await expect.poll(() => page.evaluate(() => window.__starwake!.hudMessage?.() ?? null)).toBe('Sound on');
+  expect(await muted()).toBe(false);
+  expect(errors).toEqual([]);
+});

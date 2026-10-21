@@ -19,6 +19,8 @@ export interface StarwakeTestHook {
   hudBanner?: () => string | null;
   /** Set by SpaceScene: the desktop HUD course line, or null when hidden. */
   hudCourse?: () => string | null;
+  /** Set by SpaceScene: the HUD message line's text while it shows, or null. */
+  hudMessage?: () => string | null;
   /** Set by SpaceScene: the incoming-hail banner text, or null when hidden. */
   hudHail?: () => string | null;
   /** Set by SpaceScene: the pending site's on-screen position, or null when there is none. */

@@ -11,6 +11,7 @@ export interface Settings {
     vibration: boolean;
   };
   volume: number; // 0-1
+  muted: boolean;
   quality: 'low' | 'high';
   autoLandOnArrival: boolean;
 }
@@ -21,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
   bindings: resetBindings(),
   touch: { mirror: false, buttonSize: 'M', opacity: 0.85, steering: 'point', vibration: true },
   volume: 0.8,
+  muted: false,
   quality: 'high',
   autoLandOnArrival: true,
 };
@@ -66,6 +68,7 @@ function merge(raw: unknown): Settings {
       vibration: bool(t.vibration, d.touch.vibration),
     },
     volume: num(raw.volume, d.volume, 0, 1),
+    muted: bool(raw.muted, d.muted),
     quality: oneOf(raw.quality, ['low', 'high'] as const, d.quality),
     autoLandOnArrival: bool(raw.autoLandOnArrival, d.autoLandOnArrival),
   };

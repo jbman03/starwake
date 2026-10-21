@@ -159,6 +159,9 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     if (!e.ok) status.textContent = `Autosave failed: ${e.error ?? 'unknown error'}. Use Export from the pause menu to keep a copy.`;
   });
 
+  // Messages raised while landed (the sound key says "Sound off") go where the screen keeps its notes.
+  const offMessage = controller.on('message', (e) => (status.textContent = e.text));
+
   ctx.mount(screen, {
     groups: ['planet'],
     onPress: (pressed) => {
@@ -175,6 +178,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     cleanup: () => {
       stopCount();
       offSaved();
+      offMessage();
       hint.dispose();
     },
     guide: 'planet',

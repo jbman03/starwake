@@ -5,6 +5,7 @@ import { loadGameData } from '../data/load';
 import { withoutPorts } from '../data/testData';
 import type { PilotSave } from '../save/pilot';
 import { worldFromPilot } from '../save/pilot';
+import type { ActionId } from '../input/actions';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import { PilotStore } from '../save/store';
 import { canAccept } from '../sim/missions';
@@ -65,6 +66,50 @@ describe('Controller', () => {
     expect(c.isFlying).toBe(true);
     expect(c.landedPlanetId).toBeNull();
     expect(c.world.targetPlanetId).toBeNull();
+  });
+
+  it('the sound key flips mute and says so, flying and on a planet screen', async () => {
+    const { c, target } = await setup();
+    const messages: string[] = [];
+    c.on('message', (e) => messages.push(e.text));
+    c.startFlight();
+    target.dispatchEvent(keyEvent('keydown', 'KeyV'));
+    c.update(1 / 60);
+    expect(c.settings.muted).toBe(true);
+    expect(messages).toEqual(['Sound off']);
+    target.dispatchEvent(keyEvent('keyup', 'KeyV'));
+    c.pauseFlight();
+    target.dispatchEvent(keyEvent('keydown', 'KeyV'));
+    c.update(1 / 60); // no screen open: the key still works
+    expect(c.settings.muted).toBe(false);
+    expect(messages).toEqual(['Sound off', 'Sound on']);
+  });
+
+  it('the sound key works on a screen that listens only to the planet group, and hides other menu keys from it', async () => {
+    const { c, target } = await setup();
+    const seen: ActionId[][] = [];
+    c.setUiInput(['planet'], (p) => seen.push([...p]));
+    target.dispatchEvent(keyEvent('keydown', 'KeyV'));
+    target.dispatchEvent(keyEvent('keydown', 'KeyH'));
+    c.update(1 / 60);
+    expect(c.settings.muted).toBe(true);
+    expect(seen).toEqual([['howToPlay']]);
+  });
+
+  it('announces effects that have no event of their own', async () => {
+    const { c } = await setup();
+    const sfx: string[] = [];
+    c.on('sfx', (e) => sfx.push(e.sfx));
+    c.startFlight();
+    c.doContextAction();
+    run(c, LANDING_FX_SEC + 0.05);
+    c.buy('food', 10);
+    expect(sfx).toEqual(['trade']);
+    c.sell('food', 0); // nothing sold: silent
+    c.leavePlanet();
+    expect(sfx).toEqual(['trade', 'takeoff']);
+    c.forceEncounter(Object.keys(c.data.encounters)[0]);
+    expect(sfx).toContain(c.pending!.kind);
   });
 
   it('the autopilotOut context action engages the autopilot to the jump point', async () => {
