@@ -2,10 +2,11 @@ import type { GameData } from '../data/schemas';
 import { cargoUsed } from './cargo';
 import { revealWithin, systemsWithin } from './galaxy';
 import { shipStats, worldStats } from './shipStats';
+import { standingMet } from './standing';
 import { sells } from './stock';
 import type { WorldState } from './types';
 
-export type OutfitBlock = 'credits' | 'space' | 'max' | 'notSold' | 'nothingToReveal';
+export type OutfitBlock = 'credits' | 'space' | 'max' | 'notSold' | 'nothingToReveal' | 'standing';
 export type SellBlock = 'notOwned' | 'cargoWouldNotFit' | 'notSellable';
 
 export type BuyCheck = { ok: true } | { ok: false; reason: OutfitBlock };
@@ -19,16 +20,18 @@ export const OUTFIT_BLOCK_TEXT: Record<OutfitBlock | SellBlock, string> = {
   space: 'Not enough free outfit space.',
   max: 'You already carry as many as the hull can use.',
   notSold: 'This port does not stock that.',
+  standing: 'Requires friendship with this government', // the screens name the government via standingBlockText
   nothingToReveal: 'Everything in range is already on your chart.',
   notOwned: 'You do not have one fitted.',
   cargoWouldNotFit: 'Your hold would be too full without it.',
   notSellable: 'Charts cannot be sold back.',
 };
 
-/** Whether the outfit can be bought here. Checks run notSold, max, space, credits (maps: notSold, nothingToReveal, credits). */
+/** Whether the outfit can be bought here. Checks run notSold, standing, max, space, credits (maps: notSold, nothingToReveal, credits). */
 export function outfitBuyCheck(world: WorldState, data: GameData, planetId: string, outfitId: string): BuyCheck {
   const def = data.outfits[outfitId];
   if (!def || !sells(planetId, def, data)) return { ok: false, reason: 'notSold' };
+  if (!standingMet(world, def.requiresStanding)) return { ok: false, reason: 'standing' };
   if (def.category === 'map') {
     const system = data.planets[planetId]?.systemId;
     const known = new Set(world.known);

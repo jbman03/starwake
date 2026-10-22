@@ -84,6 +84,8 @@ export interface WorldState {
   story: {
     active: { id: string; step: number; deadlineDay: number | null }[];
     done: string[];
+    /** The day each finished mission was completed. Absent for missions finished before this was recorded. */
+    doneDays?: Record<string, number>;
     failed: string[];
     declined: string[];
   };

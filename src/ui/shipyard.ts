@@ -1,5 +1,7 @@
 import { jumpsOf } from '../sim/fuel';
-import { SHIP_BLOCK_TEXT, shipHidden } from '../sim/shipyard';
+import type { ShipDef } from '../data/schemas';
+import { SHIP_BLOCK_TEXT, shipHidden, type ShipBlock } from '../sim/shipyard';
+import { standingBlockText } from '../sim/standing';
 import { shipStock } from '../sim/stock';
 import type { UiContext } from './context';
 import { confirmDialog, formatCredits, promptDialog } from './dom';
@@ -15,6 +17,10 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
   const { data } = controller;
   const port = data.planets[planetId];
 
+  /** The words for a block; a standing block names the government. */
+  const blockText = (reason: ShipBlock, def: ShipDef): string =>
+    reason === 'standing' && def.requiresStanding ? standingBlockText(def.requiresStanding, data) : SHIP_BLOCK_TEXT[reason];
+
   const items = (): ShopItem[] =>
     shipStock(planetId, data)
       .filter((def) => !shipHidden(controller.world, def))
@@ -22,7 +28,7 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
       const q = controller.shipQuote(def.id);
       const w = controller.world;
       const owned = w.shipId === def.id;
-      if (q.check.ok === false && q.check.reason === 'locked') {
+      if (q.check.ok === false && (q.check.reason === 'locked' || q.check.reason === 'standing')) {
         const silhouette = shipIcon(def, 56);
         silhouette.style.filter = 'brightness(0) opacity(0.35)';
         return {
@@ -30,7 +36,7 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
           name: '???',
           icon: () => silhouette,
           canBuy: false,
-          reason: SHIP_BLOCK_TEXT.locked,
+          reason: blockText(q.check.reason, def),
           info: () => infoBlock('???', 'A hull the yard will not talk about. Someone here knows more than they say.', []),
         };
       }
@@ -47,7 +53,7 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
         icon: () => shipIcon(def, 56),
         badge: owned ? 'Yours' : undefined,
         canBuy: q.check.ok,
-        reason: q.check.ok ? undefined : SHIP_BLOCK_TEXT[q.check.reason],
+        reason: q.check.ok ? undefined : blockText(q.check.reason, def),
         info: () =>
           infoBlock(
             def.name,
@@ -77,7 +83,7 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
     onClose,
     onBuy: async (id, say) => {
       const q = controller.shipQuote(id);
-      if (!q.check.ok) return say(SHIP_BLOCK_TEXT[q.check.reason], true);
+      if (!q.check.ok) return say(blockText(q.check.reason, data.ships[id]), true);
       const from = data.ships[controller.world.shipId].name;
       const to = data.ships[id].name;
       const ok = await confirmDialog(ctx.root, {
@@ -87,7 +93,7 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
       });
       if (!ok) return;
       const r = controller.buyShip(id);
-      if (!r.check.ok) return say(SHIP_BLOCK_TEXT[r.check.reason], true);
+      if (!r.check.ok) return say(blockText(r.check.reason, data.ships[id]), true);
       // Cancel (Esc) keeps the hull's own name.
       const raw = await promptDialog(ctx.root, {
         title: `Name your ${to}`,

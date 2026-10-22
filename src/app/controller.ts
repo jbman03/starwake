@@ -24,6 +24,7 @@ import {
 import { buyShip, shipDisplayName, shipQuote, type ShipQuote } from '../sim/shipyard';
 import { addNote, setFlag } from '../sim/story';
 import {
+  abandonStory,
   acceptStory,
   advanceStory,
   canAcceptStory,
@@ -502,6 +503,12 @@ export class Controller {
       this.refreshStory();
     }
     return check;
+  }
+
+  /** Give up a side mission (the main arc can't be abandoned); its cargo is dropped. */
+  abandonStory(id: string): void {
+    this.world = abandonStory(this.world, this.data, id);
+    this.refreshStory();
   }
 
   declineStory(id: string): void {

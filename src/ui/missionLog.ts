@@ -1,9 +1,27 @@
+import type { GameData, StoryMissionDef, StoryStepDef } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
+import { systemOpen } from '../sim/galaxy';
 import { jobMissions, MAX_MISSIONS } from '../sim/missions';
+import { nextLead, stepSystem } from '../sim/storyMissions';
 import type { UiContext } from './context';
 import { button, confirmDialog, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
 import { mapCornerButton, mapCornerKey } from './mapButton';
 import { deadlineText, destinationText, loadText, payText } from './missionText';
+
+/** The system a story step is played in, if the pilot can see it yet. */
+function visibleStepSystem(step: StoryStepDef, data: GameData, flags: readonly string[]): string | undefined {
+  const id = stepSystem(step, data);
+  const sys = id ? data.systems[id] : undefined;
+  return id && sys && systemOpen(sys, flags) ? id : undefined;
+}
+
+/** "Merrow, Calder system" for a planet step, "Calder system" for a system step, "Unknown" while the system is hidden. */
+function stepDestination(step: StoryStepDef, data: GameData, flags: readonly string[]): string {
+  const sys = visibleStepSystem(step, data, flags);
+  if (!sys) return 'Unknown';
+  const planet = 'planet' in step ? data.planets[step.planet] : undefined;
+  return planet ? `${planet.name}, ${data.systems[sys].name} system` : `${data.systems[sys].name} system`;
+}
 
 /**
  * The pilot's active jobs: a list (left) and the selected one's destination, deadline with days
@@ -27,6 +45,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
   const stats = el('div', { class: 'sw-ex-stats', attrs: { 'data-testid': 'log-stats' } });
   const list = el('div', { class: 'sw-mc-list', attrs: { role: 'listbox', 'aria-label': 'Active missions', 'data-testid': 'log-list' } });
   const detail = el('div', { class: 'sw-mc-detail', attrs: { 'data-testid': 'log-detail' } });
+  const story = el('section', { class: 'sw-story', attrs: { 'data-testid': 'log-story' } });
   const notes = el('section', { class: 'sw-notes', attrs: { 'data-testid': 'log-notes' } });
   const reason = el('p', { class: 'sw-ex-message sw-ex-bad', attrs: { 'data-testid': 'log-reason', 'aria-live': 'polite' } });
 
@@ -70,8 +89,72 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     render();
   }
 
+  /** The Story section: active missions, the next lead when none is active, and the finished ones. */
+  function renderStory(): void {
+    const w = controller.world;
+    const defs = w.story.active.map((a) => ({ a, def: data.story[a.id] })).filter((x): x is { a: (typeof w.story.active)[number]; def: StoryMissionDef } => !!x.def);
+    const lead = defs.length === 0 ? nextLead(w, data) : null;
+    const done = w.story.done.filter((id) => data.story[id]);
+    story.hidden = defs.length === 0 && !lead && done.length === 0;
+    if (story.hidden) {
+      story.replaceChildren();
+      return;
+    }
+    story.replaceChildren(
+      el('h2', { text: 'Story' }),
+      ...defs.map(({ a, def }) => {
+        const step = def.steps[a.step];
+        const dest = visibleStepSystem(step, data, w.flags);
+        const rows = [
+          el('dt', { text: 'Destination' }),
+          el('dd', { text: stepDestination(step, data, w.flags) }),
+          ...(a.deadlineDay === null ? [] : [el('dt', { text: 'Deadline' }), el('dd', { text: deadlineText({ deadlineDay: a.deadlineDay }, w.day, data) })]),
+        ];
+        const show = button(
+          'Show on map',
+          () =>
+            ctx.go.map({
+              preview: { systemId: dest!, label: `Story: ${def.title}` },
+              onClose: () => showMissionLog(ctx, onClose, { selectId: jobMissions(controller.world)[index]?.id }),
+            }),
+        );
+        show.disabled = !dest;
+        return el('div', { class: 'sw-story-item', attrs: { 'data-story': def.id } }, [
+          el('h3', { class: 'sw-mc-title', text: def.title }),
+          el('p', { class: 'sw-story-from', text: `from ${def.giver.name}` }),
+          el('p', { class: 'sw-mc-desc', text: step.text }),
+          el('dl', { class: 'sw-map-rows sw-mc-rows' }, rows),
+          el('div', { class: 'sw-story-actions' }, [show, ...(def.arc === 'main' ? [] : [button('Abandon', () => void abandonStory(def), { class: 'sw-btn-danger' })])]),
+        ]);
+      }),
+      ...(lead ? [el('p', { class: 'sw-story-lead', text: `Next lead: ${lead.text}` })] : []),
+      ...(done.length === 0
+        ? []
+        : [
+            el('h3', { text: 'Done' }),
+            el('ul', {}, done.map((id) => {
+              const day = w.story.doneDays?.[id];
+              return el('li', { text: day === undefined ? data.story[id].title : `${data.story[id].title} — ${formatDate(day, data.config)}` });
+            })),
+          ]),
+    );
+  }
+
+  async function abandonStory(def: StoryMissionDef): Promise<void> {
+    const ok = await confirmDialog(ctx.root, {
+      title: 'Abandon this mission?',
+      message: `${def.title} — any cargo or passengers it carries are dropped. You can't take it up again.`,
+      confirm: 'Abandon',
+      danger: true,
+    });
+    if (!ok) return;
+    controller.abandonStory(def.id);
+    render();
+  }
+
   function render(): void {
     const w = controller.world;
+    renderStory();
     const missions = jobMissions(w);
     index = Math.min(index, Math.max(0, missions.length - 1));
     stats.replaceChildren(
@@ -132,7 +215,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
       mapCornerButton(ctx, () => reopen()),
       el('h1', { class: 'sw-title', text: 'Mission Log' }),
       stats,
-      el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason, notes])]),
+      el('div', { class: 'sw-mc-body' }, [el('div', { class: 'sw-mc-left' }, [story, list]), el('div', { class: 'sw-mc-side' }, [detail, reason, notes])]),
       el('div', { class: 'sw-ex-actions' }, [mapBtn, abandonBtn, doneBtn]),
     ]),
   ]);

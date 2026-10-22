@@ -407,3 +407,13 @@ describe('storyDestinations', () => {
   });
 });
 const data0 = (d: GameData, planet: string): string => d.planets[planet].systemId;
+
+describe('doneDays', () => {
+  it('records the day a mission was completed', () => {
+    const d = withStory(side);
+    const w = acceptStory(world({ day: 10 }), d, 's1');
+    const r = advanceStory({ ...w, day: 14 }, d, { kind: 'landed', planetId: 'merrow' });
+    expect(r.world.story.done).toEqual(['s1']);
+    expect(r.world.story.doneDays).toEqual({ s1: 14 });
+  });
+});

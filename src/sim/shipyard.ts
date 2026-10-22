@@ -1,10 +1,11 @@
 import type { GameData } from '../data/schemas';
 import { cargoUsed } from './cargo';
+import { standingMet } from './standing';
 import { hasFlag, setFlag } from './story';
 import { shipStock } from './stock';
 import type { WorldState } from './types';
 
-export type ShipBlock = 'credits' | 'cargo' | 'passengers' | 'owned' | 'gone' | 'notSold' | 'locked';
+export type ShipBlock = 'credits' | 'cargo' | 'passengers' | 'owned' | 'gone' | 'notSold' | 'locked' | 'standing';
 
 export interface ShipQuote {
   price: number;
@@ -21,6 +22,7 @@ export const SHIP_BLOCK_TEXT: Record<ShipBlock, string> = {
   gone: "Sold once — she's gone.",
   notSold: 'This yard does not build that hull.',
   locked: 'Ask about the old survey ship',
+  standing: 'Requires friendship with this government', // the screens name the government via standingBlockText
 };
 
 /** Flag set when a one-off hull is bought, so it can never be bought twice. */
@@ -53,7 +55,7 @@ export function shipHidden(world: Pick<WorldState, 'flags'>, hull: { hiddenByFla
   return !!hull.hiddenByFlag && world.flags.includes(hull.hiddenByFlag);
 }
 
-/** Price, trade-in, net cost and whether the swap is allowed. Check order: notSold, owned, gone, locked, cargo, passengers, credits. */
+/** Price, trade-in, net cost and whether the swap is allowed. Check order: notSold, owned, gone, locked, standing, cargo, passengers, credits. */
 export function shipQuote(world: WorldState, data: GameData, planetId: string, shipId: string): ShipQuote {
   const hull = data.ships[shipId];
   const tradeIn = tradeInValue(world, data);
@@ -64,6 +66,7 @@ export function shipQuote(world: WorldState, data: GameData, planetId: string, s
   if (world.shipId === shipId) return result({ ok: false, reason: 'owned' });
   if (hull.unique && hasFlag(world, boughtFlag(shipId))) return result({ ok: false, reason: 'gone' });
   if (hull.requiresFlag && !hasFlag(world, hull.requiresFlag)) return result({ ok: false, reason: 'locked' });
+  if (!standingMet(world, hull.requiresStanding)) return result({ ok: false, reason: 'standing' });
   if (cargoUsed(world) > hull.cargo) return result({ ok: false, reason: 'cargo' });
   const riders = world.missions.reduce((n, m) => n + m.passengers, 0);
   if (riders > hull.passengers) return result({ ok: false, reason: 'passengers' });

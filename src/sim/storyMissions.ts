@@ -1,14 +1,14 @@
-import type { GameData, Outcome, StandingLevel, StoryMissionDef, StoryStepDef } from '../data/schemas';
+import type { GameData, Outcome, StoryMissionDef, StoryStepDef } from '../data/schemas';
 import { berthsFree, cargoFree } from './cargo';
 import { applyOutcomes } from './encounters';
 import { STORY_TYPE } from './missions';
 import { hashString, mulberry32 } from './random';
 import { SYSTEM_CENTER } from './rules';
+import { STANDING_RANK as RANK, standingOf } from './standing';
 import { systemOpen } from './galaxy';
 import type { Mission, WorldState } from './types';
 import { add, fromAngle, scale, type Vec2 } from './vec';
 
-const RANK: Record<StandingLevel, number> = { cool: 0, neutral: 1, friend: 2 };
 const NO_NPC = { npcName: '' };
 
 export type StoryEvent =
@@ -19,9 +19,7 @@ export type StoryEvent =
 
 export type StoryAccept = { ok: true } | { ok: false; reason: 'cargo' | 'berths' | 'active' | 'unknown' };
 
-export function standingOf(world: WorldState, gov: string): StandingLevel {
-  return world.standing[gov] ?? 'neutral';
-}
+export { standingOf };
 
 /**
  * Story cargo and passengers ride in the hold as Mission entries of type STORY_TYPE. The exchange
@@ -138,7 +136,7 @@ function stepMatches(step: StoryStepDef, ev: StoryEvent, missionId: string): boo
 }
 
 /** The system a step is played in. */
-function stepSystem(step: StoryStepDef, data: GameData): string | undefined {
+export function stepSystem(step: StoryStepDef, data: GameData): string | undefined {
   return 'system' in step ? step.system : data.planets[step.planet]?.systemId;
 }
 
@@ -209,6 +207,7 @@ export function advanceStory(
           ...r.world.story,
           active: r.world.story.active.filter((x) => x.id !== def.id),
           done: [...r.world.story.done, def.id],
+          doneDays: { ...r.world.story.doneDays, [def.id]: w.day },
         },
       };
       messages.push(...r.messages, `Story complete: ${def.title}.`);

@@ -57,3 +57,20 @@ describe('pilotCard', () => {
     expect(pilotCard(save({ shipName: 'x'.repeat(40) }), data).shipLine.startsWith(`${'x'.repeat(24)} — `)).toBe(true);
   });
 });
+
+describe('pilotCard standing', () => {
+  it('lists the non-neutral governments in data order', () => {
+    const c = pilotCard(save({ standing: { 'free-reach': 'cool', concord: 'friend' } }), data);
+    expect(c.standing).toBe('Concord: friend · Free Reach: cool');
+  });
+
+  it('omits neutral governments; all neutral reads "Standing: neutral everywhere"', () => {
+    expect(pilotCard(save({ standing: { concord: 'neutral', unlit: 'cool' } }), data).standing).toBe('Unlit: cool');
+    expect(pilotCard(save({ standing: { concord: 'neutral' } }), data).standing).toBe('Standing: neutral everywhere');
+    expect(pilotCard(save(), data).standing).toBe('Standing: neutral everywhere');
+  });
+
+  it('ignores a government this version lacks', () => {
+    expect(pilotCard(save({ standing: { nowhere: 'friend' } }), data).standing).toBe('Standing: neutral everywhere');
+  });
+});

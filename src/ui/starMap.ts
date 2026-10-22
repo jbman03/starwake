@@ -1,6 +1,6 @@
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
-import { fuelCheck, lanesOf, routeBetween, visibleSystems } from '../sim/galaxy';
+import { fuelCheck, lanesOf, routeBetween, systemOpen, visibleSystems } from '../sim/galaxy';
 import { jobMissions } from '../sim/missions';
 import type { WorldState } from '../sim/types';
 import { setRoute } from '../sim/world';
@@ -296,7 +296,8 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
   );
 
   // ---- side panel ----------------------------------------------------------
-  const preview = opts.preview && data.systems[opts.preview.systemId] ? opts.preview : undefined;
+  const preview =
+    opts.preview && data.systems[opts.preview.systemId] && systemOpen(data.systems[opts.preview.systemId], controller.world.flags) ? opts.preview : undefined;
   if (preview) {
     const at = data.systems[preview.systemId].mapPos;
     view.z = PREVIEW_ZOOM;

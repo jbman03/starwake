@@ -131,3 +131,18 @@ describe('fuel scoop in stepWorld', () => {
     expect(stepWorld(w, data, idle, 0.5, { autoLandOnArrival: false }).world.ship.fuel).toBe(100);
   });
 });
+
+describe('requiresStanding', () => {
+  const gated = {
+    ...data,
+    outfits: { ...data.outfits, 'cargo-pod': { ...data.outfits['cargo-pod'], requiresStanding: { government: 'concord', level: 'friend' as const } } },
+  };
+
+  it('blocks with reason "standing" until the government is a friend', () => {
+    const w = base({ credits: 5000 });
+    expect(outfitBuyCheck(w, gated, PORT, 'cargo-pod')).toEqual({ ok: false, reason: 'standing' });
+    expect(buyOutfit(w, gated, PORT, 'cargo-pod').world).toBe(w);
+    expect(outfitBuyCheck({ ...w, standing: { concord: 'friend' } }, gated, PORT, 'cargo-pod')).toEqual({ ok: true });
+    expect(OUTFIT_BLOCK_TEXT.standing).toBeTruthy();
+  });
+});

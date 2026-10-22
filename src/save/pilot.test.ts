@@ -210,7 +210,7 @@ describe('save v5', () => {
   it('round-trips story state and standing', () => {
     const w = {
       ...newWorld(data, 5),
-      story: { active: [{ id: 'm1', step: 2, deadlineDay: 40 }, { id: 'm2', step: 0, deadlineDay: null }], done: ['a'], failed: ['b'], declined: ['c'] },
+      story: { active: [{ id: 'm1', step: 2, deadlineDay: 40 }, { id: 'm2', step: 0, deadlineDay: null }], done: ['a'], doneDays: { a: 31 }, failed: ['b'], declined: ['c'] },
       standing: { concord: 'friend', 'free-reach': 'cool' } as const,
     };
     const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);

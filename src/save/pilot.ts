@@ -76,6 +76,7 @@ export const PilotSaveSchema = z.object({
       z.object({ id: z.string().min(1), step: z.number().int().nonnegative(), deadlineDay: z.number().finite().nullable() }),
     ),
     done: z.array(z.string()),
+    doneDays: z.record(z.string(), z.number().finite()).optional(),
     failed: z.array(z.string()),
     declined: z.array(z.string()),
   }),
@@ -175,6 +176,7 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
     story: {
       active: world.story.active.map((a) => ({ ...a })),
       done: [...world.story.done],
+      ...(world.story.doneDays ? { doneDays: { ...world.story.doneDays } } : {}),
       failed: [...world.story.failed],
       declined: [...world.story.declined],
     },
@@ -224,6 +226,7 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     story: {
       active: p.story.active.map((a) => ({ ...a })),
       done: [...p.story.done],
+      ...(p.story.doneDays ? { doneDays: { ...p.story.doneDays } } : {}),
       failed: [...p.story.failed],
       declined: [...p.story.declined],
     },
