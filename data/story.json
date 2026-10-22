@@ -1244,18 +1244,23 @@
       },
       "declinable": true,
       "text": "The compact is ready, and so are the people it will bind. Vey has one last request, which is that you stand with them when it is signed. She wants it written down that a pilot was there.",
-      "acceptText": "Vey squares the paper on the table and will not say whether she is nervous. The signing is at Wrenhold, in the main hall, as soon as everyone is in their seat.",
+      "acceptText": "Vey squares the paper on the table and will not say whether she is nervous. The rim signatories are waiting at Redwater Sound and will not travel without a pilot they know. The signing is at Wrenhold, in the main hall, as soon as everyone is in their seat.",
       "steps": [
         {
           "kind": "land",
+          "planet": "redwater-sound",
+          "text": "Land at Redwater Sound and collect the rim signatories."
+        },
+        {
+          "kind": "land",
           "planet": "wrenhold",
-          "text": "Land at Wrenhold for the signing."
+          "text": "Fly the signatories to Wrenhold for the signing."
         }
       ],
       "onComplete": [
         {
           "type": "credits",
-          "n": 6000
+          "n": 12000
         },
         {
           "type": "flag",
@@ -1272,7 +1277,7 @@
         },
         {
           "type": "message",
-          "text": "Vey and Reed sign the compact, and the hall roars and heckles in the same breath. The Reach pays you 6,000 cr, and its yards offer to fit you a Freewind runner."
+          "text": "Vey and Reed sign the compact, and the hall roars and heckles in the same breath. The Reach pays you 12,000 cr, and its yards offer to fit you a Freewind runner."
         }
       ]
     }

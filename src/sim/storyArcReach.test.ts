@@ -143,8 +143,8 @@ describe('Free Reach arc "Free Lanes"', () => {
     watch();
 
     w = take(w, 'r7-the-signing');
-    w = run(w, landed('wrenhold'));
-    expect(w.credits).toBe(start + 62000);
+    w = run(w, landed('redwater-sound'), landed('wrenhold'));
+    expect(w.credits).toBe(start + 68000);
     expect(w.flags).toContain('reach-done');
     expect(standingOf(w, 'free-reach')).toBe('friend');
     expect(w.notes.map((n) => n.text).join(' ')).toContain('Freewind');

@@ -139,10 +139,11 @@ describe('story pay', () => {
     expect(over, `best loop ${loop.toFixed(0)}/jump, limit ${(2 * loop).toFixed(0)}/jump`).toEqual([]);
   });
 
-  it('the Concord finale pays at least as much as any earlier mission in the arc', () => {
-    // The Free Reach finale cannot: R7 lands where R6 ended, so it is one jump and the per-jump cap holds it to about 6,300 cr.
-    const arc = arcOf('concord');
-    const finale = arc[arc.length - 1];
-    for (const d of arc) expect(pay(finale), `${finale.id} vs ${d.id}`).toBeGreaterThanOrEqual(pay(d));
+  it('each arc finale pays at least as much as any earlier mission in its arc', () => {
+    for (const side of ['concord', 'reach'] as const) {
+      const arc = arcOf(side);
+      const finale = arc[arc.length - 1];
+      for (const d of arc) expect(pay(finale), `${finale.id} vs ${d.id}`).toBeGreaterThanOrEqual(pay(d));
+    }
   });
 });
