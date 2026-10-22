@@ -260,6 +260,9 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     for (const pid of (item as { soldAt?: string[] }).soldAt ?? []) {
       if (!(pid in planets)) shopIssues.push(fmt(file, `${item.id}.soldAt`, `unknown planet "${pid}"`));
     }
+    const gate = (item as { requiresStanding?: { government: string } }).requiresStanding;
+    if (gate && !(gate.government in governments))
+      shopIssues.push(fmt(file, `${item.id}.requiresStanding.government`, `unknown government "${gate.government}"`));
     const sellers = Object.values(planets).filter((p) => p.services.includes(shop) && sells(p.id, item, partial));
     if (sellers.length === 0) shopIssues.push(fmt(file, item.id, 'no port sells this'));
     for (const g of item.soldBy ?? []) {
@@ -299,17 +302,46 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
 
   const storyIssues: string[] = [];
   const sf = 'story.json';
+  // Every flag some outcome or hidden system can set; an offer may only mention these.
+  const settable = new Set<string>(Object.values(systems).flatMap((sy) => (sy.unlockFlag ? [sy.unlockFlag] : [])));
+  const collect = (os: readonly Outcome[]) => {
+    for (const o of os) if (o.type === 'flag' || o.type === 'unlock') settable.add(o.flag);
+  };
+  for (const e of Object.values(encounters)) e.choices.forEach((c) => collect(c.outcomes));
+  for (const m of Object.values(story)) {
+    collect(m.onComplete);
+    collect(m.onFail ?? []);
+    for (const st of m.steps) if (st.kind === 'meet') st.card.choices.forEach((c) => collect(c.outcomes));
+  }
   for (const m of Object.values(story)) {
     const unknownIn = (at: string, kind: string, v: string, set: Record<string, unknown>) => {
       if (!(v in set)) storyIssues.push(fmt(sf, `${m.id}.${at}`, `unknown ${kind} "${v}"`));
     };
     (m.offer.ports ?? []).forEach((v, i) => unknownIn(`offer.ports.${i}`, 'planet', v, planets));
     (m.offer.systems ?? []).forEach((v, i) => unknownIn(`offer.systems.${i}`, 'system', v, systems));
+    for (const k of ['requires', 'notFlags'] as const)
+      (m.offer[k] ?? []).forEach((f, i) => {
+        if (!settable.has(f)) storyIssues.push(fmt(sf, `${m.id}.offer.${k}.${i}`, `flag "${f}" is never set by any outcome or system`));
+      });
+    // A step or hail in a hidden system is only reachable once its unlock flag is set, so the offer must wait for it.
+    const needsUnlock = (sysId: string, at: string) => {
+      const sy = systems[sysId];
+      if (sy?.hidden && sy.unlockFlag && !(m.offer.requires ?? []).includes(sy.unlockFlag))
+        storyIssues.push(fmt(sf, `${m.id}.${at}`, `system "${sysId}" is hidden: offer.requires must include "${sy.unlockFlag}"`));
+    };
+    if (m.offer.where === 'hail') (m.offer.systems ?? []).forEach((v, i) => needsUnlock(v, `offer.systems.${i}`));
     for (const g of Object.keys(m.offer.standing ?? {})) unknownIn(`offer.standing.${g}`, 'government', g, governments);
     m.steps.forEach((st, i) => {
       const at = `steps.${i}`;
-      if ('system' in st) unknownIn(`${at}.system`, 'system', st.system, systems);
-      if ('planet' in st) unknownIn(`${at}.planet`, 'planet', st.planet, planets);
+      if ('system' in st) {
+        unknownIn(`${at}.system`, 'system', st.system, systems);
+        needsUnlock(st.system, `${at}.system`);
+      }
+      if ('planet' in st) {
+        unknownIn(`${at}.planet`, 'planet', st.planet, planets);
+        const home = planets[st.planet]?.systemId;
+        if (home) needsUnlock(home, `${at}.planet`);
+      }
       if (st.kind === 'meet') {
         unknownIn(`${at}.ship.shipId`, 'ship', st.ship.shipId, ships);
         unknownIn(`${at}.ship.government`, 'government', st.ship.government, governments);

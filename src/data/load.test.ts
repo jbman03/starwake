@@ -665,6 +665,30 @@ describe('story data', () => {
     expect(msg(mission([{ kind: 'go', system: 'calder', text: 'a' }], { offer: { where: 'bar', ports: ['nope'] } }))).toContain('m1.offer.ports.0');
   });
 
+  it('requires the unlock flag of a hidden system in the offer of a step or hail there', () => {
+    const msg = (m: unknown) => failure(withMission(m)).issues.join('\n');
+    const step = { kind: 'go', system: 'hushwater', text: 'a' };
+    expect(msg(mission([step]))).toMatch(/m1\.steps\.0\.system.*hushwater.*hushwater-lane/);
+    expect(msg(mission([{ kind: 'land', planet: 'halcyon', text: 'a' }], { offer: { where: 'hail', systems: ['hushwater'] } }))).toMatch(/m1\.offer\.systems\.0.*hushwater-lane/);
+    const ok = withMission(mission([step], { offer: { where: 'bar', ports: ['halcyon'], requires: ['hushwater-lane'] } }));
+    expect(Object.keys(parseGameData(ok).story)).toContain('m1');
+  });
+
+  it('rejects offer requires and notFlags naming a flag nothing sets', () => {
+    const msg = (m: unknown) => failure(withMission(m)).issues.join('\n');
+    const steps = [{ kind: 'go', system: 'calder', text: 'a' }];
+    expect(msg(mission(steps, { offer: { where: 'bar', ports: ['halcyon'], requires: ['never-set'] } }))).toMatch(/m1\.offer\.requires\.0.*never-set/);
+    expect(msg(mission(steps, { offer: { where: 'bar', ports: ['halcyon'], notFlags: ['never-set'] } }))).toMatch(/m1\.offer\.notFlags\.0.*never-set/);
+    const ok = withMission(mission(steps, { offer: { where: 'bar', ports: ['halcyon'], notFlags: ['hushwater-lane'] } }));
+    expect(Object.keys(parseGameData(ok).story)).toContain('m1');
+  });
+
+  it('rejects a shop item whose requiresStanding names an unknown government', () => {
+    const r = raw();
+    r.outfits[0].requiresStanding = { government: 'nope', level: 'friend' };
+    expect(failure(r).issues.join('\n')).toMatch(/requiresStanding\.government.*unknown government "nope"/);
+  });
+
   it('rejects a meet step whose ship is unique', () => {
     const e = failure(withMission(mission([
       { kind: 'meet', system: 'calder', ship: { name: 'W', shipId: 'patience', government: 'concord' }, card: card(), text: 'g' },
