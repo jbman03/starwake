@@ -219,16 +219,16 @@ describe('requiresStanding locked tiles', () => {
   });
 
   it('outfitter: an outfit already fitted stays visible and sellable when the requirement now fails', async () => {
-    const { root, ctx, data } = await setup('halcyon');
-    const def = data.outfits['cargo-pod'];
+    const { root, ctx, c } = await setup('halcyon');
+    const def = c.data.outfits['cargo-pod'];
     def.requiresStanding = REQ;
     try {
-      const { c } = await setup('halcyon');
       c.world = { ...c.world, outfits: { 'cargo-pod': 1 } };
-      const ctx2 = { ...ctx, controller: c } as typeof ctx;
-      showOutfitter(ctx2, 'halcyon', () => {});
+      expect(c.outfitQuote('cargo-pod')).toEqual({ ok: false, reason: 'standing' });
+      showOutfitter(ctx, 'halcyon', () => {});
       const t = tile(root, 'cargo-pod');
       expect(t.textContent).toContain(def.name);
+      expect(t.textContent).not.toContain('???');
       t.click();
       expect(btn(root, 'Sell').disabled).toBe(false);
     } finally {
