@@ -146,6 +146,436 @@
         { "type": "unlock", "flag": "folio-unlocked" },
         { "type": "message", "text": "Marek unrolls both tubes and weeps briefly into her sleeve. She says the Surveyor's Folio is yours to buy at the Corvana outfitter. It is a map, and the surveyor would have wanted it used." }
       ]
+    },
+    {
+      "id": "c1-lane-engineers",
+      "title": "Lane Engineers",
+      "arc": "concord",
+      "giver": {
+        "name": "Warden Sela Corrin",
+        "title": "Concord lane-warden"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "concordance"
+        ],
+        "requires": [
+          "side-concord",
+          "dimming-lane"
+        ],
+        "notFlags": [
+          "side-reach"
+        ]
+      },
+      "declinable": true,
+      "text": "Corrin has stopped wearing her warden's coat indoors, which you take to mean she is staying. The Concord has found three lane engineers willing to work in the Dimming, and nobody willing to fly them there. Reed's Anchor is the nearest place with a dock that will hold them.",
+      "acceptText": "The engineers climb aboard with toolrolls and the stoic look of people who were told it would be quiet. Corrin asks you to keep the cabin lit and the conversation dull. Reed's Anchor lies in Candlewick, deep inside the Dimming.",
+      "steps": [
+        {
+          "kind": "ferry",
+          "planet": "reeds-anchor",
+          "passengers": 3,
+          "text": "Ferry the three lane engineers to Reed's Anchor."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 6000
+        },
+        {
+          "type": "flag",
+          "flag": "concord-1"
+        },
+        {
+          "type": "message",
+          "text": "The engineers shoulder their kits and vanish into the Anchor's crowd without a backward glance. Reed's dockmaster hands you 6,000 cr from Corrin's purse."
+        }
+      ]
+    },
+    {
+      "id": "c2-lantern-cores",
+      "title": "Lantern Cores",
+      "arc": "concord",
+      "giver": {
+        "name": "Warden Sela Corrin",
+        "title": "Concord lane-warden"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "concordance"
+        ],
+        "requires": [
+          "side-concord",
+          "dimming-lane",
+          "concord-1"
+        ],
+        "notFlags": [
+          "side-reach"
+        ]
+      },
+      "declinable": true,
+      "text": "The engineers have found the first dark lantern and have nothing to put in it. Corrin has six tons of new cores crated at Concordance, packed in straw with strict instructions. They need to reach Slagwater inside ten days, before the engineers run out of patience.",
+      "acceptText": "The cores are heavy, cold and faintly humming. Corrin makes you sign for each crate, then makes you sign for the straw. Slagwater, in Sootfall, will have a crew waiting.",
+      "steps": [
+        {
+          "kind": "deliver",
+          "planet": "slagwater",
+          "cargo": {
+            "name": "Lantern cores",
+            "tons": 6
+          },
+          "deadlineDays": 10,
+          "text": "Deliver the lantern cores to Slagwater within 10 days."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 7000
+        },
+        {
+          "type": "flag",
+          "flag": "concord-2"
+        },
+        {
+          "type": "message",
+          "text": "The Slagwater crew unpack the cores like newborns. Corrin's agent there pays you 7,000 cr and asks if you can stay for the lighting. You cannot, but you hear about it later."
+        }
+      ],
+      "onFail": [
+        {
+          "type": "flag",
+          "flag": "concord-2"
+        },
+        {
+          "type": "message",
+          "text": "The cores reached the Dimming too late to be of use, and the engineers went home annoyed. Corrin says she has more. Nobody pays you, but she still wants to talk."
+        }
+      ]
+    },
+    {
+      "id": "c3-three-lanterns",
+      "title": "Three Lanterns",
+      "arc": "concord",
+      "giver": {
+        "name": "Warden Sela Corrin",
+        "title": "Concord lane-warden"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "concordance"
+        ],
+        "requires": [
+          "side-concord",
+          "dimming-lane",
+          "concord-2"
+        ],
+        "notFlags": [
+          "side-reach"
+        ]
+      },
+      "declinable": true,
+      "text": "With new cores in the old housings, three lanterns can be woken in turn. Corrin needs someone to fly past each one and scan it, so the engineers know it took. She suspects the Dimming will look different with a little light on it.",
+      "acceptText": "Corrin gives you a scanner key that opens a lantern housing without asking questions. Gloam, Pallow and Sootfall each have a lantern waiting. Take your time, and look up.",
+      "steps": [
+        {
+          "kind": "scan",
+          "system": "gloam",
+          "site": {
+            "label": "Gloam lantern"
+          },
+          "text": "Fly to Gloam and scan its relit lantern."
+        },
+        {
+          "kind": "scan",
+          "system": "pallow",
+          "site": {
+            "label": "Pallow lantern"
+          },
+          "text": "Fly to Pallow and scan its relit lantern."
+        },
+        {
+          "kind": "scan",
+          "system": "sootfall",
+          "site": {
+            "label": "Sootfall lantern"
+          },
+          "text": "Fly to Sootfall and scan its relit lantern."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 9000
+        },
+        {
+          "type": "flag",
+          "flag": "lanterns-relit"
+        },
+        {
+          "type": "flag",
+          "flag": "concord-3"
+        },
+        {
+          "type": "rumour",
+          "text": "Three Dimming lanterns burn again. Settlers say the dark looks smaller from Gloam."
+        },
+        {
+          "type": "message",
+          "text": "Three lanterns shine over the Dimming for the first time in years. Corrin sends 9,000 cr and a message that just says: look."
+        }
+      ]
+    },
+    {
+      "id": "c4-brams-surrender",
+      "title": "Bram's Surrender",
+      "arc": "concord",
+      "giver": {
+        "name": "Warden Sela Corrin",
+        "title": "Concord lane-warden"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "concordance"
+        ],
+        "requires": [
+          "side-concord",
+          "dimming-lane",
+          "concord-3"
+        ],
+        "notFlags": [
+          "side-reach"
+        ]
+      },
+      "declinable": true,
+      "text": "The lanterns are relit, and Bram Kettle is still stripping the ones that are not. Corrin does not want him hurt. She wants him to stop, and she thinks he is tired enough to listen if someone approaches him as a person.",
+      "acceptText": "Corrin gives you terms signed in her own hand. If he refuses, she says, you will have to decide what to do with that. Bram works the dark lanterns in Sootfall.",
+      "steps": [
+        {
+          "kind": "meet",
+          "system": "sootfall",
+          "ship": {
+            "name": "Bram Kettle",
+            "shipId": "ironback",
+            "government": "unlit"
+          },
+          "text": "Find Bram Kettle in Sootfall and talk to him.",
+          "card": {
+            "title": "Bram Kettle",
+            "text": "Bram Kettle listens with his arms folded, a man who has had the same argument with himself for months. His crew are tired of living off scraps, and he knows it. What he hears next will decide whether this ends quietly or loudly.",
+            "choices": [
+              {
+                "label": "Offer the Concord's terms",
+                "outcomes": [
+                  {
+                    "type": "message",
+                    "text": "Bram reads the terms twice, then once more aloud to his crew. They stand down without a shot. Corrin's pay will wait for you at Concordance."
+                  }
+                ]
+              },
+              {
+                "label": "Threaten him with a Concord fleet",
+                "outcomes": [
+                  {
+                    "type": "message",
+                    "text": "Bram goes pale, then nods, and his crew power down. It ends, but not kindly, and some of them will remember how."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 6000
+        },
+        {
+          "type": "flag",
+          "flag": "concord-4"
+        },
+        {
+          "type": "message",
+          "text": "Corrin hears the news with her eyes closed. She pays 6,000 cr and says the charter can be signed now."
+        }
+      ],
+      "combatLater": "Bram's crew could fight instead of standing down, if the threat is made."
+    },
+    {
+      "id": "c5-the-charter",
+      "title": "The Charter",
+      "arc": "concord",
+      "giver": {
+        "name": "Warden Sela Corrin",
+        "title": "Concord lane-warden"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "concordance"
+        ],
+        "requires": [
+          "side-concord",
+          "dimming-lane",
+          "concord-4"
+        ],
+        "notFlags": [
+          "side-reach"
+        ]
+      },
+      "declinable": true,
+      "text": "The charter is a single sheet of paper, sealed in wax, with the Concord's name at the top and room for Ama Reed's at the bottom. Corrin has spent a month on the wording and a week on the wax. It has to be handed over in person, and carefully.",
+      "acceptText": "Corrin presses the charter case into your hands and tells you not to read it, then not to look like you are not reading it. Reed will be at her long table in Reed's Anchor. She will have opinions about the wax.",
+      "steps": [
+        {
+          "kind": "deliver",
+          "planet": "reeds-anchor",
+          "cargo": {
+            "name": "Concord charter",
+            "tons": 1
+          },
+          "text": "Land at Reed's Anchor and put the charter in Ama Reed's hands."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 6000
+        },
+        {
+          "type": "flag",
+          "flag": "concord-5"
+        },
+        {
+          "type": "message",
+          "text": "Ama Reed breaks the wax, reads for a long minute, and says it is a good wording. She pays you 6,000 cr and promises to arrive at Concordance in her own time."
+        }
+      ]
+    },
+    {
+      "id": "c6-escort-the-liner",
+      "title": "Escort the Liner",
+      "arc": "concord",
+      "giver": {
+        "name": "Warden Sela Corrin",
+        "title": "Concord lane-warden"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "concordance"
+        ],
+        "requires": [
+          "side-concord",
+          "dimming-lane",
+          "concord-5"
+        ],
+        "notFlags": [
+          "side-reach"
+        ]
+      },
+      "declinable": true,
+      "text": "Reed is coming to the ceremony, and the Concord is sending a liner to carry her and her people. The Dimming is still dark in places, and a liner cannot see as far as a scout. Corrin needs you to fly ahead and scan each system, so the liner knows the lane is clear.",
+      "acceptText": "A liner called the Constant Hour will leave Reed's Anchor a day behind you. Scan ahead at each stop, then wait at the Anchor until she docks. Corrin would like the trip to be entirely uneventful.",
+      "steps": [
+        {
+          "kind": "scan",
+          "system": "hollowmere",
+          "site": {
+            "label": "Hollowmere lane"
+          },
+          "text": "Fly ahead to Hollowmere and scan the lane for the liner."
+        },
+        {
+          "kind": "scan",
+          "system": "tarn",
+          "site": {
+            "label": "Tarn lane"
+          },
+          "text": "Fly ahead to Tarn and scan the lane for the liner."
+        },
+        {
+          "kind": "land",
+          "planet": "reeds-anchor",
+          "text": "Return to Reed's Anchor and wait for the liner to dock."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 8000
+        },
+        {
+          "type": "flag",
+          "flag": "concord-6"
+        },
+        {
+          "type": "message",
+          "text": "The Constant Hour docks without a scratch and Reed's delegation files off in their best coats. A Concord purser hands you 8,000 cr."
+        }
+      ]
+    },
+    {
+      "id": "c7-the-ceremony",
+      "title": "The Ceremony",
+      "arc": "concord",
+      "giver": {
+        "name": "Warden Sela Corrin",
+        "title": "Concord lane-warden"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "concordance"
+        ],
+        "requires": [
+          "side-concord",
+          "dimming-lane",
+          "concord-6"
+        ],
+        "notFlags": [
+          "side-reach"
+        ]
+      },
+      "declinable": true,
+      "text": "The liner is ready and the delegation is on its way to Concordance. Corrin has one last thing to ask, and it is that you be there. She wants to put a face to the pilot who made all of this possible.",
+      "acceptText": "Corrin straightens her coat and will not say what is planned. Concordance is only a short hop away, and the ceremony begins when everyone is seated.",
+      "steps": [
+        {
+          "kind": "land",
+          "planet": "concordance",
+          "text": "Land at Concordance for the ceremony."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 10000
+        },
+        {
+          "type": "flag",
+          "flag": "concord-done"
+        },
+        {
+          "type": "standing",
+          "government": "concord",
+          "level": "friend"
+        },
+        {
+          "type": "rumour",
+          "text": "Concordance yards will build you a Lantern-tender."
+        },
+        {
+          "type": "message",
+          "text": "Corrin and Reed sign the charter side by side, and the whole hall applauds. The Concord pays you 10,000 cr, and its yards offer to build you a Lantern-tender."
+        }
+      ]
     }
   ]
 }
