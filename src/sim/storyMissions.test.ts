@@ -374,6 +374,20 @@ describe('nextLead', () => {
   });
 });
 
+describe('nextLead order', () => {
+  it('leads with main, then Concord and Reach chains, then side jobs', () => {
+    const at = (p: string) => ({ where: 'bar' as const, ports: [p] });
+    const sd = mk({ id: 'sd', arc: 'side', offer: at('halcyon'), steps: side.steps });
+    const rc = mk({ id: 'rc', arc: 'reach', offer: at('merrow'), steps: side.steps });
+    const cc = mk({ id: 'cc', arc: 'concord', offer: at('vanterre'), steps: side.steps });
+    const mn = mk({ id: 'mn', arc: 'main', offer: at('brigg-station'), steps: side.steps });
+    expect(nextLead(world(), withStory(sd, rc, cc, mn))?.portId).toBe('brigg-station');
+    expect(nextLead(world(), withStory(sd, rc, cc))?.portId).toBe('merrow');
+    expect(nextLead(world(), withStory(sd, cc))?.portId).toBe('vanterre');
+    expect(nextLead(world(), withStory(sd))?.portId).toBe('halcyon');
+  });
+});
+
 describe('standingOf', () => {
   it('defaults to neutral', () => {
     expect(standingOf(world(), 'concord')).toBe('neutral');

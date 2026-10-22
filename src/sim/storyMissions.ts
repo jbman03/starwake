@@ -264,7 +264,7 @@ export function checkStoryDeadlines(world: WorldState, data: GameData): { world:
     const active = w.story.active.filter((x) => x.id !== a.id);
     if (def.arc === 'main' || def.onLate === 'retry') {
       w = declineStory({ ...w, story: { ...w.story, active } }, a.id);
-      messages.push(`${def.title}: the deadline passed and the cargo is lost. ${def.giver.name} will talk to you again.`);
+      messages.push(`${def.title}: the deadline passed and the cargo or passengers are lost. ${def.giver.name} will talk to you again.`);
       continue;
     }
     const failed = { ...w, story: { ...w.story, active, failed: [...w.story.failed, a.id] } };
@@ -283,11 +283,12 @@ export function abandonStory(world: WorldState, data: GameData, id: string): Wor
   return { ...w, story: { ...w.story, active: w.story.active.filter((a) => a.id !== id) } };
 }
 
-/** The first mission any bar can offer: the main arc, else the rest in data order. */
+/** The first mission any bar can offer: the main arc, then the Concord and Reach chains, then side jobs, each in data order. */
 export function nextLead(world: WorldState, data: GameData): { portId: string; text: string } | null {
   const defs = Object.values(data.story);
   const ports = Object.values(data.planets);
-  for (const def of [...defs.filter((d) => d.arc === 'main'), ...defs.filter((d) => d.arc !== 'main')]) {
+  const rank = (d: StoryMissionDef) => (d.arc === 'main' ? 0 : d.arc === 'side' ? 2 : 1);
+  for (const def of [...defs].sort((a, b) => rank(a) - rank(b))) {
     const port = ports.find((p) => offerable(world, data, def, p.id));
     if (port) return { portId: port.id, text: `Talk is that ${def.giver.title} ${def.giver.name} at ${port.name} wants a pilot.` };
   }
