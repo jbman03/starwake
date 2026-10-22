@@ -24,7 +24,7 @@ export const OUTFIT_BLOCK_TEXT: Record<OutfitBlock | SellBlock, string> = {
   notSold: 'This port does not stock that.',
   standing: 'Requires friendship with this government', // the screens name the government via standingBlockText
   gone: 'Sold once, and already sold.',
-  locked: 'Not yet. Ask around the bars.',
+  locked: 'Not for sale yet.',
   nothingToReveal: 'Everything in range is already on your chart.',
   notOwned: 'You do not have one fitted.',
   cargoWouldNotFit: 'Your hold would be too full without it.',

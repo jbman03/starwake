@@ -19,8 +19,8 @@ export const MAX_TARGET_HOPS = 3;
  * MAX_TARGET_HOPS, or the ship's fuel can't cover it.
  */
 function plottableHops(world: WorldState, data: GameData, fromSystem: string, toSystem: string): number | null {
-  // Mission clients' charts don't count: the guide must work for a pilot with no jobs.
-  const r = setRoute({ ...world, systemId: fromSystem, missions: [] }, data, toSystem);
+  // Mission clients' charts (jobs and story steps) don't count: the guide must work for a pilot with no jobs.
+  const r = setRoute({ ...world, systemId: fromSystem, missions: [], story: { ...world.story, active: [] } }, data, toSystem);
   if (!r.ok) return null;
   const hops = r.world.route.length;
   if (hops < 1 || hops > MAX_TARGET_HOPS) return null;

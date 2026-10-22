@@ -77,6 +77,19 @@ describe('mapModel', () => {
   });
 });
 
+describe('story destinations on the map', () => {
+  it('flags the system of an active story step', () => {
+    const w = world();
+    const story = {
+      id: 's', arc: 'side', title: 'S', giver: { name: 'G', title: 'T' }, offer: { where: 'bar' as const, ports: ['halcyon'] },
+      text: 'x', acceptText: 'y', declinable: true, onComplete: [], steps: [{ kind: 'land' as const, planet: 'vanterre', text: 'l' }],
+    };
+    const d = { ...data, story: { s: story } } as typeof data;
+    const taken = { ...w, story: { ...w.story, active: [{ id: 's', step: 0, deadlineDay: null }] } };
+    expect(mapModel(taken, d).nodes.filter((n) => n.flag).map((n) => n.id)).toEqual(['tessaly']);
+  });
+});
+
 describe('routeSummary', () => {
   it('counts jumps and fuel, and is short when the tank cannot cover the route', () => {
     const w = world(); // 3 jumps of fuel
