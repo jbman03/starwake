@@ -47,7 +47,7 @@ describe('game data', () => {
     const d = parseGameData(raw());
     expect(d.ships.shuttle.maxSpeed).toBe(300);
     expect(d.systems.calder.links[0]).toBe('vesk');
-    expect(Object.keys(d.systems)).toHaveLength(21);
+    expect(Object.keys(d.systems)).toHaveLength(30);
     expect(d.config.startPlanetId).toBe('halcyon');
   });
 
@@ -204,8 +204,9 @@ describe('galaxy content', () => {
     return out;
   }
 
-  it('has 21 systems: 7 concord, 8 free-reach, 6 independent (including hidden Hushwater)', () => {
-    expect(systemList).toHaveLength(21);
+  it('has 30 systems: 7 concord, 8 free-reach, 6 independent (incl. hidden Hushwater), 9 unlit (the Dimming)', () => {
+    expect(systemList).toHaveLength(30);
+    expect(govOf('unlit')).toHaveLength(9);
     expect(govOf('concord')).toHaveLength(7);
     expect(govOf('free-reach')).toHaveLength(8);
     expect(govOf('independent')).toHaveLength(6);
@@ -219,8 +220,8 @@ describe('galaxy content', () => {
     }
   });
 
-  it('tech tiers follow the owner: concord 3-5, free-reach 2-4, independent 1-2', () => {
-    const range: Record<string, [number, number]> = { concord: [3, 5], 'free-reach': [2, 4], independent: [1, 2] };
+  it('tech tiers follow the owner: concord 3-5, free-reach 2-4, independent 1-2, unlit 1-3', () => {
+    const range: Record<string, [number, number]> = { concord: [3, 5], 'free-reach': [2, 4], independent: [1, 2], unlit: [1, 3] };
     for (const p of ports) {
       const [lo, hi] = range[d.systems[p.systemId].government];
       expect(p.techTier, p.id).toBeGreaterThanOrEqual(lo);
@@ -228,9 +229,14 @@ describe('galaxy content', () => {
     }
   });
 
-  it('no two systems sit closer than 60 map units, and all fit within ±600', () => {
+  it('no two systems sit closer than 60 map units; charted ones fit within ±600 and the Dimming sits at x 650-950', () => {
     for (const a of systemList) {
-      expect(Math.abs(a.mapPos.x), a.id).toBeLessThanOrEqual(600);
+      if (a.government === 'unlit') {
+        expect(a.mapPos.x, a.id).toBeGreaterThanOrEqual(650);
+        expect(a.mapPos.x, a.id).toBeLessThanOrEqual(950);
+      } else {
+        expect(Math.abs(a.mapPos.x), a.id).toBeLessThanOrEqual(600);
+      }
       expect(Math.abs(a.mapPos.y), a.id).toBeLessThanOrEqual(600);
       for (const b of systemList) {
         if (a.id >= b.id) continue;
@@ -302,6 +308,36 @@ describe('galaxy content', () => {
     }
     const third = uniques.find((u) => u.id !== 'glowmoss' && u.id !== 'copperwine')!;
     expect(d.systems[d.planets[third.origin!].systemId].government).toBe('free-reach');
+  });
+
+  it('Dimglass: base 700, low only at Cullet Yard, high at 2-3 Concord worlds', () => {
+    expect(d.commodities.dimglass.basePrice).toBe(700);
+    expect(d.commodities.dimglass.origin).toBe('cullet-yard');
+    const buyers = ports.filter((p) => p.id !== 'cullet-yard' && p.market?.dimglass !== undefined);
+    expect(buyers.length).toBeGreaterThanOrEqual(2);
+    expect(buyers.length).toBeLessThanOrEqual(3);
+    for (const p of buyers) {
+      expect(p.market!.dimglass, p.id).toBe('high');
+      expect(d.systems[p.systemId].government, p.id).toBe('concord');
+    }
+  });
+
+  it("the Dimming: 9 hidden systems on dimming-lane, 5 ports with the bar, Reed's Anchor a tier-3 hub", () => {
+    const dim = systemList.filter((s) => s.government === 'unlit');
+    for (const s of dim) {
+      expect(s.hidden, s.id).toBe(true);
+      expect(s.unlockFlag, s.id).toBe('dimming-lane');
+    }
+    expect(d.systems.hushwater.unlockFlag).toBe('hushwater-lane');
+    expect(d.systems.gloam.hiddenLinks).toEqual(['oxbow']);
+    expect(d.systems.oxbow.hiddenLinks).toEqual(['gloam']);
+    const dimPorts = ports.filter((p) => d.systems[p.systemId].government === 'unlit');
+    expect(dimPorts).toHaveLength(5);
+    for (const p of dimPorts) expect(p.services, p.id).toContain('bar');
+    const anchor = d.planets['reeds-anchor'];
+    expect(anchor).toMatchObject({ name: "Reed's Anchor", techTier: 3, kind: 'station', hub: true });
+    expect(anchor.services).toEqual(expect.arrayContaining(['shipyard', 'outfitter']));
+    expect(d.governments.unlit.name).toBe('Unlit Holdings');
   });
 
   it('fringe ports charge more for fuel than core ports', () => {
@@ -504,6 +540,12 @@ describe('living-galaxy data', () => {
     const r = raw();
     r.systems.find((s) => s.id === 'hushwater').hiddenLinks = [];
     expect(failure(r).issues).toContain('systems.json → skerry.hiddenLinks: link to hushwater is not mirrored');
+  });
+
+  it('requires an unlockFlag on every hidden system', () => {
+    const r = raw();
+    delete r.systems.find((s) => s.id === 'gloam').unlockFlag;
+    expect(failure(r).issues).toContain('systems.json → gloam.unlockFlag: a hidden system needs an unlockFlag');
   });
 
   it('every encounter references known goods, systems, governments and mission types', () => {

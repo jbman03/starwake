@@ -43,8 +43,10 @@ describe('hidden systems on the map', () => {
   });
   it('counts hidden systems only once the lane is open', () => {
     const total = Object.keys(data.systems).length;
-    expect(visibleSystemCount(data, [])).toBe(total - 1);
-    expect(visibleSystemCount(data, ['hushwater-lane'])).toBe(total);
+    expect(visibleSystemCount(data, [])).toBe(total - 10);
+    expect(visibleSystemCount(data, ['hushwater-lane'])).toBe(total - 9);
+    expect(visibleSystemCount(data, ['dimming-lane'])).toBe(total - 1);
+    expect(visibleSystemCount(data, ['hushwater-lane', 'dimming-lane'])).toBe(total);
   });
 });
 

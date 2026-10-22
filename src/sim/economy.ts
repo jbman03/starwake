@@ -1,6 +1,5 @@
 import type { GameData, PlanetDef } from '../data/schemas';
-import { HIDDEN_LANE_FLAG, hopDistance } from './galaxy';
-import { hasFlag } from './story';
+import { hopDistance, systemOpen } from './galaxy';
 import { hashString, mulberry32, pick, randInt } from './random';
 import type { MarketEvent, WorldState } from './types';
 
@@ -83,7 +82,7 @@ export function economyDay(world: WorldState, data: GameData): WorldState {
   const ports = Object.values(data.planets).filter(
     (p) =>
       p.market?.[tpl.commodity] &&
-      (!data.systems[p.systemId]?.hidden || hasFlag(w, HIDDEN_LANE_FLAG)) &&
+      (!data.systems[p.systemId] || systemOpen(data.systems[p.systemId], w.flags)) &&
       !events.some((e) => e.portId === p.id && e.commodityId === tpl.commodity),
   );
   if (ports.length === 0) return w;

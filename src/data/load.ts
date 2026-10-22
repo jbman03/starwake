@@ -158,6 +158,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     });
     if (!(s.government in governments))
       sysIssues.push(fmt('systems.json', `${s.id}.government`, `unknown government "${s.government}"`));
+    if (s.hidden && !s.unlockFlag) sysIssues.push(fmt('systems.json', `${s.id}.unlockFlag`, 'a hidden system needs an unlockFlag'));
     // Lanes are two-way: if A lists B, B must list A.
     for (const l of s.links) {
       if (l in systems && !systems[l].links.includes(s.id))

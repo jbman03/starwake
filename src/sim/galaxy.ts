@@ -1,25 +1,41 @@
-import type { GameConfig, GameData } from '../data/schemas';
+import type { GameConfig, GameData, SystemDef } from '../data/schemas';
 
 /** The story flag that opens the hidden lane from Skerry to Hushwater. */
 export const HIDDEN_LANE_FLAG = 'hushwater-lane';
 
+/** A system the player can know of: not hidden, or hidden with its own unlock flag set. */
+export function systemOpen(sys: Pick<SystemDef, 'hidden' | 'unlockFlag'>, flags: readonly string[]): boolean {
+  return !sys.hidden || (sys.unlockFlag !== undefined && flags.includes(sys.unlockFlag));
+}
+
 /**
- * Lanes leaving `id`: its ordinary links, plus, once HIDDEN_LANE_FLAG is set, its hidden lanes and
- * the reverse of any hidden lane that ends at it. Without the flag a hidden lane doesn't exist.
+ * Lanes leaving `id`: its links, its hidden lanes and the reverse of any hidden lane that ends at
+ * it. A lane to or from a hidden system exists only once that system's own unlock flag is set.
  */
 export function lanesOf(data: GameData, id: string, flags: readonly string[]): string[] {
   const sys = data.systems[id];
-  if (!sys) return [];
-  if (!flags.includes(HIDDEN_LANE_FLAG)) return [...sys.links];
-  const out = new Set([...sys.links, ...(sys.hiddenLinks ?? [])]);
-  for (const other of Object.values(data.systems)) if (other.hiddenLinks?.includes(id)) out.add(other.id);
-  return [...out];
+  if (!sys || !systemOpen(sys, flags)) return [];
+  const out = new Set([...sys.links, ...(sys.hiddenLinks ?? []), ...(hiddenSources(data).get(id) ?? [])]);
+  return [...out].filter((n) => data.systems[n] && systemOpen(data.systems[n], flags));
 }
 
-/** Systems the player can know of: all of them once the hidden lane is open, else the non-hidden ones. */
+const sourceCache = new WeakMap<GameData['systems'], Map<string, string[]>>();
+
+/** For each system, the systems whose hiddenLinks point at it (the reverse of a hidden lane). Cached per galaxy. */
+function hiddenSources(data: GameData): Map<string, string[]> {
+  let m = sourceCache.get(data.systems);
+  if (!m) {
+    m = new Map();
+    for (const s of Object.values(data.systems))
+      for (const t of s.hiddenLinks ?? []) m.set(t, [...(m.get(t) ?? []), s.id]);
+    sourceCache.set(data.systems, m);
+  }
+  return m;
+}
+
+/** Systems the player can know of: the non-hidden ones, plus each hidden one whose lane is open. */
 export function visibleSystems(data: GameData, flags: readonly string[]) {
-  const open = flags.includes(HIDDEN_LANE_FLAG);
-  return Object.values(data.systems).filter((s) => open || !s.hidden);
+  return Object.values(data.systems).filter((s) => systemOpen(s, flags));
 }
 
 /** How many systems the pilot card counts (hidden ones only after their lane opens). */

@@ -1,7 +1,7 @@
 import type { GameData, PlanetDef, ShipDef } from '../data/schemas';
 import { autopilotInput } from './assists';
 import { stepShip } from './flight';
-import { lanesOf } from './galaxy';
+import { lanesOf, systemOpen } from './galaxy';
 import { hashString, mulberry32, pick, randInt } from './random';
 import { JUMP_POINT_MARGIN, SYSTEM_CENTER } from './rules';
 import type { ShipState, WorldState } from './types';
@@ -62,6 +62,7 @@ const portsOf = (data: GameData, systemId: string): PlanetDef[] =>
 export function trafficLevel(data: GameData, systemId: string): [number, number] {
   const sys = data.systems[systemId];
   if (sys.traffic) return [sys.traffic[0], sys.traffic[1]];
+  if (sys.government === 'unlit') return [0, 2];
   if (portsOf(data, systemId).every((p) => p.techTier <= 1)) return [0, 2];
   return sys.government === 'concord' ? [3, 5] : [2, 3];
 }
@@ -82,9 +83,9 @@ function pickHull(data: GameData, systemId: string, r: () => number): ShipDef {
   return pool[pool.length - 1];
 }
 
-/** The lanes NPCs travel: never into a hidden system, so Hushwater stays off the traffic map. */
+/** The lanes NPCs travel: into a hidden system only once its flag is set (lanesOf already requires it). */
 export function npcLanes(world: WorldState, data: GameData): string[] {
-  return lanesOf(data, world.systemId, world.flags).filter((l) => !data.systems[l]?.hidden);
+  return lanesOf(data, world.systemId, world.flags).filter((l) => data.systems[l] && systemOpen(data.systems[l], world.flags));
 }
 
 /** The lane an NPC uses to enter or leave, chosen from its id so it never needs storing. */

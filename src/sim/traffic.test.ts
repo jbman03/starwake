@@ -170,13 +170,17 @@ describe('npcLabel', () => {
 });
 
 describe('hidden systems', () => {
-  it('NPC lanes leave out a hidden system even with its lane open', () => {
-    const hid = Object.values(data.systems).find((s) => s.hidden)!;
-    expect(hid).toBeTruthy();
-    const from = Object.values(data.systems).find((s) => s.hiddenLinks?.includes(hid.id))!;
-    const w = { ...worldIn(from.id), flags: [HIDDEN_LANE_FLAG] };
-    expect(lanesOf(data, from.id, w.flags)).toContain(hid.id);
-    expect(npcLanes(w, data)).not.toContain(hid.id);
-    expect(npcLanes(w, data).length).toBeGreaterThan(0);
+  it('NPC lanes include a hidden system only once its own flag is set', () => {
+    const w = worldIn('oxbow');
+    expect(npcLanes(w, data)).not.toContain('gloam');
+    expect(npcLanes({ ...w, flags: [HIDDEN_LANE_FLAG] }, data)).not.toContain('gloam');
+    const open = { ...w, flags: ['dimming-lane'] };
+    expect(lanesOf(data, 'oxbow', open.flags)).toContain('gloam');
+    expect(npcLanes(open, data)).toContain('gloam');
+    expect(npcLanes(open, data).length).toBeGreaterThan(1);
+    expect(npcLanes({ ...worldIn('skerry'), flags: [HIDDEN_LANE_FLAG] }, data)).toContain('hushwater');
+  });
+  it('Unlit Holdings systems run sparse traffic, [0, 2]', () => {
+    for (const s of Object.values(data.systems).filter((x) => x.government === 'unlit')) expect(trafficLevel(data, s.id)).toEqual([0, 2]);
   });
 });

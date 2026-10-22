@@ -12,5 +12,7 @@
   { "id": "emberwool", "name": "Thistle Emberwool", "basePrice": 760, "origin": "thistledown",
     "description": "Fleece from the slow red sheep of Thistledown, warm enough to keep a cold-docked pilot alive. Free Reach weavers will not sell the breeding stock at any price." },
   { "id": "stillwater-pearl", "name": "Stillwater Pearl", "basePrice": 900, "origin": "quiet-shoal",
-    "description": "Grey-silver pearls grown in the still pools of Quiet Shoal, each with a faint glow like a held breath. Divers will only trade them to captains who found the place themselves." }
+    "description": "Grey-silver pearls grown in the still pools of Quiet Shoal, each with a faint glow like a held breath. Divers will only trade them to captains who found the place themselves." },
+  { "id": "dimglass", "name": "Dimglass", "basePrice": 700, "origin": "cullet-yard",
+    "description": "Offcuts of lantern-glass, cooled slow and clouded grey from the Dimming. Concord collectors prize it because no one can say how it was made, and the people who sell it will not say either." }
 ]

@@ -80,6 +80,7 @@ export const SystemSchema = z.object({
   hazards: z.array(z.string()).optional(),
   hiddenLinks: z.array(id).optional(), // lanes that stay out of sight until a story flag opens them
   hidden: z.boolean().optional(), // never charted by local maps or routing until its lane is opened
+  unlockFlag: id.optional(), // the story flag that opens a hidden system (required when hidden)
   traffic: z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]).optional(), // [min, max] NPC ships
 });
 

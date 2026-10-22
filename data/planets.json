@@ -22,7 +22,7 @@
   },
   {
     "id": "glasshouse", "name": "Glasshouse", "systemId": "tessaly", "pos": { "x": 850, "y": 200 }, "radius": 32, "techTier": 4, "fuelPrice": 2, "kind": "station",
-    "services": ["exchange", "missions", "outfitter"], "market": { "medical": "low", "food": "med", "metal": "high" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "medical": "low", "food": "med", "metal": "high", "dimglass": "high" },
     "description": "A spindle of greenhouses and laboratories where half the Concord's medicines are grown in rows. It smells of mint and disinfectant in equal measure."
   },
   {
@@ -33,7 +33,7 @@
 
   {
     "id": "concordance", "name": "Concordance", "systemId": "aurelle", "pos": { "x": 500, "y": -600 }, "radius": 72, "techTier": 5, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions", "outfitter"], "market": { "luxury": "high", "stillwater-pearl": "high", "industrial": "low", "equipment": "low", "medical": "med", "food": "high", "glowmoss": "high" },
+    "services": ["exchange", "missions", "outfitter"], "market": { "luxury": "high", "stillwater-pearl": "high", "industrial": "low", "equipment": "low", "medical": "med", "food": "high", "glowmoss": "high", "dimglass": "high" },
     "description": "The seat of the Concord, a planet of white arcades and lantern-lined boulevards. Every treaty in the core was signed here, usually after a very good lunch."
   },
   {
@@ -82,7 +82,7 @@
 
   {
     "id": "hollis-landing", "name": "Hollis Landing", "systemId": "hollis", "pos": { "x": 600, "y": -350 }, "radius": 56, "techTier": 4, "fuelPrice": 2, "kind": "planet",
-    "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "equipment": "low", "metal": "high", "food": "med", "industrial": "med", "luxury": "high", "stillwater-pearl": "high" },
+    "services": ["exchange", "missions", "shipyard", "outfitter"], "market": { "equipment": "low", "metal": "high", "food": "med", "industrial": "med", "luxury": "high", "stillwater-pearl": "high", "dimglass": "high" },
     "description": "The last proper Concord port before the Reach, all outfitters and survey offices. Prospectors buy their tools here and their courage somewhere else."
   },
   {
@@ -232,5 +232,32 @@
     "id": "quiet-shoal", "name": "Quiet Shoal", "systemId": "hushwater", "pos": { "x": 300, "y": -350 }, "radius": 34, "techTier": 1, "fuelPrice": 6, "kind": "planet",
     "services": ["exchange"], "market": { "stillwater-pearl": "low", "food": "high", "medical": "high" },
     "description": "A pale, flat little world ringed by tide pools that never freeze and never quite boil. The few families here keep their voices low, as if the water were listening."
+  },
+
+  {
+    "id": "cairn-rest", "name": "Cairn Rest", "systemId": "gloam", "pos": { "x": -420, "y": 380 }, "radius": 42, "techTier": 1, "fuelPrice": 6, "kind": "planet",
+    "services": ["exchange", "bar"], "market": { "food": "high", "medical": "high", "metal": "med" },
+    "description": "A low grey world where travellers stack a stone on the cairn at the landing field before they leave. The cairn is taller than the control hut, and nobody remembers who started it."
+  },
+  {
+    "id": "slagwater", "name": "Slagwater", "systemId": "sootfall", "pos": { "x": 520, "y": -300 }, "radius": 30, "techTier": 2, "fuelPrice": 5, "kind": "station",
+    "services": ["exchange", "bar"], "market": { "industrial": "high", "equipment": "high", "food": "med" },
+    "description": "A smelting ring that burns its furnaces low to save the dark. The air inside tastes of hot iron and the crew speak in whispers, out of habit."
+  },
+  {
+    "id": "reeds-anchor", "name": "Reed's Anchor", "systemId": "candlewick", "pos": { "x": 350, "y": -250 }, "radius": 64, "techTier": 3, "fuelPrice": 3, "kind": "station",
+    "hub": true,
+    "services": ["exchange", "shipyard", "outfitter", "bar"], "market": { "luxury": "high", "medical": "med", "equipment": "med", "metal": "med" },
+    "description": "The largest holding in the Dimming, built around a tug anchor older than the lanes. Ama Reed speaks for the settlers from the end of its long table, and every ship in the Dimming is mended here sooner or later."
+  },
+  {
+    "id": "greywake", "name": "Greywake", "systemId": "hollowmere", "pos": { "x": -300, "y": -450 }, "radius": 36, "techTier": 1, "fuelPrice": 6, "kind": "planet",
+    "services": ["exchange", "bar"], "market": { "food": "high", "industrial": "med", "medical": "high" },
+    "description": "A hushed farming world under a permanent haze. The fields are tended by lamplight, and the harvest is brought in by people who remember when the sky had a lantern in it."
+  },
+  {
+    "id": "cullet-yard", "name": "Cullet Yard", "systemId": "lowlight", "pos": { "x": 450, "y": 300 }, "radius": 34, "techTier": 2, "fuelPrice": 5, "kind": "planet",
+    "services": ["exchange", "bar"], "market": { "dimglass": "low", "metal": "med", "food": "med" },
+    "description": "A glassworks town stacked on a scarred plateau, where the slag of old lantern-glass is raked into grey heaps. Nobody asks what the glassmakers used to make here."
   }
 ]
