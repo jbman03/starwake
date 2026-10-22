@@ -4,7 +4,7 @@ import { stepShip } from './flight';
 import { economyDay } from './economy';
 import { hopDistance, lanesOf, revealOnArrival, revealWithin, routeBetween } from './galaxy';
 import { failOverdue, jobMissions } from './missions';
-import { storyDestinations } from './storyMissions';
+import { checkStoryDeadlines, storyDestinations } from './storyMissions';
 import { hashString } from './random';
 import {
   canJump,
@@ -110,6 +110,9 @@ export function advanceDays(world: WorldState, data: GameData, n: number): { wor
     for (const m of overdue.failed) {
       events.push({ type: 'message', text: `Mission failed: ${m.title} — the deadline passed.` });
     }
+    const late = checkStoryDeadlines(w, data);
+    w = late.world;
+    for (const text of late.messages) events.push({ type: 'message', text });
   }
   return { world: w, events };
 }

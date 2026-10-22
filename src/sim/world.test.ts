@@ -631,6 +631,20 @@ describe('advanceDays', () => {
     expect(advanceDays(w, data, 0).world.day).toBe(4);
   });
 
+  it('runs the story deadline check: a late side mission fails with a message', () => {
+    const story = {
+      id: 'late', arc: 'side', title: 'Late job', giver: { name: 'G', title: 'T' }, offer: { where: 'bar' as const, ports: ['halcyon'] },
+      text: 'x', acceptText: 'y', declinable: true, onComplete: [],
+      steps: [{ kind: 'deliver' as const, planet: 'merrow', cargo: { name: 'Parcel', tons: 1 }, deadlineDays: 1, text: 'd' }],
+    };
+    const d = { ...data, story: { late: story } } as typeof data;
+    const w0 = newWorld(d, 1);
+    const w = { ...w0, story: { ...w0.story, active: [{ id: 'late', step: 0, deadlineDay: w0.day + 1 }] } };
+    const r = advanceDays(w, d, 3);
+    expect(r.world.story.failed).toEqual(['late']);
+    expect(r.events.some((e) => e.type === 'message' && e.text.includes('Mission failed: Late job'))).toBe(true);
+  });
+
   it("a jump's arrived event carries the post-advance day", () => {
     const first = jumpOnce(toVesk());
     expect(first.events.find((e) => e.type === 'arrived')).toEqual({ type: 'arrived', systemId: 'vesk', day: 1 });
