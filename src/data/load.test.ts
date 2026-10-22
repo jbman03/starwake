@@ -710,19 +710,31 @@ describe('shipped story data', () => {
   const d = parseGameData(raw());
   const missions = Object.values(d.story);
 
-  it('has the arc and both chains', () => {
+  it('has the arc and all five side chains', () => {
     expect(missions.filter((m) => m.arc === 'main').map((m) => m.id)).toEqual([
       'm1-lights-out',
       'm2-second-opinion',
       'm3-low-tide',
       'm4-past-the-charts',
     ]);
-    expect(missions.filter((m) => m.chain).map((m) => m.id)).toEqual(['s1-missing-courier', 's2-surveyors-charts']);
+    expect(missions.filter((m) => m.chain).map((m) => m.id)).toEqual([
+      's1-missing-courier',
+      's2-surveyors-charts',
+      's3-pilgrim-road-1',
+      's3-pilgrim-road-2',
+      's3-pilgrim-road-3',
+      's3-pilgrim-road-4',
+      's4-two-houses',
+      's5-the-collector',
+    ]);
   });
 
   it('every story mission is reachable', () => {
     // Fixed point: flags come from the outcomes of missions that can be reached, starting from none.
-    const flags = new Set<string>();
+    // Encounters set flags too (the Skerry survey beacon opens the Hushwater lane), so they seed the set.
+    const flags = new Set<string>(
+      Object.values(d.encounters).flatMap((e) => e.choices.flatMap((c) => c.outcomes.flatMap((o) => (o.type === 'flag' || o.type === 'unlock' ? [o.flag] : [])))),
+    );
     const reached = new Set<string>();
     const outcomesOf = (m: (typeof missions)[number]) => [
       ...m.onComplete,

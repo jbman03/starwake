@@ -148,6 +148,188 @@
       ]
     },
     {
+      "id": "s3-pilgrim-road-1", "arc": "side", "chain": "pilgrim-road", "title": "The Pilgrim Road: First Lamp",
+      "giver": { "name": "Oriel Pask", "title": "Pilgrim-warden" },
+      "offer": { "where": "bar", "ports": ["hallow"], "minDay": 4 },
+      "text": "Oriel Pask leads a small procession of pilgrims who walk, when they can, and fly, when they must. They keep the Four Lamps, a road of shrines at the lit edges of the charts, and the first lamp is at Lastlight Beacon. Three of them cannot manage the stairs, let alone the lanes south.",
+      "acceptText": "Pask counts out three pilgrims and a bag of lamp-oil, in that order of importance. The way runs south from Minster through Mirren and Vesk to Lastlight. She will pay on arrival and says the Road does not hurry.",
+      "declinable": true,
+      "steps": [
+        { "kind": "ferry", "planet": "lastlight-beacon", "passengers": 3, "text": "Ferry the three pilgrims to the first lamp at Lastlight Beacon." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 3000 },
+        { "type": "flag", "flag": "pilgrim-1" },
+        { "type": "message", "text": "The keepers of Lastlight light the first lamp and feed the pilgrims soup. Pask pays you 3,000 cr, and asks that you find her again in the bar here. The second lamp waits at Skerry Light." }
+      ]
+    },
+    {
+      "id": "s3-pilgrim-road-2", "arc": "side", "chain": "pilgrim-road", "title": "The Pilgrim Road: Second Lamp",
+      "giver": { "name": "Oriel Pask", "title": "Pilgrim-warden" },
+      "offer": { "where": "bar", "ports": ["lastlight-beacon"], "requires": ["pilgrim-1"] },
+      "text": "Pask has rested, and so have the pilgrims, and the soup has done its work. The second lamp is a cold bright station called Skerry Light, at the very rim. She asks if you would take them on.",
+      "acceptText": "The three pilgrims file back aboard, quieter than before. The way runs from Lastlight through Brackwater to Skerry. They have been told it is cold there and are pleased about it.",
+      "declinable": true,
+      "steps": [
+        { "kind": "ferry", "planet": "skerry-light", "passengers": 3, "text": "Ferry the pilgrims to the second lamp at Skerry Light." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 3000 },
+        { "type": "flag", "flag": "pilgrim-2" },
+        { "type": "message", "text": "The pilgrims kneel on the heated deck of Skerry Light and the dockhands pretend not to watch. Pask pays you 3,000 cr. She will be in the bar here, and the third lamp is the boarding house at Ferryman's Rest in Oxbow." }
+      ]
+    },
+    {
+      "id": "s3-pilgrim-road-3", "arc": "side", "chain": "pilgrim-road", "title": "The Pilgrim Road: Third Lamp",
+      "giver": { "name": "Oriel Pask", "title": "Pilgrim-warden" },
+      "offer": { "where": "bar", "ports": ["skerry-light"], "requires": ["pilgrim-2"] },
+      "text": "Pask has found a seat by the heater and does not intend to give it up for long. The third lamp is Ferryman's Rest, a boarding house in orbit above Oxbow, kept by a pilot who has carried pilgrims for free since before the Reach had a name. She asks whether you will carry them too.",
+      "acceptText": "The pilgrims pack their shawls and leave a candle burning for the next travellers. The way runs from Skerry through Redwater to Oxbow. Pask says the old pilot will want to hear about the weather.",
+      "declinable": true,
+      "steps": [
+        { "kind": "ferry", "planet": "ferrymans-rest", "passengers": 3, "text": "Ferry the pilgrims to the third lamp at Ferryman's Rest." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 3000 },
+        { "type": "flag", "flag": "pilgrim-3" },
+        { "type": "message", "text": "The old pilot at Ferryman's Rest takes the pilgrims' bags and tells them about the weather at length. Pask pays you 3,000 cr. The last lamp waits at Hollis Landing, and she will meet you in the bar there." }
+      ]
+    },
+    {
+      "id": "s3-pilgrim-road-4", "arc": "side", "chain": "pilgrim-road", "title": "The Pilgrim Road: Last Lamp",
+      "giver": { "name": "Oriel Pask", "title": "Pilgrim-warden" },
+      "offer": { "where": "bar", "ports": ["ferrymans-rest"], "requires": ["pilgrim-3"] },
+      "text": "The pilgrims have walked the length of the charts on other people's engines, and the last lamp is the nearest thing the Road has to a door. It stands at Hollis Landing, the last proper Concord port before the Reach. Pask asks you to see them through.",
+      "acceptText": "The pilgrims bow to the old pilot and then, slightly less gravely, to you. The way runs from Oxbow through Wrenhold to Hollis. Pask has stopped counting heads and started counting stairs.",
+      "declinable": true,
+      "steps": [
+        { "kind": "ferry", "planet": "hollis-landing", "passengers": 3, "text": "Ferry the pilgrims to the last lamp at Hollis Landing." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 3000 },
+        { "type": "rumour", "text": "Pask says the four lamps burn a little brighter when a pilot has carried the pilgrims between them, and that nobody has ever asked her to prove it." },
+        { "type": "message", "text": "The last lamp is lit and the Road is walked. Pask pays you 3,000 cr, and leaves a note on your pillow that reads only: thank you for the stairs." }
+      ]
+    },
+    {
+      "id": "s4-two-houses", "arc": "side", "chain": "two-houses", "title": "Two Houses",
+      "giver": { "name": "Dill Harrow", "title": "Harbour-master" },
+      "offer": { "where": "bar", "ports": ["redwater-sound"], "minDay": 4 },
+      "text": "Dill Harrow keeps the peace on the Redwater docks, which means he keeps a list. The Marlow and Teague haulers have fed each other's quarrels for three generations, and this season they cannot agree on who owns a shipment of sluice-valve castings. He would like a pilot with no cousins on either side.",
+      "acceptText": "Harrow loads five tons of castings and tells you to start at Redwater Locks, where the paperwork lives. After that, you will meet a hauler in Oxbow who has an opinion. Hear them out, pick a house, and bring the castings back to the Sound.",
+      "declinable": true,
+      "steps": [
+        { "kind": "land", "planet": "redwater-locks", "text": "Collect the disputed shipping papers at Redwater Locks." },
+        {
+          "kind": "meet", "system": "oxbow",
+          "ship": { "name": "Hob Marlow's hauler", "shipId": "mule", "government": "free-reach" },
+          "text": "Find the hauler waiting in Oxbow and choose a house.",
+          "card": {
+            "title": "Marlow and Teague",
+            "text": "A Marlow hull and a Teague hull sit nose to nose in the shipping lane, each captain on an open channel and neither prepared to be the first to leave. Both have read the papers you are carrying. Both would like you to say, out loud, that they are right.",
+            "choices": [
+              {
+                "label": "Side with the Marlows",
+                "outcomes": [
+                  { "type": "flag", "flag": "house-marlow" },
+                  { "type": "message", "text": "Hob Marlow cracks a grin and gives you a salute of one finger. The Teague captain says nothing and cuts the channel. Take the castings back to Redwater Sound." }
+                ]
+              },
+              {
+                "label": "Side with the Teagues",
+                "outcomes": [
+                  { "type": "flag", "flag": "house-teague" },
+                  { "type": "message", "text": "The Teague captain thanks you with great formality and a long list of grievances. The Marlow hull peels away without a word. Take the castings back to Redwater Sound." }
+                ]
+              }
+            ]
+          }
+        },
+        { "kind": "deliver", "planet": "redwater-sound", "cargo": { "name": "Sluice-valve castings", "tons": 5 }, "text": "Return the castings to Dill Harrow at Redwater Sound." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 4000 },
+        { "type": "unlock", "flag": "house-rack-unlocked" },
+        { "type": "message", "text": "Harrow stamps the papers, whichever house won, and says the feud will outlast the both of you. Whoever you sided with sends a House Rack, hand-numbered, to be fitted at the Redwater Sound outfitter. You are paid 4,000 cr." }
+      ]
+    },
+    {
+      "id": "s5-the-collector", "arc": "side", "chain": "the-collector", "title": "The Collector",
+      "giver": { "name": "Ilsabet Voss", "title": "Collector" },
+      "offer": { "where": "bar", "ports": ["quillon-spires"], "requires": ["hushwater-lane"], "minDay": 6 },
+      "text": "Ilsabet Voss collects things the way other people collect grudges, carefully and for life. She wants one case each of Halcyon Copperwine, Vesk Glowmoss and Stillwater Pearl, and she has heard you know the way to the Pearl's source. Her agent will meet you at each of the three places.",
+      "acceptText": "Voss hands you a list in violet ink and a purse for the first meeting. Her agent waits at Calder for the Copperwine, then at Vesk for the Glowmoss, and last at Skerry for the Pearl. When all three are handed over, come back to her at the Spires.",
+      "declinable": true,
+      "steps": [
+        {
+          "kind": "meet", "system": "calder",
+          "ship": { "name": "Voss's agent", "shipId": "mule", "government": "concord" },
+          "text": "Hand 4 t of Halcyon Copperwine to Voss's agent at Calder.",
+          "card": {
+            "title": "Voss's Agent",
+            "text": "The agent is a patient man in a coat that cost more than his ship. He checks the seals on the crates, sniffs one bottle, and nods as if you had passed an examination.",
+            "choices": [
+              {
+                "label": "Hand over 4 t of Halcyon Copperwine",
+                "needs": { "cargo": { "good": "copperwine", "tons": 4 } },
+                "outcomes": [
+                  { "type": "cargo", "good": "copperwine", "tons": -4 },
+                  { "type": "credits", "n": 3000 },
+                  { "type": "message", "text": "The agent pays 3,000 cr from Voss's purse and writes you a receipt. He will wait next in Vesk, for the Glowmoss." }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "kind": "meet", "system": "vesk",
+          "ship": { "name": "Voss's agent", "shipId": "mule", "government": "independent" },
+          "text": "Hand 3 t of Vesk Glowmoss to Voss's agent at Vesk.",
+          "card": {
+            "title": "Voss's Agent",
+            "text": "The agent has acquired a lamp for the occasion, since the Glowmoss must be inspected in its own light. He holds it close and murmurs at it, which you decide not to take personally.",
+            "choices": [
+              {
+                "label": "Hand over 3 t of Vesk Glowmoss",
+                "needs": { "cargo": { "good": "glowmoss", "tons": 3 } },
+                "outcomes": [
+                  { "type": "cargo", "good": "glowmoss", "tons": -3 },
+                  { "type": "credits", "n": 3000 },
+                  { "type": "message", "text": "The agent pays 3,000 cr and tucks the Glowmoss out of the light. The last meeting is at Skerry, for the Pearl from Hushwater." }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "kind": "meet", "system": "skerry",
+          "ship": { "name": "Voss's agent", "shipId": "mule", "government": "independent" },
+          "text": "Hand 2 t of Stillwater Pearl to Voss's agent at Skerry.",
+          "card": {
+            "title": "Voss's Agent",
+            "text": "The agent has come to the rim in a heavier coat and a worse temper. He holds each Pearl to the light for exactly as long as it takes to be sure, and then a little longer.",
+            "choices": [
+              {
+                "label": "Hand over 2 t of Stillwater Pearl",
+                "needs": { "cargo": { "good": "stillwater-pearl", "tons": 2 } },
+                "outcomes": [
+                  { "type": "cargo", "good": "stillwater-pearl", "tons": -2 },
+                  { "type": "credits", "n": 3000 },
+                  { "type": "message", "text": "The agent pays 3,000 cr and says that is the set. Voss is waiting at the Spires in Quillon." }
+                ]
+              }
+            ]
+          }
+        },
+        { "kind": "land", "planet": "quillon-spires", "text": "Report to Ilsabet Voss at Quillon Spires." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 5000 },
+        { "type": "unlock", "flag": "cold-hold-unlocked" },
+        { "type": "message", "text": "Voss looks over her agent's receipts, then at you, and smiles for the first time. She pays 5,000 cr and says the Cold Hold is yours to buy at the Spires outfitter. It keeps things exactly as they were, which is what she likes best in a hold." }
+      ]
+    },
+    {
       "id": "c1-lane-engineers",
       "title": "Lane Engineers",
       "arc": "concord",
