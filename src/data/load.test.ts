@@ -710,7 +710,7 @@ describe('shipped story data', () => {
   const d = parseGameData(raw());
   const missions = Object.values(d.story);
 
-  it('has the arc and all five side chains', () => {
+  it('has the arc and all eight side chains', () => {
     expect(missions.filter((m) => m.arc === 'main').map((m) => m.id)).toEqual([
       'm1-lights-out',
       'm2-second-opinion',
@@ -726,6 +726,9 @@ describe('shipped story data', () => {
       's3-pilgrim-road-4',
       's4-two-houses',
       's5-the-collector',
+      's6-long-patience',
+      's7-doctors-rounds',
+      's8-last-lightkeeper',
     ]);
   });
 

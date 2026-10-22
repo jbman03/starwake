@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import { choiceBlock } from './encounters';
 import { hopDistance } from './galaxy';
-import { acceptStory, advanceStory, currentStep, storyOffersAt, type StoryEvent } from './storyMissions';
+import { abandonStory, acceptStory, advanceStory, checkStoryDeadlines, currentStep, storyOffersAt, type StoryEvent } from './storyMissions';
 import type { WorldState } from './types';
 import { newWorld } from './world';
 
@@ -134,5 +134,125 @@ describe('S5 The Collector', () => {
     expect(w.story.done).toContain('s5-the-collector');
     expect(w.flags).toContain('cold-hold-unlocked');
     expect(w.credits).toBe(14000);
+  });
+});
+
+describe('S6 Echoes of the Long Patience', () => {
+  const ready = (): WorldState => ({ ...start(), flags: ['survey-claim', 'hushwater-lane'] });
+
+  it('is offered at Skerry Light only once the claim and the Hushwater lane are known', () => {
+    expect(offered(start(), 'skerry-light')).not.toContain('s6-long-patience');
+    expect(offered({ ...start(), flags: ['survey-claim'] }, 'skerry-light')).not.toContain('s6-long-patience');
+    expect(offered({ ...start(), flags: ['hushwater-lane'] }, 'skerry-light')).not.toContain('s6-long-patience');
+    expect(offered(ready(), 'skerry-light')).toContain('s6-long-patience');
+    expect(offered(ready(), 'lastlight-beacon')).not.toContain('s6-long-patience');
+  });
+
+  it('scans Hushwater, lands at Skerry Light, then pays and adds a rumour', () => {
+    let w = take(ready(), 'skerry-light', 's6-long-patience');
+    expect(currentStep(w, data, 's6-long-patience')?.kind).toBe('scan');
+    w = run(w, { kind: 'site', missionId: 's6-long-patience' });
+    expect(currentStep(w, data, 's6-long-patience')?.kind).toBe('land');
+    expect(w.credits).toBe(0);
+    w = run(w, landed('skerry-light'));
+    expect(w.story.done).toContain('s6-long-patience');
+    expect(w.credits).toBe(4000);
+    expect(w.notes.length).toBeGreaterThan(0);
+  });
+});
+
+describe('S7 The Doctor\'s Rounds', () => {
+  const id = 's7-doctors-rounds';
+  const stops = ['vesk-outpost', 'mirren-hollow', 'brackwater'];
+
+  it('is offered at Lastlight Beacon', () => {
+    expect(offered(start(), 'lastlight-beacon')).toContain(id);
+  });
+
+  it('delivers the clinic crates to three fringe ports, 6 to 8 days apiece, each within reach', () => {
+    const def = data.story[id];
+    const steps = def.steps.filter((s) => s.kind === 'deliver');
+    expect(steps.map((s) => s.planet)).toEqual(stops);
+    let from = data.planets['lastlight-beacon'].systemId;
+    for (const s of steps) {
+      expect(s.cargo.name.toLowerCase()).toContain('clinic crates');
+      expect(s.deadlineDays).toBeGreaterThanOrEqual(6);
+      expect(s.deadlineDays).toBeLessThanOrEqual(8);
+      const planet = data.planets[s.planet];
+      expect(planet.techTier === 1 || data.systems[planet.systemId].government === 'independent', s.planet).toBe(true);
+      const hops = hopDistance(data, from, planet.systemId, []);
+      expect(hops, `${s.planet} is reachable in time`).toBeLessThanOrEqual((s.deadlineDays ?? 0) / 2);
+      from = planet.systemId;
+    }
+  });
+
+  it('completes: each stop takes its crates, the last pays', () => {
+    let w = take(start(), 'lastlight-beacon', id);
+    const held = () => w.missions.reduce((n, m) => n + m.tons, 0);
+    const total = held();
+    expect(total).toBeGreaterThan(0);
+    expect(w.missions.every((m) => m.cargoName.toLowerCase().includes('clinic crates'))).toBe(true);
+    w = run(w, landed(stops[0]));
+    expect(held()).toBeLessThan(total);
+    w = run(w, landed(stops[1]));
+    w = run(w, landed(stops[2]));
+    expect(w.story.done).toContain(id);
+    expect(w.missions).toEqual([]);
+    expect(w.credits).toBeGreaterThan(0);
+  });
+
+  it('fails when a deadline is missed: cargo is lost and it is not offered again', () => {
+    let w = take(start(), 'lastlight-beacon', id);
+    const step = currentStep(w, data, id);
+    if (step?.kind !== 'deliver') throw new Error('expected a deliver step');
+    w = { ...w, day: w.day + (step.deadlineDays ?? 0) };
+    expect(checkStoryDeadlines(w, data).world.story.active.length).toBe(1);
+    w = checkStoryDeadlines({ ...w, day: w.day + 1 }, data).world;
+    expect(w.story.failed).toContain(id);
+    expect(w.story.active).toEqual([]);
+    expect(w.missions).toEqual([]);
+    expect(offered(w, 'lastlight-beacon')).not.toContain(id);
+  });
+
+  it('can be abandoned, dropping the crates', () => {
+    let w = take(start(), 'lastlight-beacon', id);
+    w = abandonStory(w, data, id);
+    expect(w.story.active).toEqual([]);
+    expect(w.missions).toEqual([]);
+    expect(w.story.failed).not.toContain(id);
+  });
+});
+
+describe('S8 The Last Lightkeeper', () => {
+  const id = 's8-last-lightkeeper';
+  const ready = (): WorldState => ({ ...start(), flags: ['dimming-lane'] });
+
+  it('is offered at a Dimming bar once the lane is known', () => {
+    expect(offered(start(), 'slagwater')).not.toContain(id);
+    expect(offered(ready(), 'slagwater')).toContain(id);
+  });
+
+  it('finds the lantern, meets the keeper, lands at Reed\'s Anchor and unlocks the Keeper\'s Lens', () => {
+    let w = take(ready(), 'slagwater', id);
+    expect(currentStep(w, data, id)?.kind).toBe('find');
+    w = run(w, { kind: 'site', missionId: id });
+    expect(currentStep(w, data, id)?.kind).toBe('meet');
+    w = choose(w, id, 'Offer');
+    expect(currentStep(w, data, id)?.kind).toBe('land');
+    expect(w.flags).not.toContain('keepers-lens-unlocked');
+    w = run(w, landed('reeds-anchor'));
+    expect(w.story.done).toContain(id);
+    expect(w.flags).toContain('keepers-lens-unlocked');
+  });
+
+  it('every step lies on a real route', () => {
+    const steps = data.story[id].steps;
+    const sys = steps.map((s) => ('system' in s ? s.system : data.planets[s.planet].systemId));
+    const open = ['dimming-lane'];
+    let from = data.planets['slagwater'].systemId;
+    for (const s of sys) {
+      expect(hopDistance(data, from, s, open), `${from} to ${s}`).toBeLessThanOrEqual(3);
+      from = s;
+    }
   });
 });

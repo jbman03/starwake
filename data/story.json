@@ -330,6 +330,75 @@
       ]
     },
     {
+      "id": "s6-long-patience", "arc": "side", "chain": "long-patience", "title": "Echoes of the Long Patience",
+      "giver": { "name": "Tobin Sarre", "title": "Light-tender" },
+      "offer": { "where": "bar", "ports": ["skerry-light"], "requires": ["survey-claim", "hushwater-lane"], "minDay": 5 },
+      "text": "Tobin Sarre tends the relay at Skerry Light and has the habit of listening to it when the bar is quiet. Since you took the Long Patience's log, the relay has been catching a faint repeating ping from Hushwater, always the same four notes. He would like a pilot who knows the old surveyor to go and hear it up close.",
+      "acceptText": "Sarre hands you a tuning fork, which he says is for luck and for nothing else. The lane to Hushwater runs from Skerry on the chart you already hold. Scan the source, then come back and tell him whether it is a ghost or a beacon.",
+      "declinable": true,
+      "steps": [
+        { "kind": "scan", "system": "hushwater", "site": { "label": "Survey echo" }, "text": "Fly to Hushwater and scan the survey echo." },
+        { "kind": "land", "planet": "skerry-light", "text": "Take what you heard back to Tobin Sarre at Skerry Light." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 4000 },
+        { "type": "rumour", "text": "The Long Patience's echo is a recorded survey log, looped until the power fails. It ends with a chart reference for somewhere past the lit edge, which nobody has yet been brave or bored enough to follow." },
+        { "type": "message", "text": "Sarre plays the recording through the relay, and the whole bar goes quiet for the four notes. He pays you 4,000 cr and says the surveyor was only ever waiting for someone to answer." }
+      ]
+    },
+    {
+      "id": "s7-doctors-rounds", "arc": "side", "chain": "doctors-rounds", "title": "The Doctor's Rounds",
+      "giver": { "name": "Dr Ines Calloway", "title": "Travelling physician" },
+      "offer": { "where": "bar", "ports": ["lastlight-beacon"], "minDay": 5 },
+      "text": "Dr Ines Calloway has been making the rounds of the fringe ports for twenty years, and her ship has finally stopped agreeing to it. She has three lots of clinic crates and no way to deliver them on time. Late medicine is mostly just expensive luggage.",
+      "acceptText": "Calloway loads six tons of clinic crates, labelled in a hand you could read from orbit. First is Vesk Outpost, then Mirren Hollow, and last is Brackwater, back down the lane through Vesk and Lastlight. Each stop has its own deadline.",
+      "declinable": true,
+      "steps": [
+        { "kind": "deliver", "planet": "vesk-outpost", "cargo": { "name": "Clinic crates", "tons": 2 }, "deadlineDays": 6, "text": "Deliver the first clinic crates to Vesk Outpost within 6 days." },
+        { "kind": "deliver", "planet": "mirren-hollow", "cargo": { "name": "Clinic crates", "tons": 2 }, "deadlineDays": 7, "text": "Deliver the second clinic crates to Mirren Hollow within 7 days." },
+        { "kind": "deliver", "planet": "brackwater", "cargo": { "name": "Clinic crates", "tons": 2 }, "deadlineDays": 8, "text": "Deliver the last clinic crates to Brackwater within 8 days." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 5000 },
+        { "type": "rumour", "text": "Dr Calloway says the fringe ports will remember a pilot who brings medicine on time, and forget one who brings it late. Both memories last a long while." },
+        { "type": "message", "text": "The last crate is signed for at Brackwater, and a stranger presses a hot mug into your hand without explanation. Calloway wires you 5,000 cr and a note saying her rounds are done for the season." }
+      ],
+      "onFail": [
+        { "type": "message", "text": "The crates are too late to matter. Calloway sends a short, kind note that makes you feel worse than a long angry one would have." }
+      ]
+    },
+    {
+      "id": "s8-last-lightkeeper", "arc": "side", "chain": "last-lightkeeper", "title": "The Last Lightkeeper",
+      "giver": { "name": "Nell Ashgrove", "title": "Chandler" },
+      "offer": { "where": "bar", "ports": ["slagwater"], "requires": ["dimming-lane"] },
+      "text": "Nell Ashgrove sells lamp-oil at Slagwater and keeps a map on her wall with a single pin in it. Before the lanterns went dark, one keeper in the Dimming refused to leave his post, and nobody has heard from him since. She would like to know whether he is still out there, and whether he needs anything.",
+      "acceptText": "Ashgrove sets a flask of lamp-oil on the counter, which she says is for the keeper and for no one else. His lantern hangs at Ebbing, one jump from Sootfall. After that, follow the lane on to Vane. Finish at Reed's Anchor, in Candlewick, where Ama Reed will want a name.",
+      "declinable": true,
+      "steps": [
+        { "kind": "find", "system": "ebbing", "site": { "label": "Dead lantern" }, "text": "Search Ebbing for the keeper's dead lantern." },
+        {
+          "kind": "meet", "system": "vane",
+          "ship": { "name": "Perrin Vask", "shipId": "mule", "government": "unlit" },
+          "text": "Find the old keeper in Vane and talk to Perrin Vask.",
+          "card": {
+            "title": "Perrin Vask",
+            "text": "Perrin Vask answers the channel on the third try, dry and unhurried. He kept his lantern lit for forty years and let it go dark only when its core was cut away. He is not angry about the Dimming. He is angry that no one has asked him what he saw.",
+            "choices": [
+              { "label": "Offer him a berth to Reed's Anchor", "outcomes": [{ "type": "message", "text": "Vask laughs, short and surprised, and says the lamp-oil is welcome but the company is better. He will follow you in, at his own pace. Reed's Anchor is the place to tell his story." }] },
+              { "label": "Leave the lamp-oil and listen", "outcomes": [{ "type": "message", "text": "You sit through forty years of lantern-keeping at the pace he chooses. He ends with a bearing for Reed's Anchor and a request that you tell it properly." }] }
+            ]
+          }
+        },
+        { "kind": "land", "planet": "reeds-anchor", "text": "Bring Perrin Vask's story to Reed's Anchor." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 3000 },
+        { "type": "unlock", "flag": "keepers-lens-unlocked" },
+        { "type": "rumour", "text": "Perrin Vask's account of the cut cores is now in Ama Reed's records, written in a keeper's hand." },
+        { "type": "message", "text": "Reed writes down every word Vask gave you, and lets him keep the pen. She pays you 3,000 cr and says the Keeper's Lens is yours to buy at the Reed's Anchor outfitter, where the Dimming can be seen properly." }
+      ]
+    },
+    {
       "id": "c1-lane-engineers",
       "title": "Lane Engineers",
       "arc": "concord",
@@ -465,7 +534,7 @@
         },
         {
           "kind": "scan",
-          "system": "pallow",
+          "system": "ebbing",
           "site": {
             "label": "Pallow lantern"
           },
@@ -985,7 +1054,7 @@
         },
         {
           "kind": "scan",
-          "system": "pallow",
+          "system": "ebbing",
           "site": {
             "label": "Pallow waylight"
           },
