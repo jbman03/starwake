@@ -75,7 +75,7 @@ describe('pilot', () => {
       planetId: 'vesk-outpost', gameTimeSec: 40, savedAt: '2026-01-01T00:00:00.000Z',
     };
     const p = upgradeSave(JSON.parse(JSON.stringify(v1)));
-    expect(p.version).toBe(4);
+    expect(p.version).toBe(5);
     expect(p).toMatchObject({ day: 0, seed: hashString('old-pilot'), cargo: {}, missions: [], route: [], known: [], seen: [] });
     const w = worldFromPilot(p, data);
     expect(w.systemId).toBe('vesk');
@@ -103,7 +103,7 @@ describe('pilot', () => {
     const { outfits: _o, ...rest } = v3;
     const v2 = { ...rest, version: 2 };
     const up = upgradeSave(JSON.parse(JSON.stringify(v2)));
-    expect(up.version).toBe(4);
+    expect(up.version).toBe(5);
     expect(up.outfits).toEqual({});
     expect(up).toEqual({ ...v3, shipName: '' }); // migration writes an empty name = use the hull name
     const w = worldFromPilot(up, data);
@@ -112,13 +112,13 @@ describe('pilot', () => {
     expect(w.missions).toEqual([mission]);
   });
 
-  it('upgrades a v1 save through to v4', () => {
+  it('upgrades a v1 save through to v5', () => {
     const v1 = {
       version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
       planetId: 'vesk-outpost', gameTimeSec: 1, savedAt: '2026-01-01T00:00:00.000Z',
     };
     const p = upgradeSave(v1);
-    expect(p.version).toBe(4);
+    expect(p.version).toBe(5);
     expect(p.outfits).toEqual({});
   });
 
@@ -141,16 +141,16 @@ describe('pilot', () => {
     );
   });
 
-  it('a version-5 save -> futureVersion', () => {
+  it('a version-6 save -> futureVersion', () => {
     const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
-    expect(() => upgradeSave({ ...p, version: 5 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
+    expect(() => upgradeSave({ ...p, version: 6 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
   });
 
   it('migration 3 -> 4 fills the story fields; shipName starts empty', () => {
     const v4 = pilotFromWorld(newWorld(data, 5), start, { id: 'a', name: 'A' });
     const { flags: _f, notes: _n, shipName: _s, stats: _st, lastEncounterDay: _l, ...rest } = v4;
     const up = upgradeSave(JSON.parse(JSON.stringify({ ...rest, version: 3 })));
-    expect(up).toMatchObject({ version: 4, flags: [], notes: [], shipName: '', stats: { jobsDone: 0 }, lastEncounterDay: null });
+    expect(up).toMatchObject({ version: 5, flags: [], notes: [], shipName: '', stats: { jobsDone: 0 }, lastEncounterDay: null });
     // The loader keeps '' as is; shipDisplayName resolves it to the hull's name.
     const w = worldFromPilot(up, data);
     expect(w.shipName).toBe('');
@@ -179,5 +179,47 @@ describe('pilot', () => {
     };
     const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
     for (const k of ['flags', 'notes', 'shipName', 'stats', 'lastEncounterDay'] as const) expect(back[k]).toEqual(w[k]);
+  });
+});
+
+describe('save v5', () => {
+  const emptyStory = { active: [], done: [], failed: [], declined: [] };
+
+  it('migration 4 -> 5 fills empty story state and neutral standing', () => {
+    const v5 = pilotFromWorld(newWorld(data, 5), start, { id: 'a', name: 'A' });
+    const { story: _s, standing: _st, ...rest } = v5;
+    const up = upgradeSave(JSON.parse(JSON.stringify({ ...rest, version: 4 })));
+    expect(up).toMatchObject({ version: 5, story: emptyStory, standing: {} });
+    const w = worldFromPilot(up, data);
+    expect(w.story).toEqual(emptyStory);
+    expect(w.standing).toEqual({});
+  });
+
+  it('a v4 save mid-survey-thread keeps flags through v5', () => {
+    const flags = ['survey-rumour', 'enc:survey-beacon', 'hushwater-lane'];
+    const notes = [{ day: 3, text: 'A beacon, faint.' }];
+    const v5 = pilotFromWorld({ ...newWorld(data, 5), flags, notes, lastEncounterDay: 4 }, start, { id: 'a', name: 'A' });
+    const { story: _s, standing: _st, ...rest } = v5;
+    const w = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify({ ...rest, version: 4 }))), data);
+    expect(w.flags).toEqual(flags);
+    expect(w.notes).toEqual(notes);
+    expect(w.lastEncounterDay).toBe(4);
+    expect(w.story).toEqual(emptyStory);
+  });
+
+  it('round-trips story state and standing', () => {
+    const w = {
+      ...newWorld(data, 5),
+      story: { active: [{ id: 'm1', step: 2, deadlineDay: 40 }, { id: 'm2', step: 0, deadlineDay: null }], done: ['a'], failed: ['b'], declined: ['c'] },
+      standing: { concord: 'friend', 'free-reach': 'cool' } as const,
+    };
+    const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
+    expect(back.story).toEqual(w.story);
+    expect(back.standing).toEqual(w.standing);
+  });
+
+  it('rejects a save with a bad standing level', () => {
+    const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
+    expect(() => upgradeSave({ ...p, standing: { concord: 'adored' } })).toThrowError(expect.objectContaining({ code: 'invalid' }));
   });
 });

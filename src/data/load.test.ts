@@ -10,11 +10,12 @@ import missionTypes from '../../data/missionTypes.json';
 import outfits from '../../data/outfits.json';
 import names from '../../data/names.json';
 import encounters from '../../data/encounters.json';
+import story from '../../data/story.json';
 import { parseGameData, DataError, loadGameData } from './load';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
-  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters }) as {
+  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story }) as {
   ships: any[];
   systems: any[];
   planets: any[];
@@ -26,6 +27,7 @@ const raw = () =>
   outfits: any[];
   names: { first: string[]; second: string[] };
   encounters: any[];
+  story: { missions: any[] };
 };
 
 const port = (r: ReturnType<typeof raw>, id: string) => r.planets.find((p) => p.id === id);
@@ -559,5 +561,80 @@ describe('living-galaxy data', () => {
     expect(outs('long-patience')).toContainEqual({ type: 'flag', flag: 'survey-claim' });
     expect(outs('long-patience')).toContainEqual({ type: 'flag', flag: 'survey-stripped' });
     expect(outs('long-patience')).toContainEqual({ type: 'credits', n: 6000 });
+  });
+});
+
+describe('story data', () => {
+  const mission = (steps: unknown[], over: Record<string, unknown> = {}) => ({
+    id: 'm1', arc: 'side', title: 'T', giver: { name: 'G', title: 'Clerk' },
+    offer: { where: 'bar', ports: ['halcyon'] }, text: 'x', acceptText: 'y', declinable: true,
+    steps, onComplete: [{ type: 'credits', n: 100 }], ...over,
+  });
+  const card = (outcomes: unknown[] = []) => ({ title: 'C', text: 't', choices: [{ label: 'ok', outcomes }] });
+  const withMission = (m: unknown) => {
+    const r = raw();
+    r.story.missions.push(m);
+    return r;
+  };
+
+  it('accepts an empty missions list', () => {
+    const r = raw();
+    r.story = { missions: [] };
+    expect(parseGameData(r).story).toEqual({});
+  });
+
+  it('accepts a valid mission with every step kind', () => {
+    const steps = [
+      { kind: 'go', system: 'calder', text: 'a' },
+      { kind: 'land', planet: 'halcyon', text: 'b' },
+      { kind: 'deliver', planet: 'merrow', cargo: { name: 'crates', tons: 2 }, deadlineDays: 5, text: 'c' },
+      { kind: 'ferry', planet: 'merrow', passengers: 2, text: 'd' },
+      { kind: 'scan', system: 'vesk', site: { label: 'Buoy' }, text: 'e' },
+      { kind: 'find', system: 'vesk', site: { label: 'Wreck' }, text: 'f' },
+      { kind: 'meet', system: 'vesk', ship: { name: 'Wren', shipId: 'courier', government: 'independent' },
+        card: card([{ type: 'standing', government: 'concord', level: 'friend' }, { type: 'unlock', flag: 'f' }]), text: 'g' },
+    ];
+    expect(Object.keys(parseGameData(withMission(mission(steps))).story)).toEqual(['m1']);
+  });
+
+  it('rejects a step naming an unknown planet, with a path', () => {
+    const e = failure(withMission(mission([{ kind: 'land', planet: 'nowhere', text: 'b' }])));
+    expect(e.file).toBe('story.json');
+    expect(e.issues.join('\n')).toMatch(/m1\.steps\.0\.planet.*unknown planet "nowhere"/);
+  });
+
+  it('rejects an unknown step kind', () => {
+    const e = failure(withMission(mission([{ kind: 'teleport', system: 'calder', text: 'a' }])));
+    expect(e.file).toBe('story.json');
+    expect(e.issues[0]).toContain('m1.steps.0');
+  });
+
+  it('rejects unknown system, ship, government, good and outcome references', () => {
+    const meet = (shipId: string, government: string, outcomes: unknown[]) => ({
+      kind: 'meet', system: 'calder', ship: { name: 'W', shipId, government }, card: card(outcomes), text: 'g',
+    });
+    const msg = (m: unknown) => failure(withMission(m)).issues.join('\n');
+    expect(msg(mission([{ kind: 'go', system: 'nope', text: 'a' }]))).toContain('unknown system "nope"');
+    expect(msg(mission([meet('nope', 'concord', [])]))).toContain('unknown ship "nope"');
+    expect(msg(mission([meet('courier', 'nope', [])]))).toContain('unknown government "nope"');
+    expect(msg(mission([meet('courier', 'concord', [{ type: 'cargo', good: 'nope', tons: 1 }])]))).toContain('unknown commodity "nope"');
+    expect(msg(mission([meet('courier', 'concord', [{ type: 'standing', government: 'nope', level: 'cool' }])]))).toContain('unknown government "nope"');
+    expect(msg(mission([{ kind: 'go', system: 'calder', text: 'a' }], { onComplete: [{ type: 'standing', government: 'nope', level: 'cool' }] }))).toContain('m1.onComplete.0');
+    expect(msg(mission([{ kind: 'go', system: 'calder', text: 'a' }], { offer: { where: 'bar', ports: ['nope'] } }))).toContain('m1.offer.ports.0');
+  });
+
+  it('rejects a meet step whose ship is unique', () => {
+    const e = failure(withMission(mission([
+      { kind: 'meet', system: 'calder', ship: { name: 'W', shipId: 'patience', government: 'concord' }, card: card(), text: 'g' },
+    ])));
+    expect(e.issues.join('\n')).toMatch(/m1\.steps\.0\.ship\.shipId.*unique/);
+  });
+
+  it('allows standing requirements on ships and outfits', () => {
+    const r = raw();
+    r.ships.find((s) => s.id === 'kestrel').requiresStanding = { government: 'concord', level: 'friend' };
+    r.outfits[0].requiresStanding = { government: 'concord', level: 'friend' };
+    const d = parseGameData(r);
+    expect(d.ships.kestrel.requiresStanding).toEqual({ government: 'concord', level: 'friend' });
   });
 });

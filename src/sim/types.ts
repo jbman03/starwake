@@ -1,4 +1,5 @@
 import type { ActionId } from '../input/actions';
+import type { StandingLevel } from '../data/schemas';
 import type { Vec2 } from './vec';
 
 export type ShipState = { pos: Vec2; vel: Vec2; heading: number; fuel: number };
@@ -79,6 +80,15 @@ export interface WorldState {
   stats: { jobsDone: number };
   /** Day of the last random encounter, or null if none yet. */
   lastEncounterDay: number | null;
+  /** Story missions (data/story.json): the ones under way, finished, failed and put off. */
+  story: {
+    active: { id: string; step: number; deadlineDay: number | null }[];
+    done: string[];
+    failed: string[];
+    declined: string[];
+  };
+  /** Standing with each government; an absent government counts as neutral. */
+  standing: Record<string, StandingLevel>;
 }
 
 export type SimEvent =
