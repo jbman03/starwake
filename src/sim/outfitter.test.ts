@@ -146,3 +146,37 @@ describe('requiresStanding', () => {
     expect(OUTFIT_BLOCK_TEXT.standing).toBeTruthy();
   });
 });
+
+describe('story outfits (House Rack, Cold Hold, Keeper\'s Lens)', () => {
+  const cases = [
+    { id: 'house-rack', port: 'redwater-sound', flag: 'house-rack-unlocked' },
+    { id: 'cold-hold', port: 'quillon-spires', flag: 'cold-hold-unlocked' },
+    { id: 'keepers-lens', port: 'reeds-anchor', flag: 'keepers-lens-unlocked' },
+  ];
+  for (const c of cases) {
+    it(`${c.id}: locked, buyable once, then gone`, () => {
+      const w = base({ credits: 100000 });
+      expect(outfitBuyCheck(w, data, c.port, c.id)).toEqual({ ok: false, reason: 'locked' });
+      const open = { ...w, flags: [c.flag, 'dimming-lane'] };
+      expect(outfitBuyCheck(open, data, c.port, c.id)).toEqual({ ok: true });
+      expect(outfitBuyCheck(open, data, PORT, c.id)).toEqual({ ok: false, reason: 'notSold' });
+      const bought = buyOutfit(open, data, c.port, c.id).world;
+      expect(bought.flags).toContain(`bought:${c.id}`);
+      expect(outfitBuyCheck(bought, data, c.port, c.id)).toEqual({ ok: false, reason: 'gone' });
+    });
+  }
+  it('cargo racks add their tonnage', () => {
+    const open = base({ credits: 100000, shipId: 'ironback', flags: ['house-rack-unlocked', 'cold-hold-unlocked'] });
+    const a = buyOutfit(open, data, 'redwater-sound', 'house-rack').world;
+    expect(worldStats(a, data).cargo).toBe(worldStats(open, data).cargo + 8);
+    const b = buyOutfit(a, data, 'quillon-spires', 'cold-hold').world;
+    expect(worldStats(b, data).cargo).toBe(worldStats(open, data).cargo + 20);
+  });
+  it("Keeper's Lens charts every Dimming system from Reed's Anchor", () => {
+    const flags = ['keepers-lens-unlocked', 'dimming-lane'];
+    const r = buyOutfit(base({ credits: 100000, flags }), data, 'reeds-anchor', 'keepers-lens').world;
+    const dimming = Object.values(data.systems).filter((s) => s.government === 'unlit').map((s) => s.id);
+    expect(dimming).toHaveLength(9);
+    for (const id of dimming) expect(r.known).toContain(id);
+  });
+});

@@ -4,8 +4,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
 
+// SW_PORT picks the dev server port (default 5173); playwright.config.ts reads the same variable.
+const port = Number(process.env.SW_PORT) || 5173;
+
 export default defineConfig({
   base: './',
+  server: { port, strictPort: true },
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [
     VitePWA({

@@ -6,7 +6,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "dev": "vite --port 5173 --strictPort",
+    "dev": "vite --strictPort",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",

@@ -79,3 +79,12 @@ describe('earning curve (spec section 7)', () => {
     for (const p of buyers) expect(data.config.knownAtStart).toContain(p.systemId);
   });
 });
+
+describe('story hulls', () => {
+  it('Freewind has the most fuel jumps of any hull', () => {
+    const jumps = (s: S) => Math.floor(s.fuelCapacity / 100);
+    const freewind = ships.find((s) => s.id === 'freewind') as S;
+    expect(freewind).toBeDefined();
+    for (const s of ships.filter((x) => x.id !== 'freewind')) expect(jumps(freewind)).toBeGreaterThan(jumps(s));
+  });
+});

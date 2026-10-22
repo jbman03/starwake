@@ -128,3 +128,25 @@ describe('requiresStanding', () => {
     expect(SHIP_BLOCK_TEXT.standing).toBeTruthy();
   });
 });
+
+describe('story hulls (Lantern-tender, Freewind)', () => {
+  const cases = [
+    { id: 'lantern-tender', yard: 'concordance', flag: 'concord-done', gov: 'concord' },
+    { id: 'freewind', yard: 'wrenhold', flag: 'reach-done', gov: 'free-reach' },
+  ];
+  for (const c of cases) {
+    it(`${c.id}: locked, then standing, then buyable, owned, gone`, () => {
+      const rich = { credits: 400000 };
+      expect(shipQuote(base({ ...rich }), data, c.yard, c.id).check).toEqual({ ok: false, reason: 'locked' });
+      expect(shipQuote(base({ ...rich, standing: { [c.gov]: 'friend' } }), data, c.yard, c.id).check).toEqual({ ok: false, reason: 'locked' });
+      expect(shipQuote(base({ ...rich, flags: [c.flag] }), data, c.yard, c.id).check).toEqual({ ok: false, reason: 'standing' });
+      const ready = base({ ...rich, flags: [c.flag], standing: { [c.gov]: 'friend' } });
+      expect(shipQuote(ready, data, c.yard, c.id).check).toEqual({ ok: true });
+      expect(shipQuote(ready, data, 'vanterre', c.id).check).toEqual({ ok: false, reason: 'notSold' });
+      const bought = buyShip(ready, data, c.yard, c.id).world;
+      expect(shipQuote(bought, data, c.yard, c.id).check).toEqual({ ok: false, reason: 'owned' });
+      const traded = buyShip(bought, data, c.yard, 'mule').world;
+      expect(shipQuote(traded, data, c.yard, c.id).check).toEqual({ ok: false, reason: 'gone' });
+    });
+  }
+});
