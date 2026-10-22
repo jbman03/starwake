@@ -43,6 +43,7 @@ export const ShipSchema = z.object({
   requiresFlag: z.string().min(1).optional(), // story flag needed before it is offered
   requiresStanding: StandingReqSchema.optional(), // government standing needed before it is offered
   hiddenByFlag: z.string().min(1).optional(), // once this flag is set the yard no longer lists the hull
+  teaser: z.string().min(1).optional(), // caption on the locked silhouette tile; absent = a neutral default
   chartJumps: z.number().int().positive().optional(), // built-in chart: reveals this many jumps on arrival
 });
 

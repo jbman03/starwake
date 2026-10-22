@@ -21,7 +21,7 @@ export const SHIP_BLOCK_TEXT: Record<ShipBlock, string> = {
   owned: 'You already fly this ship.',
   gone: "Sold once — she's gone.",
   notSold: 'This yard does not build that hull.',
-  locked: 'Ask about the old survey ship',
+  locked: 'Not offered to you yet.',
   standing: 'Requires friendship with this government', // the screens name the government via standingBlockText
 };
 

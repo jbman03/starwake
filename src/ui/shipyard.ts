@@ -36,7 +36,7 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
           name: '???',
           icon: () => silhouette,
           canBuy: false,
-          reason: blockText(q.check.reason, def),
+          reason: q.check.reason === 'locked' && def.teaser ? def.teaser : blockText(q.check.reason, def),
           info: () => infoBlock('???', 'A hull the yard will not talk about. Someone here knows more than they say.', []),
         };
       }

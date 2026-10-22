@@ -367,6 +367,16 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   }
   if (storyIssues.length) throw new DataError(sf, storyIssues);
 
+  // A hull or outfit gated on a story flag (or withdrawn by one) must name a flag something can set.
+  const gearIssues: string[] = [];
+  for (const sh of Object.values(ships)) {
+    if (sh.requiresFlag && !settable.has(sh.requiresFlag)) gearIssues.push(fmt('ships.json', `${sh.id}.requiresFlag`, `flag "${sh.requiresFlag}" is never set by any outcome or system`));
+    if (sh.hiddenByFlag && !settable.has(sh.hiddenByFlag)) gearIssues.push(fmt('ships.json', `${sh.id}.hiddenByFlag`, `flag "${sh.hiddenByFlag}" is never set by any outcome or system`));
+  }
+  for (const o of Object.values(outfits))
+    if (o.requiresFlag && !settable.has(o.requiresFlag)) gearIssues.push(fmt('outfits.json', `${o.id}.requiresFlag`, `flag "${o.requiresFlag}" is never set by any outcome or system`));
+  if (gearIssues.length) throw new DataError('ships.json / outfits.json', gearIssues);
+
   const missionIssues: string[] = [];
   const anyDump = Object.values(planets).some((p) => p.dumpSite);
   for (const m of Object.values(missionTypes)) {

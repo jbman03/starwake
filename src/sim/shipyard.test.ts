@@ -92,7 +92,6 @@ describe('survey hull gating', () => {
   const YARD = 'wrenhold';
   it('is locked without the claim and open with it', () => {
     expect(shipQuote(base(), data, YARD, 'patience').check).toEqual({ ok: false, reason: 'locked' });
-    expect(SHIP_BLOCK_TEXT.locked).toBe('Ask about the old survey ship');
     expect(shipQuote(base({ flags: ['survey-claim'] }), data, YARD, 'patience').check).toEqual({ ok: true });
   });
   it('is hidden once the wreck is stripped, and sold-once reads as gone', () => {
@@ -149,4 +148,14 @@ describe('story hulls (Lantern-tender, Freewind)', () => {
       expect(shipQuote(traded, data, c.yard, c.id).check).toEqual({ ok: false, reason: 'gone' });
     });
   }
+});
+
+describe('locked hull teasers', () => {
+  it('Patience keeps its survey teaser; other flag-locked hulls default to the neutral caption', () => {
+    expect(data.ships.patience.teaser).toBe('Ask about the old survey ship');
+    expect(data.ships['lantern-tender'].teaser).toBeUndefined();
+    expect(data.ships.freewind.teaser).toBeUndefined();
+    expect(SHIP_BLOCK_TEXT.locked).toBe('Not offered to you yet.');
+    expect(SHIP_BLOCK_TEXT.locked).not.toMatch(/survey/i);
+  });
 });

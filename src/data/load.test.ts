@@ -622,6 +622,11 @@ describe('story data', () => {
   it('accepts an empty missions list', () => {
     const r = raw();
     r.story = { missions: [] };
+    // with no story, nothing can set the flags that gate story hulls and outfits
+    for (const g of [...r.ships, ...r.outfits]) {
+      delete g.requiresFlag;
+      delete g.hiddenByFlag;
+    }
     expect(parseGameData(r).story).toEqual({});
   });
 
@@ -777,5 +782,21 @@ describe('shipped story data', () => {
       }
       expect(JSON.stringify(m)).not.toMatch(/Jory/);
     }
+  });
+});
+
+describe('gear flag validation', () => {
+  const has = (e: DataError, s: string) => expect(e.issues.some((i) => i.includes(s)), e.issues.join(', ')).toBe(true);
+
+  it('rejects a hull or outfit gated on a flag nothing sets', () => {
+    const a = raw();
+    a.ships.find((s) => s.id === 'patience')!.requiresFlag = 'no-such-flag';
+    has(failure(a), 'patience.requiresFlag');
+    const b = raw();
+    b.ships.find((s) => s.id === 'patience')!.hiddenByFlag = 'no-such-flag';
+    has(failure(b), 'patience.hiddenByFlag');
+    const c = raw();
+    c.outfits.find((o) => o.id === 'house-rack')!.requiresFlag = 'no-such-flag';
+    has(failure(c), 'house-rack.requiresFlag');
   });
 });
