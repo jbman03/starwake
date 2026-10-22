@@ -1,7 +1,9 @@
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
-import { fuelCheck, lanesOf, routeBetween, visibleSystems } from '../sim/galaxy';
+import { fuelCheck, lanesOf, routeBetween, systemOpen, visibleSystems } from '../sim/galaxy';
+import { jobMissions } from '../sim/missions';
 import type { WorldState } from '../sim/types';
+import { storyDestinations } from '../sim/storyMissions';
 import { setRoute } from '../sim/world';
 import type { UiContext } from './context';
 import { button, el, hotkeyFor } from './dom';
@@ -31,7 +33,7 @@ export interface MapNode {
   x: number;
   y: number;
   current: boolean;
-  /** A mission's destination port is in this system. */
+  /** A mission's (job or story step) destination is in this system. */
   flag: boolean;
 }
 
@@ -48,7 +50,10 @@ function stateOf(world: WorldState, id: string): SystemState {
 
 /** What the star map draws: systems by exploration state, the lanes you know of, mission flags. */
 export function mapModel(world: WorldState, data: GameData): MapModel {
-  const flagged = new Set(world.missions.map((m) => data.planets[m.destId]?.systemId).filter((id) => id !== undefined));
+  const flagged = new Set([
+    ...jobMissions(world).map((m) => data.planets[m.destId]?.systemId).filter((id): id is string => id !== undefined),
+    ...storyDestinations(world, data),
+  ]);
   const nodes: MapNode[] = visibleSystems(data, world.flags).map((s) => {
     const state = stateOf(world, s.id);
     return {
@@ -295,7 +300,8 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
   );
 
   // ---- side panel ----------------------------------------------------------
-  const preview = opts.preview && data.systems[opts.preview.systemId] ? opts.preview : undefined;
+  const preview =
+    opts.preview && data.systems[opts.preview.systemId] && systemOpen(data.systems[opts.preview.systemId], controller.world.flags) ? opts.preview : undefined;
   if (preview) {
     const at = data.systems[preview.systemId].mapPos;
     view.z = PREVIEW_ZOOM;

@@ -37,6 +37,7 @@ describe('bindings', () => {
       ['sellGoods', 'exchange', 'KeyS'],
       ['openShipyard', 'planet', 'KeyY'],
       ['openOutfitter', 'planet', 'KeyO'],
+      ['openBar', 'planet', 'KeyB'],
       ['shopBuy', 'shop', 'KeyB'],
       ['shopSell', 'shop', 'KeyS'],
       ['shopPrevPage', 'shop', 'PageUp'],

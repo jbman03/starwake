@@ -10,8 +10,10 @@ import {
   OutfitSchema,
   PlanetSchema,
   ShipSchema,
+  StoryMissionSchema,
   SystemSchema,
   type GameConfig,
+  type Outcome,
   type GameData,
 } from './schemas';
 import { sells } from '../sim/stock';
@@ -88,6 +90,35 @@ function parseList<T extends { id: string }>(
   return out;
 }
 
+interface Refs {
+  systems: Record<string, unknown>;
+  planets: Record<string, unknown>;
+  governments: Record<string, unknown>;
+  commodities: Record<string, unknown>;
+  missionTypes: Record<string, unknown>;
+  ships: Record<string, { unique?: boolean }>;
+}
+
+/** Reference checks for one outcome; pushes a path-tagged issue for each unknown id. */
+function checkOutcome(issues: string[], file: string, at: string, o: Outcome, r: Refs): void {
+  if (o.type === 'cargo' && !(o.good in r.commodities)) issues.push(fmt(file, at, `unknown commodity "${o.good}"`));
+  if (o.type === 'mission') {
+    if (!(o.missionType in r.missionTypes)) issues.push(fmt(file, at, `unknown mission type "${o.missionType}"`));
+    if (o.toSystem !== undefined && !(o.toSystem in r.systems)) issues.push(fmt(file, at, `unknown system "${o.toSystem}"`));
+  }
+  if (o.type === 'reveal')
+    for (const sid of o.systems ?? []) if (!(sid in r.systems)) issues.push(fmt(file, at, `unknown system "${sid}"`));
+  if (o.type === 'standing' && !(o.government in r.governments))
+    issues.push(fmt(file, at, `unknown government "${o.government}"`));
+}
+
+function checkChoices(issues: string[], file: string, at: string, choices: { needs?: { cargo?: { good: string } } }[], r: Refs): void {
+  choices.forEach((c, ci) => {
+    const g = c.needs?.cargo?.good;
+    if (g !== undefined && !(g in r.commodities)) issues.push(fmt(file, `${at}.choices.${ci}.needs.cargo`, `unknown commodity "${g}"`));
+  });
+}
+
 const KEYS = [
   'ships',
   'systems',
@@ -100,6 +131,7 @@ const KEYS = [
   'outfits',
   'names',
   'encounters',
+  'story',
 ] as const;
 
 export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): GameData {
@@ -117,6 +149,10 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   const names = nm.data;
   const encounters = parseList('encounters.json', EncounterSchema, raw.encounters);
 
+  const stf = z.object({ missions: z.array(z.unknown()) }).safeParse(raw.story);
+  if (!stf.success) throw new DataError('story.json', zodIssues('story.json', '', stf.error));
+  const story = parseList('story.json', StoryMissionSchema, stf.data.missions);
+
   const cfg = ConfigSchema.safeParse(raw.config);
   if (!cfg.success) throw new DataError('config.json', zodIssues('config.json', '', cfg.error));
   const config: GameConfig = cfg.data;
@@ -129,6 +165,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     });
     if (!(s.government in governments))
       sysIssues.push(fmt('systems.json', `${s.id}.government`, `unknown government "${s.government}"`));
+    if (s.hidden && !s.unlockFlag) sysIssues.push(fmt('systems.json', `${s.id}.unlockFlag`, 'a hidden system needs an unlockFlag'));
     // Lanes are two-way: if A lists B, B must list A.
     for (const l of s.links) {
       if (l in systems && !systems[l].links.includes(s.id))
@@ -210,7 +247,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
           );
       }
   }
-  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, config } as GameData;
+  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config } as GameData;
   const items: { file: string; item: { id: string; techTier: number; soldBy?: string[] } }[] = [
     ...Object.values(ships).map((item) => ({ file: 'ships.json', item })),
     ...Object.values(outfits).map((item) => ({ file: 'outfits.json', item })),
@@ -223,6 +260,9 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     for (const pid of (item as { soldAt?: string[] }).soldAt ?? []) {
       if (!(pid in planets)) shopIssues.push(fmt(file, `${item.id}.soldAt`, `unknown planet "${pid}"`));
     }
+    const gate = (item as { requiresStanding?: { government: string } }).requiresStanding;
+    if (gate && !(gate.government in governments))
+      shopIssues.push(fmt(file, `${item.id}.requiresStanding.government`, `unknown government "${gate.government}"`));
     const sellers = Object.values(planets).filter((p) => p.services.includes(shop) && sells(p.id, item, partial));
     if (sellers.length === 0) shopIssues.push(fmt(file, item.id, 'no port sells this'));
     for (const g of item.soldBy ?? []) {
@@ -240,6 +280,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   }
   if (eventIssues.length) throw new DataError('events.json', eventIssues);
 
+  const refs: Refs = { systems, planets, governments, commodities, missionTypes, ships };
   const encIssues: string[] = [];
   for (const e of Object.values(encounters)) {
     const w = e.when;
@@ -250,24 +291,72 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
       if (!(gid in governments))
         encIssues.push(fmt('encounters.json', `${e.id}.when.governments.${i}`, `unknown government "${gid}"`));
     });
+    checkChoices(encIssues, 'encounters.json', e.id, e.choices, refs);
     e.choices.forEach((c, ci) =>
-      c.outcomes.forEach((o, oi) => {
-        const at = `${e.id}.choices.${ci}.outcomes.${oi}`;
-        if (o.type === 'cargo' && !(o.good in commodities))
-          encIssues.push(fmt('encounters.json', at, `unknown commodity "${o.good}"`));
-        if (o.type === 'mission') {
-          if (!(o.missionType in missionTypes))
-            encIssues.push(fmt('encounters.json', at, `unknown mission type "${o.missionType}"`));
-          if (o.toSystem !== undefined && !(o.toSystem in systems))
-            encIssues.push(fmt('encounters.json', at, `unknown system "${o.toSystem}"`));
-        }
-        if (o.type === 'reveal')
-          for (const sid of o.systems ?? [])
-            if (!(sid in systems)) encIssues.push(fmt('encounters.json', at, `unknown system "${sid}"`));
-      }),
+      c.outcomes.forEach((o, oi) =>
+        checkOutcome(encIssues, 'encounters.json', `${e.id}.choices.${ci}.outcomes.${oi}`, o, refs),
+      ),
     );
   }
   if (encIssues.length) throw new DataError('encounters.json', encIssues);
+
+  const storyIssues: string[] = [];
+  const sf = 'story.json';
+  // Every flag some outcome or hidden system can set; an offer may only mention these.
+  const settable = new Set<string>(Object.values(systems).flatMap((sy) => (sy.unlockFlag ? [sy.unlockFlag] : [])));
+  const collect = (os: readonly Outcome[]) => {
+    for (const o of os) if (o.type === 'flag' || o.type === 'unlock') settable.add(o.flag);
+  };
+  for (const e of Object.values(encounters)) e.choices.forEach((c) => collect(c.outcomes));
+  for (const m of Object.values(story)) {
+    collect(m.onComplete);
+    collect(m.onFail ?? []);
+    for (const st of m.steps) if (st.kind === 'meet') st.card.choices.forEach((c) => collect(c.outcomes));
+  }
+  for (const m of Object.values(story)) {
+    const unknownIn = (at: string, kind: string, v: string, set: Record<string, unknown>) => {
+      if (!(v in set)) storyIssues.push(fmt(sf, `${m.id}.${at}`, `unknown ${kind} "${v}"`));
+    };
+    (m.offer.ports ?? []).forEach((v, i) => unknownIn(`offer.ports.${i}`, 'planet', v, planets));
+    (m.offer.systems ?? []).forEach((v, i) => unknownIn(`offer.systems.${i}`, 'system', v, systems));
+    for (const k of ['requires', 'notFlags'] as const)
+      (m.offer[k] ?? []).forEach((f, i) => {
+        if (!settable.has(f)) storyIssues.push(fmt(sf, `${m.id}.offer.${k}.${i}`, `flag "${f}" is never set by any outcome or system`));
+      });
+    // A step or hail in a hidden system is only reachable once its unlock flag is set, so the offer must wait for it.
+    const needsUnlock = (sysId: string, at: string) => {
+      const sy = systems[sysId];
+      if (sy?.hidden && sy.unlockFlag && !(m.offer.requires ?? []).includes(sy.unlockFlag))
+        storyIssues.push(fmt(sf, `${m.id}.${at}`, `system "${sysId}" is hidden: offer.requires must include "${sy.unlockFlag}"`));
+    };
+    if (m.offer.where === 'hail') (m.offer.systems ?? []).forEach((v, i) => needsUnlock(v, `offer.systems.${i}`));
+    for (const g of Object.keys(m.offer.standing ?? {})) unknownIn(`offer.standing.${g}`, 'government', g, governments);
+    m.steps.forEach((st, i) => {
+      const at = `steps.${i}`;
+      if ('system' in st) {
+        unknownIn(`${at}.system`, 'system', st.system, systems);
+        needsUnlock(st.system, `${at}.system`);
+      }
+      if ('planet' in st) {
+        unknownIn(`${at}.planet`, 'planet', st.planet, planets);
+        const home = planets[st.planet]?.systemId;
+        if (home) needsUnlock(home, `${at}.planet`);
+      }
+      if (st.kind === 'meet') {
+        unknownIn(`${at}.ship.shipId`, 'ship', st.ship.shipId, ships);
+        unknownIn(`${at}.ship.government`, 'government', st.ship.government, governments);
+        if (ships[st.ship.shipId]?.unique)
+          storyIssues.push(fmt(sf, `${m.id}.${at}.ship.shipId`, `ship "${st.ship.shipId}" is unique and cannot be met as an NPC`));
+        checkChoices(storyIssues, sf, `${m.id}.${at}.card`, st.card.choices, refs);
+        st.card.choices.forEach((c, ci) =>
+          c.outcomes.forEach((o, oi) => checkOutcome(storyIssues, sf, `${m.id}.${at}.card.choices.${ci}.outcomes.${oi}`, o, refs)),
+        );
+      }
+    });
+    m.onComplete.forEach((o, i) => checkOutcome(storyIssues, sf, `${m.id}.onComplete.${i}`, o, refs));
+    (m.onFail ?? []).forEach((o, i) => checkOutcome(storyIssues, sf, `${m.id}.onFail.${i}`, o, refs));
+  }
+  if (storyIssues.length) throw new DataError(sf, storyIssues);
 
   const missionIssues: string[] = [];
   const anyDump = Object.values(planets).some((p) => p.dumpSite);
@@ -297,14 +386,14 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   });
   if (cfgIssues.length) throw new DataError('config.json', cfgIssues);
 
-  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, config };
+  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config };
 }
 
 /** Loads and validates the bundled data. `override` swaps raw payloads (used by test flags). */
 export async function loadGameData(
   override: Partial<Record<(typeof KEYS)[number], unknown>> = {},
 ): Promise<GameData> {
-  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters] =
+  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story] =
     await Promise.all([
       import('../../data/ships.json'),
       import('../../data/systems.json'),
@@ -317,6 +406,7 @@ export async function loadGameData(
       import('../../data/outfits.json'),
       import('../../data/names.json'),
       import('../../data/encounters.json'),
+      import('../../data/story.json'),
     ]);
   return parseGameData({
     ships: ships.default,
@@ -330,6 +420,7 @@ export async function loadGameData(
     outfits: outfits.default,
     names: names.default,
     encounters: encounters.default,
+    story: story.default,
     ...override,
   });
 }

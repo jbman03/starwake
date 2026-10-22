@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
+import { standingBlockText } from './standing';
 import { buyShip, shipHidden, shipQuote, SHIP_BLOCK_TEXT, tradeInValue } from './shipyard';
 import type { Mission, WorldState } from './types';
 import { newWorld } from './world';
@@ -109,5 +110,21 @@ describe('survey hull gating', () => {
     const r = buyShip(base({ flags: ['survey-claim'] }), data, YARD, 'patience');
     expect(r.world.flags).toContain('bought:patience');
     expect(shipQuote(r.world, data, YARD, 'patience').check).toEqual({ ok: false, reason: 'owned' });
+  });
+});
+
+describe('requiresStanding', () => {
+  const gated = { ...data, ships: { ...data.ships, mule: { ...data.ships.mule, requiresStanding: { government: 'concord', level: 'friend' as const } } } };
+
+  it('blocks with reason "standing" until the government is a friend', () => {
+    expect(shipQuote(base(), gated, PORT, 'mule').check).toEqual({ ok: false, reason: 'standing' });
+    expect(shipQuote(base({ standing: { concord: 'cool' } }), gated, PORT, 'mule').check).toEqual({ ok: false, reason: 'standing' });
+    expect(shipQuote(base({ standing: { concord: 'friend' } }), gated, PORT, 'mule').check).toEqual({ ok: true });
+    expect(buyShip(base(), gated, PORT, 'mule').world.shipId).toBe('shuttle');
+  });
+
+  it('names the government', () => {
+    expect(standingBlockText(gated.ships.mule.requiresStanding, data)).toBe('Requires Concord friendship');
+    expect(SHIP_BLOCK_TEXT.standing).toBeTruthy();
   });
 });

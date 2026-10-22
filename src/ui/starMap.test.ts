@@ -43,8 +43,10 @@ describe('hidden systems on the map', () => {
   });
   it('counts hidden systems only once the lane is open', () => {
     const total = Object.keys(data.systems).length;
-    expect(visibleSystemCount(data, [])).toBe(total - 1);
-    expect(visibleSystemCount(data, ['hushwater-lane'])).toBe(total);
+    expect(visibleSystemCount(data, [])).toBe(total - 10);
+    expect(visibleSystemCount(data, ['hushwater-lane'])).toBe(total - 9);
+    expect(visibleSystemCount(data, ['dimming-lane'])).toBe(total - 1);
+    expect(visibleSystemCount(data, ['hushwater-lane', 'dimming-lane'])).toBe(total);
   });
 });
 
@@ -72,6 +74,19 @@ describe('mapModel', () => {
     const mission = { id: 'm1', destId: 'vanterre' } as Mission; // a Tessaly port
     const m = mapModel({ ...world(), missions: [mission] }, data);
     expect(m.nodes.filter((n) => n.flag).map((n) => n.id)).toEqual(['tessaly']);
+  });
+});
+
+describe('story destinations on the map', () => {
+  it('flags the system of an active story step', () => {
+    const w = world();
+    const story = {
+      id: 's', arc: 'side', title: 'S', giver: { name: 'G', title: 'T' }, offer: { where: 'bar' as const, ports: ['halcyon'] },
+      text: 'x', acceptText: 'y', declinable: true, onComplete: [], steps: [{ kind: 'land' as const, planet: 'vanterre', text: 'l' }],
+    };
+    const d = { ...data, story: { s: story } } as typeof data;
+    const taken = { ...w, story: { ...w.story, active: [{ id: 's', step: 0, deadlineDay: null }] } };
+    expect(mapModel(taken, d).nodes.filter((n) => n.flag).map((n) => n.id)).toEqual(['tessaly']);
   });
 });
 

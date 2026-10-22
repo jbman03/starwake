@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import type { GameData } from '../data/schemas';
+import { StandingLevelSchema, type GameData } from '../data/schemas';
 import type { WorldState } from '../sim/types';
 import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 4;
+export const CURRENT_SAVE_VERSION = 5;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -39,7 +39,7 @@ const MarketEventSchema = z.object({
 });
 
 export const PilotSaveSchema = z.object({
-  version: z.literal(4),
+  version: z.literal(5),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -70,6 +70,17 @@ export const PilotSaveSchema = z.object({
   shipName: z.string(),
   stats: z.object({ jobsDone: z.number().int().nonnegative() }),
   lastEncounterDay: z.number().finite().nullable(),
+  // v5: story missions and government standing.
+  story: z.object({
+    active: z.array(
+      z.object({ id: z.string().min(1), step: z.number().int().nonnegative(), deadlineDay: z.number().finite().nullable() }),
+    ),
+    done: z.array(z.string()),
+    doneDays: z.record(z.string(), z.number().finite()).optional(),
+    failed: z.array(z.string()),
+    declined: z.array(z.string()),
+  }),
+  standing: z.record(z.string(), StandingLevelSchema),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
@@ -103,6 +114,13 @@ export const migrations: Record<number, (s: any) => any> = {
     shipName: '',
     stats: { jobsDone: 0 },
     lastEncounterDay: null,
+  }),
+  // v4 -> v5. Data-free: no story under way, every standing neutral.
+  4: (s) => ({
+    ...s,
+    version: 5,
+    story: { active: [], done: [], failed: [], declined: [] },
+    standing: {},
   }),
 };
 
@@ -155,6 +173,14 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
     shipName: world.shipName,
     stats: { ...world.stats },
     lastEncounterDay: world.lastEncounterDay,
+    story: {
+      active: world.story.active.map((a) => ({ ...a })),
+      done: [...world.story.done],
+      ...(world.story.doneDays ? { doneDays: { ...world.story.doneDays } } : {}),
+      failed: [...world.story.failed],
+      declined: [...world.story.declined],
+    },
+    standing: { ...world.standing },
   };
 }
 
@@ -197,6 +223,14 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     shipName: p.shipName,
     stats: { ...p.stats },
     lastEncounterDay: p.lastEncounterDay,
+    story: {
+      active: p.story.active.map((a) => ({ ...a })),
+      done: [...p.story.done],
+      ...(p.story.doneDays ? { doneDays: { ...p.story.doneDays } } : {}),
+      failed: [...p.story.failed],
+      declined: [...p.story.declined],
+    },
+    standing: { ...p.standing },
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
 }

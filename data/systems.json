@@ -11,7 +11,7 @@
   { "id": "thistle", "name": "Thistle", "mapPos": { "x": 170, "y": -390 }, "jumpDistance": 1800, "government": "free-reach", "links": ["brannock", "wrenhold", "cinderfall"], "starRadius": 95 },
   { "id": "wrenhold", "name": "Wrenhold", "mapPos": { "x": 120, "y": -160 }, "jumpDistance": 2000, "government": "free-reach", "links": ["hollis", "thistle", "oxbow"], "starRadius": 125 },
   { "id": "cinderfall", "name": "Cinderfall", "mapPos": { "x": 340, "y": -270 }, "jumpDistance": 1700, "government": "free-reach", "links": ["thistle", "oxbow"], "starRadius": 150 },
-  { "id": "oxbow", "name": "Oxbow", "mapPos": { "x": 440, "y": -60 }, "jumpDistance": 1800, "government": "free-reach", "links": ["cinderfall", "wrenhold", "redwater"], "starRadius": 105 },
+  { "id": "oxbow", "name": "Oxbow", "mapPos": { "x": 440, "y": -60 }, "jumpDistance": 1800, "government": "free-reach", "links": ["cinderfall", "wrenhold", "redwater"], "hiddenLinks": ["gloam"], "starRadius": 105 },
   { "id": "redwater", "name": "Redwater", "mapPos": { "x": 390, "y": 140 }, "jumpDistance": 1900, "government": "free-reach", "links": ["oxbow", "saltmarsh", "skerry"], "starRadius": 135 },
   { "id": "saltmarsh", "name": "Saltmarsh", "mapPos": { "x": 220, "y": 280 }, "jumpDistance": 1800, "government": "free-reach", "links": ["redwater", "dunmore", "brackwater"], "starRadius": 95 },
   { "id": "dunmore", "name": "Dunmore", "mapPos": { "x": 30, "y": 300 }, "jumpDistance": 1900, "government": "free-reach", "links": ["calder", "saltmarsh", "lastlight"], "starRadius": 110 },
@@ -22,5 +22,15 @@
   { "id": "brackwater", "name": "Brackwater", "mapPos": { "x": 280, "y": 490 }, "jumpDistance": 1700, "government": "independent", "links": ["lastlight", "saltmarsh", "skerry"], "starRadius": 85 },
   { "id": "skerry", "name": "Skerry", "mapPos": { "x": 530, "y": 340 }, "jumpDistance": 1600, "government": "independent", "links": ["redwater", "brackwater"], "hiddenLinks": ["hushwater"], "starRadius": 70 },
 
-  { "id": "hushwater", "name": "Hushwater", "mapPos": { "x": 580, "y": 430 }, "jumpDistance": 1400, "government": "independent", "links": [], "hiddenLinks": ["skerry"], "hidden": true, "traffic": [0, 0], "starRadius": 60 }
+  { "id": "hushwater", "name": "Hushwater", "mapPos": { "x": 580, "y": 430 }, "jumpDistance": 1400, "government": "independent", "links": [], "hiddenLinks": ["skerry"], "hidden": true, "unlockFlag": "hushwater-lane", "traffic": [0, 0], "starRadius": 60 },
+
+  { "id": "gloam", "name": "Gloam", "mapPos": { "x": 660, "y": -70 }, "jumpDistance": 1500, "government": "unlit", "links": ["pallow", "sootfall"], "hiddenLinks": ["oxbow"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 70 },
+  { "id": "pallow", "name": "Pallow", "mapPos": { "x": 740, "y": -190 }, "jumpDistance": 1400, "government": "unlit", "links": ["gloam", "candlewick", "hollowmere"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 60 },
+  { "id": "sootfall", "name": "Sootfall", "mapPos": { "x": 760, "y": 60 }, "jumpDistance": 1500, "government": "unlit", "links": ["gloam", "candlewick", "ebbing"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 80 },
+  { "id": "candlewick", "name": "Candlewick", "mapPos": { "x": 840, "y": -70 }, "jumpDistance": 1700, "government": "unlit", "links": ["pallow", "sootfall", "tarn", "ebbing"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 90 },
+  { "id": "hollowmere", "name": "Hollowmere", "mapPos": { "x": 830, "y": -290 }, "jumpDistance": 1300, "government": "unlit", "links": ["pallow", "lowlight"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 55 },
+  { "id": "ebbing", "name": "Ebbing", "mapPos": { "x": 850, "y": 150 }, "jumpDistance": 1400, "government": "unlit", "links": ["candlewick", "sootfall", "vane"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 65 },
+  { "id": "tarn", "name": "Tarn", "mapPos": { "x": 940, "y": -30 }, "jumpDistance": 1400, "government": "unlit", "links": ["candlewick", "lowlight", "vane"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 50 },
+  { "id": "lowlight", "name": "Lowlight", "mapPos": { "x": 950, "y": -210 }, "jumpDistance": 1300, "government": "unlit", "links": ["hollowmere", "tarn"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 55 },
+  { "id": "vane", "name": "Vane", "mapPos": { "x": 945, "y": 110 }, "jumpDistance": 1300, "government": "unlit", "links": ["tarn", "ebbing"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 60 }
 ]

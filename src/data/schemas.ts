@@ -4,6 +4,10 @@ const vec2 = z.object({ x: z.number(), y: z.number() });
 const id = z.string().min(1);
 const tier = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]);
 
+export const StandingLevelSchema = z.enum(['cool', 'neutral', 'friend']);
+export type StandingLevel = z.infer<typeof StandingLevelSchema>;
+const StandingReqSchema = z.object({ government: id, level: StandingLevelSchema });
+
 export const ShipSchema = z.object({
   id,
   name: z.string(),
@@ -37,6 +41,7 @@ export const ShipSchema = z.object({
   soldAt: z.array(id).optional(), // port ids; absent = any port the tier and government allow
   unique: z.boolean().optional(), // a one-off hull, sold once
   requiresFlag: z.string().min(1).optional(), // story flag needed before it is offered
+  requiresStanding: StandingReqSchema.optional(), // government standing needed before it is offered
   hiddenByFlag: z.string().min(1).optional(), // once this flag is set the yard no longer lists the hull
   chartJumps: z.number().int().positive().optional(), // built-in chart: reveals this many jumps on arrival
 });
@@ -50,6 +55,10 @@ const outfitBase = {
   space: z.number().int().nonnegative(),
   max: z.number().int().positive(),
   soldBy: z.array(id).optional(),
+  soldAt: z.array(id).optional(), // port ids; absent = any port the tier and government allow
+  unique: z.boolean().optional(), // a one-off, sold once
+  requiresFlag: z.string().min(1).optional(), // story flag needed before it is offered
+  requiresStanding: StandingReqSchema.optional(),
 };
 
 const effect = <K extends string>(key: K) => z.object({ [key]: z.number().positive() } as Record<K, z.ZodNumber>).strict();
@@ -74,6 +83,7 @@ export const SystemSchema = z.object({
   hazards: z.array(z.string()).optional(),
   hiddenLinks: z.array(id).optional(), // lanes that stay out of sight until a story flag opens them
   hidden: z.boolean().optional(), // never charted by local maps or routing until its lane is opened
+  unlockFlag: id.optional(), // the story flag that opens a hidden system (required when hidden)
   traffic: z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]).optional(), // [min, max] NPC ships
 });
 
@@ -87,7 +97,7 @@ export const PlanetSchema = z.object({
   fuelPrice: z.number().nonnegative(),
   description: z.string(),
   kind: z.enum(['planet', 'station']),
-  services: z.array(z.enum(['exchange', 'missions', 'shipyard', 'outfitter'])),
+  services: z.array(z.enum(['exchange', 'missions', 'shipyard', 'outfitter', 'bar'])),
   market: z.record(z.string(), z.enum(['low', 'med', 'high'])).optional(),
   dumpSite: z.boolean().optional(),
   hub: z.boolean().optional(), // tech hub: sells everything its tier and government allow
@@ -151,14 +161,36 @@ const count = z.number().int();
 
 export const OutcomeSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('credits'), n: count }),
-  z.object({ type: z.literal('cargo'), good: id, tons: z.number().int().positive() }),
+  z.object({ type: z.literal('cargo'), good: id, tons: z.number().int().refine((n) => n !== 0, 'expected a non-zero count') }), // negative hands cargo over
   z.object({ type: z.literal('fuel'), n: count }),
   z.object({ type: z.literal('mission'), missionType: id, toSystem: id.optional() }),
   z.object({ type: z.literal('reveal'), systems: z.array(id).optional(), jumps: z.number().int().positive().optional() }),
   z.object({ type: z.literal('rumour'), text: z.string().min(1) }),
   z.object({ type: z.literal('flag'), flag: id }),
   z.object({ type: z.literal('message'), text: z.string().min(1) }),
+  z.object({ type: z.literal('standing'), government: id, level: StandingLevelSchema }),
+  z.object({ type: z.literal('unlock'), flag: id }),
 ]);
+
+const EncounterChoiceSchema = z.object({
+  label: z.string().min(1),
+  needs: z
+    .object({
+      fuel: z.number().nonnegative().optional(),
+      credits: z.number().nonnegative().optional(),
+      cargoSpace: z.number().nonnegative().optional(),
+      cargo: z.object({ good: id, tons: z.number().int().positive() }).optional(), // trade goods that must be in the hold
+    })
+    .optional(),
+  outcomes: z.array(OutcomeSchema),
+});
+
+/** A card: title, text and 1-3 choices (the encounter card UI's shape). */
+export const EncounterCardSchema = z.object({
+  title: z.string().min(1),
+  text: z.string().min(1),
+  choices: z.array(EncounterChoiceSchema).min(1).max(3),
+});
 
 export const EncounterSchema = z.object({
   id,
@@ -177,22 +209,63 @@ export const EncounterSchema = z.object({
       notFlag: id.optional(),
     })
     .optional(),
-  choices: z
-    .array(
-      z.object({
-        label: z.string().min(1),
-        needs: z
-          .object({
-            fuel: z.number().nonnegative().optional(),
-            credits: z.number().nonnegative().optional(),
-            cargoSpace: z.number().nonnegative().optional(),
-          })
-          .optional(),
-        outcomes: z.array(OutcomeSchema),
-      }),
-    )
-    .min(1)
-    .max(3),
+  choices: EncounterCardSchema.shape.choices,
+});
+
+const flagList = z.array(id);
+const text = z.string().min(1);
+const site = z.object({ label: text });
+
+export const StoryStepSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('go'), system: id, text }),
+  z.object({ kind: z.literal('land'), planet: id, text }),
+  z.object({
+    kind: z.literal('deliver'),
+    planet: id,
+    cargo: z.object({ name: text, tons: z.number().int().positive() }),
+    deadlineDays: z.number().int().positive().optional(),
+    text,
+  }),
+  z.object({
+    kind: z.literal('ferry'),
+    planet: id,
+    passengers: z.number().int().positive(),
+    deadlineDays: z.number().int().positive().optional(),
+    text,
+  }),
+  z.object({ kind: z.literal('scan'), system: id, site, text }),
+  z.object({ kind: z.literal('find'), system: id, site, text }),
+  z.object({
+    kind: z.literal('meet'),
+    system: id,
+    ship: z.object({ name: text, shipId: id, government: id }),
+    card: EncounterCardSchema,
+    text,
+  }),
+]);
+
+export const StoryMissionSchema = z.object({
+  id,
+  arc: z.enum(['main', 'concord', 'reach', 'side']),
+  chain: id.optional(),
+  title: text,
+  giver: z.object({ name: text, title: text }),
+  offer: z.object({
+    where: z.enum(['bar', 'hail']),
+    ports: z.array(id).optional(),
+    systems: z.array(id).optional(),
+    requires: flagList.optional(),
+    notFlags: flagList.optional(),
+    minDay: z.number().int().nonnegative().optional(),
+    standing: z.record(id, StandingLevelSchema).optional(),
+  }),
+  text, // the offer
+  acceptText: text,
+  declinable: z.boolean(), // main-arc missions can be put off, never lost
+  steps: z.array(StoryStepSchema).min(1),
+  onComplete: z.array(OutcomeSchema),
+  onFail: z.array(OutcomeSchema).optional(),
+  combatLater: z.string().optional(), // the note for the combat cycle
 });
 
 export const ConfigSchema = z.object({
@@ -221,6 +294,8 @@ export type EventDef = z.infer<typeof EventSchema>;
 export type MissionTypeDef = z.infer<typeof MissionTypeSchema>;
 export type Outcome = z.infer<typeof OutcomeSchema>;
 export type EncounterDef = z.infer<typeof EncounterSchema>;
+export type StoryStepDef = z.infer<typeof StoryStepSchema>;
+export type StoryMissionDef = z.infer<typeof StoryMissionSchema>;
 export type GameConfig = z.infer<typeof ConfigSchema>;
 
 export interface GameData {
@@ -234,5 +309,6 @@ export interface GameData {
   missionTypes: Record<string, MissionTypeDef>;
   names: { first: string[]; second: string[] };
   encounters: Record<string, EncounterDef>;
+  story: Record<string, StoryMissionDef>;
   config: GameConfig;
 }

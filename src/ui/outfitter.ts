@@ -1,6 +1,7 @@
 import type { OutfitDef } from '../data/schemas';
-import { OUTFIT_BLOCK_TEXT, outfitSellCheck } from '../sim/outfitter';
+import { OUTFIT_BLOCK_TEXT, outfitSellCheck, type OutfitBlock } from '../sim/outfitter';
 import { worldStats } from '../sim/shipStats';
+import { standingBlockText } from '../sim/standing';
 import { outfitStock } from '../sim/stock';
 import type { UiContext } from './context';
 import { formatCredits } from './dom';
@@ -33,12 +34,28 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
   const { data } = controller;
   const port = data.planets[planetId];
 
+  /** The words for a block; a standing block names the government. */
+  const blockText = (reason: OutfitBlock, def: OutfitDef): string =>
+    reason === 'standing' && def.requiresStanding ? standingBlockText(def.requiresStanding, data) : OUTFIT_BLOCK_TEXT[reason];
+
   const items = (): ShopItem[] =>
     outfitStock(planetId, data).map((def) => {
       const w = controller.world;
       const owned = w.outfits[def.id] ?? 0;
       const buy = controller.outfitQuote(def.id);
       const sell = outfitSellCheck(w, data, def.id);
+      if (buy.ok === false && (buy.reason === 'standing' || buy.reason === 'locked') && owned === 0) {
+        const silhouette = outfitIcon(def, 48);
+        silhouette.style.filter = 'brightness(0) opacity(0.35)';
+        return {
+          id: def.id,
+          name: '???',
+          icon: () => silhouette,
+          canBuy: false,
+          reason: blockText(buy.reason, def),
+          info: () => infoBlock('???', 'Gear the port keeps for pilots it trusts.', []),
+        };
+      }
       const isMap = def.category === 'map';
       const rows: [string, string][] = [
         ['Effect', effectText(def, data.config.fuelPerJump)],
@@ -64,7 +81,7 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
         icon: () => outfitIcon(def, 48),
         badge: owned > 0 ? String(owned) : undefined,
         canBuy: buy.ok,
-        reason: buy.ok ? undefined : OUTFIT_BLOCK_TEXT[buy.reason],
+        reason: buy.ok ? undefined : blockText(buy.reason, def),
         canSell: sell.ok,
         info: () => infoBlock(def.name, def.description, rows, notes),
       };
@@ -79,7 +96,7 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
       const r = controller.buyOutfit(id);
       const def = data.outfits[id];
       if (r.ok) say(`Bought ${def.name} for ${formatCredits(def.price)}.`);
-      else say(OUTFIT_BLOCK_TEXT[r.reason], true);
+      else say(blockText(r.reason, def), true);
     },
     onSell: (id, say) => {
       const r = controller.sellOutfit(id);

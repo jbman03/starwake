@@ -174,3 +174,15 @@ describe('bestSellPort', () => {
     expect(bestSellPort(w(['a', 'b', 'c']), d, 'food', base * 10)).toBeNull();
   });
 });
+
+describe('pickTarget with a story mission active', () => {
+  it('ignores story destinations when judging reach, like job destinations', () => {
+    const story = {
+      id: 's', arc: 'side', title: 'S', giver: { name: 'G', title: 'T' }, offer: { where: 'bar' as const, ports: ['halcyon'] },
+      text: 'x', acceptText: 'y', declinable: true, onComplete: [], steps: [{ kind: 'land' as const, planet: 'the-midden', text: 'l' }],
+    };
+    const d = { ...data, story: { s: story } } as typeof data;
+    const busy = { ...world, story: { ...world.story, active: [{ id: 's', step: 0, deadlineDay: null }] } };
+    expect(pickTarget(busy, d, 'halcyon')).toEqual(pickTarget(world, d, 'halcyon'));
+  });
+});

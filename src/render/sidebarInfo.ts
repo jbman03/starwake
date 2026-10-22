@@ -65,7 +65,7 @@ export interface RadarBlip {
 }
 
 /** Blips relative to the radar centre (the ship), north up, clamped to `radius`. */
-export function radarBlips(world: WorldState, data: GameData, radius: number, traffic: Traffic | null = null, site: Vec2 | null = null): RadarBlip[] {
+export function radarBlips(world: WorldState, data: GameData, radius: number, traffic: Traffic | null = null, sites: Vec2 | readonly Vec2[] | null = null): RadarBlip[] {
   const k = radius / RADAR_RANGE;
   const ship = world.ship.pos;
   const place = (p: { x: number; y: number }, kind: RadarBlip['kind']): RadarBlip => {
@@ -92,7 +92,7 @@ export function radarBlips(world: WorldState, data: GameData, radius: number, tr
       targeted: n.id === traffic?.targetId,
     });
   }
-  if (site) out.push(place(site, 'site'));
+  for (const s of sites === null ? [] : 'x' in sites ? [sites] : sites) out.push(place(s, 'site'));
   return out;
 }
 

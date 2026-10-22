@@ -192,3 +192,64 @@ describe('paging', () => {
     expect(ids().length).toBe(12);
   });
 });
+
+describe('requiresStanding locked tiles', () => {
+  const REQ = { government: 'concord', level: 'friend' as const };
+
+  it('outfitter: a gated outfit is a locked ??? tile that names the government and cannot be bought', async () => {
+    const { root, ctx, c, data } = await setup('halcyon');
+    const def = data.outfits['cargo-pod'];
+    def.requiresStanding = REQ;
+    try {
+      showOutfitter(ctx, 'halcyon', () => {});
+      const t = tile(root, 'cargo-pod');
+      expect(t.textContent).toContain('???');
+      expect(t.textContent).not.toContain(def.name);
+      t.click();
+      expect(root.textContent).toContain('Requires Concord friendship');
+      expect(btn(root, 'Buy').disabled).toBe(true);
+      expect(c.outfitQuote('cargo-pod')).toEqual({ ok: false, reason: 'standing' });
+      // Friendship opens the tile.
+      c.world = { ...c.world, standing: { concord: 'friend' } };
+      showOutfitter(ctx, 'halcyon', () => {});
+      expect(tile(root, 'cargo-pod').textContent).toContain(def.name);
+    } finally {
+      delete def.requiresStanding;
+    }
+  });
+
+  it('outfitter: an outfit already fitted stays visible and sellable when the requirement now fails', async () => {
+    const { root, ctx, c } = await setup('halcyon');
+    const def = c.data.outfits['cargo-pod'];
+    def.requiresStanding = REQ;
+    try {
+      c.world = { ...c.world, outfits: { 'cargo-pod': 1 } };
+      expect(c.outfitQuote('cargo-pod')).toEqual({ ok: false, reason: 'standing' });
+      showOutfitter(ctx, 'halcyon', () => {});
+      const t = tile(root, 'cargo-pod');
+      expect(t.textContent).toContain(def.name);
+      expect(t.textContent).not.toContain('???');
+      t.click();
+      expect(btn(root, 'Sell').disabled).toBe(false);
+    } finally {
+      delete def.requiresStanding;
+    }
+  });
+
+  it('shipyard: a gated hull is a locked ??? tile that names the government', async () => {
+    const { root, ctx, data } = await setup('vanterre');
+    const hull = data.ships.mule;
+    hull.requiresStanding = REQ;
+    try {
+      showShipyard(ctx, 'vanterre', () => {});
+      const t = tile(root, 'mule');
+      expect(t.textContent).toContain('???');
+      expect(t.textContent).not.toContain(hull.name);
+      t.click();
+      expect(root.textContent).toContain('Requires Concord friendship');
+      expect(btn(root, 'Buy').disabled).toBe(true);
+    } finally {
+      delete hull.requiresStanding;
+    }
+  });
+});

@@ -15,7 +15,7 @@ export const ACCEPT_REASON = {
 export type JobInfo = Pick<Mission, 'destId' | 'tons' | 'passengers' | 'pay' | 'paidUpfront' | 'deadlineDay' | 'cargoName'>;
 
 /** "14 Mar 3207 (5 days left)", "… (due today)", or "No deadline". */
-export function deadlineText(job: JobInfo, day: number, data: GameData): string {
+export function deadlineText(job: Pick<JobInfo, 'deadlineDay'>, day: number, data: GameData): string {
   if (job.deadlineDay === null) return 'No deadline';
   const left = job.deadlineDay - day;
   const rest = left <= 0 ? 'due today' : left === 1 ? '1 day left' : `${left} days left`;

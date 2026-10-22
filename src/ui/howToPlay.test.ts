@@ -129,6 +129,14 @@ describe('How to Play', () => {
     expect(root.querySelector('[role="tabpanel"]')!.textContent).toContain('press P.');
   });
 
+  it('the story jobs text uses the interact key of the pilot', async () => {
+    const { ctx, root } = await setup({ bindings: rebind(DEFAULT_SETTINGS.bindings, 'interact', 0, 'KeyH') });
+    showHowToPlay(ctx, { onClose: () => {} });
+    tabButton(root, 'Missions').click();
+    const text = root.querySelector('[role="tabpanel"]')!.textContent!;
+    expect(text).toContain('In flight, H (or the Scan or Search button');
+  });
+
   it('Back calls onClose', async () => {
     const { ctx, root } = await setup();
     let closed = 0;

@@ -82,9 +82,9 @@ describe('planet screen', () => {
 
   it('Halcyon offers every service, in order, with hotkey chips, plus date and cargo', async () => {
     const { root } = await setup(1000, 150);
-    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Outfitter', 'Refuel — 300 cr', 'Mission Log', 'How to Play', 'Leave']);
+    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Outfitter', 'Spaceport Bar', 'Refuel — 300 cr', 'Mission Log', 'How to Play', 'Leave']);
     const chips = [...root.querySelectorAll('.sw-actions .sw-key')].map((k) => k.textContent);
-    expect(chips).toEqual(['C', 'M', 'O', 'R', 'K', 'H', 'L']);
+    expect(chips).toEqual(['C', 'M', 'O', 'B', 'R', 'K', 'H', 'L']);
     expect(root.textContent).toContain('1 Mar 3207');
     expect(root.textContent).toContain('Cargo: 20/20 t');
   });
@@ -96,7 +96,7 @@ describe('planet screen', () => {
   });
 
   it('a refuel-only port shows only Refuel, Mission Log and Leave', async () => {
-    const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'haywain');
+    const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'the-midden');
     expect(labels(root).map((l) => l?.split(' — ')[0])).toEqual(['Refuel', 'Mission Log', 'How to Play', 'Leave']);
   });
 

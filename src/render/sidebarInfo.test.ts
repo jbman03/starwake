@@ -91,6 +91,16 @@ describe('radarBlips', () => {
   });
 });
 
+describe('radarBlips with sites', () => {
+  it('draws one blip per site, from a single position or a list', () => {
+    const w = base();
+    const sites = [{ x: 10, y: 20 }, { x: -30, y: 5 }];
+    expect(radarBlips(w, data, 50, null, sites).filter((x) => x.kind === 'site')).toHaveLength(2);
+    expect(radarBlips(w, data, 50, null, sites[0]).filter((x) => x.kind === 'site')).toHaveLength(1);
+    expect(radarBlips(w, data, 50, null, []).filter((x) => x.kind === 'site')).toHaveLength(0);
+  });
+});
+
 describe('radarBlips with traffic', () => {
   it('adds an NPC dot in the government colour and flags the targeted one', () => {
     const w = base();

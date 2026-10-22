@@ -1,11 +1,11 @@
-import type { EncounterDef, GameData } from '../data/schemas';
+import type { EncounterDef, GameData, StoryMissionDef } from '../data/schemas';
 import type { Guide } from '../guide/guide';
 import { ACTION_GROUP, type ActionGroup, type ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
 import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import { saveSettings, type Settings } from '../save/settings';
-import { contextAction, siteReachable, type ContextAction } from '../sim/context';
+import { contextAction, siteReachable, type ContextAction, type PendingHint } from '../sim/context';
 import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, hubName, rollEncounter } from '../sim/encounters';
 import { hashString, mulberry32 } from '../sim/random';
 import { buy, sell, type BuyResult, type SellResult } from '../sim/cargo';
@@ -23,11 +23,28 @@ import {
 } from '../sim/missions';
 import { buyShip, shipDisplayName, shipQuote, type ShipQuote } from '../sim/shipyard';
 import { addNote, setFlag } from '../sim/story';
+import {
+  abandonStory,
+  acceptStory,
+  advanceStory,
+  answerStoryHail,
+  canAcceptStory,
+  STORY_BLOCK_REASON,
+  currentStep,
+  declineStory,
+  FIND_SITE_REVEAL,
+  nextLead,
+  storyHoldPos,
+  storyOffersAt,
+  storyHailAt,
+  storySitePos,
+  type StoryAccept,
+} from '../sim/storyMissions';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
-import { cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic } from '../sim/traffic';
-import type { Vec2 } from '../sim/vec';
+import { addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic } from '../sim/traffic';
+import { dist, type Vec2 } from '../sim/vec';
 import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
 import {
   applyRefuel,
@@ -53,12 +70,28 @@ export type PendingEncounter =
   | { def: EncounterDef; npcName: string; kind: 'hail'; expiresSec: number }
   | { def: EncounterDef; npcName: string; kind: 'site'; pos: Vec2 };
 
+/** A scan or find site placed in space for a story step. A find site is unseen until the ship is near. */
+export interface StorySite {
+  missionId: string;
+  pos: Vec2;
+  label: string;
+  hiddenUntilNear: boolean;
+}
+
+/** The named ship a story meet step is waiting on (it sits in `traffic`). */
+export interface StoryMeet {
+  missionId: string;
+  npcId: string;
+}
+
 /** What the encounter card shows. `blocked` is the reason a choice can't be taken, or null. */
 export interface EncounterView {
   kind: 'hail' | 'site';
   title: string;
   text: string;
   choices: { label: string; blocked: string | null }[];
+  /** True when the card can't be put off (no "Not now"). */
+  noDecline?: boolean;
 }
 
 export type ControllerEvent =
@@ -134,6 +167,18 @@ export class Controller {
   traffic: Traffic;
   /** The hail or site waiting in this system, or null. */
   pending: PendingEncounter | null = null;
+  /** The scan or find site of a story step in this system, or null. */
+  storySite: StorySite | null = null;
+  /** The meet ship of a story step in this system (its hail stands until answered), or null. */
+  storyMeet: StoryMeet | null = null;
+  /** The story mission that is hailing the pilot in this system (answering takes it), or null. */
+  storyHail: string | null = null;
+  /** The hail mission whose offer the open card shows (it is already taken), or null. */
+  private hailCard: string | null = null;
+  /** The story hail the pilot put off ("Not now", or it could not be taken): the context button ignores it until a jump. */
+  storyHailQuiet: string | null = null;
+  /** Which card the open encounter screen shows: the pending encounter's, the story meet's or a story hail's. */
+  private card: 'encounter' | 'story' | 'hail' | null = null;
   /** Planet the ship is sitting on (planet screen open), or null. */
   landedPlanetId: string | null = null;
   /** Most recent planet landed on this session; saves are landed snapshots taken there. */
@@ -220,6 +265,9 @@ export class Controller {
     this.world = world;
     this.traffic = seedTraffic(world, this.data, this.maxNpcs());
     this.pending = null;
+    this.card = null;
+    this.storySite = null;
+    this.storyMeet = null;
     this.pilot = { ...pilot };
     // No autosave: a fresh load would only rotate away the older backup. New pilots call save().
     this.landAt(planetId, false);
@@ -272,6 +320,7 @@ export class Controller {
     if (!this.landedPlanetId) return;
     this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
     this.prevShip = this.world.ship;
+    this.refreshStory();
     this.fx = { kind: 'takeoff', t: 0 };
     this.startFlight();
     this.emit({ type: 'sfx', sfx: 'takeoff' });
@@ -300,7 +349,7 @@ export class Controller {
   }
 
   currentContext(): ContextAction {
-    return contextAction(this.world, this.data, this.pending);
+    return contextAction(this.world, this.data, this.pendingHint());
   }
 
   /**
@@ -447,6 +496,40 @@ export class Controller {
     return shipQuote(this.world, this.data, this.landedPlanetId ?? '', shipId);
   }
 
+  /** Story missions the bar here offers today; none when not landed. */
+  storyOffers(): StoryMissionDef[] {
+    return this.landedPlanetId ? storyOffersAt(this.world, this.data, this.landedPlanetId) : [];
+  }
+
+  /** Whether the story mission can be taken now, and why not. */
+  storyAccept(id: string): StoryAccept {
+    return canAcceptStory(this.world, this.data, id);
+  }
+
+  acceptStory(id: string): StoryAccept {
+    const check = canAcceptStory(this.world, this.data, id);
+    if (check.ok) {
+      this.world = acceptStory(this.world, this.data, id);
+      this.refreshStory();
+    }
+    return check;
+  }
+
+  /** Give up a side mission (the main arc can't be abandoned); its cargo is dropped. */
+  abandonStory(id: string): void {
+    this.world = abandonStory(this.world, this.data, id);
+    this.refreshStory();
+  }
+
+  declineStory(id: string): void {
+    this.world = declineStory(this.world, id);
+  }
+
+  /** The next bar that has a mission for us, as a rumour. */
+  storyLead(): { portId: string; text: string } | null {
+    return nextLead(this.world, this.data);
+  }
+
   /** Today's jobs at the planet we're landed on; none when not landed. */
   offers(): MissionOffer[] {
     return this.landedPlanetId ? offersAt(this.world, this.data, this.landedPlanetId) : [];
@@ -575,6 +658,7 @@ export class Controller {
   private stepTraffic(dt: number): void {
     if (this.traffic.systemId !== this.world.systemId) {
       this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+      this.refreshStory();
       return;
     }
     if (this.world.jump) return;
@@ -605,6 +689,87 @@ export class Controller {
     return this.pending?.kind === 'site' ? this.pending.pos : null;
   }
 
+  /** The story site as the ship can see it: a find site only shows within FIND_SITE_REVEAL px. */
+  private visibleStorySite(): StorySite | null {
+    const s = this.storySite;
+    return s && (!s.hiddenUntilNear || dist(this.world.ship.pos, s.pos) <= FIND_SITE_REVEAL) ? s : null;
+  }
+
+  /** Every site to draw and show on radar: the encounter's and the story's visible one. */
+  sitePositions(): Vec2[] {
+    return [this.sitePos(), this.visibleStorySite()?.pos ?? null].filter((p): p is Vec2 => p !== null);
+  }
+
+  /** The name on the incoming hail (an encounter's or a story meet's), or null with no hail. */
+  hailName(forButton = false): string | null {
+    if (this.pending?.kind === 'hail') return this.pending.npcName;
+    if (this.storyHail && !(forButton && this.storyHail === this.storyHailQuiet)) return this.data.story[this.storyHail]?.giver.name ?? null;
+    const step = this.storyMeet ? currentStep(this.world, this.data, this.storyMeet.missionId) : null;
+    return step?.kind === 'meet' ? step.ship.name : null;
+  }
+
+  /** What the context button knows of the encounter and story sites and hails here. */
+  private pendingHint(): PendingHint {
+    const sites = this.sitePositions();
+    const near = sites.find((p) => siteReachable(this.world, p));
+    if (near) return { kind: 'site', pos: near };
+    if (this.hailName(true) !== null) return { kind: 'hail' };
+    return sites[0] ? { kind: 'site', pos: sites[0] } : null;
+  }
+
+  /** "Scan" or "Search" when the site the ship can open right now is a story one, else null (the generic label). */
+  openSiteVerb(): string | null {
+    const s = this.visibleStorySite();
+    const enc = this.sitePos();
+    if (!s || !siteReachable(this.world, s.pos) || (enc && siteReachable(this.world, enc))) return null;
+    return currentStep(this.world, this.data, s.missionId)?.kind === 'find' ? 'Search' : 'Scan';
+  }
+
+  /**
+   * Work out the story transients of this system from the current step of each active mission: its
+   * scan or find site, and its meet ship (a pinned NPC in `traffic`). Safe to call at any time: the
+   * same step gives the same place, and a ship that is already there is left flying.
+   */
+  private refreshStory(): void {
+    const sys = this.world.systemId;
+    let site: StorySite | null = null;
+    let meet: StoryMeet | null = null;
+    let spec: Parameters<typeof addStoryNpc>[1] | null = null;
+    for (const a of this.world.story.active) {
+      const step = currentStep(this.world, this.data, a.id);
+      if (!step || !('system' in step) || step.system !== sys) continue;
+      if ((step.kind === 'scan' || step.kind === 'find') && !site) {
+        site = { missionId: a.id, pos: storySitePos(this.world, a.id, sys), label: step.site.label, hiddenUntilNear: step.kind === 'find' };
+      } else if (step.kind === 'meet' && !meet) {
+        meet = { missionId: a.id, npcId: `story-${a.id}-${a.step}` };
+        spec = { id: meet.npcId, name: step.ship.name, shipId: step.ship.shipId, government: step.ship.government, holdPos: storyHoldPos(this.world, a.id, sys) };
+      }
+    }
+    this.storySite = site;
+    this.storyMeet = meet;
+    this.storyHail = storyHailAt(this.world, this.data, sys)?.id ?? null;
+    if (this.storyHail !== this.storyHailQuiet) this.storyHailQuiet = null;
+    if (this.traffic.systemId !== sys) return; // the reseed that follows calls this again
+    // Story ships left over from a finished step go; the current one stays where it is.
+    const stale = (n: { id: string; hold?: Vec2 }) => n.hold !== undefined && n.id !== meet?.npcId;
+    let t = this.traffic;
+    if (t.npcs.some(stale)) {
+      const target = t.npcs.find((n) => n.id === t.targetId);
+      t = { ...t, npcs: t.npcs.filter((n) => !stale(n)), targetId: target && stale(target) ? null : t.targetId };
+    }
+    if (spec && !t.npcs.some((n) => n.id === spec.id)) t = addStoryNpc(t, spec);
+    this.traffic = t;
+  }
+
+  /** Scan or search the story site: the step is done, flight goes on. */
+  private useStorySite(site: StorySite): void {
+    const r = advanceStory(this.world, this.data, { kind: 'site', missionId: site.missionId });
+    this.world = r.world;
+    this.refreshStory();
+    this.emit({ type: 'sfx', sfx: 'site' });
+    if (r.messages.length > 0) this.emit({ type: 'message', text: r.messages.join(' ') });
+  }
+
   private lapseHail(dt: number): void {
     const p = this.pending;
     if (p?.kind !== 'hail') return;
@@ -632,18 +797,62 @@ export class Controller {
    */
   openEncounter(): boolean {
     const p = this.pending;
-    if (!p || !this.flying || this.fx || this.world.jump) return false;
-    if (p.kind === 'site' && !siteReachable(this.world, p.pos)) {
-      this.emit({ type: 'message', text: 'Move closer to the site and slow down to open it.' });
-      return false;
+    if (!this.flying || this.fx || this.world.jump) return false;
+    // A reachable site wins (the encounter's, then the story's), then a hail (the encounter's, then the story's).
+    const story = this.visibleStorySite();
+    if (p?.kind === 'site' && siteReachable(this.world, p.pos)) return this.openCard('encounter');
+    if (story && siteReachable(this.world, story.pos)) {
+      this.useStorySite(story);
+      this.checkContext();
+      return true;
     }
+    if (p?.kind === 'hail') return this.openCard('encounter');
+    if (this.storyHail) {
+      const id = this.storyHail;
+      const def = this.data.story[id];
+      if (def && !def.declinable) {
+        // A hail that can't be put off takes the mission at once; the card then shows its offer and accept text.
+        const check = canAcceptStory(this.world, this.data, id);
+        if (!check.ok) {
+          this.storyHailQuiet = id;
+          this.emit({ type: 'message', text: `${def.giver.name} has an offer, but: ${STORY_BLOCK_REASON[check.reason]}.` });
+          this.checkContext();
+          return false;
+        }
+        const r = answerStoryHail(this.world, this.data, id);
+        this.world = r.world;
+        if (r.messages.length > 0) this.emit({ type: 'message', text: r.messages.join(' ') });
+      }
+      // A hail that can be put off opens as an offer: Accept takes it, Not now leaves it.
+      this.hailCard = id;
+      this.refreshStory();
+      return this.openCard('hail');
+    }
+    if (this.storyMeet) return this.openCard('story');
+    if (p?.kind === 'site' || story) {
+      this.emit({ type: 'message', text: 'Move closer to the site and slow down to open it.' });
+    }
+    return false;
+  }
+
+  private openCard(card: 'encounter' | 'story' | 'hail'): true {
+    this.card = card;
     this.pauseFlight();
     this.emit({ type: 'encounter' });
     return true;
   }
 
-  /** "Not now" on a hail: it lapses at once. A site stays where it is. */
+  /** "Not now" on a hail: it lapses at once (a story hail stands). A site stays where it is. */
   declineEncounter(): void {
+    if (this.card === 'story' || this.card === 'hail') {
+      if (this.card === 'hail' && this.hailCard && !this.world.story.active.some((a) => a.id === this.hailCard)) {
+        this.storyHailQuiet = this.hailCard;
+      }
+      this.card = null;
+      this.hailCard = null;
+      this.checkContext();
+      return;
+    }
     if (this.pending?.kind === 'hail') {
       this.pending = null;
       this.checkContext();
@@ -652,9 +861,31 @@ export class Controller {
 
   /** The pending encounter as the card shows it (text filled in, blocked choices marked), or null. */
   encounterView(): EncounterView | null {
+    const hail = this.card === 'hail' && this.hailCard ? this.data.story[this.hailCard] : undefined;
+    if (hail) {
+      const ctx = this.cardContext(hail.giver.name);
+      if (this.world.story.active.some((a) => a.id === hail.id)) {
+        return { kind: 'hail', title: hail.title, text: `${fillText(hail.text, ctx)} ${fillText(hail.acceptText, ctx)}`, choices: [{ label: 'Understood', blocked: null }], noDecline: true };
+      }
+      const check = canAcceptStory(this.world, this.data, hail.id);
+      return { kind: 'hail', title: hail.title, text: fillText(hail.text, ctx), choices: [{ label: 'Accept', blocked: check.ok ? null : STORY_BLOCK_REASON[check.reason] }] };
+    }
+    const meet = this.card === 'story' && this.storyMeet ? currentStep(this.world, this.data, this.storyMeet.missionId) : null;
+    if (meet?.kind === 'meet') {
+      const ctx = this.cardContext(meet.ship.name);
+      return {
+        kind: 'hail',
+        title: fillText(meet.card.title, ctx),
+        text: fillText(meet.card.text, ctx),
+        choices: meet.card.choices.map((c) => {
+          const block = choiceBlock(this.world, this.data, c, `story:${this.storyMeet!.missionId}`);
+          return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null };
+        }),
+      };
+    }
     const p = this.pending;
     if (!p) return null;
-    const ctx = { ship: p.npcName, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: shipDisplayName(this.world.shipName, this.world.shipId, this.data), hub: hubName(this.data) };
+    const ctx = this.cardContext(p.npcName);
     return {
       kind: p.kind,
       title: fillText(p.def.title, ctx),
@@ -666,8 +897,30 @@ export class Controller {
     };
   }
 
+  private cardContext(ship: string) {
+    return { ship, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: shipDisplayName(this.world.shipName, this.world.shipId, this.data), hub: hubName(this.data) };
+  }
+
   /** Take choice `idx`: null if there is no encounter or the choice is blocked; else the outcome lines. */
   chooseEncounter(idx: number): { messages: string[] } | null {
+    if (this.card === 'hail') {
+      const id = this.hailCard;
+      const def = id ? this.data.story[id] : undefined;
+      if (idx !== 0 || !id || !def) return null;
+      let messages: string[] = [];
+      if (!this.world.story.active.some((a) => a.id === id)) {
+        const r = answerStoryHail(this.world, this.data, id);
+        if (r.world === this.world) return null; // it can't be taken (the choice shows why)
+        this.world = r.world;
+        messages = [fillText(def.acceptText, this.cardContext(def.giver.name)), ...r.messages];
+      }
+      this.card = null;
+      this.hailCard = null;
+      this.refreshStory();
+      this.checkContext();
+      return { messages };
+    }
+    if (this.card === 'story') return this.chooseStory(idx);
     const p = this.pending;
     const choice = p?.def.choices[idx];
     if (!p || !choice || choiceBlock(this.world, this.data, choice, p.def.id)) return null;
@@ -676,6 +929,20 @@ export class Controller {
     this.pending = null;
     this.checkContext();
     return { messages: [...r.messages, ...r.missions.map((m) => `New job: ${m.title}`)] };
+  }
+
+  /** A story meet card's choice: its outcomes go to the story rules, which advance the step. */
+  private chooseStory(idx: number): { messages: string[] } | null {
+    const meet = this.storyMeet;
+    const step = meet ? currentStep(this.world, this.data, meet.missionId) : null;
+    const choice = step?.kind === 'meet' ? step.card.choices[idx] : undefined;
+    if (!meet || !choice || choiceBlock(this.world, this.data, choice, `story:${meet.missionId}`)) return null;
+    const r = advanceStory(this.world, this.data, { kind: 'card', missionId: meet.missionId, outcomes: choice.outcomes });
+    this.world = r.world;
+    this.card = null;
+    this.refreshStory();
+    this.checkContext();
+    return { messages: r.messages };
   }
 
   /** Flip mute, save it and say so (the HUD shows the message in flight, the planet screen while landed). */
@@ -707,6 +974,13 @@ export class Controller {
   private handleEvents(events: SimEvent[]): void {
     const messages = events.flatMap((e) => (e.type === 'message' ? [e.text] : []));
     const towed = events.some((e) => e.type === 'towed');
+    // Arriving may finish a story step (story deadlines were checked by the day advance).
+    const arrival = events.find((e): e is Extract<SimEvent, { type: 'arrived' }> => e.type === 'arrived');
+    if (arrival) {
+      const r = advanceStory(this.world, this.data, { kind: 'arrived', systemId: arrival.systemId });
+      this.world = r.world;
+      messages.push(...r.messages);
+    }
     if (towed) this.notices.push(...messages);
     for (const e of events) {
       if (e.type === 'message') continue;
@@ -718,14 +992,21 @@ export class Controller {
       }
       if (e.type === 'towed') {
         this.pending = null;
+        this.card = null;
         this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
         this.landAt(e.planetId);
       } else if (e.type === 'jumped') {
         this.pending = null;
+        this.card = null;
+        this.storySite = null;
+        this.storyMeet = null;
+        this.storyHail = null;
+        this.storyHailQuiet = null;
         this.prevShip = this.world.ship; // no interpolation across systems
         this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
       }
       if (e.type === 'arrived') {
+        this.refreshStory();
         this.pending = this.rollPending();
         if (this.pending) this.world = { ...this.world, lastEncounterDay: this.world.day };
         this.emit(e);
@@ -758,6 +1039,13 @@ export class Controller {
       this.completion = { missions: done.completed, pay: done.pay };
       this.emit({ type: 'missionsCompleted', missions: done.completed, pay: done.pay });
     }
+    if (autosave) {
+      // A real landing (not loading a save) can finish a story step; its messages wait on the planet screen.
+      const story = advanceStory(this.world, this.data, { kind: 'landed', planetId });
+      this.world = story.world;
+      this.notices.push(...story.messages);
+    }
+    this.refreshStory();
     if (autosave) this.autosave();
   }
 

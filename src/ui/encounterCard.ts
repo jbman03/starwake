@@ -37,7 +37,7 @@ export function showEncounterCard(ctx: UiContext, view: EncounterView, onChoose:
   };
   const notNow = button('Not now', decline, { hotkey: hotkeyFor(bindings, 'back') });
   const doneBtn = button('Done', close, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'back') });
-  const actions = el('div', { class: 'sw-ex-actions' }, [notNow]);
+  const actions = el('div', { class: 'sw-ex-actions' }, view.noDecline ? [doneBtn] : [notNow]);
 
   function choose(i: number): void {
     const c = view.choices[i];

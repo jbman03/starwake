@@ -1,7 +1,7 @@
 import type { GameData, PlanetDef, ShipDef } from '../data/schemas';
 import { autopilotInput } from './assists';
 import { stepShip } from './flight';
-import { lanesOf } from './galaxy';
+import { lanesOf, systemOpen } from './galaxy';
 import { hashString, mulberry32, pick, randInt } from './random';
 import { JUMP_POINT_MARGIN, SYSTEM_CENTER } from './rules';
 import type { ShipState, WorldState } from './types';
@@ -22,6 +22,8 @@ export interface Npc {
   phase: NpcPhase;
   phaseT: number;
   thrusting: boolean;
+  /** A story ship: it flies here and waits (never lands or jumps). */
+  hold?: Vec2;
 }
 
 export interface Traffic {
@@ -39,6 +41,10 @@ const LAND_SEC = 0.4;
 /** A ship still flying after this long finishes its errand where it is (safety net). */
 const FLY_TIMEOUT_SEC = 150;
 const EXIT_RADIUS = 60;
+/** A story ship counts as arrived within this many px of its hold position. */
+const HOLD_RADIUS = 30;
+/** Where a story ship starts, relative to its hold position, when none is given. */
+const HOLD_APPROACH: Vec2 = { x: 600, y: 0 };
 const ZERO: Vec2 = { x: 0, y: 0 };
 
 /** Chance weight by hull role. */
@@ -62,6 +68,7 @@ const portsOf = (data: GameData, systemId: string): PlanetDef[] =>
 export function trafficLevel(data: GameData, systemId: string): [number, number] {
   const sys = data.systems[systemId];
   if (sys.traffic) return [sys.traffic[0], sys.traffic[1]];
+  if (sys.government === 'unlit') return [0, 2];
   if (portsOf(data, systemId).every((p) => p.techTier <= 1)) return [0, 2];
   return sys.government === 'concord' ? [3, 5] : [2, 3];
 }
@@ -82,9 +89,9 @@ function pickHull(data: GameData, systemId: string, r: () => number): ShipDef {
   return pool[pool.length - 1];
 }
 
-/** The lanes NPCs travel: never into a hidden system, so Hushwater stays off the traffic map. */
+/** The lanes NPCs travel: into a hidden system only once its flag is set (lanesOf already requires it). */
 export function npcLanes(world: WorldState, data: GameData): string[] {
-  return lanesOf(data, world.systemId, world.flags).filter((l) => !data.systems[l]?.hidden);
+  return lanesOf(data, world.systemId, world.flags).filter((l) => data.systems[l] && systemOpen(data.systems[l], world.flags));
 }
 
 /** The lane an NPC uses to enter or leave, chosen from its id so it never needs storing. */
@@ -172,6 +179,12 @@ function stepNpc(npc: Npc, world: WorldState, data: GameData, dt: number, events
   }
   if (npc.phase === 'gone') return npc;
 
+  if (npc.hold) {
+    const r = autopilotInput(npc.ship, def, npc.hold, HOLD_RADIUS, AUTOPILOT_ARRIVE_SPEED);
+    if (r.arrived) return { ...npc, ship: { ...npc.ship, vel: { ...ZERO } }, phaseT, thrusting: false };
+    return { ...npc, ship: stepShip(npc.ship, def, r.input, dt), phaseT, thrusting: r.input.thrust };
+  }
+
   const port = npc.errand === 'arrive' && npc.portId ? data.planets[npc.portId] : null;
   const dest = port ? port.pos : exitPos(world, data, npc.id);
   const radius = port ? port.radius + def.radius + data.config.arrivalRadius : EXIT_RADIUS;
@@ -200,7 +213,8 @@ export function stepTraffic(
   let next: Traffic = { ...t, npcs, nextSpawnSec: t.nextSpawnSec - dt };
   if (next.nextSpawnSec <= 0) {
     const want = wantedCount(world, data, t.systemId, maxNpcs);
-    if (npcs.length < want && npcs.length < maxNpcs) {
+    const ordinary = npcs.filter((n) => !n.hold).length;
+    if (ordinary < want && ordinary < maxNpcs) {
       const { npc, event } = spawnNpc(next, world, data, false);
       if (event) events.push(event);
       next = { ...next, npcs: [...npcs, npc], spawnCount: next.spawnCount + 1 };
@@ -208,6 +222,28 @@ export function stepTraffic(
     next = { ...next, nextSpawnSec: nextWait(world, t.systemId, next.spawnCount) };
   }
   return { traffic: next, events };
+}
+
+/** Add a named story ship that flies to `holdPos` and waits there. It is targetable like any other ship. */
+export function addStoryNpc(
+  t: Traffic,
+  spec: { id: string; name: string; shipId: string; government: string; holdPos: Vec2; from?: Vec2 },
+): Traffic {
+  const from = spec.from ?? add(spec.holdPos, HOLD_APPROACH);
+  const npc: Npc = {
+    id: spec.id,
+    name: spec.name,
+    shipId: spec.shipId,
+    government: spec.government,
+    errand: 'pass',
+    ship: { pos: from, vel: { ...ZERO }, heading: angleOf(sub(spec.holdPos, from)), fuel: 0 },
+    portId: null,
+    phase: 'fly',
+    phaseT: 0,
+    thrusting: false,
+    hold: spec.holdPos,
+  };
+  return { ...t, npcs: [...t.npcs.filter((n) => n.id !== spec.id), npc] };
 }
 
 /** "Brass Heron — Concord Mule (freighter)": name, government's first word, hull's first word, role. */

@@ -8,8 +8,10 @@ import { worldFromPilot } from '../save/pilot';
 import type { ActionId } from '../input/actions';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import { PilotStore } from '../save/store';
+import type { StoryMissionDef } from '../data/schemas';
 import { canAccept } from '../sim/missions';
 import { newWorld } from '../sim/world';
+import { contextLabel } from '../ui/rails';
 import { Controller, LANDING_FX_SEC, type ControllerEvent } from './controller';
 
 /** Run `sec` of frames at 60 fps (the landing and take-off effects take time). */
@@ -829,5 +831,313 @@ describe('Controller trade, missions and routes', () => {
       expect(c.chooseEncounter(idx)).toBeNull();
       expect(c.pending).not.toBeNull();
     });
+  });
+});
+
+describe('Controller story steps in flight', () => {
+  const card = {
+    title: 'A signal',
+    text: 'The ship hails you.',
+    choices: [
+      { label: 'Listen', outcomes: [{ type: 'flag' as const, flag: 'heard' }] },
+      { label: 'Pay', outcomes: [], needs: { credits: 999999 } },
+    ],
+  };
+  const mission = (id: string, steps: StoryMissionDef['steps']): StoryMissionDef => ({
+    id,
+    arc: 'side',
+    title: `Story ${id}`,
+    giver: { name: 'Ansel Voss', title: 'Dockmaster' },
+    offer: { where: 'bar', ports: ['halcyon'] },
+    text: 'offer',
+    acceptText: 'ok',
+    declinable: true,
+    steps,
+    onComplete: [],
+  });
+  const scan = mission('sc', [
+    { kind: 'scan', system: 'calder', site: { label: 'Wreck' }, text: 'Scan the wreck.' },
+    { kind: 'land', planet: 'halcyon', text: 'Land.' },
+  ]);
+  const find = mission('fi', [{ kind: 'find', system: 'calder', site: { label: 'Cache' }, text: 'Find the cache.' }]);
+  const meet = mission('me', [
+    { kind: 'meet', system: 'calder', ship: { name: 'Orrin Vale', shipId: 'courier', government: 'concord' }, card, text: 'Meet Orrin.' },
+    { kind: 'land', planet: 'halcyon', text: 'Land.' },
+  ]);
+
+  /** A flying controller in calder with the given story missions taken. */
+  async function flying(...defs: StoryMissionDef[]) {
+    const data = { ...(await loadGameData()) };
+    data.story = Object.fromEntries(defs.map((d) => [d.id, d]));
+    const target = new EventTarget();
+    const c = new Controller(data, { ...DEFAULT_SETTINGS }, target);
+    c.beginSession(newWorld(data), { id: 'p1', name: 'Ava' }, 'halcyon');
+    for (const d of defs) c.acceptStory(d.id);
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.1);
+    return { c, data, target };
+  }
+  const jumpTo = (c: Controller, systemId: string) => {
+    c.world = { ...c.world, route: [systemId], jump: { toSystemId: systemId, t: 99 } };
+    c.update(0.1);
+  };
+  const gap = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+  const press = (c: Controller, target: EventTarget, code: string) => {
+    target.dispatchEvent(keyEvent('keydown', code));
+    target.dispatchEvent(keyEvent('keyup', code));
+    c.update(0.1);
+  };
+
+  it('places a scan site 600-1000 px from the centre', async () => {
+    const { c } = await flying(scan);
+    const site = c.storySite!;
+    expect(site).toMatchObject({ missionId: 'sc', label: 'Wreck', hiddenUntilNear: false });
+    const d = Math.hypot(site.pos.x, site.pos.y);
+    expect(d).toBeGreaterThanOrEqual(600);
+    expect(d).toBeLessThanOrEqual(1000);
+    expect(c.sitePositions()).toContainEqual(site.pos);
+  });
+
+  it('leaving the system clears the story site and it returns on re-entry', async () => {
+    const { c } = await flying(scan);
+    const pos = c.storySite!.pos;
+    jumpTo(c, 'vesk');
+    expect(c.world.systemId).toBe('vesk');
+    expect(c.storySite).toBeNull();
+    expect(c.sitePositions()).toEqual([]);
+    jumpTo(c, 'calder');
+    expect(c.world.systemId).toBe('calder');
+    expect(c.storySite?.pos).toEqual(pos);
+  });
+
+  it('a find site stays off radar until the ship is within 600 px', async () => {
+    const { c } = await flying(find);
+    const site = c.storySite!;
+    expect(site.hiddenUntilNear).toBe(true);
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: site.pos.x + 900, y: site.pos.y } } };
+    expect(c.sitePositions()).toEqual([]);
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: site.pos.x + 550, y: site.pos.y } } };
+    expect(c.sitePositions()).toEqual([site.pos]);
+  });
+
+  it('interact at a site advances the step; too far away does not', async () => {
+    const { c, target } = await flying(scan);
+    const site = c.storySite!;
+    const msgs: string[] = [];
+    c.on('message', (e) => msgs.push(e.text));
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: site.pos.x + 300, y: site.pos.y }, vel: { x: 0, y: 0 } } };
+    press(c, target, 'KeyY');
+    expect(c.world.story.active[0].step).toBe(0);
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { ...site.pos }, vel: { x: 0, y: 0 } } };
+    expect(c.currentContext()).toBe('openSite');
+    expect(c.openSiteVerb()).toBe('Scan');
+    press(c, target, 'KeyY');
+    expect(c.world.story.active[0].step).toBe(1);
+    expect(c.storySite).toBeNull();
+    expect(msgs.join(' ')).toContain('Land.');
+  });
+
+  it('the context button fires a find site as Search', async () => {
+    const { c } = await flying(find);
+    const site = c.storySite!;
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { ...site.pos }, vel: { x: 0, y: 0 } } };
+    expect(c.openSiteVerb()).toBe('Search');
+    c.doContextAction();
+    expect(c.world.story.done).toEqual(['fi']);
+  });
+
+  it('the meet ship waits at its hold position and never lands', async () => {
+    const { c } = await flying(meet);
+    expect(c.storyMeet).toMatchObject({ missionId: 'me' });
+    const id = c.storyMeet!.npcId;
+    for (let i = 0; i < 20 * 100; i++) c.update(0.05);
+    const npc = c.traffic.npcs.find((n) => n.id === id)!;
+    expect(npc).toBeDefined();
+    expect(npc.name).toBe('Orrin Vale');
+    expect(npc.phase).toBe('fly');
+    expect(gap(npc.ship.pos, npc.hold!)).toBeLessThan(60);
+    c.targetShip(id);
+    expect(c.traffic.targetId).toBe(id);
+  });
+
+  it('a meet hail opens the card, and a card choice advances the step', async () => {
+    const { c } = await flying(meet);
+    expect(c.hailName()).toBe('Orrin Vale');
+    const seen: ControllerEvent[] = [];
+    c.on('encounter', (e) => seen.push(e));
+    expect(c.openEncounter()).toBe(true);
+    expect(seen).toHaveLength(1);
+    expect(c.isFlying).toBe(false);
+    const view = c.encounterView()!;
+    expect(view.title).toBe('A signal');
+    expect(view.choices.map((x) => x.blocked !== null)).toEqual([false, true]);
+    expect(c.chooseEncounter(1)).toBeNull();
+    const r = c.chooseEncounter(0)!;
+    expect(r.messages.join(' ')).toContain('Land.');
+    expect(c.world.flags).toContain('heard');
+    expect(c.world.story.active[0].step).toBe(1);
+    expect(c.storyMeet).toBeNull();
+    expect(c.traffic.npcs.some((n) => n.name === 'Orrin Vale')).toBe(false);
+  });
+
+  it('declining a meet hail keeps it', async () => {
+    const { c } = await flying(meet);
+    c.openEncounter();
+    c.declineEncounter();
+    expect(c.storyMeet).not.toBeNull();
+    expect(c.hailName()).toBe('Orrin Vale');
+  });
+
+  it('on a phone a meet hail is the context button only', async () => {
+    const { c } = await flying(meet);
+    expect(c.currentContext()).toBe('answerHail');
+    expect(contextLabel('answerHail', c.world, c.data, c.openSiteVerb())).toBe('Answer hail');
+    c.doContextAction();
+    expect(c.isFlying).toBe(false);
+    expect(c.encounterView()?.title).toBe('A signal');
+  });
+
+  const hailDef = (over: Partial<StoryMissionDef> = {}): StoryMissionDef => ({
+    ...mission('hl', [
+      { kind: 'go', system: 'tessaly', text: 'Go.' },
+      { kind: 'land', planet: 'vanterre', text: 'Land.' },
+    ]),
+    offer: { where: 'hail', systems: ['tessaly'] },
+    text: 'We saw you coming.',
+    acceptText: 'Welcome in.',
+    ...over,
+  });
+  /** Hailed in tessaly by a hail mission (flying() took it, so give it back first). */
+  async function hailed(def: StoryMissionDef) {
+    const f = await flying(def);
+    f.c.world = { ...f.c.world, story: { ...f.c.world.story, active: [] }, missions: [] };
+    jumpTo(f.c, 'tessaly');
+    f.c.pending = null; // a random encounter may have rolled; these tests are about the story hail
+    return f;
+  }
+
+  it('a hail mission that cannot be put off is taken on answering and shows its offer and accept text', async () => {
+    const { c } = await hailed(hailDef({ declinable: false }));
+    expect(c.storyHail).toBe('hl');
+    expect(c.hailName()).toBe('Ansel Voss');
+    expect(c.currentContext()).toBe('answerHail');
+    expect(c.openEncounter()).toBe(true);
+    expect(c.world.story.active.map((a) => a.id)).toEqual(['hl']);
+    expect(c.world.story.active[0].step).toBe(1); // the arrival counted as the go step
+    expect(c.storyHail).toBeNull();
+    const view = c.encounterView()!;
+    expect(view.text).toBe('We saw you coming. Welcome in.');
+    expect(view.choices).toEqual([{ label: 'Understood', blocked: null }]);
+    expect(view.noDecline).toBe(true);
+    expect(c.chooseEncounter(0)).toEqual({ messages: [] });
+    expect(c.encounterView()).toBeNull();
+  });
+
+  it('a declinable hail opens as an offer: Accept takes it', async () => {
+    const { c } = await hailed(hailDef());
+    expect(c.openEncounter()).toBe(true);
+    expect(c.world.story.active).toEqual([]);
+    const view = c.encounterView()!;
+    expect(view.text).toBe('We saw you coming.');
+    expect(view.choices).toEqual([{ label: 'Accept', blocked: null }]);
+    expect(view.noDecline).toBeUndefined();
+    const r = c.chooseEncounter(0)!;
+    expect(r.messages[0]).toBe('Welcome in.');
+    expect(c.world.story.active.map((a) => a.id)).toEqual(['hl']);
+    expect(c.storyHail).toBeNull();
+  });
+
+  it('"Not now" on a story hail drops it below land on the context button, and a jump brings it back', async () => {
+    const { c } = await hailed(hailDef());
+    c.world = { ...c.world, targetPlanetId: null, assist: { kind: 'none' } };
+    expect(c.currentContext()).toBe('answerHail');
+    c.openEncounter();
+    c.declineEncounter();
+    expect(c.world.story.active).toEqual([]);
+    expect(c.storyHail).toBe('hl'); // still hailing; the interact key can open it again
+    expect(c.hailName()).toBe('Ansel Voss');
+    expect(c.currentContext()).not.toBe('answerHail');
+    const planet = Object.values(c.data.planets).find((p) => p.systemId === 'tessaly')!;
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: planet.pos.x + 100, y: planet.pos.y } } };
+    expect(c.currentContext()).toBe('land');
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 99999, y: 99999 } } };
+    expect(c.currentContext()).toBe('plotCourse');
+    c.startFlight(); // the card's close resumes flight
+    expect(c.openEncounter()).toBe(true); // interact still answers it
+    c.declineEncounter();
+    c.startFlight();
+    jumpTo(c, 'vesk');
+    expect(c.storyHailQuiet).toBeNull();
+  });
+
+  it('a hail that cannot be taken says why and drops off the context button', async () => {
+    const hold = Object.values((await loadGameData()).ships).find((x) => x.id === 'courier')!.cargo;
+    const { c } = await hailed(
+      hailDef({
+        declinable: false,
+        steps: [
+          { kind: 'deliver', planet: 'vanterre', cargo: { name: 'Lead', tons: hold + 50 }, text: 'Carry.' },
+        ],
+      }),
+    );
+    const msgs: string[] = [];
+    c.on('message', (e) => msgs.push(e.text));
+    expect(c.openEncounter()).toBe(false);
+    expect(msgs.join(' ')).toContain('Not enough free hold');
+    expect(c.world.story.active).toEqual([]);
+    expect(c.currentContext()).not.toBe('answerHail');
+  });
+
+  it('arrival advances a go step', async () => {
+    const go = mission('go', [{ kind: 'go', system: 'vesk', text: 'Go to Vesk.' }, { kind: 'land', planet: 'halcyon', text: 'Back.' }]);
+    const { c } = await flying(go);
+    jumpTo(c, 'vesk');
+    expect(c.world.story.active[0].step).toBe(1);
+  });
+
+  it('landing advances a land step and the message waits for the planet screen', async () => {
+    const land = mission('ld', [{ kind: 'land', planet: 'halcyon', text: 'Land.' }]);
+    const { c } = await flying(land);
+    c.selectPlanet('halcyon');
+    c.world = { ...c.world, assist: { kind: 'autopilot', dest: { type: 'planet', id: 'halcyon' }, autoLand: true } };
+    for (let i = 0; i < 60 * 60 && c.landedPlanetId === null; i++) c.update(1 / 60);
+    expect(c.landedPlanetId).toBe('halcyon');
+    expect(c.world.story.done).toEqual(['ld']);
+    expect(c.takeNotices().join(' ')).toContain('Story complete');
+  });
+
+  it('a missed deadline on a day advance shows as a message', async () => {
+    const late = mission('late', [{ kind: 'deliver', planet: 'merrow', cargo: { name: 'Parcel', tons: 1 }, deadlineDays: 1, text: 'Deliver.' }]);
+    const { c } = await flying(late);
+    const msgs: string[] = [];
+    c.on('message', (e) => msgs.push(e.text));
+    c.world = { ...c.world, day: c.world.day + 5 };
+    jumpTo(c, 'vesk');
+    expect(msgs.join(' ')).toContain('Mission failed: Story late');
+    expect(c.world.story.failed).toEqual(['late']);
+  });
+
+  it('loading a save mid-M3 at Brackwater brings the meet ship and its hail back', async () => {
+    const data = await loadGameData();
+    const target = new EventTarget();
+    const c = new Controller(data, { ...DEFAULT_SETTINGS }, target);
+    const w = newWorld(data);
+    c.beginSession(
+      {
+        ...w,
+        systemId: 'brackwater',
+        flags: ['core-cut'],
+        story: { ...w.story, active: [{ id: 'm3-low-tide', step: 0, deadlineDay: null }] },
+      },
+      { id: 'p1', name: 'Ava' },
+      'brackwater',
+    );
+    expect(c.storyMeet).toMatchObject({ missionId: 'm3-low-tide' });
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.1);
+    expect(c.traffic.npcs.some((n) => n.name === 'Low Tide')).toBe(true);
+    expect(c.hailName()).toBe('Low Tide');
+    expect(c.openEncounter()).toBe(true);
+    expect(c.encounterView()?.title).toBe('The Low Tide');
   });
 });
