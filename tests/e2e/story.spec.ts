@@ -147,6 +147,36 @@ test.describe('desktop', () => {
   });
 });
 
+test.describe('story hulls', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('a Concord friend who finished the Relight arc can buy the Lantern-tender at Concordance', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Tender');
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      const c = h.controller;
+      c.world = {
+        ...c.world,
+        credits: 500_000,
+        flags: [...c.world.flags, 'concord-done'],
+        standing: { ...c.world.standing, concord: 'friend' },
+      };
+      h.teleport('concordance');
+    });
+    await expect(page.getByTestId('planet-screen')).toContainText('Concordance');
+    await page.keyboard.press('KeyY');
+    const shop = page.getByTestId('shipyard');
+    await expect(shop).toBeVisible();
+    const tile = shop.locator('[data-item="lantern-tender"]');
+    await expect(tile).not.toContainText('???');
+    await expect(tile).toContainText('Lantern-tender');
+    await tile.click();
+    await expect(shop.getByRole('button', { name: 'Buy', exact: true })).toBeEnabled();
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('phone', () => {
   test.use({ hasTouch: true, viewport: { width: 844, height: 390 } });
 

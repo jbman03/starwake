@@ -284,4 +284,15 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    and The Surveyor's Charts (reward: Surveyor's Folio). Test hooks for e2e: `storyOffers`,
    `story`, `storySite`, `storyMeet`, `acceptStoryNow`. *Still to come (Plan B):* both side
    arcs, six side chains and the unique hulls.
+6. **Cycle 3 Plan B — story arcs (2026-10-22)** — the two side arcs, six side chains and the unique hulls.
+   *Built:* the Concord "Relight" arc (C1-C7) and the Free Reach "Free Lanes" arc (R1-R7); choosing
+   a side in the shared story opens one of them. Each ends with a unique hull, the Lantern-tender
+   at Concordance and the Freewind runner at Wrenhold, needing friend standing plus the arc's done
+   flag. Side chains S3-S8: The Pilgrim Road, Two Houses (reward House Rack), The Collector
+   (reward Cold Hold), Echoes of the Long Patience, The Doctor's Rounds (deadlines; it can fail)
+   and The Last Lightkeeper (reward Keeper's Lens). New story mechanics: per-mission
+   `onLate: 'retry'` and the `needs.flag` choice gate. A balance pass on story pay. E2E note: the
+   dev server port is configurable with `SW_PORT` (default 5173), so a checkout can run e2e while
+   another serves 5173, e.g. `SW_PORT=5174 npm run test:e2e`.
+   *Fun-review items now fully built:* 3 (story hook), 7 (rare ships) and 8 (discovery rewards).
 Later: combat, reputation and police, boarding, contraband, more regions.
