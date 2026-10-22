@@ -265,6 +265,7 @@ export const StoryMissionSchema = z.object({
   steps: z.array(StoryStepSchema).min(1),
   onComplete: z.array(OutcomeSchema),
   onFail: z.array(OutcomeSchema).optional(),
+  onLate: z.literal('retry').optional(), // a late mission is offered again from the next day instead of failing
   combatLater: z.string().optional(), // the note for the combat cycle
 });
 

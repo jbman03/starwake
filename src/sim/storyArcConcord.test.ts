@@ -112,7 +112,7 @@ describe('Concord arc "Relight"', () => {
     watch();
 
     w = take(w, 'c6-escort-the-liner');
-    w = run(w, site('c6-escort-the-liner'), site('c6-escort-the-liner'), landed('reeds-anchor'));
+    w = run(w, site('c6-escort-the-liner'), site('c6-escort-the-liner'), landed('cairn-rest'));
     expect(w.credits).toBe(start + 42000);
     watch();
 
@@ -138,12 +138,46 @@ describe('Concord arc "Relight"', () => {
     expect(offered(both)).toEqual([]);
   });
 
-  it('a late C2 loses the cores but does not strand the arc', () => {
+  it('a late C2 loses the cores, is offered again next day, and the arc continues once redone', () => {
     let w = take(afterM4Concord(), 'c1-lane-engineers');
     w = run(w, landed('reeds-anchor'));
     w = take(w, 'c2-lantern-cores');
-    w = checkStoryDeadlines({ ...w, day: w.day + 11 }, data).world;
+    const late = w.day + 11;
+    w = checkStoryDeadlines({ ...w, day: late }, data).world;
     expect(w.missions).toEqual([]);
+    expect(w.story.active).toEqual([]);
+    expect(w.story.failed).toEqual([]);
+    expect(offered(w)).toEqual([]); // put off for the rest of today
+    w = { ...w, day: late + 1 };
+    expect(offered(w)).toEqual(['c2-lantern-cores']);
+    w = take(w, 'c2-lantern-cores');
+    w = run(w, landed('slagwater'));
     expect(offered(w)).toEqual(['c3-three-lanterns']);
+  });
+
+  it('a mission without onLate still fails when late', () => {
+    const plain = { ...data, story: { ...data.story, 'c2-lantern-cores': { ...data.story['c2-lantern-cores'], onLate: undefined } } };
+    let w = afterM4Concord();
+    w = acceptStory(run(acceptStory(w, data, 'c1-lane-engineers'), landed('reeds-anchor')), plain, 'c2-lantern-cores');
+    w = checkStoryDeadlines({ ...w, day: w.day + 11 }, plain).world;
+    expect(w.story.failed).toContain('c2-lantern-cores');
+    expect(storyOffersAt({ ...w, day: w.day + 1 }, plain, 'concordance').map((d) => d.id)).toEqual([]);
+  });
+
+  it('C4: threatening Bram also ends it, but is remembered', () => {
+    let w = afterM4Concord();
+    w = { ...w, flags: [...w.flags, 'concord-1', 'concord-2', 'concord-3'] };
+    w = take(w, 'c4-brams-surrender');
+    const step = currentStep(w, data, 'c4-brams-surrender');
+    if (step?.kind !== 'meet') throw new Error('C4 is a meet');
+    const threaten = step.card.choices.find((c) => c.label.startsWith('Threaten'));
+    if (!threaten) throw new Error('no threaten choice');
+    w = run(w, { kind: 'card', missionId: 'c4-brams-surrender', outcomes: threaten.outcomes });
+    expect(w.story.done).toContain('c4-brams-surrender');
+    expect(w.flags).toContain('bram-threatened');
+    expect(w.flags).toContain('concord-4');
+    expect(w.credits).toBe(8000 + 6000);
+    const calm = step.card.choices[0];
+    expect(calm.outcomes.some((o) => o.type === 'flag')).toBe(false);
   });
 });

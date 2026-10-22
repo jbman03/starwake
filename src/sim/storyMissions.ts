@@ -262,7 +262,7 @@ export function checkStoryDeadlines(world: WorldState, data: GameData): { world:
     if (!def || a.deadlineDay === null || w.day <= a.deadlineDay) continue;
     w = dropCargo(w, a.id);
     const active = w.story.active.filter((x) => x.id !== a.id);
-    if (def.arc === 'main') {
+    if (def.arc === 'main' || def.onLate === 'retry') {
       w = declineStory({ ...w, story: { ...w.story, active } }, a.id);
       messages.push(`${def.title}: the deadline passed and the cargo is lost. ${def.giver.name} will talk to you again.`);
       continue;

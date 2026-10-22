@@ -146,7 +146,7 @@
         { "type": "unlock", "flag": "folio-unlocked" },
         { "type": "message", "text": "Marek unrolls both tubes and weeps briefly into her sleeve. She says the Surveyor's Folio is yours to buy at the Corvana outfitter. It is a map, and the surveyor would have wanted it used." }
       ]
-    },
+    },
     {
       "id": "c1-lane-engineers",
       "title": "Lane Engineers",
@@ -245,16 +245,7 @@
           "text": "The Slagwater crew unpack the cores like newborns. Corrin's agent there pays you 7,000 cr and asks if you can stay for the lighting. You cannot, but you hear about it later."
         }
       ],
-      "onFail": [
-        {
-          "type": "flag",
-          "flag": "concord-2"
-        },
-        {
-          "type": "message",
-          "text": "The cores reached the Dimming too late to be of use, and the engineers went home annoyed. Corrin says she has more. Nobody pays you, but she still wants to talk."
-        }
-      ]
+      "onLate": "retry"
     },
     {
       "id": "c3-three-lanterns",
@@ -374,7 +365,7 @@
                 "outcomes": [
                   {
                     "type": "message",
-                    "text": "Bram reads the terms twice, then once more aloud to his crew. They stand down without a shot. Corrin's pay will wait for you at Concordance."
+                    "text": "Bram reads the terms twice, then once more aloud to his crew. They stand down without a shot. Corrin's agent pays you on the spot."
                   }
                 ]
               },
@@ -382,8 +373,16 @@
                 "label": "Threaten him with a Concord fleet",
                 "outcomes": [
                   {
+                    "type": "flag",
+                    "flag": "bram-threatened"
+                  },
+                  {
+                    "type": "rumour",
+                    "text": "You frightened Bram Kettle into surrender. His crew will not forget it."
+                  },
+                  {
                     "type": "message",
-                    "text": "Bram goes pale, then nods, and his crew power down. It ends, but not kindly, and some of them will remember how."
+                    "text": "Bram goes pale, then nods, and his crew power down. It ends, but not kindly, and some of them will remember how. The Concord agent pays you on the spot."
                   }
                 ]
               }
@@ -402,7 +401,7 @@
         },
         {
           "type": "message",
-          "text": "Corrin hears the news with her eyes closed. She pays 6,000 cr and says the charter can be signed now."
+          "text": "Corrin hears the news with her eyes closed. She says the charter can be signed now, and the 6,000 cr you were paid on the spot is yours to keep."
         }
       ],
       "combatLater": "Bram's crew could fight instead of standing down, if the threat is made."
@@ -481,29 +480,29 @@
         ]
       },
       "declinable": true,
-      "text": "Reed is coming to the ceremony, and the Concord is sending a liner to carry her and her people. The Dimming is still dark in places, and a liner cannot see as far as a scout. Corrin needs you to fly ahead and scan each system, so the liner knows the lane is clear.",
-      "acceptText": "A liner called the Constant Hour will leave Reed's Anchor a day behind you. Scan ahead at each stop, then wait at the Anchor until she docks. Corrin would like the trip to be entirely uneventful.",
+      "text": "Reed is coming to the ceremony, and the Concord is sending a liner to carry her and her people out of the Dimming. The route is still dark in places, and a liner cannot see as far as a scout. Corrin needs you to fly ahead and scan each system, so the liner knows the lane is clear.",
+      "acceptText": "A liner called the Constant Hour will sail from Reed's Anchor a day behind you, bound for the Oxbow lane. Scan Sootfall and Gloam ahead of her, then wait at Cairn Rest in Gloam, where she ends her leg. Corrin would like the trip to be entirely uneventful.",
       "steps": [
         {
           "kind": "scan",
-          "system": "hollowmere",
+          "system": "sootfall",
           "site": {
-            "label": "Hollowmere lane"
+            "label": "Sootfall lane"
           },
-          "text": "Fly ahead to Hollowmere and scan the lane for the liner."
+          "text": "Fly ahead to Sootfall and scan the lane for the liner."
         },
         {
           "kind": "scan",
-          "system": "tarn",
+          "system": "gloam",
           "site": {
-            "label": "Tarn lane"
+            "label": "Gloam lane"
           },
-          "text": "Fly ahead to Tarn and scan the lane for the liner."
+          "text": "Fly ahead to Gloam and scan the lane for the liner."
         },
         {
           "kind": "land",
-          "planet": "reeds-anchor",
-          "text": "Return to Reed's Anchor and wait for the liner to dock."
+          "planet": "cairn-rest",
+          "text": "Land at Cairn Rest and wait for the liner to end her leg."
         }
       ],
       "onComplete": [
@@ -517,7 +516,7 @@
         },
         {
           "type": "message",
-          "text": "The Constant Hour docks without a scratch and Reed's delegation files off in their best coats. A Concord purser hands you 8,000 cr."
+          "text": "The Constant Hour docks at Cairn Rest without a scratch, and Reed's delegation files off to change ships in their best coats. A Concord purser hands you 8,000 cr."
         }
       ]
     },
