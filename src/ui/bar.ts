@@ -48,6 +48,15 @@ export function showBar(ctx: UiContext, portId: string, onClose: () => void): vo
   const declineBtn = button('Decline', () => decline());
   const doneBtn = button('Done', close, { hotkey: hotkeyFor(bindings, 'back') });
 
+  // The rumour is heard once, when the bar opens; hearing the survey one sets its flag, which stops it recurring.
+  const talk = rumor(controller.world, data, portId);
+  if (talk === SURVEY_RUMOUR) controller.noteRumour(SURVEY_RUMOUR);
+  gossip.replaceChildren(
+    el('h2', { class: 'sw-bar-head', text: 'Gossip' }),
+    ...(talk ? [el('p', { class: 'sw-bar-line', text: talk })] : []),
+    el('p', { class: 'sw-bar-line', text: port.description }),
+  );
+
   const reopen = () => showBar(ctx, portId, onClose);
 
   const select = (i: number) => {
@@ -80,8 +89,6 @@ export function showBar(ctx: UiContext, portId: string, onClose: () => void): vo
     message.textContent = `${def.giver.name} will keep the offer open for another day.`;
     render();
   }
-
-  let heardSurvey = false;
 
   function render(): void {
     const w = controller.world;
@@ -129,17 +136,6 @@ export function showBar(ctx: UiContext, portId: string, onClose: () => void): vo
     declineBtn.disabled = !o || !!taken;
     reason.textContent = check && !check.ok ? STORY_BLOCK_REASON[check.reason] : '';
 
-    const heard = rumor(w, data, portId);
-    if (heard === SURVEY_RUMOUR) {
-      controller.noteRumour(SURVEY_RUMOUR); // the flag stops it recurring; keep showing it on this visit
-      heardSurvey = true;
-    }
-    const talk = heard ?? (heardSurvey ? SURVEY_RUMOUR : '');
-    gossip.replaceChildren(
-      el('h2', { class: 'sw-bar-head', text: 'Gossip' }),
-      ...(talk ? [el('p', { class: 'sw-bar-line', text: talk })] : []),
-      el('p', { class: 'sw-bar-line', text: port.description }),
-    );
     const next = controller.storyLead();
     lead.textContent = next && next.portId !== portId ? next.text : '';
     list.querySelector('.sw-mc-selected')?.scrollIntoView?.({ block: 'nearest' });
@@ -150,9 +146,12 @@ export function showBar(ctx: UiContext, portId: string, onClose: () => void): vo
       mapCornerButton(ctx, reopen),
       el('h1', { class: 'sw-title', text: `${port.name} · Spaceport Bar` }),
       stats,
-      el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason, message])]),
-      gossip,
-      lead,
+      // Everything between the header and the buttons scrolls; the buttons stay on screen.
+      el('div', { class: 'sw-bar-scroll' }, [
+        el('div', { class: 'sw-mc-body' }, [list, el('div', { class: 'sw-mc-side' }, [detail, reason, message])]),
+        gossip,
+        lead,
+      ]),
       el('div', { class: 'sw-ex-actions' }, [acceptBtn, declineBtn, doneBtn]),
     ]),
   ]);

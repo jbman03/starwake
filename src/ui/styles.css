@@ -491,8 +491,13 @@
 }
 .sw-bar-head { margin: 0 0 2px; font-size: 13px; color: var(--sw-dim); text-transform: uppercase; letter-spacing: 0.08em; }
 .sw-bar-line { margin: 0 0 4px; font-size: 14px; line-height: 1.35; color: #c9d3de; overflow-wrap: anywhere; }
+/* The bar's middle scrolls; its title row and action buttons stay put. */
+.sw-bar { overflow: hidden; }
+.sw-bar-scroll { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.sw-bar-scroll > * { flex: none; }
+.sw-bar .sw-ex-actions { flex: none; }
 @media (max-height: 500px) {
-  .sw-bar .sw-mc-list, .sw-bar .sw-mc-detail { max-height: calc(100vh - 230px); }
+  .sw-bar .sw-mc-list, .sw-bar .sw-mc-detail { max-height: none; }
   .sw-bar-head { font-size: 11px; margin: 0; }
   .sw-bar-line { font-size: 12px; margin: 0; }
   .sw-bar .sw-ex-news { font-size: 12px; }

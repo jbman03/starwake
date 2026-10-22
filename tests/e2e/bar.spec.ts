@@ -92,4 +92,51 @@ test.describe('phone', () => {
     await expect(page.getByTestId('planet-screen')).toBeVisible();
     expect(errors).toEqual([]);
   });
+
+  test('long offer text, the survey rumour and a lead keep Accept, Decline and Done on screen without scrolling the screen', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Long Talker');
+    await injectOffer(page);
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      h.data.story['e2e-fixture'].text = 'Listen closely, pilot. '.repeat(18).trim(); // about 400 characters
+      h.data.planets.halcyon.description = 'Terraced orchards and quiet harbors. '.repeat(8).trim(); // a long port description
+      // Make Halcyon's lead point elsewhere: Merrow's offer comes first in data order.
+      const fixture = h.data.story['e2e-fixture'];
+      delete h.data.story['e2e-fixture'];
+      h.data.story['e2e-far'] = { ...fixture, id: 'e2e-far', offer: { where: 'bar', ports: ['merrow'] } };
+      h.data.story['e2e-fixture'] = fixture;
+    });
+    // Land on a day when Halcyon tells the survey rumour (the longest one).
+    await page.evaluate(async () => {
+      const h = window.__starwake!;
+      const path = '/src/sim/economy.ts'; // served by the dev server
+      const { rumor, SURVEY_RUMOUR } = (await import(/* @vite-ignore */ path)) as typeof import('../../src/sim/economy');
+      for (let d = 5; d < 200; d++) {
+        const w = { ...h.controller.world, day: d };
+        if (rumor(w, h.data, 'halcyon') === SURVEY_RUMOUR) {
+          h.controller.world = w;
+          return;
+        }
+      }
+      throw new Error('no survey-rumour day');
+    });
+    await page.getByRole('button', { name: /^Spaceport Bar/ }).tap();
+    const bar = page.getByTestId('bar');
+    await expect(bar).toBeVisible();
+    await expect(bar.getByTestId('bar-gossip')).toContainText('survey ship');
+    await expect(bar.getByTestId('bar-lead')).toContainText('Merrow');
+    const vp = page.viewportSize()!;
+    for (const name of [/^Accept/, /^Decline/, /^Done/]) {
+      const b = (await bar.getByRole('button', { name }).boundingBox())!;
+      expect(b.y, `${name} top`).toBeGreaterThanOrEqual(0);
+      expect(b.y + b.height, `${name} bottom`).toBeLessThanOrEqual(vp.height);
+    }
+    const screenScroll = await page.evaluate(() => {
+      const s = document.querySelector<HTMLElement>('.sw-bar-screen')!;
+      return s.scrollHeight - s.clientHeight;
+    });
+    expect(screenScroll).toBeLessThanOrEqual(0);
+    expect(errors).toEqual([]);
+  });
 });
