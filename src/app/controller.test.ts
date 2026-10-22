@@ -997,21 +997,27 @@ describe('Controller story steps in flight', () => {
     expect(c.encounterView()?.title).toBe('A signal');
   });
 
-  it('a hail mission hails on arrival; answering takes it and shows its offer and accept text', async () => {
-    const hail: StoryMissionDef = {
-      ...mission('hl', [
-        { kind: 'go', system: 'tessaly', text: 'Go.' },
-        { kind: 'land', planet: 'vanterre', text: 'Land.' },
-      ]),
-      offer: { where: 'hail', systems: ['tessaly'] },
-      text: 'We saw you coming.',
-      acceptText: 'Welcome in.',
-    };
-    const { c } = await flying(hail);
-    c.world = { ...c.world, story: { ...c.world.story, active: [] } }; // flying() took it; a hail is answered, not taken
-    expect(c.storyHail).toBeNull();
-    jumpTo(c, 'tessaly');
-    c.pending = null; // a random encounter may have rolled; this test is about the story hail
+  const hailDef = (over: Partial<StoryMissionDef> = {}): StoryMissionDef => ({
+    ...mission('hl', [
+      { kind: 'go', system: 'tessaly', text: 'Go.' },
+      { kind: 'land', planet: 'vanterre', text: 'Land.' },
+    ]),
+    offer: { where: 'hail', systems: ['tessaly'] },
+    text: 'We saw you coming.',
+    acceptText: 'Welcome in.',
+    ...over,
+  });
+  /** Hailed in tessaly by a hail mission (flying() took it, so give it back first). */
+  async function hailed(def: StoryMissionDef) {
+    const f = await flying(def);
+    f.c.world = { ...f.c.world, story: { ...f.c.world.story, active: [] }, missions: [] };
+    jumpTo(f.c, 'tessaly');
+    f.c.pending = null; // a random encounter may have rolled; these tests are about the story hail
+    return f;
+  }
+
+  it('a hail mission that cannot be put off is taken on answering and shows its offer and accept text', async () => {
+    const { c } = await hailed(hailDef({ declinable: false }));
     expect(c.storyHail).toBe('hl');
     expect(c.hailName()).toBe('Ansel Voss');
     expect(c.currentContext()).toBe('answerHail');
@@ -1022,8 +1028,64 @@ describe('Controller story steps in flight', () => {
     const view = c.encounterView()!;
     expect(view.text).toBe('We saw you coming. Welcome in.');
     expect(view.choices).toEqual([{ label: 'Understood', blocked: null }]);
+    expect(view.noDecline).toBe(true);
     expect(c.chooseEncounter(0)).toEqual({ messages: [] });
     expect(c.encounterView()).toBeNull();
+  });
+
+  it('a declinable hail opens as an offer: Accept takes it', async () => {
+    const { c } = await hailed(hailDef());
+    expect(c.openEncounter()).toBe(true);
+    expect(c.world.story.active).toEqual([]);
+    const view = c.encounterView()!;
+    expect(view.text).toBe('We saw you coming.');
+    expect(view.choices).toEqual([{ label: 'Accept', blocked: null }]);
+    expect(view.noDecline).toBeUndefined();
+    const r = c.chooseEncounter(0)!;
+    expect(r.messages[0]).toBe('Welcome in.');
+    expect(c.world.story.active.map((a) => a.id)).toEqual(['hl']);
+    expect(c.storyHail).toBeNull();
+  });
+
+  it('"Not now" on a story hail drops it below land on the context button, and a jump brings it back', async () => {
+    const { c } = await hailed(hailDef());
+    c.world = { ...c.world, targetPlanetId: null, assist: { kind: 'none' } };
+    expect(c.currentContext()).toBe('answerHail');
+    c.openEncounter();
+    c.declineEncounter();
+    expect(c.world.story.active).toEqual([]);
+    expect(c.storyHail).toBe('hl'); // still hailing; the interact key can open it again
+    expect(c.hailName()).toBe('Ansel Voss');
+    expect(c.currentContext()).not.toBe('answerHail');
+    const planet = Object.values(c.data.planets).find((p) => p.systemId === 'tessaly')!;
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: planet.pos.x + 100, y: planet.pos.y } } };
+    expect(c.currentContext()).toBe('land');
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 99999, y: 99999 } } };
+    expect(c.currentContext()).toBe('plotCourse');
+    c.startFlight(); // the card's close resumes flight
+    expect(c.openEncounter()).toBe(true); // interact still answers it
+    c.declineEncounter();
+    c.startFlight();
+    jumpTo(c, 'vesk');
+    expect(c.storyHailQuiet).toBeNull();
+  });
+
+  it('a hail that cannot be taken says why and drops off the context button', async () => {
+    const hold = Object.values((await loadGameData()).ships).find((x) => x.id === 'courier')!.cargo;
+    const { c } = await hailed(
+      hailDef({
+        declinable: false,
+        steps: [
+          { kind: 'deliver', planet: 'vanterre', cargo: { name: 'Lead', tons: hold + 50 }, text: 'Carry.' },
+        ],
+      }),
+    );
+    const msgs: string[] = [];
+    c.on('message', (e) => msgs.push(e.text));
+    expect(c.openEncounter()).toBe(false);
+    expect(msgs.join(' ')).toContain('Not enough free hold');
+    expect(c.world.story.active).toEqual([]);
+    expect(c.currentContext()).not.toBe('answerHail');
   });
 
   it('arrival advances a go step', async () => {
@@ -1053,5 +1115,29 @@ describe('Controller story steps in flight', () => {
     jumpTo(c, 'vesk');
     expect(msgs.join(' ')).toContain('Mission failed: Story late');
     expect(c.world.story.failed).toEqual(['late']);
+  });
+
+  it('loading a save mid-M3 at Brackwater brings the meet ship and its hail back', async () => {
+    const data = await loadGameData();
+    const target = new EventTarget();
+    const c = new Controller(data, { ...DEFAULT_SETTINGS }, target);
+    const w = newWorld(data);
+    c.beginSession(
+      {
+        ...w,
+        systemId: 'brackwater',
+        flags: ['core-cut'],
+        story: { ...w.story, active: [{ id: 'm3-low-tide', step: 0, deadlineDay: null }] },
+      },
+      { id: 'p1', name: 'Ava' },
+      'brackwater',
+    );
+    expect(c.storyMeet).toMatchObject({ missionId: 'm3-low-tide' });
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.1);
+    expect(c.traffic.npcs.some((n) => n.name === 'Low Tide')).toBe(true);
+    expect(c.hailName()).toBe('Low Tide');
+    expect(c.openEncounter()).toBe(true);
+    expect(c.encounterView()?.title).toBe('The Low Tide');
   });
 });

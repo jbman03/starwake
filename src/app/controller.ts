@@ -29,7 +29,7 @@ import {
   advanceStory,
   answerStoryHail,
   canAcceptStory,
-  checkStoryDeadlines,
+  STORY_BLOCK_REASON,
   currentStep,
   declineStory,
   FIND_SITE_REVEAL,
@@ -90,6 +90,8 @@ export interface EncounterView {
   title: string;
   text: string;
   choices: { label: string; blocked: string | null }[];
+  /** True when the card can't be put off (no "Not now"). */
+  noDecline?: boolean;
 }
 
 export type ControllerEvent =
@@ -173,6 +175,8 @@ export class Controller {
   storyHail: string | null = null;
   /** The hail mission whose offer the open card shows (it is already taken), or null. */
   private hailCard: string | null = null;
+  /** The story hail the pilot put off ("Not now", or it could not be taken): the context button ignores it until a jump. */
+  storyHailQuiet: string | null = null;
   /** Which card the open encounter screen shows: the pending encounter's, the story meet's or a story hail's. */
   private card: 'encounter' | 'story' | 'hail' | null = null;
   /** Planet the ship is sitting on (planet screen open), or null. */
@@ -697,9 +701,9 @@ export class Controller {
   }
 
   /** The name on the incoming hail (an encounter's or a story meet's), or null with no hail. */
-  hailName(): string | null {
+  hailName(forButton = false): string | null {
     if (this.pending?.kind === 'hail') return this.pending.npcName;
-    if (this.storyHail) return this.data.story[this.storyHail]?.giver.name ?? null;
+    if (this.storyHail && !(forButton && this.storyHail === this.storyHailQuiet)) return this.data.story[this.storyHail]?.giver.name ?? null;
     const step = this.storyMeet ? currentStep(this.world, this.data, this.storyMeet.missionId) : null;
     return step?.kind === 'meet' ? step.ship.name : null;
   }
@@ -709,7 +713,7 @@ export class Controller {
     const sites = this.sitePositions();
     const near = sites.find((p) => siteReachable(this.world, p));
     if (near) return { kind: 'site', pos: near };
-    if (this.hailName() !== null) return { kind: 'hail' };
+    if (this.hailName(true) !== null) return { kind: 'hail' };
     return sites[0] ? { kind: 'site', pos: sites[0] } : null;
   }
 
@@ -744,6 +748,7 @@ export class Controller {
     this.storySite = site;
     this.storyMeet = meet;
     this.storyHail = storyHailAt(this.world, this.data, sys)?.id ?? null;
+    if (this.storyHail !== this.storyHailQuiet) this.storyHailQuiet = null;
     if (this.traffic.systemId !== sys) return; // the reseed that follows calls this again
     // Story ships left over from a finished step go; the current one stays where it is.
     const stale = (n: { id: string; hold?: Vec2 }) => n.hold !== undefined && n.id !== meet?.npcId;
@@ -803,9 +808,22 @@ export class Controller {
     }
     if (p?.kind === 'hail') return this.openCard('encounter');
     if (this.storyHail) {
-      // Answering takes the mission; the card then shows its offer and accept text.
       const id = this.storyHail;
-      this.world = answerStoryHail(this.world, this.data, id).world;
+      const def = this.data.story[id];
+      if (def && !def.declinable) {
+        // A hail that can't be put off takes the mission at once; the card then shows its offer and accept text.
+        const check = canAcceptStory(this.world, this.data, id);
+        if (!check.ok) {
+          this.storyHailQuiet = id;
+          this.emit({ type: 'message', text: `${def.giver.name} has an offer, but: ${STORY_BLOCK_REASON[check.reason]}.` });
+          this.checkContext();
+          return false;
+        }
+        const r = answerStoryHail(this.world, this.data, id);
+        this.world = r.world;
+        if (r.messages.length > 0) this.emit({ type: 'message', text: r.messages.join(' ') });
+      }
+      // A hail that can be put off opens as an offer: Accept takes it, Not now leaves it.
       this.hailCard = id;
       this.refreshStory();
       return this.openCard('hail');
@@ -827,8 +845,12 @@ export class Controller {
   /** "Not now" on a hail: it lapses at once (a story hail stands). A site stays where it is. */
   declineEncounter(): void {
     if (this.card === 'story' || this.card === 'hail') {
+      if (this.card === 'hail' && this.hailCard && !this.world.story.active.some((a) => a.id === this.hailCard)) {
+        this.storyHailQuiet = this.hailCard;
+      }
       this.card = null;
       this.hailCard = null;
+      this.checkContext();
       return;
     }
     if (this.pending?.kind === 'hail') {
@@ -842,7 +864,11 @@ export class Controller {
     const hail = this.card === 'hail' && this.hailCard ? this.data.story[this.hailCard] : undefined;
     if (hail) {
       const ctx = this.cardContext(hail.giver.name);
-      return { kind: 'hail', title: hail.title, text: `${fillText(hail.text, ctx)} ${fillText(hail.acceptText, ctx)}`, choices: [{ label: 'Understood', blocked: null }] };
+      if (this.world.story.active.some((a) => a.id === hail.id)) {
+        return { kind: 'hail', title: hail.title, text: `${fillText(hail.text, ctx)} ${fillText(hail.acceptText, ctx)}`, choices: [{ label: 'Understood', blocked: null }], noDecline: true };
+      }
+      const check = canAcceptStory(this.world, this.data, hail.id);
+      return { kind: 'hail', title: hail.title, text: fillText(hail.text, ctx), choices: [{ label: 'Accept', blocked: check.ok ? null : STORY_BLOCK_REASON[check.reason] }] };
     }
     const meet = this.card === 'story' && this.storyMeet ? currentStep(this.world, this.data, this.storyMeet.missionId) : null;
     if (meet?.kind === 'meet') {
@@ -878,11 +904,21 @@ export class Controller {
   /** Take choice `idx`: null if there is no encounter or the choice is blocked; else the outcome lines. */
   chooseEncounter(idx: number): { messages: string[] } | null {
     if (this.card === 'hail') {
-      if (idx !== 0) return null;
+      const id = this.hailCard;
+      const def = id ? this.data.story[id] : undefined;
+      if (idx !== 0 || !id || !def) return null;
+      let messages: string[] = [];
+      if (!this.world.story.active.some((a) => a.id === id)) {
+        const r = answerStoryHail(this.world, this.data, id);
+        if (r.world === this.world) return null; // it can't be taken (the choice shows why)
+        this.world = r.world;
+        messages = [fillText(def.acceptText, this.cardContext(def.giver.name)), ...r.messages];
+      }
       this.card = null;
       this.hailCard = null;
+      this.refreshStory();
       this.checkContext();
-      return { messages: [] };
+      return { messages };
     }
     if (this.card === 'story') return this.chooseStory(idx);
     const p = this.pending;
@@ -938,13 +974,8 @@ export class Controller {
   private handleEvents(events: SimEvent[]): void {
     const messages = events.flatMap((e) => (e.type === 'message' ? [e.text] : []));
     const towed = events.some((e) => e.type === 'towed');
-    // A day passed (a jump or a tow): story deadlines are checked, and arriving may finish a step.
+    // Arriving may finish a story step (story deadlines were checked by the day advance).
     const arrival = events.find((e): e is Extract<SimEvent, { type: 'arrived' }> => e.type === 'arrived');
-    if (towed || arrival) {
-      const late = checkStoryDeadlines(this.world, this.data);
-      this.world = late.world;
-      messages.push(...late.messages);
-    }
     if (arrival) {
       const r = advanceStory(this.world, this.data, { kind: 'arrived', systemId: arrival.systemId });
       this.world = r.world;
@@ -970,6 +1001,7 @@ export class Controller {
         this.storySite = null;
         this.storyMeet = null;
         this.storyHail = null;
+        this.storyHailQuiet = null;
         this.prevShip = this.world.ship; // no interpolation across systems
         this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
       }

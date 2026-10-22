@@ -21,6 +21,15 @@ export type StoryAccept = { ok: true } | { ok: false; reason: 'cargo' | 'berths'
 
 export { standingOf };
 
+/** Why Accept is disabled, in the words shown to the pilot. */
+export const STORY_BLOCK_REASON = {
+  cargo: 'Not enough free hold',
+  berths: 'No free passenger berths',
+  active: 'You have already taken this on',
+  unknown: 'No longer available',
+} as const satisfies Record<Extract<StoryAccept, { ok: false }>['reason'], string>;
+
+
 /**
  * Story cargo and passengers ride in the hold as Mission entries of type STORY_TYPE. The exchange
  * only lists trade goods, so they can't be sold, and completeAt skips them: only the story rules unload them.

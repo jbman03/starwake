@@ -3,18 +3,10 @@ import { formatDate } from '../sim/calendar';
 import { berthsFree, cargoFree } from '../sim/cargo';
 import { rumor, SURVEY_RUMOUR } from '../sim/economy';
 import { worldStats } from '../sim/shipStats';
-import type { StoryAccept } from '../sim/storyMissions';
+import { STORY_BLOCK_REASON } from '../sim/storyMissions';
 import type { UiContext } from './context';
 import { button, dialogOpen, el, hotkeyFor } from './dom';
 import { mapCornerButton, mapCornerKey } from './mapButton';
-
-/** Why Accept is disabled, in the words shown to the pilot. */
-export const STORY_BLOCK_REASON = {
-  cargo: 'Not enough free hold',
-  berths: 'No free passenger berths',
-  active: 'You have already taken this on',
-  unknown: 'No longer available',
-} as const satisfies Record<Extract<StoryAccept, { ok: false }>['reason'], string>;
 
 /**
  * The spaceport bar: contacts with story and side offers (left) and the selected offer's words
@@ -134,6 +126,7 @@ export function showBar(ctx: UiContext, portId: string, onClose: () => void): vo
     }
     acceptBtn.disabled = !o || !!taken || !check?.ok;
     declineBtn.disabled = !o || !!taken;
+    declineBtn.hidden = !!o && !o.declinable;
     reason.textContent = check && !check.ok ? STORY_BLOCK_REASON[check.reason] : '';
 
     const next = controller.storyLead();

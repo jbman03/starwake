@@ -104,6 +104,12 @@ describe('spaceport bar', () => {
     expect(c.world.story.active).toEqual([]);
   });
 
+  it('Decline is hidden when the mission cannot be put off', async () => {
+    const { ctx, btn } = await setup(mk({ id: 'firm', declinable: false }));
+    showBar(ctx, 'halcyon', () => {});
+    expect(btn('Decline').hidden).toBe(true);
+  });
+
   it('Decline hides the offer for today', async () => {
     const { ctx, c, btn, rows } = await setup(light);
     showBar(ctx, 'halcyon', () => {});
