@@ -1140,4 +1140,38 @@ describe('Controller story steps in flight', () => {
     expect(c.openEncounter()).toBe(true);
     expect(c.encounterView()?.title).toBe('The Low Tide');
   });
+
+  it('a Concord pilot saved mid-C4 in Sootfall gets the meet ship and the hail back after loading', async () => {
+    const data = await loadGameData();
+    const store = new PilotStore(createStore('ctl-mid-c4', 'kv'));
+    const first = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget());
+    first.store = store;
+    const w = newWorld(data);
+    // Landed at Slagwater in Sootfall, Bram's system, with C4 taken and its meet step current.
+    first.beginSession(
+      {
+        ...w,
+        systemId: 'sootfall',
+        day: 30,
+        flags: ['core-cut', 'dimming-lane', 'side-concord', 'concord-1', 'concord-2', 'concord-3'],
+        story: { ...w.story, active: [{ id: 'c4-brams-surrender', step: 0, deadlineDay: null }], done: ['m1-lights-out', 'm2-second-opinion', 'm3-low-tide', 'm4-past-the-charts', 'c1-lane-engineers', 'c2-lantern-cores', 'c3-three-lanterns'] },
+      },
+      { id: 'p1', name: 'Ava' },
+      'slagwater',
+    );
+    await first.save();
+
+    const { pilot } = await store.load('p1');
+    expect(pilot.story.active).toEqual([{ id: 'c4-brams-surrender', step: 0, deadlineDay: null }]);
+    const c = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget());
+    c.beginSession(worldFromPilot(pilot, data), { id: pilot.id, name: pilot.name }, pilot.planetId);
+    expect(c.storyMeet).toMatchObject({ missionId: 'c4-brams-surrender' });
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.1);
+    expect(c.world.systemId).toBe('sootfall');
+    expect(c.traffic.npcs.some((n) => n.name === 'Bram Kettle')).toBe(true);
+    expect(c.hailName()).toBe('Bram Kettle');
+    expect(c.openEncounter()).toBe(true);
+    expect(c.encounterView()?.title).toBe('Bram Kettle');
+  });
 });

@@ -4,6 +4,9 @@ import { newWorld } from '../sim/world';
 import { bestLoopPerJump, jobsToAfford, maxMissionPerJump, medianMissionPay, medianMissionPerJump, SAMPLE_DAYS, tradeProfit } from '../sim/balance';
 import { pickTarget } from '../guide/target';
 import { BUY_TONS } from '../guide/steps';
+import { hopDistance } from '../sim/galaxy';
+import { stepSystem } from '../sim/storyMissions';
+import type { Outcome, StoryMissionDef } from './schemas';
 import ships from '../../data/ships.json';
 
 type S = (typeof ships)[number];
@@ -86,5 +89,49 @@ describe('story hulls', () => {
     const freewind = ships.find((s) => s.id === 'freewind') as S;
     expect(freewind).toBeDefined();
     for (const s of ships.filter((x) => x.id !== 'freewind')) expect(jumps(freewind)).toBeGreaterThan(jumps(s));
+  });
+});
+
+describe('story pay', () => {
+  const data = testData();
+  const world = newWorld(data, 1);
+  const missions = Object.values(data.story);
+  const credits = (os: Outcome[]) => os.reduce((n, o) => n + (o.type === 'credits' ? o.n : 0), 0);
+  /** Credits a mission can pay, net: its completion plus the best credit outcome of each card it plays (a spent advance counts against it). */
+  const pay = (d: StoryMissionDef) =>
+    credits(d.onComplete) +
+    d.steps.reduce((n, s) => n + (s.kind === 'meet' ? Math.max(0, ...s.card.choices.map((c) => credits(c.outcomes))) : 0), 0);
+  const MAIN = missions.filter((d) => d.arc === 'main');
+  const arcOf = (side: 'concord' | 'reach') => missions.filter((d) => d.arc === side);
+
+  it('M1 through either arc end pays 70,000 to 110,000 cr in all', () => {
+    for (const side of ['concord', 'reach'] as const) {
+      expect(arcOf(side)).toHaveLength(7);
+      const total = [...MAIN, ...arcOf(side)].reduce((n, d) => n + pay(d), 0);
+      expect(total, `${side}: ${total} cr`).toBeGreaterThanOrEqual(70000);
+      expect(total).toBeLessThanOrEqual(110000);
+    }
+  });
+
+  it('no story mission pays more than 12,000 cr', () => {
+    for (const d of missions) expect(pay(d), d.id).toBeLessThanOrEqual(12000);
+  });
+
+  it('every story mission pays within 2x the best trade loop per jump', () => {
+    const loop = bestLoopPerJump(world, data, data.config.startShipId);
+    const flags = ['dimming-lane', 'hushwater-lane']; // every lane open
+    const over: string[] = [];
+    for (const d of missions) {
+      let at = data.planets[d.offer.ports?.[0] ?? ''] ?.systemId ?? d.offer.systems?.[0] ?? '';
+      let jumps = 0;
+      for (const s of d.steps) {
+        const to = stepSystem(s, data) ?? at;
+        jumps += hopDistance(data, at, to, flags);
+        at = to;
+      }
+      jumps = Math.max(1, jumps);
+      if (pay(d) / jumps > 2 * loop) over.push(`${d.id}: ${pay(d)} cr over ${jumps} jumps = ${(pay(d) / jumps).toFixed(0)}/jump`);
+    }
+    expect(over, `best loop ${loop.toFixed(0)}/jump, limit ${(2 * loop).toFixed(0)}/jump`).toEqual([]);
   });
 });

@@ -11,10 +11,10 @@
         { "kind": "scan", "system": "skerry", "site": { "label": "Dead lantern" }, "text": "Fly to Skerry and scan the dead lantern." }
       ],
       "onComplete": [
-        { "type": "credits", "n": 3000 },
+        { "type": "credits", "n": 4000 },
         { "type": "flag", "flag": "lanterns-1" },
         { "type": "rumour", "text": "The Skerry lantern was not worn out. Its core is simply gone. Warden Corrin wants a second opinion from someone who reads dead cores." },
-        { "type": "message", "text": "The lantern's housing is open and its core is gone. A fragment of the cut edge is yours to carry. Corrin pays you 3,000 cr." }
+        { "type": "message", "text": "The lantern's housing is open and its core is gone. A fragment of the cut edge is yours to carry. Corrin pays you 4,000 cr." }
       ]
     },
     {
@@ -28,10 +28,10 @@
         { "kind": "deliver", "planet": "lastlight-beacon", "cargo": { "name": "Core fragment", "tons": 1 }, "deadlineDays": 8, "text": "Deliver the core fragment to Odo Haskett at Lastlight within 8 days." }
       ],
       "onComplete": [
-        { "type": "credits", "n": 4000 },
+        { "type": "credits", "n": 5000 },
         { "type": "flag", "flag": "core-cut" },
         { "type": "rumour", "text": "Haskett says the Skerry core was cut out with a proper tool, not burned out. Someone is taking lantern cores on purpose." },
-        { "type": "message", "text": "Haskett turns the fragment over twice and says one word, quietly: cut. He pays you 4,000 cr from Corrin's purse." }
+        { "type": "message", "text": "Haskett turns the fragment over twice and says one word, quietly: cut. He pays you 5,000 cr from Corrin's purse." }
       ]
     },
     {
@@ -324,9 +324,9 @@
         { "kind": "land", "planet": "quillon-spires", "text": "Report to Ilsabet Voss at Quillon Spires." }
       ],
       "onComplete": [
-        { "type": "credits", "n": 5000 },
+        { "type": "credits", "n": 3000 },
         { "type": "unlock", "flag": "cold-hold-unlocked" },
-        { "type": "message", "text": "Voss looks over her agent's receipts, then at you, and smiles for the first time. She pays 5,000 cr and says the Cold Hold is yours to buy at the Spires outfitter. It keeps things exactly as they were, which is what she likes best in a hold." }
+        { "type": "message", "text": "Voss looks over her agent's receipts, then at you, and smiles for the first time. She pays 3,000 cr and says the Cold Hold is yours to buy at the Spires outfitter. It keeps things exactly as they were, which is what she likes best in a hold." }
       ]
     },
     {
@@ -433,7 +433,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 6000
+          "n": 8000
         },
         {
           "type": "flag",
@@ -441,7 +441,7 @@
         },
         {
           "type": "message",
-          "text": "The engineers shoulder their kits and vanish into the Anchor's crowd without a backward glance. Reed's dockmaster hands you 6,000 cr from Corrin's purse."
+          "text": "The engineers shoulder their kits and vanish into the Anchor's crowd without a backward glance. Reed's dockmaster hands you 8,000 cr from Corrin's purse."
         }
       ]
     },
@@ -485,7 +485,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 7000
+          "n": 9000
         },
         {
           "type": "flag",
@@ -493,7 +493,7 @@
         },
         {
           "type": "message",
-          "text": "The Slagwater crew unpack the cores like newborns. Corrin's agent there pays you 7,000 cr and asks if you can stay for the lighting. You cannot, but you hear about it later."
+          "text": "The Slagwater crew unpack the cores like newborns. Corrin's agent there pays you 9,000 cr and asks if you can stay for the lighting. You cannot, but you hear about it later."
         }
       ],
       "onLate": "retry"
@@ -552,7 +552,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 9000
+          "n": 11000
         },
         {
           "type": "flag",
@@ -568,7 +568,7 @@
         },
         {
           "type": "message",
-          "text": "Three lanterns shine over the Dimming for the first time in years. Corrin sends 9,000 cr and a message that just says: look."
+          "text": "Three lanterns shine over the Dimming for the first time in years. Corrin sends 11,000 cr and a message that just says: look."
         }
       ]
     },
@@ -696,7 +696,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 6000
+          "n": 8000
         },
         {
           "type": "flag",
@@ -704,7 +704,7 @@
         },
         {
           "type": "message",
-          "text": "Ama Reed breaks the wax, reads for a long minute, and says it is a good wording. She pays you 6,000 cr and promises to arrive at Concordance in her own time."
+          "text": "Ama Reed breaks the wax, reads for a long minute, and says it is a good wording. She pays you 8,000 cr and promises to arrive at Concordance in her own time."
         }
       ]
     },
@@ -759,7 +759,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 8000
+          "n": 10000
         },
         {
           "type": "flag",
@@ -767,7 +767,7 @@
         },
         {
           "type": "message",
-          "text": "The Constant Hour docks at Cairn Rest without a scratch, and Reed's delegation files off to change ships in their best coats. A Concord purser hands you 8,000 cr."
+          "text": "The Constant Hour docks at Cairn Rest without a scratch, and Reed's delegation files off to change ships in their best coats. A Concord purser hands you 10,000 cr."
         }
       ]
     },
@@ -806,7 +806,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 10000
+          "n": 6000
         },
         {
           "type": "flag",
@@ -823,7 +823,7 @@
         },
         {
           "type": "message",
-          "text": "Corrin and Reed sign the charter side by side, and the whole hall applauds. The Concord pays you 10,000 cr, and its yards offer to build you a Lantern-tender."
+          "text": "Corrin and Reed sign the charter side by side, and the whole hall applauds. The Concord pays you 6,000 cr, and its yards offer to build you a Lantern-tender."
         }
       ]
     },
@@ -865,7 +865,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 6000
+          "n": 8000
         },
         {
           "type": "flag",
@@ -873,7 +873,7 @@
         },
         {
           "type": "message",
-          "text": "The keepers of Skerry Light unroll the charts across the bar and argue about them happily until closing. A Reach factor pays you 6,000 cr and says the traders will remember who brought them."
+          "text": "The keepers of Skerry Light unroll the charts across the bar and argue about them happily until closing. A Reach factor pays you 8,000 cr and says the traders will remember who brought them."
         }
       ]
     },
@@ -914,7 +914,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 7000
+          "n": 9000
         },
         {
           "type": "flag",
@@ -922,7 +922,7 @@
         },
         {
           "type": "message",
-          "text": "The delegates step out into Wrenhold's loud public square and are immediately heckled, which they take as a welcome. Vey's clerk pays you 7,000 cr."
+          "text": "The delegates step out into Wrenhold's loud public square and are immediately heckled, which they take as a welcome. Vey's clerk pays you 9,000 cr."
         }
       ],
       "onLate": "retry"
@@ -1006,7 +1006,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 8000
+          "n": 10000
         },
         {
           "type": "flag",
@@ -1014,7 +1014,7 @@
         },
         {
           "type": "message",
-          "text": "Bram sends word that his crew will hear the compact out. Vey pays you 8,000 cr and says the Reach pays its debts, in the end."
+          "text": "Bram sends word that his crew will hear the compact out. Vey pays you 10,000 cr and says the Reach pays its debts, in the end."
         }
       ]
     },
@@ -1072,7 +1072,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 9000
+          "n": 11000
         },
         {
           "type": "flag",
@@ -1084,7 +1084,7 @@
         },
         {
           "type": "message",
-          "text": "Three small lights blink over the Dimming, in the Reach's colours. Vey pays you 9,000 cr and asks whether anyone objected."
+          "text": "Three small lights blink over the Dimming, in the Reach's colours. Vey pays you 11,000 cr and asks whether anyone objected."
         }
       ]
     },
@@ -1208,7 +1208,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 6000
+          "n": 8000
         },
         {
           "type": "flag",
@@ -1216,7 +1216,7 @@
         },
         {
           "type": "message",
-          "text": "Ama Reed steps off at Wrenhold, takes in the square and the hecklers, and says she has had worse welcomes. Vey pays you 6,000 cr."
+          "text": "Ama Reed steps off at Wrenhold, takes in the square and the hecklers, and says she has had worse welcomes. Vey pays you 8,000 cr."
         }
       ]
     },
@@ -1255,7 +1255,7 @@
       "onComplete": [
         {
           "type": "credits",
-          "n": 10000
+          "n": 6000
         },
         {
           "type": "flag",
@@ -1272,7 +1272,7 @@
         },
         {
           "type": "message",
-          "text": "Vey and Reed sign the compact, and the hall roars and heckles in the same breath. The Reach pays you 10,000 cr, and its yards offer to fit you a Freewind runner."
+          "text": "Vey and Reed sign the compact, and the hall roars and heckles in the same breath. The Reach pays you 6,000 cr, and its yards offer to fit you a Freewind runner."
         }
       ]
     }

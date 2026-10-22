@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
-import { choiceBlock } from './encounters';
+import { applyChoice, choiceBlock } from './encounters';
+import { storyKit } from './storyTestKit';
 import { lanesOf } from './galaxy';
+import { shipQuote } from './shipyard';
 import { buyOutfit, outfitBuyCheck } from './outfitter';
 import { standingOf } from './standing';
 import {
@@ -12,41 +14,13 @@ import {
   currentStep,
   storyHailAt,
   storyOffersAt,
-  type StoryEvent,
 } from './storyMissions';
 import type { WorldState } from './types';
 import { newWorld } from './world';
 
 const data = testData();
 
-/** Take the mission offered at `port` (it must be on offer there). */
-function take(w: WorldState, port: string, id: string): WorldState {
-  expect(storyOffersAt(w, data, port).map((d) => d.id), `${id} is offered at ${port}`).toContain(id);
-  const next = acceptStory(w, data, id);
-  expect(next.story.active.some((a) => a.id === id), `${id} was accepted`).toBe(true);
-  return next;
-}
-
-/** Feed events in order; every one must move some mission on. */
-function run(w: WorldState, ...events: StoryEvent[]): WorldState {
-  for (const ev of events) {
-    const r = advanceStory(w, data, ev);
-    expect(r.world, `event ${JSON.stringify(ev)} moved a mission`).not.toBe(w);
-    w = r.world;
-  }
-  return w;
-}
-
-/** Answer the card of the mission's current meet step with the choice whose label starts with `label`. */
-function choose(w: WorldState, id: string, label: string): WorldState {
-  const step = currentStep(w, data, id);
-  if (step?.kind !== 'meet') throw new Error(`${id} is not at a meet step`);
-  const idx = step.card.choices.findIndex((c) => c.label.startsWith(label));
-  expect(idx, `a choice starting "${label}"`).toBeGreaterThanOrEqual(0);
-  const choice = step.card.choices[idx];
-  expect(choiceBlock(w, data, choice, `story:${id}`), `choice "${label}" is open`).toBeNull();
-  return run(w, { kind: 'card', missionId: id, outcomes: choice.outcomes });
-}
+const { take, run, choose } = storyKit(data);
 
 const done = (w: WorldState, id: string) => expect(w.story.done).toContain(id);
 
@@ -59,7 +33,7 @@ function playArc(side: 'concord' | 'reach') {
   expect(storyOffersAt(w, data, 'halcyon').map((d) => d.id)).not.toContain('m2-second-opinion');
   w = run(w, { kind: 'site', missionId: 'm1-lights-out' });
   done(w, 'm1-lights-out');
-  expect(w.credits).toBe(3000);
+  expect(w.credits).toBe(4000);
   expect(w.flags).toContain('lanterns-1');
 
   // M2 A Second Opinion: a 1 t core fragment to Lastlight inside 8 days.
@@ -71,7 +45,7 @@ function playArc(side: 'concord' | 'reach') {
   w = { ...w, day: 6 };
   w = run(w, { kind: 'landed', planetId: 'lastlight-beacon' });
   done(w, 'm2-second-opinion');
-  expect(w.credits).toBe(7000);
+  expect(w.credits).toBe(9000);
   expect(w.notes.map((n) => n.text).join(' ')).toMatch(/cut/);
   expect(w.missions).toEqual([]);
 
@@ -81,12 +55,12 @@ function playArc(side: 'concord' | 'reach') {
   expect(currentStep(w, data, 'm3-low-tide')?.kind).toBe('meet');
   if (side === 'concord') {
     w = choose(w, 'm3-low-tide', 'Pay'); // 5,000 cr
-    expect(w.credits).toBe(2000);
+    expect(w.credits).toBe(4000);
   } else {
     w = { ...w, cargo: { food: 10 } };
     w = choose(w, 'm3-low-tide', 'Trade');
     expect(w.cargo.food ?? 0).toBe(0);
-    expect(w.credits).toBe(7000);
+    expect(w.credits).toBe(9000);
   }
   done(w, 'm3-low-tide');
   expect(w.flags).toContain('dimming-lane');
@@ -180,3 +154,89 @@ describe('story walk-through', () => {
     expect(storyOffersAt({ ...w, day: 13 }, data, 'halcyon').map((d) => d.id)).toContain('m2-second-opinion');
   });
 });
+
+const ARC = {
+  concord: {
+    port: 'concordance',
+    ids: ['c1-lane-engineers', 'c2-lantern-cores', 'c3-three-lanterns', 'c4-brams-surrender', 'c5-the-charter', 'c6-escort-the-liner', 'c7-the-ceremony'],
+    ports: {} as Record<string, string>,
+    hull: 'lantern-tender',
+    doneFlag: 'concord-done',
+  },
+  reach: {
+    port: 'wrenhold',
+    ids: ['r1-lane-charts', 'r2-settler-delegates', 'r3-back-pay', 'r4-waylights', 'r5-the-cordon', 'r6-bring-ama-reed', 'r7-the-signing'],
+    ports: { 'r2-settler-delegates': 'cairn-rest', 'r6-bring-ama-reed': 'reeds-anchor' } as Record<string, string>,
+    hull: 'freewind',
+    doneFlag: 'reach-done',
+  },
+} as const;
+
+/** The bar where `id` is offered (its first listed port); a hail mission has none. */
+const offerPort = (id: string): string => data.story[id].offer.ports?.[0] ?? '';
+
+/**
+ * A fresh pilot plays M1 to M4, the side's whole arc, then every side chain, one mission at a time,
+ * a day apart, picking the side's choices. Returns the world after the last mission.
+ */
+function fullWalk(side: 'concord' | 'reach'): WorldState {
+  const kit = storyKit(data);
+  const arc = ARC[side];
+  const picks: Record<string, string> =
+    side === 'concord'
+      ? { 'm3-low-tide': 'Pay', 'm4-past-the-charts': 'Give the evidence' }
+      : { 'm3-low-tide': 'Trade', 'm4-past-the-charts': 'Sell the charts', 'r3-back-pay': 'Broker', 'r5-the-cordon': 'Take the quiet' };
+  let w: WorldState = { ...newWorld(data, 21), day: 2, credits: 0 };
+  const play = (id: string) => {
+    w = kit.play({ ...w, day: w.day + 1 }, offerPort(id), id, picks);
+    expect(w.story.done, `${id} done`).toContain(id);
+    expect(w.missions, `${id} leaves nothing in the hold`).toEqual([]);
+  };
+
+  for (const id of ['m1-lights-out', 'm2-second-opinion', 'm3-low-tide', 'm4-past-the-charts']) play(id);
+  expect(w.flags).toContain(`side-${side}`);
+  expect(w.flags).not.toContain(`side-${side === 'concord' ? 'reach' : 'concord'}`);
+
+  // The Reach hull is not for sale until the arc is done.
+  expect(shipQuote({ ...w, credits: 999999 }, data, arc.port, arc.hull).check).toEqual({ ok: false, reason: 'locked' });
+  for (const id of arc.ids) play(id);
+  expect(w.flags).toContain(arc.doneFlag);
+
+  // Hushwater and the Long Patience come from the survey-ship encounters (survey-rumour is set directly: it comes from a bar rumour).
+  w = { ...w, flags: [...w.flags, 'survey-rumour'] };
+  w = applyChoice(w, data, data.encounters['survey-beacon'], 0, { npcName: '' }).world;
+  w = applyChoice(w, data, data.encounters['long-patience'], 0, { npcName: '' }).world;
+  expect(w.flags).toEqual(expect.arrayContaining(['hushwater-lane', 'survey-claim']));
+
+  const chains = Object.values(data.story).filter((d) => d.arc === 'side');
+  for (const d of chains) {
+    const id = d.id;
+    if (id === 's4-two-houses') picks[id] = 'Side with the Marlows';
+    if (id === 's8-last-lightkeeper') picks[id] = 'Offer';
+    play(id);
+  }
+  return w;
+}
+
+describe('full story walk-through, one pilot per side', () => {
+  for (const side of ['concord', 'reach'] as const) {
+    it(`plays M1-M4, the whole ${side} arc and every side chain, then buys the ${ARC[side].hull}`, () => {
+      const w = fullWalk(side);
+      const arc = ARC[side];
+      for (const d of Object.values(data.story)) {
+        const other = d.arc === 'concord' || d.arc === 'reach' ? d.arc !== side : false;
+        if (other) expect(w.story.done, `${d.id} belongs to the other side`).not.toContain(d.id);
+        else expect(w.story.done, `${d.id} done`).toContain(d.id);
+      }
+      expect(w.story.active).toEqual([]);
+      expect(w.story.failed).toEqual([]);
+      for (const f of ['folio-unlocked', 'house-rack-unlocked', 'cold-hold-unlocked', 'keepers-lens-unlocked']) expect(w.flags, f).toContain(f);
+      expect(w.credits, `final credits ${w.credits}`).toBeGreaterThanOrEqual(CREDIT_BAND[side][0]);
+      expect(w.credits).toBeLessThanOrEqual(CREDIT_BAND[side][1]);
+      expect(shipQuote({ ...w, credits: 999999 }, data, arc.port, arc.hull).check).toEqual({ ok: true });
+    });
+  }
+});
+
+/** Credits a pilot should hold after the whole walk (everything paid, minus the side's M3 choice and R3 advance spend). */
+const CREDIT_BAND = { concord: [100000, 125000], reach: [100000, 125000] } as const;

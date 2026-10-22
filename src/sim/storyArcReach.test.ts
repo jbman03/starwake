@@ -101,7 +101,7 @@ describe('Free Reach arc "Free Lanes"', () => {
     w = take(w, 'r1-lane-charts');
     expect(w.missions.reduce((n, m) => n + m.tons, 0)).toBe(2);
     w = run(w, landed('skerry-light'));
-    expect(w.credits).toBe(start + 6000);
+    expect(w.credits).toBe(start + 8000);
     expect(w.missions).toEqual([]);
     watch();
 
@@ -109,7 +109,7 @@ describe('Free Reach arc "Free Lanes"', () => {
     expect(w.missions.reduce((n, m) => n + m.passengers, 0)).toBe(4);
     expect(w.story.active[0].deadlineDay).toBe(w.day + 12);
     w = run(w, landed('wrenhold'));
-    expect(w.credits).toBe(start + 13000);
+    expect(w.credits).toBe(start + 17000);
     watch();
 
     w = take(w, 'r3-back-pay');
@@ -119,13 +119,13 @@ describe('Free Reach arc "Free Lanes"', () => {
     expect(broker.needs?.credits).toBe(4000);
     expect(choiceBlock(w, data, broker, 'story:r3')).toBeNull();
     w = run(w, { kind: 'card', missionId: 'r3-back-pay', outcomes: broker.outcomes });
-    expect(w.credits).toBe(start + 21000); // the 4,000 advance is repaid in full
+    expect(w.credits).toBe(start + 27000); // the 4,000 advance is repaid in full
     expect(w.flags).toContain('salvagers-paid');
     watch();
 
     w = take(w, 'r4-waylights');
     w = run(w, site('r4-waylights'), site('r4-waylights'), site('r4-waylights'));
-    expect(w.credits).toBe(start + 30000);
+    expect(w.credits).toBe(start + 38000);
     watch();
 
     w = take(w, 'r5-the-cordon');
@@ -133,18 +133,18 @@ describe('Free Reach arc "Free Lanes"', () => {
     const quiet = cordon.choices[1];
     expect(choiceBlock(w, data, quiet, 'story:r5')).toBeNull();
     w = run(w, { kind: 'card', missionId: 'r5-the-cordon', outcomes: quiet.outcomes });
-    expect(w.credits).toBe(start + 36000);
+    expect(w.credits).toBe(start + 44000);
     watch();
 
     w = take(w, 'r6-bring-ama-reed', 'reeds-anchor');
     expect(w.missions.reduce((n, m) => n + m.passengers, 0)).toBe(1);
     w = run(w, landed('wrenhold'));
-    expect(w.credits).toBe(start + 42000);
+    expect(w.credits).toBe(start + 52000);
     watch();
 
     w = take(w, 'r7-the-signing');
     w = run(w, landed('wrenhold'));
-    expect(w.credits).toBe(start + 52000);
+    expect(w.credits).toBe(start + 58000);
     expect(w.flags).toContain('reach-done');
     expect(standingOf(w, 'free-reach')).toBe('friend');
     expect(w.notes.map((n) => n.text).join(' ')).toContain('Freewind');
@@ -198,7 +198,7 @@ describe('Free Reach arc "Free Lanes"', () => {
     expect(w.story.done).toContain('r3-back-pay');
     expect(w.flags).not.toContain('salvagers-paid');
     expect(w.flags).toContain('reach-3');
-    expect(w.credits).toBe(8000 + 6000 + 7000 + 8000);
+    expect(w.credits).toBe(8000 + 8000 + 9000 + 10000);
   });
 
   it('R3: the broker choice is blocked with under 4,000 cr', () => {

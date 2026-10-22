@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import { choiceBlock } from './encounters';
+import { storyKit } from './storyTestKit';
 import { hopDistance } from './galaxy';
-import { abandonStory, acceptStory, advanceStory, checkStoryDeadlines, currentStep, storyOffersAt, type StoryEvent } from './storyMissions';
+import { abandonStory, checkStoryDeadlines, currentStep, storyOffersAt, type StoryEvent } from './storyMissions';
 import type { WorldState } from './types';
 import { advanceDays, newWorld } from './world';
 
@@ -11,33 +12,9 @@ const data = testData();
 const start = (): WorldState => ({ ...newWorld(data, 9), day: 10, credits: 0 });
 const offered = (w: WorldState, port: string) => storyOffersAt(w, data, port).map((d) => d.id);
 
-function take(w: WorldState, port: string, id: string): WorldState {
-  expect(offered(w, port), `${id} is offered at ${port}`).toContain(id);
-  const next = acceptStory(w, data, id);
-  expect(next.story.active.some((a) => a.id === id), `${id} was accepted`).toBe(true);
-  return next;
-}
-
-function run(w: WorldState, ...events: StoryEvent[]): WorldState {
-  for (const ev of events) {
-    const r = advanceStory(w, data, ev);
-    expect(r.world, `event ${JSON.stringify(ev)} moved a mission`).not.toBe(w);
-    w = r.world;
-  }
-  return w;
-}
+const { take, run, choose } = storyKit(data);
 
 const landed = (planetId: string): StoryEvent => ({ kind: 'landed', planetId });
-
-/** Answer the current meet card with the choice whose label starts with `label`. */
-function choose(w: WorldState, id: string, label: string): WorldState {
-  const step = currentStep(w, data, id);
-  if (step?.kind !== 'meet') throw new Error(`${id} is not at a meet step`);
-  const choice = step.card.choices.find((c) => c.label.startsWith(label));
-  if (!choice) throw new Error(`no choice "${label}"`);
-  expect(choiceBlock(w, data, choice, `story:${id}`), `choice "${label}" is open`).toBeNull();
-  return run(w, { kind: 'card', missionId: id, outcomes: choice.outcomes });
-}
 
 describe('S3 The Pilgrim Road', () => {
   const legs = [
@@ -133,7 +110,7 @@ describe('S5 The Collector', () => {
     w = run(w, landed('quillon-spires'));
     expect(w.story.done).toContain('s5-the-collector');
     expect(w.flags).toContain('cold-hold-unlocked');
-    expect(w.credits).toBe(14000);
+    expect(w.credits).toBe(12000);
   });
 });
 
