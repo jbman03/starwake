@@ -384,7 +384,7 @@
             "title": "Perrin Vask",
             "text": "Perrin Vask answers the channel on the third try, dry and unhurried. He kept his lantern lit for forty years and let it go dark only when its core was cut away. He is not angry about the Dimming. He is angry that no one has asked him what he saw.",
             "choices": [
-              { "label": "Offer him a berth to Reed's Anchor", "outcomes": [{ "type": "message", "text": "Vask laughs, short and surprised, and says the lamp-oil is welcome but the company is better. He will follow you in, at his own pace. Reed's Anchor is the place to tell his story." }] },
+              { "label": "Offer him a berth to Reed's Anchor", "outcomes": [{ "type": "message", "text": "Vask laughs, short and surprised, and says the lamp-oil is welcome but the company is better. He will keep his own course, at his own pace. Reed's Anchor is the place to tell his story." }] },
               { "label": "Leave the lamp-oil and listen", "outcomes": [{ "type": "message", "text": "You sit through forty years of lantern-keeping at the pace he chooses. He ends with a bearing for Reed's Anchor and a request that you tell it properly." }] }
             ]
           }
@@ -534,7 +534,7 @@
         },
         {
           "kind": "scan",
-          "system": "ebbing",
+          "system": "pallow",
           "site": {
             "label": "Pallow lantern"
           },
@@ -1054,7 +1054,7 @@
         },
         {
           "kind": "scan",
-          "system": "ebbing",
+          "system": "pallow",
           "site": {
             "label": "Pallow waylight"
           },

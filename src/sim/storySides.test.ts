@@ -4,7 +4,7 @@ import { choiceBlock } from './encounters';
 import { hopDistance } from './galaxy';
 import { abandonStory, acceptStory, advanceStory, checkStoryDeadlines, currentStep, storyOffersAt, type StoryEvent } from './storyMissions';
 import type { WorldState } from './types';
-import { newWorld } from './world';
+import { advanceDays, newWorld } from './world';
 
 const data = testData();
 
@@ -214,6 +214,20 @@ describe('S7 The Doctor\'s Rounds', () => {
     expect(offered(w, 'lastlight-beacon')).not.toContain(id);
   });
 
+  it("fails on a later stop's deadline too, stepping real days", () => {
+    let w = take(start(), 'lastlight-beacon', id);
+    w = run(w, landed('vesk-outpost'));
+    const step = currentStep(w, data, id);
+    if (step?.kind !== 'deliver') throw new Error('expected a deliver step');
+    w = advanceDays(w, data, step.deadlineDays ?? 0).world;
+    expect(w.story.active.length).toBe(1);
+    w = advanceDays(w, data, 1).world;
+    expect(w.story.failed).toContain(id);
+    expect(w.story.active).toEqual([]);
+    expect(w.missions).toEqual([]);
+    expect(offered(w, 'lastlight-beacon')).not.toContain(id);
+  });
+
   it('can be abandoned, dropping the crates', () => {
     let w = take(start(), 'lastlight-beacon', id);
     w = abandonStory(w, data, id);
@@ -254,5 +268,23 @@ describe('S8 The Last Lightkeeper', () => {
       expect(hopDistance(data, from, s, open), `${from} to ${s}`).toBeLessThanOrEqual(3);
       from = s;
     }
+  });
+});
+
+describe('story step sites match their labels', () => {
+  it('a scan or find step is in the system its label or text names', () => {
+    for (const def of Object.values(data.story))
+      for (const st of def.steps) {
+        if (st.kind !== 'scan' && st.kind !== 'find') continue;
+        const name = data.systems[st.system].name;
+        const named = Object.values(data.systems).filter((s) => `${st.site.label} ${st.text}`.includes(s.name));
+        if (named.length) expect(named.map((s) => s.name), `${def.id}: ${st.site.label}`).toContain(name);
+      }
+  });
+
+  it('C3 and R4 scan Pallow', () => {
+    const sys = (id: string) => data.story[id].steps.filter((s) => s.kind === 'scan').map((s) => 'system' in s && s.system);
+    expect(sys('c3-three-lanterns')).toContain('pallow');
+    expect(sys('r4-waylights')).toContain('pallow');
   });
 });
