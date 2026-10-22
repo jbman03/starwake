@@ -267,3 +267,12 @@ describe('fillText', () => {
     expect(fillText('{ship} in {system}, hi {pilot}; {ship}.', { ship: 'A', system: 'B', pilot: 'C' })).toBe('A in B, hi C; A.');
   });
 });
+
+describe('choiceBlock flag gate', () => {
+  const gated = { label: 'g', needs: { flag: 'some-favour' }, outcomes: [] };
+  it('blocks a choice until the flag is set', () => {
+    expect(choiceBlock(base(), data, gated, 't')).toBe('flag');
+    expect(choiceBlock(base({ flags: ['some-favour'] }), data, gated, 't')).toBeNull();
+    expect(ENCOUNTER_BLOCK_TEXT.flag).toBeTruthy();
+  });
+});

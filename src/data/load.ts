@@ -313,6 +313,15 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     collect(m.onFail ?? []);
     for (const st of m.steps) if (st.kind === 'meet') st.card.choices.forEach((c) => collect(c.outcomes));
   }
+  // A choice gated on a flag must name one that something can set.
+  const gate = (c: { needs?: { flag?: string } }, at: string) => {
+    if (c.needs?.flag && !settable.has(c.needs.flag)) storyIssues.push(fmt(sf, at, `needs.flag "${c.needs.flag}" is never set by any outcome or system`));
+  };
+  for (const e of Object.values(encounters)) e.choices.forEach((c, ci) => gate(c, `${e.id}.choices.${ci}`));
+  for (const m of Object.values(story))
+    m.steps.forEach((st, si) => {
+      if (st.kind === 'meet') st.card.choices.forEach((c, ci) => gate(c, `${m.id}.steps.${si}.card.choices.${ci}`));
+    });
   for (const m of Object.values(story)) {
     const unknownIn = (at: string, kind: string, v: string, set: Record<string, unknown>) => {
       if (!(v in set)) storyIssues.push(fmt(sf, `${m.id}.${at}`, `unknown ${kind} "${v}"`));

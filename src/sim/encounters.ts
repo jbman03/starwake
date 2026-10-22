@@ -69,7 +69,7 @@ function fuelDelta(choice: Choice): number {
 }
 
 /** Why the pilot can't pick this choice right now, or null. */
-export type Block = 'fuel' | 'credits' | 'cargoSpace' | 'goods' | 'missions';
+export type Block = 'fuel' | 'credits' | 'cargoSpace' | 'goods' | 'missions' | 'flag';
 
 /** Short reasons for the encounter card to show beside a blocked choice. */
 export const ENCOUNTER_BLOCK_TEXT: Record<Block, string> = {
@@ -78,6 +78,7 @@ export const ENCOUNTER_BLOCK_TEXT: Record<Block, string> = {
   cargoSpace: 'Not enough room in the hold',
   goods: 'Not enough of that cargo in the hold',
   missions: 'No room for another job',
+  flag: 'Nobody here owes you that favour',
 };
 
 export function choiceBlock(world: WorldState, data: GameData, choice: Choice, defId: string): Block | null {
@@ -86,6 +87,7 @@ export function choiceBlock(world: WorldState, data: GameData, choice: Choice, d
   if (needs?.credits !== undefined && world.credits < needs.credits) return 'credits';
   if (needs?.cargoSpace !== undefined && cargoFree(world, data) < needs.cargoSpace) return 'cargoSpace';
   if (needs?.cargo && (world.cargo[needs.cargo.good] ?? 0) < needs.cargo.tons) return 'goods';
+  if (needs?.flag && !hasFlag(world, needs.flag)) return 'flag';
   // Giving fuel away must leave enough for one jump.
   const delta = fuelDelta(choice);
   if (delta < 0 && world.ship.fuel + delta < data.config.fuelPerJump) return 'fuel';

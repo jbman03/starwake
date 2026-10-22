@@ -180,6 +180,7 @@ const EncounterChoiceSchema = z.object({
       credits: z.number().nonnegative().optional(),
       cargoSpace: z.number().nonnegative().optional(),
       cargo: z.object({ good: id, tons: z.number().int().positive() }).optional(), // trade goods that must be in the hold
+      flag: id.optional(), // a story flag that must be set
     })
     .optional(),
   outcomes: z.array(OutcomeSchema),

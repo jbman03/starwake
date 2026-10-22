@@ -575,6 +575,455 @@
           "text": "Corrin and Reed sign the charter side by side, and the whole hall applauds. The Concord pays you 10,000 cr, and its yards offer to build you a Lantern-tender."
         }
       ]
+    },
+    {
+      "id": "r1-lane-charts",
+      "title": "Lane Charts",
+      "arc": "reach",
+      "giver": {
+        "name": "Tamsin Vey",
+        "title": "Free Reach compact clerk"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "wrenhold"
+        ],
+        "requires": [
+          "side-reach",
+          "dimming-lane"
+        ],
+        "notFlags": [
+          "side-concord"
+        ]
+      },
+      "declinable": true,
+      "text": "Tamsin Vey keeps the Free Reach's accounts in her head and its grievances in a ledger. The Reach has finally drawn its own lane charts, and she wants the independent traders to have them before anyone else tells them what the lanes are worth. Skerry Light is the nearest independent port that will read them in public.",
+      "acceptText": "Vey hands over two tons of rolled charts in oilcloth and asks you not to let anyone annotate them. Skerry Light is three jumps out, past Oxbow and Redwater.",
+      "steps": [
+        {
+          "kind": "deliver",
+          "planet": "skerry-light",
+          "cargo": {
+            "name": "Lane charts",
+            "tons": 2
+          },
+          "text": "Deliver the lane charts to Skerry Light."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 6000
+        },
+        {
+          "type": "flag",
+          "flag": "reach-1"
+        },
+        {
+          "type": "message",
+          "text": "The keepers of Skerry Light unroll the charts across the bar and argue about them happily until closing. A Reach factor pays you 6,000 cr and says the traders will remember who brought them."
+        }
+      ]
+    },
+    {
+      "id": "r2-settler-delegates",
+      "title": "Settler Delegates",
+      "arc": "reach",
+      "giver": {
+        "name": "Tamsin Vey",
+        "title": "Free Reach compact clerk"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "cairn-rest"
+        ],
+        "requires": [
+          "side-reach",
+          "dimming-lane",
+          "reach-1"
+        ],
+        "notFlags": [
+          "side-concord"
+        ]
+      },
+      "declinable": true,
+      "text": "Vey has come out to Cairn Rest herself, which for her is a long way from a podium. Four settler delegates from the Dimming want to speak at the Wrenhold compact, and they need passage out before the next meeting is called. Wrenhold is two jumps off, through Oxbow, and the meeting will not wait past twelve days.",
+      "acceptText": "The delegates file aboard with their papers in oilcloth and their best coats over their arms. They want to be at Wrenhold within twelve days, and not one of them has asked about the weather.",
+      "steps": [
+        {
+          "kind": "ferry",
+          "planet": "wrenhold",
+          "passengers": 4,
+          "deadlineDays": 12,
+          "text": "Ferry the four settler delegates to Wrenhold within 12 days."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 7000
+        },
+        {
+          "type": "flag",
+          "flag": "reach-2"
+        },
+        {
+          "type": "message",
+          "text": "The delegates step out into Wrenhold's loud public square and are immediately heckled, which they take as a welcome. Vey's clerk pays you 7,000 cr."
+        }
+      ],
+      "onLate": "retry"
+    },
+    {
+      "id": "r3-back-pay",
+      "title": "Back-Pay",
+      "arc": "reach",
+      "giver": {
+        "name": "Tamsin Vey",
+        "title": "Free Reach compact clerk"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "wrenhold"
+        ],
+        "requires": [
+          "side-reach",
+          "dimming-lane",
+          "reach-2"
+        ],
+        "notFlags": [
+          "side-concord"
+        ]
+      },
+      "declinable": true,
+      "text": "Bram Kettle's salvagers have stripped the Dimming's dark lanterns for years because nobody else paid them to do anything else. Vey thinks they would sooner be paid by the Reach, and the compact wants their back-pay settled before Bram is asked for anything. He waits in Sootfall, and he will not be hurried.",
+      "acceptText": "Vey gives you terms written in a hand that could be mistaken for a lawyer's, and one piece of advice: let him talk first. Bram Kettle is somewhere in Sootfall, in the Dimming.",
+      "steps": [
+        {
+          "kind": "meet",
+          "system": "sootfall",
+          "ship": {
+            "name": "Bram Kettle",
+            "shipId": "ironback",
+            "government": "unlit"
+          },
+          "text": "Find Bram Kettle in Sootfall and settle his crew's back-pay.",
+          "card": {
+            "title": "Bram Kettle",
+            "text": "Bram listens with his arms folded. His crew are owed a season's pay, and he says goodwill does not buy fuel. If the Reach wants his people, it can start by showing it can pay them.",
+            "choices": [
+              {
+                "label": "Broker the back-pay (advance 4,000 cr)",
+                "needs": {
+                  "credits": 4000
+                },
+                "outcomes": [
+                  {
+                    "type": "credits",
+                    "n": -4000
+                  },
+                  {
+                    "type": "credits",
+                    "n": 4000
+                  },
+                  {
+                    "type": "flag",
+                    "flag": "salvagers-paid"
+                  },
+                  {
+                    "type": "message",
+                    "text": "You put 4,000 cr on the table and the salvagers count it twice. Vey's factor is there within the hour, countersigns the receipt and repays your advance in full."
+                  }
+                ]
+              },
+              {
+                "label": "Promise a share of the Reach's salvage",
+                "outcomes": [
+                  {
+                    "type": "message",
+                    "text": "Bram takes your promise as seriously as a promise deserves. His crew will wait for the compact to settle, and they will remember who asked them to."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 8000
+        },
+        {
+          "type": "flag",
+          "flag": "reach-3"
+        },
+        {
+          "type": "message",
+          "text": "Bram sends word that his crew will hear the compact out. Vey pays you 8,000 cr and says the Reach pays its debts, in the end."
+        }
+      ]
+    },
+    {
+      "id": "r4-waylights",
+      "title": "Waylights",
+      "arc": "reach",
+      "giver": {
+        "name": "Tamsin Vey",
+        "title": "Free Reach compact clerk"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "wrenhold"
+        ],
+        "requires": [
+          "side-reach",
+          "dimming-lane",
+          "reach-3"
+        ],
+        "notFlags": [
+          "side-concord"
+        ]
+      },
+      "declinable": true,
+      "text": "The Reach wants its own lights in the Dimming, small and cheap and burning on Reach money, so its freighters can find the way. Vey has a case of waylight beacons already placed in three systems, and needs each one scanned to prove it took. Gloam, Pallow and Candlewick lie in a line down the lane from Oxbow.",
+      "acceptText": "Vey gives you a scanner key stamped with the Reach's three-ring mark. Start at Gloam and work in, past Pallow and on to Candlewick.",
+      "steps": [
+        {
+          "kind": "scan",
+          "system": "gloam",
+          "site": {
+            "label": "Gloam waylight"
+          },
+          "text": "Fly to Gloam and scan the Reach waylight."
+        },
+        {
+          "kind": "scan",
+          "system": "pallow",
+          "site": {
+            "label": "Pallow waylight"
+          },
+          "text": "Fly to Pallow and scan the Reach waylight."
+        },
+        {
+          "kind": "scan",
+          "system": "candlewick",
+          "site": {
+            "label": "Candlewick waylight"
+          },
+          "text": "Fly to Candlewick and scan the Reach waylight."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 9000
+        },
+        {
+          "type": "flag",
+          "flag": "reach-4"
+        },
+        {
+          "type": "rumour",
+          "text": "Three Reach waylights now burn down the Dimming lane. Traders say they are small, and strangely cheerful."
+        },
+        {
+          "type": "message",
+          "text": "Three small lights blink over the Dimming, in the Reach's colours. Vey pays you 9,000 cr and asks whether anyone objected."
+        }
+      ]
+    },
+    {
+      "id": "r5-the-cordon",
+      "title": "The Cordon",
+      "arc": "reach",
+      "giver": {
+        "name": "Tamsin Vey",
+        "title": "Free Reach compact clerk"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "wrenhold"
+        ],
+        "requires": [
+          "side-reach",
+          "dimming-lane",
+          "reach-4"
+        ],
+        "notFlags": [
+          "side-concord"
+        ]
+      },
+      "declinable": true,
+      "text": "A Concord patrol has closed the lane at Oxbow, and nobody in the Reach will say whether it is a customs check or a message. The delegates for the compact have to get through. Vey wants you to meet the patrol captain and choose how the Reach goes round her.",
+      "acceptText": "Vey spreads a chart on the table and puts her thumb on Oxbow. The captain commands the cordon in person. Two ways round are open to you, and one of them depends on whether you have been kind to the salvagers.",
+      "steps": [
+        {
+          "kind": "meet",
+          "system": "oxbow",
+          "ship": {
+            "name": "Captain Davit Ruell",
+            "shipId": "warden",
+            "government": "concord"
+          },
+          "text": "Meet the Concord patrol captain at Oxbow.",
+          "card": {
+            "title": "Captain Davit Ruell",
+            "text": "Captain Ruell is polite, immovable and visibly tired of it. She cannot let you through the cordon, but she can tell you which lanes she is not watching. Her patrol will hold whatever it holds.",
+            "choices": [
+              {
+                "label": "Take the long route round the cordon (costs fuel)",
+                "outcomes": [
+                  {
+                    "type": "fuel",
+                    "n": -150
+                  },
+                  {
+                    "type": "message",
+                    "text": "You swing wide through the back lanes, burning fuel for days. The cordon never sees you, and Ruell's patrol is still holding its line when you clear it."
+                  }
+                ]
+              },
+              {
+                "label": "Take the quiet route the salvagers know",
+                "needs": {
+                  "flag": "salvagers-paid"
+                },
+                "outcomes": [
+                  {
+                    "type": "message",
+                    "text": "Bram's people owe you a favour, and they cash it. A salvager's pinnace guides you through a dead-lane gap the patrol has never mapped."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 6000
+        },
+        {
+          "type": "flag",
+          "flag": "reach-5"
+        },
+        {
+          "type": "message",
+          "text": "You clear the cordon and report to Vey that the Concord is watching. She pays you 6,000 cr and says that is what she expected."
+        }
+      ],
+      "combatLater": "The Concord patrol could fight instead of letting the pilot go round."
+    },
+    {
+      "id": "r6-bring-ama-reed",
+      "title": "Bring Ama Reed",
+      "arc": "reach",
+      "giver": {
+        "name": "Tamsin Vey",
+        "title": "Free Reach compact clerk"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "reeds-anchor"
+        ],
+        "requires": [
+          "side-reach",
+          "dimming-lane",
+          "reach-5"
+        ],
+        "notFlags": [
+          "side-concord"
+        ]
+      },
+      "declinable": true,
+      "text": "Vey has taken a table at the end of Reed's Anchor's long hall and has not left it since breakfast. Ama Reed has agreed to speak for the Dimming at the Wrenhold compact, but only if somebody sensible takes her. Wrenhold is four jumps out, by Sootfall, Gloam and Oxbow.",
+      "acceptText": "Ama Reed boards with a small case and a large opinion of the lanes. She asks you to fly steadily and not to talk about the compact until Wrenhold.",
+      "steps": [
+        {
+          "kind": "ferry",
+          "planet": "wrenhold",
+          "passengers": 1,
+          "text": "Ferry Ama Reed to Wrenhold."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 6000
+        },
+        {
+          "type": "flag",
+          "flag": "reach-6"
+        },
+        {
+          "type": "message",
+          "text": "Ama Reed steps off at Wrenhold, takes in the square and the hecklers, and says she has had worse welcomes. Vey pays you 6,000 cr."
+        }
+      ]
+    },
+    {
+      "id": "r7-the-signing",
+      "title": "The Signing",
+      "arc": "reach",
+      "giver": {
+        "name": "Tamsin Vey",
+        "title": "Free Reach compact clerk"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "wrenhold"
+        ],
+        "requires": [
+          "side-reach",
+          "dimming-lane",
+          "reach-6"
+        ],
+        "notFlags": [
+          "side-concord"
+        ]
+      },
+      "declinable": true,
+      "text": "The compact is ready, and so are the people it will bind. Vey has one last request, which is that you stand with them when it is signed. She wants it written down that a pilot was there.",
+      "acceptText": "Vey squares the paper on the table and will not say whether she is nervous. The signing is at Wrenhold, in the main hall, as soon as everyone is in their seat.",
+      "steps": [
+        {
+          "kind": "land",
+          "planet": "wrenhold",
+          "text": "Land at Wrenhold for the signing."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 10000
+        },
+        {
+          "type": "flag",
+          "flag": "reach-done"
+        },
+        {
+          "type": "standing",
+          "government": "free-reach",
+          "level": "friend"
+        },
+        {
+          "type": "rumour",
+          "text": "The Wrenhold yards will fit you a Freewind runner."
+        },
+        {
+          "type": "message",
+          "text": "Vey and Reed sign the compact, and the hall roars and heckles in the same breath. The Reach pays you 10,000 cr, and its yards offer to fit you a Freewind runner."
+        }
+      ]
     }
   ]
 }
