@@ -6,6 +6,8 @@ import type { Mission, WorldState } from './types';
 
 /** Most missions the pilot can hold at once. */
 export const MAX_MISSIONS = 8;
+/** typeId of the hold entries story missions use for cargo and passengers; the story rules unload them, not completeAt. */
+export const STORY_TYPE = 'story';
 const MIN_OFFERS = 3;
 const MAX_OFFERS = 7;
 
@@ -147,7 +149,7 @@ export function accept(world: WorldState, data: GameData, offer: MissionOffer): 
 
 /** Deliver every mission bound for `portId` that is not overdue; pays the ones not paid up front. */
 export function completeAt(world: WorldState, portId: string): { world: WorldState; completed: Mission[]; pay: number } {
-  const done = (m: Mission) => m.destId === portId && (m.deadlineDay === null || world.day <= m.deadlineDay);
+  const done = (m: Mission) => m.typeId !== STORY_TYPE && m.destId === portId && (m.deadlineDay === null || world.day <= m.deadlineDay);
   const completed = world.missions.filter(done);
   if (completed.length === 0) return { world, completed, pay: 0 };
   const pay = completed.reduce((sum, m) => sum + (m.paidUpfront ? 0 : m.pay), 0);

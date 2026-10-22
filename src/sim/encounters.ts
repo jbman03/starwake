@@ -153,6 +153,23 @@ function runChoice(
   choice: Choice,
   ctx: { npcName: string },
 ): { world: WorldState; messages: string[]; missions: Mission[]; refused: boolean } {
+  const r = applyOutcomes(world, data, choice.outcomes, defId, ctx);
+  let w = r.world;
+  if (once && choice.outcomes.some((o) => o.type !== 'message')) w = setFlag(w, onceFlag(defId));
+  return { ...r, world: { ...w, lastEncounterDay: world.day } };
+}
+
+/**
+ * Apply outcomes in order: the one applier encounters and story missions share. `sourceId` seeds
+ * any mission an outcome builds. `refused` is set when a `mission` outcome could not be taken.
+ */
+export function applyOutcomes(
+  world: WorldState,
+  data: GameData,
+  outcomes: readonly Outcome[],
+  sourceId: string,
+  ctx: { npcName: string },
+): { world: WorldState; messages: string[]; missions: Mission[]; refused: boolean } {
   let refused = false;
   const text = { ship: ctx.npcName, system: data.systems[world.systemId]?.name ?? world.systemId, pilot: shipDisplayName(world.shipName, world.shipId, data), hub: hubName(data) };
   const messages: string[] = [];
@@ -174,7 +191,7 @@ function runChoice(
         break;
       }
       case 'mission': {
-        const offer = buildEncounterMission(w, data, defId, idx, o.missionType, o.toSystem);
+        const offer = buildEncounterMission(w, data, sourceId, idx, o.missionType, o.toSystem);
         const next = offer ? accept(w, data, offer) : w;
         if (next === w) {
           refused = true;
@@ -201,9 +218,14 @@ function runChoice(
       case 'message':
         messages.push(fillText(o.text, text));
         break;
+      case 'standing':
+        w = { ...w, standing: { ...w.standing, [o.government]: o.level } };
+        break;
+      case 'unlock':
+        w = setFlag(w, o.flag);
+        break;
     }
   };
-  choice.outcomes.forEach(apply);
-  if (once && choice.outcomes.some((o) => o.type !== 'message')) w = setFlag(w, onceFlag(defId));
-  return { world: { ...w, lastEncounterDay: world.day }, messages, missions, refused };
+  outcomes.forEach(apply);
+  return { world: w, messages, missions, refused };
 }
