@@ -25,6 +25,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   openMissions: ['KeyM', null],
   openShipyard: ['KeyY', null],
   openOutfitter: ['KeyO', null],
+  openBar: ['KeyB', null],
   refuel: ['KeyR', null],
   openMap: ['KeyN', null],
   missionLog: ['KeyK', null],

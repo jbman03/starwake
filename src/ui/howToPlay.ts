@@ -48,6 +48,7 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   openMissions: 'Tap the button',
   openShipyard: 'Tap the button',
   openOutfitter: 'Tap the button',
+  openBar: 'Tap the button',
   refuel: 'Tap the button',
   openMap: 'Tap the button',
   missionLog: 'Tap the button',

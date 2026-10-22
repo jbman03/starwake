@@ -1,4 +1,4 @@
-import type { EncounterDef, GameData } from '../data/schemas';
+import type { EncounterDef, GameData, StoryMissionDef } from '../data/schemas';
 import type { Guide } from '../guide/guide';
 import { ACTION_GROUP, type ActionGroup, type ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
@@ -23,6 +23,7 @@ import {
 } from '../sim/missions';
 import { buyShip, shipDisplayName, shipQuote, type ShipQuote } from '../sim/shipyard';
 import { addNote, setFlag } from '../sim/story';
+import { acceptStory, canAcceptStory, declineStory, nextLead, storyOffersAt, type StoryAccept } from '../sim/storyMissions';
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
@@ -445,6 +446,31 @@ export class Controller {
   /** What swapping to this ship would cost right now, without doing it. */
   shipQuote(shipId: string): ShipQuote {
     return shipQuote(this.world, this.data, this.landedPlanetId ?? '', shipId);
+  }
+
+  /** Story missions the bar here offers today; none when not landed. */
+  storyOffers(): StoryMissionDef[] {
+    return this.landedPlanetId ? storyOffersAt(this.world, this.data, this.landedPlanetId) : [];
+  }
+
+  /** Whether the story mission can be taken now, and why not. */
+  storyAccept(id: string): StoryAccept {
+    return canAcceptStory(this.world, this.data, id);
+  }
+
+  acceptStory(id: string): StoryAccept {
+    const check = canAcceptStory(this.world, this.data, id);
+    if (check.ok) this.world = acceptStory(this.world, this.data, id);
+    return check;
+  }
+
+  declineStory(id: string): void {
+    this.world = declineStory(this.world, id);
+  }
+
+  /** The next bar that has a mission for us, as a rumour. */
+  storyLead(): { portId: string; text: string } | null {
+    return nextLead(this.world, this.data);
   }
 
   /** Today's jobs at the planet we're landed on; none when not landed. */

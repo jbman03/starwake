@@ -1,4 +1,4 @@
-import type { GameData } from '../data/schemas';
+import type { GameData, StoryMissionDef } from '../data/schemas';
 import type { PilotStore } from '../save/store';
 import type { WorldState } from '../sim/types';
 import type { SidebarInfo } from '../render/sidebarInfo';
@@ -9,6 +9,10 @@ export interface StarwakeTestHook {
   data: GameData;
   controller: Controller;
   store: PilotStore;
+  /** The story missions the bar here offers today. */
+  storyOffers: () => StoryMissionDef[];
+  /** The story progress held in the world. */
+  story: () => WorldState['story'];
   /** Test-only: put the world at `planetId` (in its system) and land there, as a real landing would. */
   teleport: (planetId: string) => void;
   /** Set by SpaceScene: the main camera's viewport in screen px. */
@@ -86,5 +90,5 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     c.landAt(planetId);
     c.emit({ type: 'landed', planetId });
   };
-  window.__starwake = { world: () => controller.world, data, controller, store, teleport, forceEncounter: (id) => controller.forceEncounter(id) };
+  window.__starwake = { world: () => controller.world, data, controller, store, teleport, storyOffers: () => controller.storyOffers(), story: () => controller.world.story, forceEncounter: (id) => controller.forceEncounter(id) };
 }
