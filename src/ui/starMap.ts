@@ -1,6 +1,7 @@
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
 import { fuelCheck, lanesOf, routeBetween, visibleSystems } from '../sim/galaxy';
+import { jobMissions } from '../sim/missions';
 import type { WorldState } from '../sim/types';
 import { setRoute } from '../sim/world';
 import type { UiContext } from './context';
@@ -48,7 +49,7 @@ function stateOf(world: WorldState, id: string): SystemState {
 
 /** What the star map draws: systems by exploration state, the lanes you know of, mission flags. */
 export function mapModel(world: WorldState, data: GameData): MapModel {
-  const flagged = new Set(world.missions.map((m) => data.planets[m.destId]?.systemId).filter((id) => id !== undefined));
+  const flagged = new Set(jobMissions(world).map((m) => data.planets[m.destId]?.systemId).filter((id) => id !== undefined));
   const nodes: MapNode[] = visibleSystems(data, world.flags).map((s) => {
     const state = stateOf(world, s.id);
     return {

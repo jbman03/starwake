@@ -13,7 +13,7 @@ export type StoryEvent =
   | { kind: 'site'; missionId: string }
   | { kind: 'card'; missionId: string; outcomes: Outcome[] };
 
-export type StoryAccept = { ok: true } | { ok: false; reason: 'cargo' | 'berths' | 'active' };
+export type StoryAccept = { ok: true } | { ok: false; reason: 'cargo' | 'berths' | 'active' | 'unknown' };
 
 export function standingOf(world: WorldState, gov: string): StandingLevel {
   return world.standing[gov] ?? 'neutral';
@@ -32,6 +32,9 @@ const declinedKey = (id: string, day: number) => `${id}@${day}`;
 const declinedToday = (w: WorldState, id: string) => w.story.declined.includes(declinedKey(id, w.day));
 
 const hasLoad = (s: StoryStepDef): s is Extract<StoryStepDef, { kind: 'deliver' | 'ferry' }> => s.kind === 'deliver' || s.kind === 'ferry';
+
+/** A deadline belongs to the step that declares it: it runs from the day that step becomes current. */
+const deadlineOf = (step: StoryStepDef, day: number): number | null => (hasLoad(step) && step.deadlineDays !== undefined ? day + step.deadlineDays : null);
 
 export function currentStep(world: WorldState, data: GameData, id: string): StoryStepDef | null {
   const a = world.story.active.find((x) => x.id === id);
@@ -65,7 +68,8 @@ export function storyOffersAt(world: WorldState, data: GameData, portId: string)
 
 export function canAcceptStory(world: WorldState, data: GameData, id: string): StoryAccept {
   const def = data.story[id];
-  if (!def || world.story.active.some((a) => a.id === id)) return { ok: false, reason: 'active' };
+  if (!def) return { ok: false, reason: 'unknown' };
+  if (world.story.active.some((a) => a.id === id)) return { ok: false, reason: 'active' };
   let tons = 0;
   let pax = 0;
   for (const s of def.steps) {
@@ -99,14 +103,12 @@ export function acceptStory(world: WorldState, data: GameData, id: string): Worl
       cargoName: s.kind === 'deliver' ? s.cargo.name : 'passengers',
     });
   });
-  const days = def.steps.find((s) => hasLoad(s) && s.deadlineDays !== undefined);
-  const deadlineDay = days && hasLoad(days) && days.deadlineDays !== undefined ? world.day + days.deadlineDays : null;
   return {
     ...world,
     missions: [...world.missions, ...held],
     story: {
       ...world.story,
-      active: [...world.story.active, { id, step: 0, deadlineDay }],
+      active: [...world.story.active, { id, step: 0, deadlineDay: deadlineOf(def.steps[0], world.day) }],
       declined: world.story.declined.filter((d) => d.split('@')[0] !== id),
     },
   };
@@ -167,8 +169,7 @@ export function advanceStory(
       continue;
     }
     const next = def.steps[a.step + 1];
-    // A met step's deadline ends; the next step's own deadline, if it has one, starts now.
-    const deadlineDay = hasLoad(next) && next.deadlineDays !== undefined ? w.day + next.deadlineDays : hasLoad(step) ? null : a.deadlineDay;
+    const deadlineDay = deadlineOf(next, w.day);
     w = { ...w, story: { ...w.story, active: w.story.active.map((x) => (x.id === def.id ? { ...x, step: a.step + 1, deadlineDay } : x)) } };
     messages.push(`${def.title}: ${next.text}`);
   }

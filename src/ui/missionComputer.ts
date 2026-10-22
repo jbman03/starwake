@@ -1,7 +1,7 @@
 import { formatDate } from '../sim/calendar';
 import { berthsFree, cargoFree } from '../sim/cargo';
 import { rumor, SURVEY_RUMOUR } from '../sim/economy';
-import { canAccept, MAX_MISSIONS, type MissionOffer } from '../sim/missions';
+import { canAccept, jobMissions, MAX_MISSIONS, type MissionOffer } from '../sim/missions';
 import type { UiContext } from './context';
 import { worldStats } from '../sim/shipStats';
 import { button, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
@@ -80,7 +80,7 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
       el('span', { text: `Credits: ${formatCredits(w.credits)}` }),
       el('span', { text: `Cargo: ${cargoFree(w, data)}/${worldStats(w, data).cargo} t` }),
       el('span', { text: `Berths: ${berthsFree(w, data)}/${worldStats(w, data).passengers}` }),
-      el('span', { text: `Missions: ${w.missions.length}/${MAX_MISSIONS}` }),
+      el('span', { text: `Missions: ${jobMissions(w).length}/${MAX_MISSIONS}` }),
     );
     const heard = rumor(w, data, portId);
     if (heard === SURVEY_RUMOUR) {

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import type { GameData, StoryMissionDef } from '../data/schemas';
 import { berthsFree, cargoFree, sell } from './cargo';
-import { completeAt } from './missions';
+import { abandon, accept, canAbandon, canAccept, completeAt, jobMissions, MAX_MISSIONS, STORY_TYPE, type MissionOffer } from './missions';
+import { choiceBlock } from './encounters';
 import { hasFlag } from './story';
 import {
   abandonStory,
@@ -95,7 +96,7 @@ describe('decline', () => {
   it('hides the mission for the rest of the day and offers it again on a later one', () => {
     const d = withStory(m1);
     const w = declineStory(world(), 'm1');
-    expect(w.story.declined.some((x) => x.startsWith('m1'))).toBe(true);
+    expect(w.story.declined).toEqual(['m1@10']);
     expect(storyOffersAt(w, d, 'halcyon')).toEqual([]);
     expect(storyOffersAt({ ...w, day: 11 }, d, 'halcyon')).toHaveLength(1);
   });
@@ -134,6 +135,9 @@ describe('acceptStory and canAcceptStory', () => {
     const taken = { ...w, missions: [{ id: 'x', typeId: 'ferry', originId: 'halcyon', destId: 'merrow', tons: 0, passengers: berthsFree(w, d) - 1, pay: 1, paidUpfront: false, deadlineDay: null, title: 't', description: 'd', cargoName: 'p' }] };
     expect(canAcceptStory(taken, d, 'h1')).toEqual({ ok: false, reason: 'berths' });
   });
+  it('gives an unknown id its own reason', () => {
+    expect(canAcceptStory(world(), d, 'nope')).toEqual({ ok: false, reason: 'unknown' });
+  });
   it('refuses a mission already active', () => {
     const w = acceptStory(world(), d, 'h1');
     expect(canAcceptStory(w, d, 'h1')).toEqual({ ok: false, reason: 'active' });
@@ -142,8 +146,40 @@ describe('acceptStory and canAcceptStory', () => {
   it('story cargo cannot be sold and does not complete as a job on landing', () => {
     const w = acceptStory(world(), d, 'h1');
     expect(w.cargo).toEqual({});
-    expect(sell(w, d, 'halcyon', 'relay cores', 8).tons).toBe(0);
+    const key = w.missions[0].id;
+    expect(w.missions[0].typeId).toBe(STORY_TYPE);
+    expect(sell(w, d, 'halcyon', key, 8)).toMatchObject({ tons: 0, reason: 'notTraded' });
+    expect(sell(w, d, 'halcyon', key, 8).world).toBe(w);
     expect(completeAt(w, 'merrow').completed).toEqual([]);
+  });
+});
+
+describe('story hold entries are not jobs', () => {
+  const hauler = mk({ id: 'h1', steps: [{ kind: 'deliver', planet: 'merrow', cargo: { name: 'cores', tons: 2 }, text: 'a' }] });
+  const d = withStory(hauler);
+  const job = (i: number) => ({
+    id: `j${i}`, typeId: 'delivery', originId: 'halcyon', destId: 'vanterre', tons: 0, passengers: 0, pay: 1,
+    paidUpfront: false, deadlineDay: null, title: 't', description: '', cargoName: 'x',
+  });
+  const offer: MissionOffer = { ...job(99), offerId: 'new1' };
+  const withJobs = (n: number) => acceptStory({ ...world(), missions: Array.from({ length: n }, (_, i) => job(i)) }, d, 'h1');
+
+  it('8 jobs plus story cargo accept nothing new; 7 jobs plus story cargo accept one', () => {
+    expect(jobMissions(withJobs(8))).toHaveLength(MAX_MISSIONS);
+    expect(canAccept(withJobs(8), d, offer)).toEqual({ ok: false, reason: 'tooMany' });
+    expect(canAccept(withJobs(7), d, offer)).toEqual({ ok: true });
+    expect(accept(withJobs(7), d, offer).missions).toHaveLength(9);
+  });
+  it('abandon is refused on a story entry', () => {
+    const w = withJobs(0);
+    const id = w.missions[0].id;
+    expect(canAbandon(w, id)).toEqual({ ok: false, reason: 'story' });
+    expect(abandon(w, id)).toBe(w);
+  });
+  it('story cargo does not trigger the encounter mission block', () => {
+    const ferry = real.encounters['stranded-passenger'].choices[0];
+    expect(choiceBlock(withJobs(7), real, ferry, 'stranded-passenger')).toBeNull();
+    expect(choiceBlock(withJobs(8), real, ferry, 'stranded-passenger')).toBe('missions');
   });
 });
 
@@ -242,6 +278,23 @@ describe('advanceStory', () => {
     });
     const r = run(def, [{ kind: 'landed', planetId: 'merrow' }]);
     expect(r.w.story.active[0]).toEqual({ id: 'dl', step: 1, deadlineDay: null });
+  });
+  it('a deadline belongs to the step that declares it', () => {
+    const def = mk({
+      id: 'nf',
+      steps: [
+        { kind: 'land', planet: 'halcyon', text: 'a' },
+        { kind: 'deliver', planet: 'merrow', cargo: { name: 'c', tons: 1 }, deadlineDays: 4, text: 'b' },
+        { kind: 'ferry', planet: 'vanterre', passengers: 1, deadlineDays: 6, text: 'c' },
+      ],
+    });
+    const d = withStory(def);
+    let w = acceptStory(world(), d, 'nf');
+    expect(w.story.active[0].deadlineDay).toBeNull();
+    w = advanceStory({ ...w, day: 20 }, d, { kind: 'landed', planetId: 'halcyon' }).world;
+    expect(w.story.active[0]).toEqual({ id: 'nf', step: 1, deadlineDay: 24 });
+    w = advanceStory({ ...w, day: 22 }, d, { kind: 'landed', planetId: 'merrow' }).world;
+    expect(w.story.active[0]).toEqual({ id: 'nf', step: 2, deadlineDay: 28 });
   });
   it('is deterministic', () => {
     const def = mk({ id: 'z', steps: [{ kind: 'land', planet: 'merrow', text: 'a' }], onComplete: [{ type: 'credits', n: 5 }] });

@@ -8,6 +8,11 @@ import type { Mission, WorldState } from './types';
 export const MAX_MISSIONS = 8;
 /** typeId of the hold entries story missions use for cargo and passengers; the story rules unload them, not completeAt. */
 export const STORY_TYPE = 'story';
+
+/** The player's jobs: world.missions without the story hold entries (which don't count toward MAX_MISSIONS and can't be abandoned). */
+export function jobMissions(world: WorldState): Mission[] {
+  return world.missions.filter((m) => m.typeId !== STORY_TYPE);
+}
 const MIN_OFFERS = 3;
 const MAX_OFFERS = 7;
 
@@ -122,7 +127,7 @@ export function offersAt(world: WorldState, data: GameData, portId: string): Mis
 }
 
 export function canAccept(world: WorldState, data: GameData, offer: MissionOffer): AcceptCheck {
-  if (world.missions.length >= MAX_MISSIONS) return { ok: false, reason: 'tooMany' };
+  if (jobMissions(world).length >= MAX_MISSIONS) return { ok: false, reason: 'tooMany' };
   if (offer.tons > cargoFree(world, data)) return { ok: false, reason: 'noSpace' };
   if (offer.passengers > berthsFree(world, data)) return { ok: false, reason: 'noBerths' };
   return { ok: true };
@@ -168,11 +173,12 @@ export function failOverdue(world: WorldState): { world: WorldState; failed: Mis
   return { world: { ...world, missions: world.missions.filter((m) => !late(m)) }, failed };
 }
 
-export type AbandonCheck = { ok: true } | { ok: false; reason: 'cantRefund' };
+export type AbandonCheck = { ok: true } | { ok: false; reason: 'cantRefund' | 'story' };
 
 /** A job paid up front can only be dropped by a pilot who can hand the advance back. */
 export function canAbandon(world: WorldState, missionId: string): AbandonCheck {
-  const m = world.missions.find((x) => x.id === missionId);
+  if (world.missions.some((x) => x.id === missionId && x.typeId === STORY_TYPE)) return { ok: false, reason: 'story' };
+  const m = jobMissions(world).find((x) => x.id === missionId);
   if (m?.paidUpfront && world.credits < m.pay) return { ok: false, reason: 'cantRefund' };
   return { ok: true };
 }
@@ -182,7 +188,7 @@ export function canAbandon(world: WorldState, missionId: string): AbandonCheck {
  * returned. Unchanged when the mission is unknown or the advance can't be refunded.
  */
 export function abandon(world: WorldState, missionId: string): WorldState {
-  const m = world.missions.find((x) => x.id === missionId);
+  const m = jobMissions(world).find((x) => x.id === missionId);
   if (!m || !canAbandon(world, missionId).ok) return world;
   return {
     ...world,

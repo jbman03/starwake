@@ -1,5 +1,5 @@
 import { formatDate } from '../sim/calendar';
-import { MAX_MISSIONS } from '../sim/missions';
+import { jobMissions, MAX_MISSIONS } from '../sim/missions';
 import type { UiContext } from './context';
 import { button, confirmDialog, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
 import { mapCornerButton, mapCornerKey } from './mapButton';
@@ -17,7 +17,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
   const { data } = controller;
   const landed = controller.landedPlanetId !== null;
   const closeAction = landed ? 'missionLog' : 'flightMissionLog';
-  let index = Math.max(0, controller.world.missions.findIndex((m) => m.id === opts.selectId));
+  let index = Math.max(0, jobMissions(controller.world).findIndex((m) => m.id === opts.selectId));
 
   const close = () => {
     ctx.unmount();
@@ -40,12 +40,12 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     render();
   };
   const move = (delta: number) => {
-    const n = controller.world.missions.length;
+    const n = jobMissions(controller.world).length;
     if (n > 0) select(Math.min(n - 1, Math.max(0, index + delta)));
   };
 
   function showOnMap(): void {
-    const m = controller.world.missions[index];
+    const m = jobMissions(controller.world)[index];
     const systemId = m ? data.planets[m.destId]?.systemId : undefined;
     if (!m || !systemId) return;
     // The map replaces this screen; closing it brings the log back with the same mission selected.
@@ -53,10 +53,10 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
   }
 
   /** The current selection survives a trip to the map. */
-  const reopen = () => showMissionLog(ctx, onClose, { selectId: controller.world.missions[index]?.id });
+  const reopen = () => showMissionLog(ctx, onClose, { selectId: jobMissions(controller.world)[index]?.id });
 
   async function abandon(): Promise<void> {
-    const m = controller.world.missions[index];
+    const m = jobMissions(controller.world)[index];
     if (!m || !controller.canAbandonMission(m.id).ok) return;
     const money = m.paidUpfront ? `The advance of ${formatCredits(m.pay)} will be returned.` : 'You will not be paid.';
     const ok = await confirmDialog(ctx.root, {
@@ -72,7 +72,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
 
   function render(): void {
     const w = controller.world;
-    const missions = w.missions;
+    const missions = jobMissions(w);
     index = Math.min(index, Math.max(0, missions.length - 1));
     stats.replaceChildren(
       el('span', { text: formatDate(w.day, data.config) }),
@@ -148,7 +148,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     ctx,
     () => reopen(),
     () => {
-      if (controller.world.missions[index]) showOnMap();
+      if (jobMissions(controller.world)[index]) showOnMap();
       else ctx.go.map({ onClose: () => reopen() });
     },
   );
