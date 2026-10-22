@@ -43,15 +43,12 @@ export function currentStep(world: WorldState, data: GameData, id: string): Stor
   return (a && data.story[id]?.steps[a.step]) || null;
 }
 
-function offerable(world: WorldState, data: GameData, def: StoryMissionDef, portId: string): boolean {
-  const port = data.planets[portId];
+/** The offer conditions every mission shares, bar or hail: state, flags, day, standing and the one-at-a-time rules. */
+function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef): boolean {
   const o = def.offer;
-  if (!port || o.where !== 'bar') return false;
   const s = world.story;
   if (s.active.some((a) => a.id === def.id) || s.done.includes(def.id) || s.failed.includes(def.id)) return false;
   if (declinedToday(world, def.id)) return false;
-  if (o.ports && !o.ports.includes(portId)) return false;
-  if (o.systems && !o.systems.includes(port.systemId)) return false;
   if (o.minDay !== undefined && world.day < o.minDay) return false;
   if (o.requires?.some((f) => !world.flags.includes(f))) return false;
   if (o.notFlags?.some((f) => world.flags.includes(f))) return false;
@@ -61,6 +58,20 @@ function offerable(world: WorldState, data: GameData, def: StoryMissionDef, port
   if (def.arc === 'main' && others.some((d) => d.arc === 'main')) return false;
   if (def.chain && others.some((d) => d.chain === def.chain)) return false;
   return true;
+}
+
+function offerable(world: WorldState, data: GameData, def: StoryMissionDef, portId: string): boolean {
+  const port = data.planets[portId];
+  const o = def.offer;
+  if (!port || o.where !== 'bar') return false;
+  if (o.ports && !o.ports.includes(portId)) return false;
+  if (o.systems && !o.systems.includes(port.systemId)) return false;
+  return conditionsMet(world, data, def);
+}
+
+/** The mission that hails the pilot on arrival in `systemId`, or null (a hail mission names its systems). */
+export function storyHailAt(world: WorldState, data: GameData, systemId: string): StoryMissionDef | null {
+  return Object.values(data.story).find((d) => d.offer.where === 'hail' && !!d.offer.systems?.includes(systemId) && conditionsMet(world, data, d)) ?? null;
 }
 
 /** Story missions the bar at `portId` can offer today, in data order. */
@@ -114,6 +125,17 @@ export function acceptStory(world: WorldState, data: GameData, id: string): Worl
       declined: world.story.declined.filter((d) => d.split('@')[0] !== id),
     },
   };
+}
+
+/**
+ * Answer a story hail: the mission is taken and the arrival that brought it counts for its first
+ * step. The card shows the offer and accept text; unchanged when the mission can't be taken.
+ */
+export function answerStoryHail(world: WorldState, data: GameData, id: string): { world: WorldState; messages: string[] } {
+  const taken = acceptStory(world, data, id);
+  if (taken === world) return { world, messages: [] };
+  const r = advanceStory(taken, data, { kind: 'arrived', systemId: world.systemId });
+  return { world: r.world, messages: r.messages };
 }
 
 /** Put the mission off; it is offered again on a later day. */

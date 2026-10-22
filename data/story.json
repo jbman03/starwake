@@ -1,1 +1,151 @@
-{ "missions": [] }
+{
+  "missions": [
+    {
+      "id": "m1-lights-out", "arc": "main", "title": "Lights Out on the Rim",
+      "giver": { "name": "Warden Sela Corrin", "title": "Concord lane-warden" },
+      "offer": { "where": "bar", "ports": ["halcyon"], "minDay": 2 },
+      "text": "A tired woman in a Concord warden's coat is nursing the cheapest tea the bar sells. A lantern at Skerry went dark last week, and nobody can say why. She needs a pilot who will look at it without writing a report about how brave they were.",
+      "acceptText": "Corrin slides a scanner key across the table and finishes the tea like it owed her money. Skerry is a long way out, so go with a full tank. She would like to hear what the lantern has to say.",
+      "declinable": true,
+      "steps": [
+        { "kind": "scan", "system": "skerry", "site": { "label": "Dead lantern" }, "text": "Fly to Skerry and scan the dead lantern." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 3000 },
+        { "type": "flag", "flag": "lanterns-1" },
+        { "type": "rumour", "text": "The Skerry lantern was not worn out. Its core is simply gone. Warden Corrin wants a second opinion from someone who reads dead cores." },
+        { "type": "message", "text": "The lantern's housing is open and its core is gone. A fragment of the cut edge is yours to carry. Corrin pays you 3,000 cr." }
+      ]
+    },
+    {
+      "id": "m2-second-opinion", "arc": "main", "title": "A Second Opinion",
+      "giver": { "name": "Warden Sela Corrin", "title": "Concord lane-warden" },
+      "offer": { "where": "bar", "ports": ["halcyon", "concordance"], "requires": ["lanterns-1"] },
+      "text": "Corrin has been through the Skerry scans a dozen times and trusts none of them. She wants the core fragment in front of Odo Haskett, an analyst at Lastlight who can read a dead core like a letter. He is slow, honest, and not cheap. She needs him within eight days.",
+      "acceptText": "A one-ton crate of fragment and packing is sealed and strapped to your hold. Corrin writes Haskett's name on it twice, in case you forget. Lastlight is where he keeps his instruments, and his opinions.",
+      "declinable": true,
+      "steps": [
+        { "kind": "deliver", "planet": "lastlight-beacon", "cargo": { "name": "Core fragment", "tons": 1 }, "deadlineDays": 8, "text": "Deliver the core fragment to Odo Haskett at Lastlight within 8 days." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 4000 },
+        { "type": "flag", "flag": "core-cut" },
+        { "type": "rumour", "text": "Haskett says the Skerry core was cut out with a proper tool, not burned out. Someone is taking lantern cores on purpose." },
+        { "type": "message", "text": "Haskett turns the fragment over twice and says one word, quietly: cut. He pays you 4,000 cr from Corrin's purse." }
+      ]
+    },
+    {
+      "id": "m3-low-tide", "arc": "main", "title": "Low Tide",
+      "giver": { "name": "Odo Haskett", "title": "Independent analyst" },
+      "offer": { "where": "bar", "ports": ["lastlight-beacon"], "requires": ["core-cut"] },
+      "text": "Haskett has drawn a faint line on a napkin, from the cut edge of your fragment to a scavenger ship called the Low Tide. Its captain, Mags Orrin, buys what falls off other people's lanterns and knows where it goes. She is currently parked at Brackwater and enjoys being asked nicely.",
+      "acceptText": "Haskett taps the napkin and tells you to bring food, money, or a very good face. Brackwater is only a couple of jumps off the main lanes. The Low Tide will be easy to spot, being the ship that looks like it is hiding.",
+      "declinable": true,
+      "steps": [
+        {
+          "kind": "meet", "system": "brackwater",
+          "ship": { "name": "Low Tide", "shipId": "mule", "government": "independent" },
+          "text": "Find the Low Tide at Brackwater and talk to Mags Orrin.",
+          "card": {
+            "title": "The Low Tide",
+            "text": "Mags Orrin's voice crackles over the channel, cheerful and unhurried. She knows where the cores go, and she knows what an answer is worth. Her price comes in three flavours, none of them free.",
+            "choices": [
+              { "label": "Pay 5,000 cr", "needs": { "credits": 5000 }, "outcomes": [{ "type": "credits", "n": -5000 }, { "type": "message", "text": "Mags counts the credits twice and sends a bearing: a hidden lane out of Oxbow, deep into the dark." }] },
+              { "label": "Trade 10 t of food", "needs": { "cargo": { "good": "food", "tons": 10 } }, "outcomes": [{ "type": "cargo", "good": "food", "tons": -10 }, { "type": "message", "text": "Ten tons of food go across, and Mags sends a bearing with a happy sigh. Her crew have been eating tinned beans for weeks." }] },
+              { "label": "Bluff: you already know", "needs": { "cargo": { "good": "food", "tons": 1 } }, "outcomes": [{ "type": "message", "text": "You mention the cargo in your hold, as if it were a prelude to something. Mags squints, laughs, and sends the bearing anyway." }] }
+            ]
+          }
+        }
+      ],
+      "onComplete": [
+        { "type": "flag", "flag": "dimming-lane" },
+        { "type": "reveal", "systems": ["gloam"] },
+        { "type": "rumour", "text": "The Low Tide gave a bearing for a hidden lane from Oxbow into the Dimming. The first system out there is called Gloam." },
+        { "type": "message", "text": "The lane from Oxbow into the Dimming is now on your chart. Gloam is the first port of call." }
+      ],
+      "combatLater": "A fight with the Low Tide if the bluff fails."
+    },
+    {
+      "id": "m4-past-the-charts", "arc": "main", "title": "Past the Charts",
+      "giver": { "name": "Ama Reed", "title": "Speaker of the Unlit Holdings" },
+      "offer": { "where": "hail", "systems": ["gloam"], "requires": ["dimming-lane"] },
+      "text": "A calm voice comes over the channel as you cross out of the charts. This is Ama Reed, speaker for the Unlit Holdings, and she knows exactly why you are here. Someone is stripping the old lanterns just beyond Gloam, and she would rather you saw it for yourself than heard it from a Concord report.",
+      "acceptText": "Reed marks a stripped-lantern field on your chart and wishes you luck, in the voice of someone who has said it too often. A man named Bram Kettle is working there, and he is not a villain. Be ready for his crew to be less polite.",
+      "declinable": false,
+      "steps": [
+        { "kind": "go", "system": "gloam", "text": "Make your way into Gloam, past the edge of the charts." },
+        { "kind": "find", "system": "gloam", "site": { "label": "Stripped lantern field" }, "text": "Search Gloam for the stripped lantern field." },
+        {
+          "kind": "meet", "system": "gloam",
+          "ship": { "name": "Bram Kettle", "shipId": "ironback", "government": "unlit" },
+          "text": "Talk to Bram Kettle and decide what to do with what you know.",
+          "card": {
+            "title": "Bram Kettle",
+            "text": "Bram Kettle is tired, thin, and not hiding a thing. His crew were never paid by the Concord, so they took what the Concord left to rot. You hold the evidence and the lane charts, and either could end him. One of them could end the lanterns going dark.",
+            "choices": [
+              {
+                "label": "Give the evidence to Corrin",
+                "outcomes": [
+                  { "type": "flag", "flag": "side-concord" },
+                  { "type": "standing", "government": "concord", "level": "friend" },
+                  { "type": "standing", "government": "free-reach", "level": "cool" },
+                  { "type": "credits", "n": 6000 },
+                  { "type": "rumour", "text": "You chose the Concord. Warden Corrin is waiting at Concordance with a charter and a pen." },
+                  { "type": "message", "text": "The evidence goes to the Concord. Corrin pays 6,000 cr and asks you to come to Concordance." }
+                ]
+              },
+              {
+                "label": "Sell the charts to Vey",
+                "outcomes": [
+                  { "type": "flag", "flag": "side-reach" },
+                  { "type": "standing", "government": "free-reach", "level": "friend" },
+                  { "type": "standing", "government": "concord", "level": "cool" },
+                  { "type": "credits", "n": 6000 },
+                  { "type": "rumour", "text": "You chose the Free Reach. Tamsin Vey is waiting at Wrenhold with a contract she will keep to the letter." },
+                  { "type": "message", "text": "The charts go to the Free Reach. Vey pays 6,000 cr and invites you to Wrenhold." }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "onComplete": [],
+      "combatLater": "Bram's crew may fight."
+    },
+    {
+      "id": "s1-missing-courier", "arc": "side", "chain": "missing-courier", "title": "The Missing Courier",
+      "giver": { "name": "Hettie Marsh", "title": "Freight clerk" },
+      "offer": { "where": "bar", "ports": ["lastlight-beacon"], "minDay": 3 },
+      "text": "Hettie Marsh has a ledger with one red line in it. Pell Darrow's courier is nine days overdue on the Vesk run, and Pell is never late. She would like someone to find out whether he is dead, drunk, or merely sulking.",
+      "acceptText": "Marsh gives you Pell's last known route and a flask of something that is not tea. Start at Vesk and work back through Mirren. She expects good news, but has packed for the other kind.",
+      "declinable": true,
+      "steps": [
+        { "kind": "land", "planet": "vesk-outpost", "text": "Ask at Vesk Outpost when Pell last passed through." },
+        { "kind": "find", "system": "mirren", "site": { "label": "Pell Darrow's courier" }, "text": "Search Mirren for Pell Darrow's courier." },
+        { "kind": "land", "planet": "lastlight-beacon", "text": "Take the news back to Hettie Marsh at Lastlight." }
+      ],
+      "onComplete": [
+        { "type": "credits", "n": 5000 },
+        { "type": "rumour", "text": "Pell Darrow swears a ship with no running lights shadowed him off the Brackwater lane, before his drive quit. He thinks it was the Low Tide." },
+        { "type": "message", "text": "Pell is alive, cross, and short of a drive coil. Marsh pays 5,000 cr and tells you about the unlit ship that scared him." }
+      ]
+    },
+    {
+      "id": "s2-surveyors-charts", "arc": "side", "chain": "surveyors-charts", "title": "The Surveyor's Charts",
+      "giver": { "name": "Isolde Marek", "title": "Chart-keeper" },
+      "offer": { "where": "bar", "ports": ["corvana-works"] },
+      "text": "Isolde Marek has the look of someone who has lost something small and valuable. A surveyor she trained sent two chart tubes in the post and neither arrived. They are somewhere in Thistle and Cinderfall, and she would very much like them back.",
+      "acceptText": "Marek gives you a beacon key for the first tube and a stern look for the second. The surveyor was careful, so the tubes will not be lying about. When you have both, bring them to her at Corvana.",
+      "declinable": true,
+      "steps": [
+        { "kind": "scan", "system": "thistle", "site": { "label": "Chart tube beacon" }, "text": "Scan the first chart tube's beacon in Thistle." },
+        { "kind": "find", "system": "cinderfall", "site": { "label": "Second chart tube" }, "text": "Search Cinderfall for the second chart tube." },
+        { "kind": "land", "planet": "corvana-works", "text": "Bring both tubes back to Isolde Marek at Corvana Works." }
+      ],
+      "onComplete": [
+        { "type": "unlock", "flag": "folio-unlocked" },
+        { "type": "message", "text": "Marek unrolls both tubes and weeps briefly into her sleeve. She says the Surveyor's Folio is yours to buy at the Corvana outfitter. It is a map, and the surveyor would have wanted it used." }
+      ]
+    }
+  ]
+}

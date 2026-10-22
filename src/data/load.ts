@@ -112,6 +112,13 @@ function checkOutcome(issues: string[], file: string, at: string, o: Outcome, r:
     issues.push(fmt(file, at, `unknown government "${o.government}"`));
 }
 
+function checkChoices(issues: string[], file: string, at: string, choices: { needs?: { cargo?: { good: string } } }[], r: Refs): void {
+  choices.forEach((c, ci) => {
+    const g = c.needs?.cargo?.good;
+    if (g !== undefined && !(g in r.commodities)) issues.push(fmt(file, `${at}.choices.${ci}.needs.cargo`, `unknown commodity "${g}"`));
+  });
+}
+
 const KEYS = [
   'ships',
   'systems',
@@ -281,6 +288,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
       if (!(gid in governments))
         encIssues.push(fmt('encounters.json', `${e.id}.when.governments.${i}`, `unknown government "${gid}"`));
     });
+    checkChoices(encIssues, 'encounters.json', e.id, e.choices, refs);
     e.choices.forEach((c, ci) =>
       c.outcomes.forEach((o, oi) =>
         checkOutcome(encIssues, 'encounters.json', `${e.id}.choices.${ci}.outcomes.${oi}`, o, refs),
@@ -307,6 +315,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
         unknownIn(`${at}.ship.government`, 'government', st.ship.government, governments);
         if (ships[st.ship.shipId]?.unique)
           storyIssues.push(fmt(sf, `${m.id}.${at}.ship.shipId`, `ship "${st.ship.shipId}" is unique and cannot be met as an NPC`));
+        checkChoices(storyIssues, sf, `${m.id}.${at}.card`, st.card.choices, refs);
         st.card.choices.forEach((c, ci) =>
           c.outcomes.forEach((o, oi) => checkOutcome(storyIssues, sf, `${m.id}.${at}.card.choices.${ci}.outcomes.${oi}`, o, refs)),
         );

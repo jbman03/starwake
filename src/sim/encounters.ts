@@ -69,13 +69,14 @@ function fuelDelta(choice: Choice): number {
 }
 
 /** Why the pilot can't pick this choice right now, or null. */
-export type Block = 'fuel' | 'credits' | 'cargoSpace' | 'missions';
+export type Block = 'fuel' | 'credits' | 'cargoSpace' | 'goods' | 'missions';
 
 /** Short reasons for the encounter card to show beside a blocked choice. */
 export const ENCOUNTER_BLOCK_TEXT: Record<Block, string> = {
   fuel: 'Not enough fuel to spare',
   credits: 'Not enough credits',
   cargoSpace: 'Not enough room in the hold',
+  goods: 'Not enough of that cargo in the hold',
   missions: 'No room for another job',
 };
 
@@ -84,6 +85,7 @@ export function choiceBlock(world: WorldState, data: GameData, choice: Choice, d
   if (needs?.fuel !== undefined && world.ship.fuel < needs.fuel) return 'fuel';
   if (needs?.credits !== undefined && world.credits < needs.credits) return 'credits';
   if (needs?.cargoSpace !== undefined && cargoFree(world, data) < needs.cargoSpace) return 'cargoSpace';
+  if (needs?.cargo && (world.cargo[needs.cargo.good] ?? 0) < needs.cargo.tons) return 'goods';
   // Giving fuel away must leave enough for one jump.
   const delta = fuelDelta(choice);
   if (delta < 0 && world.ship.fuel + delta < data.config.fuelPerJump) return 'fuel';
@@ -181,8 +183,9 @@ export function applyOutcomes(
         w = { ...w, credits: w.credits + o.n };
         break;
       case 'cargo': {
-        const tons = Math.min(o.tons, cargoFree(w, data));
-        if (tons > 0) w = { ...w, cargo: { ...w.cargo, [o.good]: (w.cargo[o.good] ?? 0) + tons } };
+        // Positive tons are taken aboard up to the free hold; negative tons are handed over, up to what is held.
+        const tons = o.tons > 0 ? Math.min(o.tons, cargoFree(w, data)) : -Math.min(-o.tons, w.cargo[o.good] ?? 0);
+        if (tons !== 0) w = { ...w, cargo: { ...w.cargo, [o.good]: (w.cargo[o.good] ?? 0) + tons } };
         break;
       }
       case 'fuel': {

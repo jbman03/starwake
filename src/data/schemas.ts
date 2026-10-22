@@ -55,6 +55,9 @@ const outfitBase = {
   space: z.number().int().nonnegative(),
   max: z.number().int().positive(),
   soldBy: z.array(id).optional(),
+  soldAt: z.array(id).optional(), // port ids; absent = any port the tier and government allow
+  unique: z.boolean().optional(), // a one-off, sold once
+  requiresFlag: z.string().min(1).optional(), // story flag needed before it is offered
   requiresStanding: StandingReqSchema.optional(),
 };
 
@@ -158,7 +161,7 @@ const count = z.number().int();
 
 export const OutcomeSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('credits'), n: count }),
-  z.object({ type: z.literal('cargo'), good: id, tons: z.number().int().positive() }),
+  z.object({ type: z.literal('cargo'), good: id, tons: z.number().int().refine((n) => n !== 0, 'expected a non-zero count') }), // negative hands cargo over
   z.object({ type: z.literal('fuel'), n: count }),
   z.object({ type: z.literal('mission'), missionType: id, toSystem: id.optional() }),
   z.object({ type: z.literal('reveal'), systems: z.array(id).optional(), jumps: z.number().int().positive().optional() }),
@@ -176,6 +179,7 @@ const EncounterChoiceSchema = z.object({
       fuel: z.number().nonnegative().optional(),
       credits: z.number().nonnegative().optional(),
       cargoSpace: z.number().nonnegative().optional(),
+      cargo: z.object({ good: id, tons: z.number().int().positive() }).optional(), // trade goods that must be in the hold
     })
     .optional(),
   outcomes: z.array(OutcomeSchema),

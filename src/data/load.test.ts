@@ -636,7 +636,7 @@ describe('story data', () => {
       { kind: 'meet', system: 'vesk', ship: { name: 'Wren', shipId: 'courier', government: 'independent' },
         card: card([{ type: 'standing', government: 'concord', level: 'friend' }, { type: 'unlock', flag: 'f' }]), text: 'g' },
     ];
-    expect(Object.keys(parseGameData(withMission(mission(steps))).story)).toEqual(['m1']);
+    expect(Object.keys(parseGameData(withMission(mission(steps))).story)).toContain('m1');
   });
 
   it('rejects a step naming an unknown planet, with a path', () => {
@@ -678,5 +678,65 @@ describe('story data', () => {
     r.outfits[0].requiresStanding = { government: 'concord', level: 'friend' };
     const d = parseGameData(r);
     expect(d.ships.kestrel.requiresStanding).toEqual({ government: 'concord', level: 'friend' });
+  });
+});
+
+
+describe('shipped story data', () => {
+  const d = parseGameData(raw());
+  const missions = Object.values(d.story);
+
+  it('has the arc and both chains', () => {
+    expect(missions.filter((m) => m.arc === 'main').map((m) => m.id)).toEqual([
+      'm1-lights-out',
+      'm2-second-opinion',
+      'm3-low-tide',
+      'm4-past-the-charts',
+    ]);
+    expect(missions.filter((m) => m.chain).map((m) => m.id)).toEqual(['s1-missing-courier', 's2-surveyors-charts']);
+  });
+
+  it('every story mission is reachable', () => {
+    // Fixed point: flags come from the outcomes of missions that can be reached, starting from none.
+    const flags = new Set<string>();
+    const reached = new Set<string>();
+    const outcomesOf = (m: (typeof missions)[number]) => [
+      ...m.onComplete,
+      ...m.steps.flatMap((s) => (s.kind === 'meet' ? s.card.choices.flatMap((c) => c.outcomes) : [])),
+    ];
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (const m of missions) {
+        if (reached.has(m.id)) continue;
+        if (!(m.offer.requires ?? []).every((f) => flags.has(f))) continue;
+        reached.add(m.id);
+        for (const out of outcomesOf(m)) if ((out.type === 'flag' || out.type === 'unlock') && !flags.has(out.flag)) flags.add(out.flag);
+        changed = true;
+      }
+    }
+    expect(missions.filter((m) => !reached.has(m.id)).map((m) => m.id)).toEqual([]);
+  });
+
+  it('a hail mission names its systems; a bar mission names ports or systems', () => {
+    for (const m of missions) {
+      if (m.offer.where === 'hail') expect(m.offer.systems?.length, m.id).toBeGreaterThan(0);
+      else expect((m.offer.ports?.length ?? 0) + (m.offer.systems?.length ?? 0), m.id).toBeGreaterThan(0);
+    }
+  });
+
+  it('every bar mission is offered at a port that has a bar', () => {
+    for (const m of missions.filter((x) => x.offer.where === 'bar'))
+      for (const p of m.offer.ports ?? []) expect(d.planets[p].services, `${m.id} at ${p}`).toContain('bar');
+  });
+
+  it('offer and accept text run 2 to 4 sentences, and no retired name appears', () => {
+    for (const m of missions) {
+      for (const t of [m.text, m.acceptText]) {
+        const sentences = t.split(/(?<=[.!?])\s+/).filter(Boolean).length;
+        expect(sentences, `${m.id}: ${t}`).toBeGreaterThanOrEqual(2);
+        expect(sentences, `${m.id}: ${t}`).toBeLessThanOrEqual(4);
+      }
+      expect(JSON.stringify(m)).not.toMatch(/Jory/);
+    }
   });
 });

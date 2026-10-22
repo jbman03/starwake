@@ -99,6 +99,7 @@ test.describe('phone', () => {
     await injectOffer(page);
     await page.evaluate(() => {
       const h = window.__starwake!;
+      for (const id of Object.keys(h.data.story)) if (!id.startsWith('e2e')) delete h.data.story[id]; // the shipped arc would lead first
       h.data.story['e2e-fixture'].text = 'Listen closely, pilot. '.repeat(18).trim(); // about 400 characters
       h.data.planets.halcyon.description = 'Terraced orchards and quiet harbors. '.repeat(8).trim(); // a long port description
       // Make Halcyon's lead point elsewhere: Merrow's offer comes first in data order.

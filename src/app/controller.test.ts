@@ -997,6 +997,35 @@ describe('Controller story steps in flight', () => {
     expect(c.encounterView()?.title).toBe('A signal');
   });
 
+  it('a hail mission hails on arrival; answering takes it and shows its offer and accept text', async () => {
+    const hail: StoryMissionDef = {
+      ...mission('hl', [
+        { kind: 'go', system: 'tessaly', text: 'Go.' },
+        { kind: 'land', planet: 'vanterre', text: 'Land.' },
+      ]),
+      offer: { where: 'hail', systems: ['tessaly'] },
+      text: 'We saw you coming.',
+      acceptText: 'Welcome in.',
+    };
+    const { c } = await flying(hail);
+    c.world = { ...c.world, story: { ...c.world.story, active: [] } }; // flying() took it; a hail is answered, not taken
+    expect(c.storyHail).toBeNull();
+    jumpTo(c, 'tessaly');
+    c.pending = null; // a random encounter may have rolled; this test is about the story hail
+    expect(c.storyHail).toBe('hl');
+    expect(c.hailName()).toBe('Ansel Voss');
+    expect(c.currentContext()).toBe('answerHail');
+    expect(c.openEncounter()).toBe(true);
+    expect(c.world.story.active.map((a) => a.id)).toEqual(['hl']);
+    expect(c.world.story.active[0].step).toBe(1); // the arrival counted as the go step
+    expect(c.storyHail).toBeNull();
+    const view = c.encounterView()!;
+    expect(view.text).toBe('We saw you coming. Welcome in.');
+    expect(view.choices).toEqual([{ label: 'Understood', blocked: null }]);
+    expect(c.chooseEncounter(0)).toEqual({ messages: [] });
+    expect(c.encounterView()).toBeNull();
+  });
+
   it('arrival advances a go step', async () => {
     const go = mission('go', [{ kind: 'go', system: 'vesk', text: 'Go to Vesk.' }, { kind: 'land', planet: 'halcyon', text: 'Back.' }]);
     const { c } = await flying(go);
