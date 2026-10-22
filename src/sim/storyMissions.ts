@@ -2,7 +2,11 @@ import type { GameData, Outcome, StandingLevel, StoryMissionDef, StoryStepDef } 
 import { berthsFree, cargoFree } from './cargo';
 import { applyOutcomes } from './encounters';
 import { STORY_TYPE } from './missions';
+import { hashString, mulberry32 } from './random';
+import { SYSTEM_CENTER } from './rules';
+import { systemOpen } from './galaxy';
 import type { Mission, WorldState } from './types';
+import { add, fromAngle, scale, type Vec2 } from './vec';
 
 const RANK: Record<StandingLevel, number> = { cool: 0, neutral: 1, friend: 2 };
 const NO_NPC = { npcName: '' };
@@ -132,6 +136,49 @@ function stepMatches(step: StoryStepDef, ev: StoryEvent, missionId: string): boo
       return step.kind === 'meet' && ev.missionId === missionId;
   }
 }
+
+/** The system a step is played in. */
+function stepSystem(step: StoryStepDef, data: GameData): string | undefined {
+  return 'system' in step ? step.system : data.planets[step.planet]?.systemId;
+}
+
+/**
+ * The systems the current step of every active story mission points at, without repeats. Hidden
+ * systems whose unlock flag is unset are left out, so a story target never reveals one early.
+ * setRoute treats these like a job's destination: a course may use any lane to reach them.
+ */
+export function storyDestinations(world: WorldState, data: GameData): string[] {
+  const out = new Set<string>();
+  for (const a of world.story.active) {
+    const step = currentStep(world, data, a.id);
+    const id = step && stepSystem(step, data);
+    const sys = id ? data.systems[id] : undefined;
+    if (id && sys && systemOpen(sys, world.flags)) out.add(id);
+  }
+  return [...out];
+}
+
+/** A scan or find site lies this far from the system centre (px, min and spread). */
+export const STORY_SITE_MIN = 600;
+export const STORY_SITE_SPREAD = 400;
+/** A find site shows (radar, map of the sky) only within this distance of the ship. */
+export const FIND_SITE_REVEAL = 600;
+/** A meet ship waits this far from the system centre (px, min and spread). */
+const MEET_MIN = 250;
+const MEET_SPREAD = 200;
+
+function ringPos(world: WorldState, salt: string, missionId: string, systemId: string, min: number, spread: number): Vec2 {
+  const r = mulberry32(hashString(world.seed, salt, missionId, systemId));
+  return add(SYSTEM_CENTER, scale(fromAngle(r() * Math.PI * 2), min + r() * spread));
+}
+
+/** Where a mission's scan or find site lies in `systemId`: fixed by the seed, mission and system. */
+export const storySitePos = (world: WorldState, missionId: string, systemId: string): Vec2 =>
+  ringPos(world, 'storysite', missionId, systemId, STORY_SITE_MIN, STORY_SITE_SPREAD);
+
+/** Where a mission's meet ship waits in `systemId`. */
+export const storyHoldPos = (world: WorldState, missionId: string, systemId: string): Vec2 =>
+  ringPos(world, 'storymeet', missionId, systemId, MEET_MIN, MEET_SPREAD);
 
 /** Advance every active mission whose current step the event satisfies (one step each). */
 export function advanceStory(

@@ -15,10 +15,11 @@ import {
   declineStory,
   nextLead,
   standingOf,
+  storyDestinations,
   storyOffersAt,
 } from './storyMissions';
 import type { WorldState } from './types';
-import { newWorld } from './world';
+import { newWorld, setRoute } from './world';
 
 const real = testData();
 const card = { title: 'Hail', text: 'A ship hails.', choices: [{ label: 'Talk', outcomes: [] }] };
@@ -379,3 +380,30 @@ describe('standingOf', () => {
     expect(standingOf(world({ standing: { concord: 'friend' } }), 'concord')).toBe('friend');
   });
 });
+
+describe('storyDestinations', () => {
+  const taken = (d: GameData, id: string, over: Partial<WorldState> = {}) => acceptStory(world(over), d, id);
+  it('lists the system of the current step of each active mission', () => {
+    const scan = mk({ id: 'sc', steps: [{ kind: 'scan', system: 'tessaly', site: { label: 'Wreck' }, text: 's' }, { kind: 'land', planet: 'merrow', text: 'l' }] });
+    const d = withStory(scan, side);
+    let w = acceptStory(taken(d, 'sc'), d, 's1');
+    expect(storyDestinations(w, d).sort()).toEqual([data0(d, 'merrow'), 'tessaly'].sort());
+    w = advanceStory(w, d, { kind: 'site', missionId: 'sc' }).world;
+    expect(storyDestinations(w, d)).toEqual([data0(d, 'merrow')]);
+  });
+  it('is empty with nothing active, and never lists a hidden system whose flag is unset', () => {
+    const d = withStory(mk({ id: 'h', steps: [{ kind: 'go', system: 'hushwater', text: 'g' }] }));
+    expect(storyDestinations(world(), d)).toEqual([]);
+    expect(storyDestinations(taken(d, 'h'), d)).toEqual([]);
+    expect(storyDestinations(taken(d, 'h', { flags: ['hushwater-lane'] }), d)).toEqual(['hushwater']);
+  });
+  it('lets setRoute plot to an uncharted story target', () => {
+    const d = withStory(mk({ id: 'g', steps: [{ kind: 'go', system: 'brackwater', text: 'g' }] }));
+    const w = world();
+    expect(setRoute(w, d, 'brackwater').ok).toBe(false);
+    const r = setRoute(acceptStory(w, d, 'g'), d, 'brackwater');
+    expect(r.ok).toBe(true);
+    expect(r.world.route.at(-1)).toBe('brackwater');
+  });
+});
+const data0 = (d: GameData, planet: string): string => d.planets[planet].systemId;

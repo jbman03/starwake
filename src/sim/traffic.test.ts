@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import type { GameData } from '../data/schemas';
 import { HIDDEN_LANE_FLAG, lanesOf } from './galaxy';
-import { npcLabel, npcLanes, seedTraffic, stepTraffic, trafficLevel, type Traffic } from './traffic';
+import { addStoryNpc, npcLabel, npcLanes, seedTraffic, stepTraffic, trafficLevel, isTargetable, type Traffic } from './traffic';
 import { newWorld } from './world';
 import type { WorldState } from './types';
 
@@ -182,5 +182,41 @@ describe('hidden systems', () => {
   });
   it('Unlit Holdings systems run sparse traffic, [0, 2]', () => {
     for (const s of Object.values(data.systems).filter((x) => x.government === 'unlit')) expect(trafficLevel(data, s.id)).toEqual([0, 2]);
+  });
+});
+
+describe('addStoryNpc', () => {
+  const spec = { id: 'story-m1-0', name: 'Orrin Vale', shipId: 'courier', government: 'concord', holdPos: { x: 300, y: 200 } };
+  const shipId = Object.keys(data.ships).find((id) => data.ships[id].role === 'courier') ?? Object.keys(data.ships)[0];
+
+  it('adds a targetable named ship with the usual label', () => {
+    const t = addStoryNpc(seedTraffic(worldIn('calder'), data, 8), { ...spec, shipId });
+    const n = t.npcs.find((x) => x.id === spec.id)!;
+    expect(n.name).toBe('Orrin Vale');
+    expect(isTargetable(n)).toBe(true);
+    expect(npcLabel(n, data)).toMatch(/^Orrin Vale — Concord Swiftwing/);
+  });
+
+  it('flies to its hold position, waits there, and never lands or jumps', () => {
+    const w = worldIn('calder');
+    let t = addStoryNpc({ systemId: 'calder', npcs: [], spawnCount: 0, nextSpawnSec: 1e9, targetId: null }, { ...spec, shipId });
+    const events: string[] = [];
+    for (let time = 0; time < 400; time += DT) {
+      const r = stepTraffic(t, w, data, DT, 8);
+      t = r.traffic;
+      for (const e of r.events) events.push(e.type);
+    }
+    const n = t.npcs.find((x) => x.id === spec.id)!;
+    expect(n).toBeDefined();
+    expect(n.phase).toBe('fly');
+    expect(Math.hypot(n.ship.pos.x - 300, n.ship.pos.y - 200)).toBeLessThan(60);
+    expect(events).toEqual([]);
+  });
+
+  it('does not count toward the wanted number of ordinary ships', () => {
+    const w = worldIn('calder');
+    let t = addStoryNpc({ systemId: 'calder', npcs: [], spawnCount: 0, nextSpawnSec: 0, targetId: null }, { ...spec, shipId });
+    t = stepTraffic(t, w, data, DT, 8).traffic;
+    expect(t.npcs.length).toBeGreaterThan(1);
   });
 });

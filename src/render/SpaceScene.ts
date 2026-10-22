@@ -188,7 +188,7 @@ export class SpaceScene extends Phaser.Scene {
     hook.hudHail = () => this.hud.hailText();
     hook.hudMessage = () => this.hud.messageText();
     hook.siteScreenPos = () => {
-      const pos = this.controller.sitePos();
+      const pos = this.controller.sitePositions()[0] ?? null;
       const c = this.cameras.main;
       return pos ? { x: c.x + (pos.x - c.worldView.x) * c.zoom, y: c.y + (pos.y - c.worldView.y) * c.zoom } : null;
     };
@@ -276,34 +276,34 @@ export class SpaceScene extends Phaser.Scene {
     this.drawJumpFx(x, y);
     this.drawSite();
     this.hud.update(world, data, dt, this.guideHint(), this.controller.traffic, this.hailBanner());
-    this.sidebar.update(world, data, dt, this.controller.traffic, this.controller.sitePos());
+    this.sidebar.update(world, data, dt, this.controller.traffic, this.controller.sitePositions());
   }
 
   /** "Incoming hail — Name (Y to answer)" while a hail is open, else null. */
   private hailBanner(): string | null {
-    const p = this.controller.pending;
-    if (p?.kind !== 'hail' || !this.controller.isFlying) return null;
+    const name = this.controller.hailName();
+    if (name === null || !this.controller.isFlying) return null;
     const key = hotkeyFor(this.controller.settings.bindings, 'interact') ?? 'unbound';
-    return `Incoming hail — ${p.npcName} (${key} to answer)`;
+    return `Incoming hail — ${name} (${key} to answer)`;
   }
 
-  /** A white diamond at the pending site (nothing while there isn't one). */
+  /** A white diamond at each site: the pending encounter's and the story step's (nothing while there is none). */
   private drawSite(): void {
     const g = this.siteMark;
     g.clear();
-    const pos = this.controller.sitePos();
-    if (!pos) return;
     const r = 12;
     g.lineStyle(2, 0xffffff, 0.95);
     g.fillStyle(0xffffff, 0.25);
-    g.beginPath();
-    g.moveTo(pos.x, pos.y - r);
-    g.lineTo(pos.x + r, pos.y);
-    g.lineTo(pos.x, pos.y + r);
-    g.lineTo(pos.x - r, pos.y);
-    g.closePath();
-    g.fillPath();
-    g.strokePath();
+    for (const pos of this.controller.sitePositions()) {
+      g.beginPath();
+      g.moveTo(pos.x, pos.y - r);
+      g.lineTo(pos.x + r, pos.y);
+      g.lineTo(pos.x, pos.y + r);
+      g.lineTo(pos.x - r, pos.y);
+      g.closePath();
+      g.fillPath();
+      g.strokePath();
+    }
   }
 
   /** The First Flight guide's current hint for the HUD, or null. */

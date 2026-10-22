@@ -1,8 +1,9 @@
 import type { GameData, StoryMissionDef } from '../data/schemas';
+import type { StoryAccept } from '../sim/storyMissions';
 import type { PilotStore } from '../save/store';
 import type { WorldState } from '../sim/types';
 import type { SidebarInfo } from '../render/sidebarInfo';
-import type { Controller } from './controller';
+import type { Controller, StoryMeet, StorySite } from './controller';
 
 export interface StarwakeTestHook {
   world: () => WorldState;
@@ -13,6 +14,12 @@ export interface StarwakeTestHook {
   storyOffers: () => StoryMissionDef[];
   /** The story progress held in the world. */
   story: () => WorldState['story'];
+  /** The scan or find site of a story step in this system (even a find site not yet in view), or null. */
+  storySite: () => StorySite | null;
+  /** The story meet ship waiting in this system, or null. */
+  storyMeet: () => StoryMeet | null;
+  /** Test-only: take a story mission as the bar would, whatever the pilot's location. */
+  acceptStoryNow: (id: string) => StoryAccept;
   /** Test-only: put the world at `planetId` (in its system) and land there, as a real landing would. */
   teleport: (planetId: string) => void;
   /** Set by SpaceScene: the main camera's viewport in screen px. */
@@ -90,5 +97,5 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     c.landAt(planetId);
     c.emit({ type: 'landed', planetId });
   };
-  window.__starwake = { world: () => controller.world, data, controller, store, teleport, storyOffers: () => controller.storyOffers(), story: () => controller.world.story, forceEncounter: (id) => controller.forceEncounter(id) };
+  window.__starwake = { world: () => controller.world, data, controller, store, teleport, storyOffers: () => controller.storyOffers(), story: () => controller.world.story, storySite: () => controller.storySite, storyMeet: () => controller.storyMeet, acceptStoryNow: (id) => controller.acceptStory(id), forceEncounter: (id) => controller.forceEncounter(id) };
 }

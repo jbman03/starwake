@@ -22,6 +22,8 @@ export interface Npc {
   phase: NpcPhase;
   phaseT: number;
   thrusting: boolean;
+  /** A story ship: it flies here and waits (never lands or jumps). */
+  hold?: Vec2;
 }
 
 export interface Traffic {
@@ -39,6 +41,10 @@ const LAND_SEC = 0.4;
 /** A ship still flying after this long finishes its errand where it is (safety net). */
 const FLY_TIMEOUT_SEC = 150;
 const EXIT_RADIUS = 60;
+/** A story ship counts as arrived within this many px of its hold position. */
+const HOLD_RADIUS = 30;
+/** Where a story ship starts, relative to its hold position, when none is given. */
+const HOLD_APPROACH: Vec2 = { x: 600, y: 0 };
 const ZERO: Vec2 = { x: 0, y: 0 };
 
 /** Chance weight by hull role. */
@@ -173,6 +179,12 @@ function stepNpc(npc: Npc, world: WorldState, data: GameData, dt: number, events
   }
   if (npc.phase === 'gone') return npc;
 
+  if (npc.hold) {
+    const r = autopilotInput(npc.ship, def, npc.hold, HOLD_RADIUS, AUTOPILOT_ARRIVE_SPEED);
+    if (r.arrived) return { ...npc, ship: { ...npc.ship, vel: { ...ZERO } }, phaseT, thrusting: false };
+    return { ...npc, ship: stepShip(npc.ship, def, r.input, dt), phaseT, thrusting: r.input.thrust };
+  }
+
   const port = npc.errand === 'arrive' && npc.portId ? data.planets[npc.portId] : null;
   const dest = port ? port.pos : exitPos(world, data, npc.id);
   const radius = port ? port.radius + def.radius + data.config.arrivalRadius : EXIT_RADIUS;
@@ -201,7 +213,8 @@ export function stepTraffic(
   let next: Traffic = { ...t, npcs, nextSpawnSec: t.nextSpawnSec - dt };
   if (next.nextSpawnSec <= 0) {
     const want = wantedCount(world, data, t.systemId, maxNpcs);
-    if (npcs.length < want && npcs.length < maxNpcs) {
+    const ordinary = npcs.filter((n) => !n.hold).length;
+    if (ordinary < want && ordinary < maxNpcs) {
       const { npc, event } = spawnNpc(next, world, data, false);
       if (event) events.push(event);
       next = { ...next, npcs: [...npcs, npc], spawnCount: next.spawnCount + 1 };
@@ -209,6 +222,28 @@ export function stepTraffic(
     next = { ...next, nextSpawnSec: nextWait(world, t.systemId, next.spawnCount) };
   }
   return { traffic: next, events };
+}
+
+/** Add a named story ship that flies to `holdPos` and waits there. It is targetable like any other ship. */
+export function addStoryNpc(
+  t: Traffic,
+  spec: { id: string; name: string; shipId: string; government: string; holdPos: Vec2; from?: Vec2 },
+): Traffic {
+  const from = spec.from ?? add(spec.holdPos, HOLD_APPROACH);
+  const npc: Npc = {
+    id: spec.id,
+    name: spec.name,
+    shipId: spec.shipId,
+    government: spec.government,
+    errand: 'pass',
+    ship: { pos: from, vel: { ...ZERO }, heading: angleOf(sub(spec.holdPos, from)), fuel: 0 },
+    portId: null,
+    phase: 'fly',
+    phaseT: 0,
+    thrusting: false,
+    hold: spec.holdPos,
+  };
+  return { ...t, npcs: [...t.npcs.filter((n) => n.id !== spec.id), npc] };
 }
 
 /** "Brass Heron — Concord Mule (freighter)": name, government's first word, hull's first word, role. */

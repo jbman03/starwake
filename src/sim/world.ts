@@ -4,6 +4,7 @@ import { stepShip } from './flight';
 import { economyDay } from './economy';
 import { hopDistance, lanesOf, revealOnArrival, revealWithin, routeBetween } from './galaxy';
 import { failOverdue, jobMissions } from './missions';
+import { storyDestinations } from './storyMissions';
 import { hashString } from './random';
 import {
   canJump,
@@ -116,7 +117,8 @@ export function advanceDays(world: WorldState, data: GameData, n: number): { wor
 /**
  * Plot a course to `toSystemId`: fewest hops, through known or seen systems only. The destination
  * must itself be known or seen. Exception: when it is the destination system of an active
- * mission, the course may use any lane (the job's client supplies the charts). On failure the
+ * mission or of the current step of an active story mission, the course may use any lane (the
+ * client supplies the charts). On failure the
  * world is returned unchanged.
  */
 export function setRoute(
@@ -125,7 +127,8 @@ export function setRoute(
   toSystemId: string,
 ): { world: WorldState; ok: boolean; reason?: 'noRoute' } {
   const charted = new Set([...world.known, ...world.seen]);
-  const missionTarget = jobMissions(world).some((m) => data.planets[m.destId]?.systemId === toSystemId);
+  const missionTarget =
+    jobMissions(world).some((m) => data.planets[m.destId]?.systemId === toSystemId) || storyDestinations(world, data).includes(toSystemId);
   const route = missionTarget
     ? routeBetween(data, world.systemId, toSystemId, () => true, world.flags)
     : charted.has(toSystemId)

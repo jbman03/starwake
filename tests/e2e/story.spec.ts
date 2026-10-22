@@ -1,0 +1,132 @@
+import { expect, test, type Page } from '@playwright/test';
+import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
+
+/** Adds fixture story missions through the dev test hook (data/story.json ships empty until the content task). */
+async function injectMissions(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const h = window.__starwake!;
+    const base = {
+      arc: 'side' as const,
+      giver: { name: 'Ansel Voss', title: 'Dockmaster' },
+      offer: { where: 'bar' as const, ports: ['halcyon'] },
+      text: 'offer',
+      acceptText: 'ok',
+      declinable: true,
+      onComplete: [],
+    };
+    h.data.story['e2e-scan'] = {
+      ...base,
+      id: 'e2e-scan',
+      title: 'The Skerry Wreck',
+      steps: [
+        { kind: 'scan', system: 'skerry', site: { label: 'Wreck' }, text: 'Scan the wreck.' },
+        { kind: 'land', planet: 'gull-rock', text: 'Land at Gull Rock.' },
+      ],
+    };
+    h.data.story['e2e-meet'] = {
+      ...base,
+      id: 'e2e-meet',
+      title: 'A Word at Calder',
+      steps: [
+        {
+          kind: 'meet',
+          system: 'calder',
+          ship: { name: 'Orrin Vale', shipId: 'courier', government: 'concord' },
+          card: {
+            title: 'Orrin Vale hails',
+            text: 'A courier holds station and asks for a word.',
+            choices: [{ label: 'Hear him out', outcomes: [{ type: 'message', text: 'He presses a chart into your hands.' }] }],
+          },
+          text: 'Meet Orrin Vale.',
+        },
+        { kind: 'land', planet: 'halcyon', text: 'Land at Halcyon.' },
+      ],
+    };
+  });
+}
+
+const stepOf = (page: Page, id: string) =>
+  page.evaluate((i) => window.__starwake!.story().active.find((a) => a.id === i)?.step ?? null, id);
+
+test.describe('desktop', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('a scan site at Skerry: fly beside it, press Y, the next step shows', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Scanner');
+    await injectMissions(page);
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      if (!h.acceptStoryNow('e2e-scan').ok) throw new Error('accept refused');
+      h.teleport('skerry-light');
+    });
+    await leavePlanet(page);
+    const site = await page.evaluate(() => window.__starwake!.storySite());
+    expect(site).toMatchObject({ missionId: 'e2e-scan', label: 'Wreck' });
+    const d = Math.hypot(site!.pos.x, site!.pos.y);
+    expect(d).toBeGreaterThanOrEqual(600);
+    expect(d).toBeLessThanOrEqual(1000);
+    await expect.poll(() => page.evaluate(() => window.__starwake!.siteScreenPos!() !== null)).toBe(true);
+
+    // Out of reach: nothing happens.
+    await page.keyboard.press('y');
+    expect(await stepOf(page, 'e2e-scan')).toBe(0);
+
+    // Park beside the site (the test hook is the only way to skip the flight).
+    await page.evaluate((pos) => {
+      const c = window.__starwake!.controller;
+      c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: pos.x + 10, y: pos.y }, vel: { x: 0, y: 0 } } };
+    }, site!.pos);
+    await page.keyboard.press('y');
+    await expect.poll(() => stepOf(page, 'e2e-scan')).toBe(1);
+    await expect.poll(() => page.evaluate(() => window.__starwake!.hudMessage!())).toContain('Land at Gull Rock.');
+    expect(await page.evaluate(() => window.__starwake!.storySite())).toBeNull();
+    expect(errors).toEqual([]);
+  });
+
+  test('a meet ship hails with a banner; Y opens its card and the choice advances the step', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Greeter');
+    await injectMissions(page);
+    await page.evaluate(() => window.__starwake!.acceptStoryNow('e2e-meet'));
+    await leavePlanet(page);
+    await expect.poll(() => page.evaluate(() => window.__starwake!.hudHail!())).toBe('Incoming hail — Orrin Vale (Y to answer)');
+    await expect.poll(() => page.evaluate(() => window.__starwake!.traffic!().some((n) => n.label.startsWith('Orrin Vale')))).toBe(true);
+
+    await page.keyboard.press('y');
+    const card = page.getByTestId('encounter-card');
+    await expect(card).toContainText('A courier holds station');
+    await page.keyboard.press('1');
+    await expect(page.getByTestId('encounter-outcome')).toContainText('Land at Halcyon.');
+    await card.getByRole('button', { name: /Done/ }).click();
+    await waitForFlight(page);
+    expect(await stepOf(page, 'e2e-meet')).toBe(1);
+    expect(await page.evaluate(() => window.__starwake!.storyMeet())).toBeNull();
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('phone', () => {
+  test.use({ hasTouch: true, viewport: { width: 844, height: 390 } });
+
+  test('a meet hail is the context button only; tapping it opens the card', async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Tap Greeter');
+    await injectMissions(page);
+    await page.evaluate(() => window.__starwake!.acceptStoryNow('e2e-meet'));
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await waitForFlight(page);
+    await page.touchscreen.tap(422, 30); // touch mode: rails on
+
+    const ctxBtn = page.getByTestId('context-button');
+    await expect(ctxBtn).toHaveText('Answer hail');
+    expect(await page.evaluate(() => window.__starwake!.hudHail?.() ?? null)).toBeNull();
+    await ctxBtn.tap();
+    const card = page.getByTestId('encounter-card');
+    await expect(card).toBeVisible();
+    await card.getByRole('button', { name: /Hear him out/ }).tap();
+    await expect(page.getByTestId('encounter-outcome')).toContainText('Land at Halcyon.');
+    expect(errors).toEqual([]);
+  });
+});

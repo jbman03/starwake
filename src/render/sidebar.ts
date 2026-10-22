@@ -127,7 +127,7 @@ export class Sidebar {
     this.mapBtn.setPosition(b.x, b.y);
   }
 
-  update(world: WorldState, data: GameData, _dtSec: number, traffic: Traffic | null = null, site: Vec2 | null = null): void {
+  update(world: WorldState, data: GameData, _dtSec: number, traffic: Traffic | null = null, sites: readonly Vec2[] = []): void {
     if (!this.visible) return;
     const info = sidebarInfo(world, data, traffic);
     const L = this.labels;
@@ -143,10 +143,10 @@ export class Sidebar {
     L.date.setText(info.date);
     const key = this.mapKeyLabel();
     this.mapBtn.setText(key ? `Map (${key})` : 'Map');
-    this.draw(world, data, info, traffic, site);
+    this.draw(world, data, info, traffic, sites);
   }
 
-  private draw(world: WorldState, data: GameData, info: SidebarInfo, traffic: Traffic | null, site: Vec2 | null): void {
+  private draw(world: WorldState, data: GameData, info: SidebarInfo, traffic: Traffic | null, sites: readonly Vec2[]): void {
     const g = this.g;
     g.clear();
     g.fillStyle(0x0b1018, 0.94);
@@ -179,7 +179,7 @@ export class Sidebar {
     r.lineStyle(1, 0x7fb2ff, 0.4);
     r.strokeCircle(cx, cy, RADAR_R);
     r.strokeCircle(cx, cy, RADAR_R / 2);
-    for (const b of radarBlips(world, data, RADAR_R - 4, traffic, site)) {
+    for (const b of radarBlips(world, data, RADAR_R - 4, traffic, sites)) {
       if (b.kind === 'star') {
         r.fillStyle(0xffd27a, 1);
         r.fillCircle(cx + b.x, cy + b.y, 4);

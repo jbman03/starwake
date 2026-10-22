@@ -20,7 +20,7 @@ export const AUTOPILOT_DIM = 0.2;
 /** World distance shown from the radar's center to its edge. */
 
 /** Text for the bottom-center context button, or null when it should be hidden. */
-export function contextLabel(action: ContextAction, world: WorldState, data: GameData): string | null {
+export function contextLabel(action: ContextAction, world: WorldState, data: GameData, siteVerb: string | null = null): string | null {
   switch (action) {
     case 'land': {
       const id = pickLandTarget(world, data, false);
@@ -37,7 +37,7 @@ export function contextLabel(action: ContextAction, world: WorldState, data: Gam
     case 'answerHail':
       return 'Answer hail';
     case 'openSite':
-      return 'Open site';
+      return siteVerb ?? 'Open site';
     case 'takeControl':
       return '✋ TAKE CONTROL';
     case 'tow':
@@ -352,7 +352,7 @@ export function mountRails(opts: RailsOptions): Rails {
     course.textContent = info.nextHop ?? '';
     course.hidden = info.nextHop === null;
 
-    const label = controller.isFlying ? contextLabel(controller.currentContext(), world, data) : null;
+    const label = controller.isFlying ? contextLabel(controller.currentContext(), world, data, controller.openSiteVerb()) : null;
     if (label !== lastLabel) {
       lastLabel = label;
       contextBtn.textContent = label ?? '';
@@ -366,7 +366,7 @@ export function mountRails(opts: RailsOptions): Rails {
       banner.hidden = route === null;
     }
 
-    if (!radar.hidden) drawRadar(radarCanvas, world, data, controller.traffic, controller.sitePos());
+    if (!radar.hidden) drawRadar(radarCanvas, world, data, controller.traffic, controller.sitePositions());
   };
 
   let raf = 0;
@@ -399,7 +399,7 @@ function capture(node: HTMLElement, e: PointerEvent): void {
 }
 
 /** Tiny radar: the ship at the center, planets as dots (the target in green), north up. */
-function drawRadar(canvas: HTMLCanvasElement, world: WorldState, data: GameData, traffic: Traffic | null, site: Vec2 | null): void {
+function drawRadar(canvas: HTMLCanvasElement, world: WorldState, data: GameData, traffic: Traffic | null, sites: readonly Vec2[]): void {
   const g = canvas.getContext('2d');
   if (!g) return;
   const s = canvas.width;
@@ -409,7 +409,7 @@ function drawRadar(canvas: HTMLCanvasElement, world: WorldState, data: GameData,
   g.beginPath();
   g.arc(m, m, m - 1, 0, Math.PI * 2);
   g.stroke();
-  for (const b of radarBlips(world, data, m - 4, traffic, site)) {
+  for (const b of radarBlips(world, data, m - 4, traffic, sites)) {
     if (b.kind === 'site') {
       g.fillStyle = '#ffffff';
       g.beginPath();
