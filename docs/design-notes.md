@@ -271,4 +271,17 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    *Partly built:* 3 (story hook, via the survey thread), 7 (rare ships, one hull)
    and 8 (discovery rewards, the hidden lane). Phone rule held: only the context
    button changes for hails and sites, with no banner over the view.
+5. **Cycle 3 Plan A — story engine (2026-10-22)** — the engine and the shared story.
+   *Built:* the spaceport bar (`openBar`, B by default) with contacts offering story and side
+   jobs, local gossip and a lead line; story jobs of go, land, deliver, ferry, scan or search a
+   site (Y, or the Scan/Search context button) and meet-a-named-ship steps; a Story section in
+   the Mission Log (current step and destination, Show on map, Next lead, Done), where side jobs
+   can be abandoned back to the giver's bar and main-story jobs cannot; main-story deadlines that
+   return the job to the giver's bar the next day; faction standing (cool, neutral, friend) on
+   the pilot card, locking some ships and gear behind friendship; the Dimming, a hidden region
+   the story opens; and the shared story "The Lanterns Go Dark" (M1-M4, from the Halcyon bar on
+   day 2, ending in a choice of Concord or Free Reach) plus two side chains, The Missing Courier
+   and The Surveyor's Charts (reward: Surveyor's Folio). Test hooks for e2e: `storyOffers`,
+   `story`, `storySite`, `storyMeet`, `acceptStoryNow`. *Still to come (Plan B):* both side
+   arcs, six side chains and the unique hulls.
 Later: combat, reputation and police, boarding, contraband, more regions.

@@ -104,6 +104,47 @@ test.describe('desktop', () => {
     expect(await page.evaluate(() => window.__starwake!.storyMeet())).toBeNull();
     expect(errors).toEqual([]);
   });
+
+  test('the M4 choice locks the other side: Concord is friend on the pilot card, Free Reach is not chosen', async ({ page }) => {
+    test.setTimeout(60_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Chooser');
+    await page.evaluate(() => {
+      const c = window.__starwake!.controller;
+      // M4 at its choice (the meet step), with the lane open, as if the earlier steps were done.
+      c.world = {
+        ...c.world,
+        flags: [...c.world.flags, 'dimming-lane'],
+        story: { ...c.world.story, active: [{ id: 'm4-past-the-charts', step: 2, deadlineDay: null }] },
+      };
+      window.__starwake!.teleport('cairn-rest');
+    });
+    await leavePlanet(page);
+    await expect.poll(() => page.evaluate(() => window.__starwake!.hudHail!())).toBe('Incoming hail — Bram Kettle (Y to answer)');
+    await page.keyboard.press('y');
+    const card = page.getByTestId('encounter-card');
+    await expect(card).toContainText('Bram Kettle');
+    await card.getByRole('button', { name: /Give the evidence to Corrin/ }).click();
+    await expect(page.getByTestId('encounter-outcome')).toBeVisible();
+    await card.getByRole('button', { name: /Done/ }).click();
+    await waitForFlight(page);
+
+    const after = await page.evaluate(() => ({ flags: window.__starwake!.world().flags, done: window.__starwake!.story().done }));
+    expect(after.done).toContain('m4-past-the-charts');
+    expect(after.flags).toContain('side-concord');
+    expect(after.flags).not.toContain('side-reach');
+
+    // Land to save, then quit to the main menu: the pilot card shows the standing.
+    await page.evaluate(() => window.__starwake!.teleport('cairn-rest'));
+    await expect(page.getByTestId('planet-screen')).toBeVisible();
+    await page.getByRole('button', { name: /^Leave/ }).click();
+    await waitForFlight(page);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Quit to main menu' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Quit' }).click();
+    await expect(page.getByTestId('main-menu')).toContainText('Concord: friend');
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('phone', () => {
