@@ -871,7 +871,7 @@ describe('Controller story steps in flight', () => {
     data.story = Object.fromEntries(defs.map((d) => [d.id, d]));
     const target = new EventTarget();
     const c = new Controller(data, { ...DEFAULT_SETTINGS }, target);
-    c.beginSession(newWorld(data), { id: 'p1', name: 'Ava' }, 'halcyon');
+    c.beginSession(newWorld(data, 7), { id: 'p1', name: 'Ava' }, 'halcyon'); // fixed seed: random encounters must not vary the run
     for (const d of defs) c.acceptStory(d.id);
     c.leavePlanet();
     run(c, LANDING_FX_SEC + 0.1);
@@ -904,7 +904,7 @@ describe('Controller story steps in flight', () => {
     jumpTo(c, 'vesk');
     expect(c.world.systemId).toBe('vesk');
     expect(c.storySite).toBeNull();
-    expect(c.sitePositions()).toEqual([]);
+    expect(c.sitePositions().some((p) => p.x === pos.x && p.y === pos.y)).toBe(false);
     jumpTo(c, 'calder');
     expect(c.world.systemId).toBe('calder');
     expect(c.storySite?.pos).toEqual(pos);
@@ -1121,7 +1121,7 @@ describe('Controller story steps in flight', () => {
     const data = await loadGameData();
     const target = new EventTarget();
     const c = new Controller(data, { ...DEFAULT_SETTINGS }, target);
-    const w = newWorld(data);
+    const w = newWorld(data, 7);
     c.beginSession(
       {
         ...w,
@@ -1146,7 +1146,7 @@ describe('Controller story steps in flight', () => {
     const store = new PilotStore(createStore('ctl-mid-c4', 'kv'));
     const first = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget());
     first.store = store;
-    const w = newWorld(data);
+    const w = newWorld(data, 7);
     // Landed at Slagwater in Sootfall, Bram's system, with C4 taken and its meet step current.
     first.beginSession(
       {

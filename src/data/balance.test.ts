@@ -121,17 +121,28 @@ describe('story pay', () => {
     const loop = bestLoopPerJump(world, data, data.config.startShipId);
     const flags = ['dimming-lane', 'hushwater-lane']; // every lane open
     const over: string[] = [];
+    const left = new Map<string, string>(); // where the last mission of each arc or chain left the pilot
     for (const d of missions) {
-      let at = data.planets[d.offer.ports?.[0] ?? ''] ?.systemId ?? d.offer.systems?.[0] ?? '';
+      const group = d.arc === 'side' ? `side:${d.chain}` : d.arc;
+      let at = left.get(group) ?? data.planets[d.offer.ports?.[0] ?? '']?.systemId ?? d.offer.systems?.[0] ?? '';
       let jumps = 0;
       for (const s of d.steps) {
         const to = stepSystem(s, data) ?? at;
         jumps += hopDistance(data, at, to, flags);
         at = to;
       }
+      left.set(group, at);
+      expect(Number.isFinite(jumps), `${d.id} is reachable`).toBe(true);
       jumps = Math.max(1, jumps);
       if (pay(d) / jumps > 2 * loop) over.push(`${d.id}: ${pay(d)} cr over ${jumps} jumps = ${(pay(d) / jumps).toFixed(0)}/jump`);
     }
     expect(over, `best loop ${loop.toFixed(0)}/jump, limit ${(2 * loop).toFixed(0)}/jump`).toEqual([]);
+  });
+
+  it('the Concord finale pays at least as much as any earlier mission in the arc', () => {
+    // The Free Reach finale cannot: R7 lands where R6 ended, so it is one jump and the per-jump cap holds it to about 6,300 cr.
+    const arc = arcOf('concord');
+    const finale = arc[arc.length - 1];
+    for (const d of arc) expect(pay(finale), `${finale.id} vs ${d.id}`).toBeGreaterThanOrEqual(pay(d));
   });
 });

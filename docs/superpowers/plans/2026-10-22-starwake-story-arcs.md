@@ -69,6 +69,8 @@
 - [ ] Run one e2e spec with `SW_PORT=5174 npx playwright test tests/e2e/bar.spec.ts`. Expect PASS.
 - [ ] Commit `feat: unique story rewards and a configurable e2e port`.
 
+> Note: final pay lives in data/story.json after the Task 6 balance pass; the figures in the tables below are the first draft.
+
 ### Task 2: The Concord arc, "Relight" (C1–C7)
 
 **Files:**

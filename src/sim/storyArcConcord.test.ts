@@ -78,7 +78,7 @@ describe('Concord arc "Relight"', () => {
     w = take(w, 'c1-lane-engineers');
     expect(w.missions.reduce((n, m) => n + m.passengers, 0)).toBe(3);
     w = run(w, landed('reeds-anchor'));
-    expect(w.credits).toBe(start + 8000);
+    expect(w.credits).toBe(start + 10000);
     expect(w.missions).toEqual([]);
     watch();
 
@@ -86,12 +86,12 @@ describe('Concord arc "Relight"', () => {
     expect(w.missions.reduce((n, m) => n + m.tons, 0)).toBe(6);
     expect(w.story.active[0].deadlineDay).toBe(w.day + 10);
     w = run(w, landed('slagwater'));
-    expect(w.credits).toBe(start + 17000);
+    expect(w.credits).toBe(start + 16000);
     watch();
 
     w = take(w, 'c3-three-lanterns');
     w = run(w, site('c3-three-lanterns'), site('c3-three-lanterns'), site('c3-three-lanterns'));
-    expect(w.credits).toBe(start + 28000);
+    expect(w.credits).toBe(start + 27000);
     expect(w.flags).toContain('lanterns-relit');
     watch();
 
@@ -102,23 +102,23 @@ describe('Concord arc "Relight"', () => {
     const choice = step.card.choices[0];
     expect(choiceBlock(w, data, choice, 'story:c4')).toBeNull();
     w = run(w, { kind: 'card', missionId: 'c4-brams-surrender', outcomes: choice.outcomes });
-    expect(w.credits).toBe(start + 34000);
+    expect(w.credits).toBe(start + 33000);
     watch();
 
     w = take(w, 'c5-the-charter');
     expect(w.missions.reduce((n, m) => n + m.tons, 0)).toBe(1);
     w = run(w, landed('reeds-anchor'));
-    expect(w.credits).toBe(start + 42000);
+    expect(w.credits).toBe(start + 39000);
     watch();
 
     w = take(w, 'c6-escort-the-liner');
     w = run(w, site('c6-escort-the-liner'), site('c6-escort-the-liner'), landed('cairn-rest'));
-    expect(w.credits).toBe(start + 52000);
+    expect(w.credits).toBe(start + 49000);
     watch();
 
     w = take(w, 'c7-the-ceremony');
     w = run(w, landed('concordance'));
-    expect(w.credits).toBe(start + 58000);
+    expect(w.credits).toBe(start + 61000);
     expect(w.flags).toContain('concord-done');
     expect(standingOf(w, 'concord')).toBe('friend');
     expect(w.notes.map((n) => n.text).join(' ')).toContain('Lantern-tender');
