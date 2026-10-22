@@ -129,4 +129,41 @@ test.describe('phone', () => {
     await expect(page.getByTestId('encounter-outcome')).toContainText('Land at Halcyon.');
     expect(errors).toEqual([]);
   });
+  test('the mission log with two story missions and several jobs keeps its buttons on screen', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Logger');
+    await injectMissions(page);
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      h.acceptStoryNow('e2e-scan');
+      h.acceptStoryNow('e2e-meet');
+      const c = h.controller;
+      const job = (i: number) => ({
+        id: `job${i}`, typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 1, passengers: 0, pay: 100,
+        paidUpfront: false, deadlineDay: 40, title: `Job number ${i}`, description: 'A job.', cargoName: 'rations',
+      });
+      c.world = { ...c.world, missions: [...c.world.missions, job(1), job(2), job(3), job(4), job(5)] };
+    });
+    await page.getByRole('button', { name: /^Mission Log/ }).tap();
+    const log = page.getByTestId('mission-log');
+    await expect(log).toBeVisible();
+    await expect(log).toContainText('The Skerry Wreck');
+    await expect(log).toContainText('A Word at Calder');
+    const vp = page.viewportSize()!;
+    const over = await page.evaluate(() => {
+      const d = document.scrollingElement!;
+      return { x: d.scrollWidth - window.innerWidth, y: d.scrollHeight - window.innerHeight };
+    });
+    expect(over.x).toBeLessThanOrEqual(0);
+    expect(over.y).toBeLessThanOrEqual(0);
+    const actions = log.locator('.sw-ex-actions button:visible');
+    expect(await actions.count()).toBeGreaterThanOrEqual(3);
+    for (let i = 0; i < (await actions.count()); i++) {
+      const b = (await actions.nth(i).boundingBox())!;
+      expect(b.y).toBeGreaterThanOrEqual(0);
+      expect(b.y + b.height).toBeLessThanOrEqual(vp.height);
+    }
+    await log.getByRole('button', { name: /^Done/ }).tap();
+    expect(errors).toEqual([]);
+  });
 });

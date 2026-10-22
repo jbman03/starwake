@@ -30,6 +30,7 @@ const side = mk({
 });
 const hidden = mk({ id: 'h1', title: 'Quiet Water', steps: [{ kind: 'go', system: 'hushwater', text: 'Find the quiet water.' }] });
 
+let cleanup: (() => void) | undefined;
 type MapCall = { preview?: { systemId: string; label: string }; onClose?: () => void };
 
 async function setup(defs: StoryMissionDef[], active: string[] = [], patch: (w: ReturnType<typeof newWorld>) => ReturnType<typeof newWorld> = (w) => w) {
@@ -48,7 +49,11 @@ async function setup(defs: StoryMissionDef[], active: string[] = [], patch: (w: 
     store: {} as PilotStore,
     inputMode: new InputMode(new EventTarget(), () => DEFAULT_SETTINGS.bindings, 'keyboard'),
     planetImage: () => null,
-    mount: (node: HTMLElement) => root.replaceChildren(node),
+    mount: (node: HTMLElement, opts: { cleanup?: () => void } = {}) => {
+      cleanup?.(); // like the real mount: the previous screen's listeners go
+      cleanup = opts.cleanup;
+      root.replaceChildren(node);
+    },
     unmount: () => root.replaceChildren(),
     go: { mainMenu() {}, planet() {}, pause() {}, map: (o: MapCall = {}) => maps.push(o) },
   } as unknown as UiContext;
@@ -59,7 +64,11 @@ async function setup(defs: StoryMissionDef[], active: string[] = [], patch: (w: 
   return { data, c, root, ctx, maps, story, item, btn };
 }
 
-afterEach(() => document.body.replaceChildren());
+afterEach(() => {
+  cleanup?.();
+  cleanup = undefined;
+  document.body.replaceChildren();
+});
 
 describe('mission log: Story section', () => {
   it('shows title, giver, step text, destination and deadline for an active mission', async () => {
@@ -143,5 +152,48 @@ describe('mission log: Story section', () => {
     const { ctx, story } = await setup([]);
     showMissionLog(ctx, () => {});
     expect(story()!.hidden).toBe(true);
+  });
+});
+
+describe('mission log: scrolling and labels', () => {
+  const press = (code: string) => {
+    const e = new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true });
+    window.dispatchEvent(e);
+    return e;
+  };
+
+  it('story buttons have distinct accessible names', async () => {
+    const { ctx, item } = await setup([main, side], ['m1', 's1']);
+    showMissionLog(ctx, () => {});
+    const labels = [...item('s1')!.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'));
+    expect(labels).toEqual(['Show Rations Run on map', 'Abandon Rations Run']);
+    expect(item('m1')!.querySelector('button')!.getAttribute('aria-label')).toBe('Show Past the Charts on map');
+  });
+
+  it('one scroll area is focusable; arrows scroll it when focused and are free when there are no jobs', async () => {
+    const { ctx, root } = await setup([side], ['s1'], (w) => ({
+      ...w,
+      missions: [{ id: 'j1', typeId: 'delivery', originId: 'halcyon', destId: 'merrow', tons: 1, passengers: 0, pay: 1, paidUpfront: false, deadlineDay: null, title: 'J', description: 'd', cargoName: 'c' }],
+    }));
+    showMissionLog(ctx, () => {});
+    const scroll = root.querySelector<HTMLElement>('[data-testid="log-scroll"]')!;
+    expect(scroll.tabIndex).toBe(0);
+    expect(scroll.contains(root.querySelector('[data-testid="log-story"]'))).toBe(true);
+    expect(scroll.contains(root.querySelector('[data-testid="log-list"]'))).toBe(true);
+    expect(press('ArrowDown').defaultPrevented).toBe(true); // moves the job selection
+    scroll.focus();
+    expect(press('ArrowDown').defaultPrevented).toBe(false); // lets the area scroll
+  });
+
+  it('arrows are not swallowed with no jobs', async () => {
+    const { ctx } = await setup([side], ['s1']);
+    showMissionLog(ctx, () => {});
+    expect(press('ArrowDown').defaultPrevented).toBe(false);
+  });
+
+  it('the jobs empty text yields to "No jobs." when story missions are active', async () => {
+    const { ctx, root } = await setup([side], ['s1']);
+    showMissionLog(ctx, () => {});
+    expect(root.querySelector('[data-testid="log-list"]')!.textContent).toBe('No jobs.');
   });
 });

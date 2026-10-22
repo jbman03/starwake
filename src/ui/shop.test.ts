@@ -218,6 +218,24 @@ describe('requiresStanding locked tiles', () => {
     }
   });
 
+  it('outfitter: an outfit already fitted stays visible and sellable when the requirement now fails', async () => {
+    const { root, ctx, data } = await setup('halcyon');
+    const def = data.outfits['cargo-pod'];
+    def.requiresStanding = REQ;
+    try {
+      const { c } = await setup('halcyon');
+      c.world = { ...c.world, outfits: { 'cargo-pod': 1 } };
+      const ctx2 = { ...ctx, controller: c } as typeof ctx;
+      showOutfitter(ctx2, 'halcyon', () => {});
+      const t = tile(root, 'cargo-pod');
+      expect(t.textContent).toContain(def.name);
+      t.click();
+      expect(btn(root, 'Sell').disabled).toBe(false);
+    } finally {
+      delete def.requiresStanding;
+    }
+  });
+
   it('shipyard: a gated hull is a locked ??? tile that names the government', async () => {
     const { root, ctx, data } = await setup('vanterre');
     const hull = data.ships.mule;

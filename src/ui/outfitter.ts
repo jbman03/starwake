@@ -44,7 +44,7 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
       const owned = w.outfits[def.id] ?? 0;
       const buy = controller.outfitQuote(def.id);
       const sell = outfitSellCheck(w, data, def.id);
-      if (buy.ok === false && buy.reason === 'standing') {
+      if (buy.ok === false && buy.reason === 'standing' && owned === 0) {
         const silhouette = outfitIcon(def, 48);
         silhouette.style.filter = 'brightness(0) opacity(0.35)';
         return {

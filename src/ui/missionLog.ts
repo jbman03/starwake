@@ -119,12 +119,13 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
             }),
         );
         show.disabled = !dest;
+        show.setAttribute('aria-label', `Show ${def.title} on map`);
         return el('div', { class: 'sw-story-item', attrs: { 'data-story': def.id } }, [
           el('h3', { class: 'sw-mc-title', text: def.title }),
           el('p', { class: 'sw-story-from', text: `from ${def.giver.name}` }),
           el('p', { class: 'sw-mc-desc', text: step.text }),
           el('dl', { class: 'sw-map-rows sw-mc-rows' }, rows),
-          el('div', { class: 'sw-story-actions' }, [show, ...(def.arc === 'main' ? [] : [button('Abandon', () => void abandonStory(def), { class: 'sw-btn-danger' })])]),
+          el('div', { class: 'sw-story-actions' }, [show, ...(def.arc === 'main' ? [] : [abandonBtnFor(def)])]),
         ]);
       }),
       ...(lead ? [el('p', { class: 'sw-story-lead', text: `Next lead: ${lead.text}` })] : []),
@@ -140,10 +141,16 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     );
   }
 
+  function abandonBtnFor(def: StoryMissionDef): HTMLButtonElement {
+    const b = button('Abandon', () => void abandonStory(def), { class: 'sw-btn-danger' });
+    b.setAttribute('aria-label', `Abandon ${def.title}`);
+    return b;
+  }
+
   async function abandonStory(def: StoryMissionDef): Promise<void> {
     const ok = await confirmDialog(ctx.root, {
       title: 'Abandon this mission?',
-      message: `${def.title} — any cargo or passengers it carries are dropped. You can't take it up again.`,
+      message: `${def.title} — any cargo or passengers it carries are dropped. The job goes back to the giver's bar.`,
       confirm: 'Abandon',
       danger: true,
     });
@@ -163,7 +170,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     );
     list.replaceChildren(
       ...(missions.length === 0
-        ? [el('p', { class: 'sw-empty', text: 'No active missions.' })]
+        ? [el('p', { class: 'sw-empty', text: w.story.active.length > 0 ? 'No jobs.' : 'No active missions.' })]
         : missions.map((m, i) =>
             el(
               'div',
@@ -210,12 +217,18 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     list.querySelector('.sw-mc-selected')?.scrollIntoView?.({ block: 'nearest' });
   }
 
+  const scroll = el('div', { class: 'sw-log-scroll', attrs: { tabindex: '0', 'aria-label': 'Mission log entries', 'data-testid': 'log-scroll' } }, [
+    el('div', { class: 'sw-mc-body' }, [el('div', { class: 'sw-mc-left' }, [story, list]), el('div', { class: 'sw-mc-side' }, [detail, reason])]),
+    notes,
+  ]);
+
   const screen = el('div', { class: 'sw-screen sw-planet-screen sw-mc-screen', attrs: { 'data-testid': 'mission-log' } }, [
-    el('div', { class: 'sw-panel sw-mc' }, [
+    el('div', { class: 'sw-panel sw-mc sw-log' }, [
       mapCornerButton(ctx, () => reopen()),
       el('h1', { class: 'sw-title', text: 'Mission Log' }),
       stats,
-      el('div', { class: 'sw-mc-body' }, [el('div', { class: 'sw-mc-left' }, [story, list]), el('div', { class: 'sw-mc-side' }, [detail, reason, notes])]),
+      // Everything between the header and the buttons scrolls; the buttons stay on screen.
+      scroll,
       el('div', { class: 'sw-ex-actions' }, [mapBtn, abandonBtn, doneBtn]),
     ]),
   ]);
@@ -223,6 +236,8 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
   const onKey = (e: KeyboardEvent) => {
     if (dialogOpen()) return; // keys belong to the dialog
     if (e.code !== 'ArrowUp' && e.code !== 'ArrowDown') return;
+    // With the scroll area focused the arrows scroll it; otherwise they pick a job. With no jobs they stay free.
+    if (document.activeElement === scroll || jobMissions(controller.world).length === 0) return;
     e.preventDefault();
     move(e.code === 'ArrowUp' ? -1 : 1);
   };

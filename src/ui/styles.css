@@ -393,6 +393,11 @@
 .sw-mc-row:hover { background: #172233; }
 .sw-mc-selected, .sw-mc-selected:hover { background: #21344d; box-shadow: inset 3px 0 0 var(--sw-accent); }
 .sw-mc-rowpay { font-size: 12px; color: var(--sw-dim); }
+.sw-log { overflow: hidden; }
+.sw-log-scroll { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.sw-log-scroll > * { flex: none; }
+.sw-log .sw-ex-actions { flex: none; }
+.sw-log .sw-mc-list, .sw-log .sw-mc-detail, .sw-log .sw-story, .sw-log .sw-notes { max-height: none; overflow: visible; }
 .sw-mc-left { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
 .sw-story { min-height: 0; max-height: 34vh; overflow-y: auto; overflow-wrap: anywhere; padding: 6px 10px; border: 1px solid var(--sw-border); border-radius: 3px; background: var(--sw-panel-2); font-size: 13px; color: #c9d3de; }
 .sw-story h2 { margin: 0 0 4px; font-size: 13px; color: var(--sw-accent); text-transform: uppercase; letter-spacing: 0.08em; }
@@ -412,7 +417,6 @@
   .sw-mc { gap: 4px; padding: 8px 12px; }
   .sw-mc .sw-title { font-size: 15px; }
   .sw-mc-list, .sw-mc-detail { max-height: calc(100vh - 150px); min-height: 0; }
-  .sw-story { max-height: 40vh; }
   .sw-mc-row { font-size: 13px; padding: 2px 8px; }
   .sw-mc-desc { font-size: 13px; margin-bottom: 4px; }
   .sw-mc-title { font-size: 14px; margin-bottom: 2px; }
