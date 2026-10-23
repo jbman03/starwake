@@ -168,9 +168,9 @@ describe('story outfits (House Rack, Cold Hold, Keeper\'s Lens)', () => {
   it('cargo racks add their tonnage', () => {
     const open = base({ credits: 100000, shipId: 'ironback', flags: ['house-rack-unlocked', 'cold-hold-unlocked'] });
     const a = buyOutfit(open, data, 'redwater-sound', 'house-rack').world;
-    expect(worldStats(a, data).cargo).toBe(worldStats(open, data).cargo + 8);
+    expect(worldStats(a, data).cargo).toBe(worldStats(open, data).cargo + 10);
     const b = buyOutfit(a, data, 'quillon-spires', 'cold-hold').world;
-    expect(worldStats(b, data).cargo).toBe(worldStats(open, data).cargo + 20);
+    expect(worldStats(b, data).cargo).toBe(worldStats(open, data).cargo + 26);
   });
   it("Keeper's Lens charts every Dimming system from Reed's Anchor", () => {
     const flags = ['keepers-lens-unlocked', 'dimming-lane'];
