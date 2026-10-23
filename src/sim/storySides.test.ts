@@ -30,6 +30,17 @@ describe('S3 The Pilgrim Road', () => {
     for (const l of legs.slice(1)) expect(offered(w, l.from), l.id).not.toContain(l.id);
   });
 
+  it('each leg message points at the port where the next leg is offered', () => {
+    for (let i = 0; i < legs.length - 1; i++) {
+      const done = data.story[legs[i].id];
+      const nextPort = data.story[legs[i + 1].id].offer.ports?.[0];
+      expect(nextPort, legs[i].id).toBe(legs[i].to);
+      const text = done.onComplete.filter((o) => o.type === 'message').map((o) => (o as { text: string }).text).join(' ');
+      // The next leg is offered in the bar at the port where this one ends, so the message says "here".
+      expect(text, legs[i].id).toMatch(/bar here/);
+    }
+  });
+
   it('carries the pilgrims through all four lamps, 3,000 cr a leg', () => {
     let w = start();
     for (const [i, l] of legs.entries()) {
@@ -263,5 +274,21 @@ describe('story step sites match their labels', () => {
     const sys = (id: string) => data.story[id].steps.filter((s) => s.kind === 'scan').map((s) => 'system' in s && s.system);
     expect(sys('c3-three-lanterns')).toContain('pallow');
     expect(sys('r4-waylights')).toContain('pallow');
+  });
+});
+
+describe('side-job details', () => {
+  it('S4 meet ship name covers both houses', () => {
+    const meet = data.story['s4-two-houses'].steps.find((s) => s.kind === 'meet');
+    expect(meet && meet.kind === 'meet' && meet.ship.name).toBe('Marlow and Teague haulers');
+  });
+  it('unique cargo outfits beat the plain pod per unit of space', () => {
+    const cargo = (id: string) => (data.outfits[id].effect as { cargo: number }).cargo;
+    const pod = data.outfits['cargo-pod'];
+    for (const [id, tons] of [['house-rack', 10], ['cold-hold', 16]] as const) {
+      const o = data.outfits[id];
+      expect(cargo(id), id).toBe(tons);
+      expect(cargo(id) / o.space, id).toBeGreaterThan(cargo('cargo-pod') / pod.space);
+    }
   });
 });

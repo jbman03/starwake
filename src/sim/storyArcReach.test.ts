@@ -233,3 +233,18 @@ describe('Free Reach arc "Free Lanes"', () => {
     expect(quiet.outcomes.some((o) => o.type === 'fuel')).toBe(false);
   });
 });
+
+describe('Free Reach arc signposts', () => {
+  const msg = (id: string) =>
+    data.story[id].onComplete.filter((o) => o.type === 'message').map((o) => (o as { text: string }).text).join(' ');
+  it('R1 and R5 say where Vey waits next', () => {
+    expect(msg('r1-lane-charts')).toContain('Vey will be waiting at Cairn Rest, in Gloam.');
+    expect(msg('r5-the-cordon')).toContain("Vey will be waiting at Reed's Anchor, in Candlewick.");
+    expect(data.story['r2-settler-delegates'].offer.ports).toEqual(['cairn-rest']);
+    expect(data.story['r6-bring-ama-reed'].offer.ports).toEqual(['reeds-anchor']);
+  });
+  it("R5 names Reed's delegation, and R7 escorts the signatories", () => {
+    expect(data.story['r5-the-cordon'].text).toContain("Reed's delegation");
+    expect(data.story['r7-the-signing'].steps.some((s) => 'text' in s && /Escort the signatories/.test(String(s.text)))).toBe(true);
+  });
+});

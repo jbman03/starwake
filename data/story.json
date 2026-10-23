@@ -192,7 +192,7 @@
       "onComplete": [
         { "type": "credits", "n": 3000 },
         { "type": "flag", "flag": "pilgrim-3" },
-        { "type": "message", "text": "The old pilot at Ferryman's Rest takes the pilgrims' bags and tells them about the weather at length. Pask pays you 3,000 cr. The last lamp waits at Hollis Landing, and she will meet you in the bar there." }
+        { "type": "message", "text": "The old pilot at Ferryman's Rest takes the pilgrims' bags and tells them about the weather at length. Pask pays you 3,000 cr. The last lamp waits at Hollis Landing, and she will be in the bar here." }
       ]
     },
     {
@@ -222,7 +222,7 @@
         { "kind": "land", "planet": "redwater-locks", "text": "Collect the disputed shipping papers at Redwater Locks." },
         {
           "kind": "meet", "system": "oxbow",
-          "ship": { "name": "Hob Marlow's hauler", "shipId": "mule", "government": "free-reach" },
+          "ship": { "name": "Marlow and Teague haulers", "shipId": "mule", "government": "free-reach" },
           "text": "Find the hauler waiting in Oxbow and choose a house.",
           "card": {
             "title": "Marlow and Teague",
@@ -493,7 +493,7 @@
         },
         {
           "type": "message",
-          "text": "The Slagwater crew unpack the cores like newborns. Corrin's agent there pays you 6,000 cr and asks if you can stay for the lighting. You cannot, but you hear about it later."
+          "text": "The Slagwater crew unpack the cores like newborns. The Concord agent there pays you 6,000 cr and asks if you can stay for the lighting. You cannot, but you hear about it later."
         }
       ],
       "onLate": "retry"
@@ -616,7 +616,7 @@
                 "outcomes": [
                   {
                     "type": "message",
-                    "text": "Bram reads the terms twice, then once more aloud to his crew. They stand down without a shot. Corrin's agent pays you on the spot."
+                    "text": "Bram reads the terms twice, then once more aloud to his crew. They stand down without a shot. The Concord agent pays you on the spot."
                   }
                 ]
               },
@@ -782,7 +782,7 @@
       "offer": {
         "where": "bar",
         "ports": [
-          "concordance"
+          "cairn-rest"
         ],
         "requires": [
           "side-concord",
@@ -794,8 +794,8 @@
         ]
       },
       "declinable": true,
-      "text": "The liner is ready and the delegation is on its way to Concordance. Corrin has one last thing to ask, and it is that you be there. She wants to put a face to the pilot who made all of this possible.",
-      "acceptText": "Corrin straightens her coat and will not say what is planned. Concordance is only a short hop away, and the ceremony begins when everyone is seated.",
+      "text": "The liner has docked at Cairn Rest and the delegation is changing ships. Corrin has one last thing to ask, and it is that you be there. She wants to put a face to the pilot who made all of this possible.",
+      "acceptText": "Corrin straightens her coat and will not say what is planned. Fly on to Concordance, a short hop away. The ceremony begins when everyone is seated.",
       "steps": [
         {
           "kind": "land",
@@ -873,7 +873,7 @@
         },
         {
           "type": "message",
-          "text": "The keepers of Skerry Light unroll the charts across the bar and argue about them happily until closing. A Reach factor pays you 10,000 cr and says the traders will remember who brought them."
+          "text": "The keepers of Skerry Light unroll the charts across the bar and argue about them happily until closing. A Reach factor pays you 10,000 cr and says the traders will remember who brought them. Vey will be waiting at Cairn Rest, in Gloam."
         }
       ]
     },
@@ -1111,7 +1111,7 @@
         ]
       },
       "declinable": true,
-      "text": "A Concord patrol has closed the lane at Oxbow, and nobody in the Reach will say whether it is a customs check or a message. The delegates for the compact have to get through. Vey wants you to meet the patrol captain and choose how the Reach goes round her.",
+      "text": "A Concord patrol has closed the lane at Oxbow, and nobody in the Reach will say whether it is a customs check or a message. Reed's delegation has to get through. Vey wants you to meet the patrol captain and choose how the Reach goes round her.",
       "acceptText": "Vey spreads a chart on the table and puts her thumb on Oxbow. The captain commands the cordon in person. Two ways round are open to you, and one of them depends on whether you have been kind to the salvagers.",
       "steps": [
         {
@@ -1167,7 +1167,7 @@
         },
         {
           "type": "message",
-          "text": "You clear the cordon and report to Vey that the Concord is watching. She pays you 6,000 cr and says that is what she expected."
+          "text": "You clear the cordon and report to Vey that the Concord is watching. She pays you 6,000 cr and says that is what she expected. Vey will be waiting at Reed's Anchor, in Candlewick."
         }
       ],
       "combatLater": "The Concord patrol could fight instead of letting the pilot go round."
@@ -1254,7 +1254,7 @@
         {
           "kind": "land",
           "planet": "wrenhold",
-          "text": "Fly the signatories to Wrenhold for the signing."
+          "text": "Escort the signatories to Wrenhold for the signing."
         }
       ],
       "onComplete": [

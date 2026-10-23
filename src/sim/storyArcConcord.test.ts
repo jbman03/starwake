@@ -38,8 +38,8 @@ function afterM4Concord(): WorldState {
 
 const offered = (w: WorldState, port = 'concordance') => storyOffersAt(w, data, port).map((d) => d.id);
 
-function take(w: WorldState, id: string): WorldState {
-  expect(offered(w), `${id} is offered at Concordance`).toContain(id);
+function take(w: WorldState, id: string, port = 'concordance'): WorldState {
+  expect(offered(w, port), `${id} is offered at ${port}`).toContain(id);
   const next = acceptStory(w, data, id);
   expect(next.story.active.some((a) => a.id === id)).toBe(true);
   return next;
@@ -116,7 +116,7 @@ describe('Concord arc "Relight"', () => {
     expect(w.credits).toBe(start + 49000);
     watch();
 
-    w = take(w, 'c7-the-ceremony');
+    w = take(w, 'c7-the-ceremony', 'cairn-rest'); // offered where C6 ends; the flight to Concordance is the trip
     w = run(w, landed('concordance'));
     expect(w.credits).toBe(start + 61000);
     expect(w.flags).toContain('concord-done');
