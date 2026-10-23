@@ -284,7 +284,7 @@ describe('Controller', () => {
 
   it('refuel buys fuel at the landed planet', async () => {
     const { c, data } = await setup();
-    const w = newWorld(data);
+    const w = newWorld(data, 1);
     c.beginSession({ ...w, ship: { ...w.ship, fuel: 100 } }, { id: 'p1', name: 'Ava' }, 'halcyon');
     expect(c.refuelQuote()).toEqual({ units: 200, cost: 400 });
     c.refuel();
@@ -295,7 +295,7 @@ describe('Controller', () => {
 
   it('callTow works while paused and lands at the tow destination', async () => {
     const { c, data, events } = await setup(['vesk']);
-    const w = newWorld(data);
+    const w = newWorld(data, 1);
     c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 } }, { id: 'p1', name: 'Ava' }, 'halcyon');
     c.leavePlanet();
     c.world = { ...c.world, systemId: 'vesk' }; // leaving Halcyon put us in calder; strand us in the port-less vesk
@@ -349,7 +349,7 @@ describe('Controller', () => {
     const { c, data, events } = await setup(['vesk']);
     const store = new PilotStore(createStore('ctl-tow-debt', 'kv'));
     c.store = store;
-    const w = newWorld(data);
+    const w = newWorld(data, 1);
     c.beginSession({ ...w, credits: 100 }, { id: 'p1', name: 'Ava' }, 'halcyon');
     await c.save(); // a good earlier save, so a bad one would fall back to it
     c.world = { ...c.world, systemId: 'vesk', ship: { ...c.world.ship, pos: { x: -600, y: -700 }, fuel: 0 } };
@@ -386,7 +386,7 @@ describe('Controller', () => {
     c.update(1 / 60);
     expect(c.world.assist.kind).toBe('autoStop');
 
-    c.world = newWorld(data);
+    c.world = newWorld(data, 1);
     c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 0, y: -1500 }, heading: 0 } };
     c.touch.setStick(Math.PI / 2, 1);
     for (let i = 0; i < 30; i++) c.update(1 / 60);
@@ -751,7 +751,7 @@ describe('Controller trade, missions and routes', () => {
 
     it('a tow clears the pending encounter', async () => {
       const { c, data } = await setup(['vesk']);
-      const w = newWorld(data);
+      const w = newWorld(data, 1);
       c.beginSession({ ...w, systemId: 'vesk', ship: { ...w.ship, fuel: 0 } }, { id: 'p1', name: 'Ava' }, 'halcyon');
       c.leavePlanet();
       c.world = { ...c.world, systemId: 'vesk' };
