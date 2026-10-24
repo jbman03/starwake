@@ -7,8 +7,10 @@
  * We block page zoom where we can, and whenever flight resumes we snap the page back.
  */
 
-/** The viewport meta we (re)apply. maximum-scale=1 also resets an existing zoom on iOS. */
+/** The viewport meta we keep. iOS mostly ignores the zoom limits; touch-action and the gesture block do the real work. */
 export const LOCKED_VIEWPORT = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+/** Applied for one frame before LOCKED_VIEWPORT: a changed value is what makes WebKit re-fit an existing zoom. */
+export const NUDGE_VIEWPORT = 'width=device-width, initial-scale=1, maximum-scale=0.99, user-scalable=no, viewport-fit=cover';
 
 /** The slice of `window` the guard uses (a fake in tests). */
 export interface GuardWindow {
@@ -29,13 +31,20 @@ export function pageDisplaced(w: GuardWindow): boolean {
   return zoomedOrPanned || w.scrollX !== 0 || w.scrollY !== 0;
 }
 
-/** Put a displaced page back (unzoomed, unscrolled) and let the game re-measure. Returns whether it acted. */
-export function restoreViewport(w: GuardWindow, refreshGame: () => void): boolean {
+/**
+ * Put a displaced page back (unzoomed, unscrolled) and let the game re-measure. Returns whether it acted.
+ * The viewport meta is nudged to a different value, then restored next frame, so WebKit re-fits the page.
+ */
+export function restoreViewport(w: GuardWindow, refreshGame: () => void, nextFrame: (fn: () => void) => void = (fn) => requestAnimationFrame(fn)): boolean {
   if (!pageDisplaced(w)) return false;
   const meta = w.document.querySelector('meta[name="viewport"]');
-  if (meta) meta.content = LOCKED_VIEWPORT;
+  if (meta) meta.content = NUDGE_VIEWPORT;
   w.scrollTo(0, 0);
-  refreshGame();
+  nextFrame(() => {
+    if (meta) meta.content = LOCKED_VIEWPORT;
+    w.scrollTo(0, 0);
+    refreshGame();
+  });
   return true;
 }
 

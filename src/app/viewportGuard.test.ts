@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LOCKED_VIEWPORT, installZoomBlock, pageDisplaced, restoreViewport, type GuardWindow } from './viewportGuard';
+import { LOCKED_VIEWPORT, NUDGE_VIEWPORT, installZoomBlock, pageDisplaced, restoreViewport, type GuardWindow } from './viewportGuard';
 
 function fakeWindow(vv: { scale: number; offsetTop: number; offsetLeft: number } | null, scrollX = 0, scrollY = 0) {
   const listeners: Record<string, ((e: Event) => void)[]> = {};
@@ -37,11 +37,15 @@ describe('pageDisplaced', () => {
 });
 
 describe('restoreViewport', () => {
-  it('scrolls to the origin, re-applies the locked viewport and refreshes the game scale', () => {
+  it('scrolls to the origin, nudges then re-applies the locked viewport and refreshes the game scale', () => {
     const { w, meta } = fakeWindow({ scale: 2.4, offsetTop: 200, offsetLeft: 90 }, 0, 150);
     const refresh = vi.fn();
-    expect(restoreViewport(w, refresh)).toBe(true);
+    let frame: (() => void) | null = null;
+    expect(restoreViewport(w, refresh, (fn) => (frame = fn))).toBe(true);
     expect(w.scrollTo).toHaveBeenCalledWith(0, 0);
+    expect(meta.content).toBe(NUDGE_VIEWPORT);
+    expect(refresh).not.toHaveBeenCalled();
+    frame!();
     expect(meta.content).toBe(LOCKED_VIEWPORT);
     expect(refresh).toHaveBeenCalled();
   });
