@@ -20,7 +20,7 @@ import {
   type RefuelQuote,
 } from './rules';
 import { worldStats } from './shipStats';
-import type { Assist, FlightInput, FrameInput, ShipState, SimEvent, WorldState } from './types';
+import type { Assist, FlightInput, FrameInput, ShipState, SimEvent, SiteTarget, WorldState } from './types';
 import { add, angleOf, fromAngle, len, norm, scale, sub, type Vec2 } from './vec';
 
 /** Autopilot considers itself arrived below this speed (px/s). */
@@ -159,6 +159,14 @@ export function autopilotToJumpPoint(world: WorldState): WorldState {
   return { ...world, assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
 }
 
+/**
+ * Engage the autopilot toward a site in open space (a story scan/find site or an encounter site). It
+ * stops inside the arrival radius, well within SITE_RANGE, and never lands.
+ */
+export function autopilotToSite(world: WorldState, site: SiteTarget): WorldState {
+  return { ...world, assist: { kind: 'autopilot', dest: { type: 'site', pos: site.pos, label: site.label }, autoLand: false } };
+}
+
 /** Leave a planet: in its system, parked at its edge, at rest, no assist. */
 export function departFrom(world: WorldState, data: GameData, planetId: string): WorldState {
   const planet = data.planets[planetId];
@@ -274,6 +282,7 @@ function manualInput(world: WorldState, input: FrameInput): FlightInput | null {
 
 function destPos(world: WorldState, data: GameData, a: Extract<Assist, { kind: 'autopilot' }>): Vec2 | null {
   if (a.dest.type === 'jumpPoint') return jumpPoint(world, data);
+  if (a.dest.type === 'site') return a.dest.pos;
   const p = data.planets[a.dest.id];
   return p && p.systemId === world.systemId ? p.pos : null;
 }

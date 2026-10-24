@@ -2,10 +2,11 @@
 import type { GameData } from '../data/schemas';
 import { cargoFree } from '../sim/cargo';
 import { fuelText, jumpsOf } from '../sim/fuel';
+import { objectiveText, roundDistance, siteTargetText } from '../sim/siteText';
 import { jumpDestination } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { npcLabel, targetedNpc, type Traffic } from '../sim/traffic';
-import type { WorldState } from '../sim/types';
+import type { SiteTarget, WorldState } from '../sim/types';
 import { dist } from '../sim/vec';
 
 export const FUEL_COLORS = { normal: '#9fe7a0', low: '#ffb347', empty: '#ff5a4f' } as const;
@@ -39,8 +40,10 @@ export function nextHopText(world: WorldState, data: GameData): string | null {
   return `Course: ${data.systems[next]?.name ?? next} (${n} ${n === 1 ? 'jump' : 'jumps'})`;
 }
 
-/** HUD text shared by the desktop panel and the touch-mode rail HUD. */
-export function hudInfo(world: WorldState, data: GameData, traffic: Traffic | null = null): HudInfo {
+export { objectiveText, roundDistance, siteTargetText };
+
+/** HUD text shared by the desktop panel and the touch-mode rail HUD. A targeted site replaces ship and planet targets. */
+export function hudInfo(world: WorldState, data: GameData, traffic: Traffic | null = null, site: SiteTarget | null = null): HudInfo {
   const jumps = fuelJumps(world, data);
   const t = world.targetPlanetId ? data.planets[world.targetPlanetId] : undefined;
   const ship = targetedNpc(traffic);
@@ -50,7 +53,9 @@ export function hudInfo(world: WorldState, data: GameData, traffic: Traffic | nu
     fuelColor: fuelColor(jumps),
     credits: `Credits: ${Math.round(world.credits).toLocaleString('en-US')} cr`,
     cargo: `Cargo: ${cargoFree(world, data)}/${worldStats(world, data).cargo} t`,
-    target: ship
+    target: site
+      ? `Target: ${siteTargetText(site, world.ship.pos)}`
+      : ship
       ? `Target: ${npcLabel(ship, data)}  ${Math.round(dist(ship.ship.pos, world.ship.pos))}`
       : t && t.systemId === world.systemId ? `Target: ${t.name}  ${Math.round(dist(t.pos, world.ship.pos))}` : 'Target: none',
     nextHop: nextHopText(world, data),
@@ -68,6 +73,7 @@ export function routeBannerText(world: WorldState, data: GameData): string | nul
   const jumps = fuelJumps(world, data);
   let name: string;
   let after: number;
+  if (a.dest.type === 'site') return `Autopilot → ${a.dest.label}`;
   if (a.dest.type === 'planet') {
     name = data.planets[a.dest.id]?.name ?? a.dest.id;
     after = jumps;

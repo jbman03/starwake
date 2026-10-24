@@ -930,7 +930,7 @@ describe('Controller story steps in flight', () => {
     expect(c.world.story.active[0].step).toBe(0);
     c.world = { ...c.world, ship: { ...c.world.ship, pos: { ...site.pos }, vel: { x: 0, y: 0 } } };
     expect(c.currentContext()).toBe('openSite');
-    expect(c.openSiteVerb()).toBe('Scan');
+    expect(c.openSiteVerb()).toBe('Scan Wreck');
     press(c, target, 'KeyY');
     expect(c.world.story.active[0].step).toBe(1);
     expect(c.storySite).toBeNull();
@@ -941,9 +941,148 @@ describe('Controller story steps in flight', () => {
     const { c } = await flying(find);
     const site = c.storySite!;
     c.world = { ...c.world, ship: { ...c.world.ship, pos: { ...site.pos }, vel: { x: 0, y: 0 } } };
-    expect(c.openSiteVerb()).toBe('Search');
+    expect(c.openSiteVerb()).toBe('Search Cache');
     c.doContextAction();
     expect(c.world.story.done).toEqual(['fi']);
+  });
+
+  describe('site targets, autopilot, flyToSite and the objective', () => {
+    const park = (c: Controller, x: number, y: number) => {
+      c.world = { ...c.world, ship: { ...c.world.ship, pos: { x, y }, vel: { x: 0, y: 0 } }, targetPlanetId: null };
+    };
+
+    it('Tab targets the story site first, and the cycle ends with no target', async () => {
+      const { c, target } = await flying(scan);
+      press(c, target, 'Tab');
+      expect(c.targetedSite()?.label).toBe('Wreck');
+      expect(c.world.targetPlanetId).toBeNull();
+      expect(c.traffic.targetId).toBeNull();
+      const kinds: string[] = [];
+      for (let i = 0; i < 30; i++) {
+        press(c, target, 'Tab');
+        const k = c.targetedSite() ? 'site' : c.traffic.targetId ? 'ship' : c.world.targetPlanetId ? 'planet' : 'none';
+        kinds.push(k);
+        if (k === 'none') break;
+      }
+      expect(kinds[kinds.length - 1]).toBe('none');
+      expect(kinds.indexOf('site')).toBe(-1);
+      expect(c.targetedSite()).toBeNull();
+    });
+
+    it('a find site is not targetable until revealed', async () => {
+      const { c, target } = await flying(find);
+      const site = c.storySite!;
+      park(c, site.pos.x + 900, site.pos.y);
+      expect(c.targetSites()).toEqual([]);
+      press(c, target, 'Tab');
+      expect(c.targetedSite()).toBeNull();
+      park(c, site.pos.x + 500, site.pos.y);
+      expect(c.targetSites().map((s) => s.label)).toEqual(['Cache']);
+    });
+
+    it('the pending encounter site is targetable too, sites nearest first', async () => {
+      const { c, target } = await flying(scan);
+      const enc = Object.values(c.data.encounters).find((e) => e.kind === 'site')!;
+      park(c, 0, 0);
+      c.forceEncounter(enc.id);
+      const labels = c.targetSites().map((s) => s.label);
+      expect(labels).toHaveLength(2);
+      expect(labels).toContain(enc.title);
+      press(c, target, 'Tab');
+      const first = c.targetedSite()!;
+      press(c, target, 'Tab');
+      const second = c.targetedSite()!;
+      expect(second.id).not.toBe(first.id);
+      expect(Math.hypot(first.pos.x, first.pos.y)).toBeLessThanOrEqual(Math.hypot(second.pos.x, second.pos.y));
+    });
+
+    it('autopilot with a site targeted flies beside it and stops, ready to scan', async () => {
+      const { c, target } = await flying(scan);
+      const site = c.storySite!;
+      park(c, 0, 0);
+      press(c, target, 'Tab');
+      expect(c.targetedSite()?.label).toBe('Wreck');
+      press(c, target, 'KeyG');
+      expect(c.world.assist.kind).toBe('autopilot');
+      expect(c.world.assist).toMatchObject({ dest: { type: 'site', label: 'Wreck' } });
+      for (let i = 0; i < 60 * 120 && c.world.assist.kind === 'autopilot'; i++) c.update(1 / 60);
+      expect(c.world.assist.kind).toBe('none');
+      expect(c.isFlying).toBe(true);
+      expect(gap(c.world.ship.pos, site.pos)).toBeLessThan(60);
+      expect(c.currentContext()).toBe('openSite');
+      expect(c.openSiteVerb()).toBe('Scan Wreck');
+    });
+
+    it('the context button offers Fly to, engages the autopilot, then Scan', async () => {
+      const { c } = await flying(scan);
+      park(c, 0, 0);
+      expect(c.currentContext()).toBe('flyToSite');
+      expect(c.siteContextText()).toBe('Fly to Wreck');
+      c.doContextAction();
+      expect(c.targetedSite()?.label).toBe('Wreck');
+      expect(c.world.assist.kind).toBe('autopilot');
+      expect(c.currentContext()).toBe('takeControl');
+      for (let i = 0; i < 60 * 120 && c.world.assist.kind === 'autopilot'; i++) c.update(1 / 60);
+      expect(c.currentContext()).toBe('openSite');
+      expect(c.siteContextText()).toBe('Scan Wreck');
+      c.doContextAction();
+      expect(c.world.story.active[0].step).toBe(1);
+      expect(c.targetedSite()).toBeNull();
+    });
+
+    it('a targeted planet still wins over Fly to', async () => {
+      const { c } = await flying(scan);
+      park(c, 0, 0);
+      c.selectPlanet('halcyon');
+      expect(c.currentContext()).toBe('land');
+    });
+
+    it('a hidden find site offers no Fly to', async () => {
+      const { c } = await flying(find);
+      const site = c.storySite!;
+      park(c, site.pos.x + 900, site.pos.y);
+      expect(c.currentContext()).not.toBe('flyToSite');
+      park(c, site.pos.x + 500, site.pos.y);
+      expect(c.currentContext()).toBe('flyToSite');
+      expect(c.siteContextText()).toBe('Fly to Cache');
+    });
+
+    it('the objective line names the site and its distance (or the system for a hidden one)', async () => {
+      const { c } = await flying(scan);
+      const site = c.storySite!;
+      park(c, site.pos.x + 641, site.pos.y);
+      expect(c.objectiveText()).toBe('Objective: scan the Wreck — out in space, 640 px');
+      const f = await flying(find);
+      const fs = f.c.storySite!;
+      park(f.c, fs.pos.x + 900, fs.pos.y);
+      expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache');
+      park(f.c, fs.pos.x + 500, fs.pos.y);
+      expect(f.c.objectiveText()).toBe('Objective: search the Cache — out in space, 500 px');
+      const none = await flying(meet);
+      expect(none.c.objectiveText()).toBeNull();
+    });
+
+    it('a find step landing notice says to fly around until the site shows on radar', async () => {
+      const { c, target } = await flying(find);
+      c.takeNotices();
+      park(c, c.data.planets.halcyon.pos.x, c.data.planets.halcyon.pos.y - 5);
+      c.selectPlanet('halcyon');
+      press(c, target, 'KeyL');
+      run(c, LANDING_FX_SEC + 0.2);
+      expect(c.takeNotices().join(' ')).toContain('The Cache is out in space, not at this port. Fly around the system until it shows on the radar');
+    });
+
+    it('landing at a port in the site system leaves a notice that the site is out in space', async () => {
+      const { c, target } = await flying(scan);
+      c.takeNotices();
+      park(c, c.data.planets.halcyon.pos.x, c.data.planets.halcyon.pos.y - 5);
+      c.selectPlanet('halcyon');
+      press(c, target, 'KeyL');
+      run(c, LANDING_FX_SEC + 0.2);
+      expect(c.landedPlanetId).toBe('halcyon');
+      expect(c.takeNotices().join(' ')).toContain('The Wreck is out in space, not at this port. Target it with {nextTarget} and fly beside it.');
+      expect(c.takeNotices()).toEqual([]);
+    });
   });
 
   it('the meet ship waits at its hold position and never lands', async () => {

@@ -1,3 +1,4 @@
+import type { ActionId } from '../input/actions';
 import { formatDate } from '../sim/calendar';
 import { cargoFree } from '../sim/cargo';
 import { fuelText, jumpsOf } from '../sim/fuel';
@@ -9,6 +10,7 @@ import { showHowToPlay } from './howToPlay';
 import { worldStats } from '../sim/shipStats';
 import { guideCard } from './guideHint';
 import { mapCornerButton } from './mapButton';
+import { formatMessage } from './messageText';
 import { showBar } from './bar';
 import { showMissionComputer } from './missionComputer';
 import { showMissionLog } from './missionLog';
@@ -62,7 +64,11 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   // The guide's callout sits above the buttons, inline: dialogs (mission pay) still open on top of it.
   const hint = guideCard(controller, ctx.root);
   // Messages from a tow that brought us here (e.g. failed missions) join any caller's notice.
-  const notices = [...(notice ? [notice] : []), ...controller.takeNotices()];
+  const keyOf = (a: ActionId) => hotkeyFor(controller.settings.bindings, a) ?? null;
+  const notices = [
+    ...(notice ? [notice] : []),
+    ...controller.takeNotices().map((n) => formatMessage(n, keyOf, ctx.inputMode.mode === 'touch')),
+  ];
   if (notices.length > 0) status.textContent = notices.join(' ');
 
   const services = new Set(planet.services);

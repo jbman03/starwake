@@ -246,3 +246,16 @@ describe('TouchSource', () => {
     expect(p.actions.size).toBe(0);
   });
 });
+
+describe('railMetrics: objective line', () => {
+  it('grows the HUD for the objective and the stick rail still fits at 844x390 for every size', () => {
+    for (const size of ['S', 'M', 'L'] as const) {
+      const l = computeLayout(844, 390, touch());
+      const plain = railMetrics(l, touch({ buttonSize: size }), 'point');
+      const obj = railMetrics(l, touch({ buttonSize: size }), 'point', false, true);
+      expect(obj.hud).toBeGreaterThan(plain.hud);
+      expect(obj.stick).toBeGreaterThanOrEqual(64);
+      expect(obj.leftStackHeight).toBeLessThanOrEqual(l.leftRail.h - 16);
+    }
+  });
+});

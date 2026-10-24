@@ -28,6 +28,7 @@ const side = mk({
   title: 'Rations Run',
   steps: [{ kind: 'deliver', planet: 'merrow', cargo: { name: 'rations', tons: 2 }, deadlineDays: 6, text: 'Bring the rations to Merrow.' }],
 });
+const scanM = mk({ id: 'sc1', arc: 'main', title: 'Lights Out', steps: [{ kind: 'scan', system: 'skerry', site: { label: 'Dead lantern' }, text: 'Fly to Skerry and scan the dead lantern.' }] });
 const hidden = mk({ id: 'h1', title: 'Quiet Water', steps: [{ kind: 'go', system: 'hushwater', text: 'Find the quiet water.' }] });
 
 let cleanup: (() => void) | undefined;
@@ -80,6 +81,28 @@ describe('mission log: Story section', () => {
     expect(t).toContain('Bring the rations to Merrow.');
     expect(t).toContain(`Merrow, ${data.systems[data.planets.merrow.systemId].name} system`);
     expect(t).toContain('6 days left');
+  });
+
+  it('a scan or find step explains the site is out in space, with the bound keys', async () => {
+    const { ctx, item, c } = await setup([scanM], ['sc1']);
+    showMissionLog(ctx, () => {});
+    expect(item('sc1')!.textContent).toContain(
+      "Fly to Skerry and scan the dead lantern. It's out in space, not at a port: target it (Tab), fly beside it slowly, then press Y.",
+    );
+    const saved = c.settings.bindings;
+    c.settings.bindings = { ...saved, nextTarget: ['KeyN', null], interact: ['KeyU', null] };
+    try {
+      showMissionLog(ctx, () => {});
+      expect(item('sc1')!.textContent).toContain('target it (N), fly beside it slowly, then press U.');
+    } finally {
+      c.settings.bindings = saved;
+    }
+  });
+
+  it('other steps get no site hint', async () => {
+    const { ctx, item } = await setup([main], ['m1']);
+    showMissionLog(ctx, () => {});
+    expect(item('m1')!.textContent).not.toContain('out in space');
   });
 
   it('sits above the Jobs list and omits a deadline the step does not have', async () => {

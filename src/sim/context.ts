@@ -20,16 +20,17 @@ export function siteReachable(world: WorldState, pos: Vec2): boolean {
   return dist(pos, world.ship.pos) <= SITE_RANGE && Math.hypot(world.ship.vel.x, world.ship.vel.y) < SITE_MAX_SPEED;
 }
 
-export type ContextAction = 'takeControl' | 'tow' | 'answerHail' | 'openSite' | 'land' | 'plotCourse' | 'autopilotOut' | 'jump' | null;
+export type ContextAction = 'takeControl' | 'tow' | 'answerHail' | 'openSite' | 'flyToSite' | 'land' | 'plotCourse' | 'autopilotOut' | 'jump' | null;
 
 /**
  * The one action a context button should offer right now, by priority:
  * takeControl > tow > openSite > land (a planet is targeted, at any range) > jump / autopilotOut (a course is
- * set, nothing targeted, no assist) > answerHail > land (a planet is in range) > plotCourse. `plotCourse` (open the star map)
+ * set, nothing targeted, no assist) > answerHail > flyToSite (`flyToSite`: a story site is in view but out of reach)
+ * > land (a planet is in range) > plotCourse. `plotCourse` (open the star map)
  * covers the phone dead end: no jump destination can be chosen (no usable course and more than
  * one lane out), no assist running and no planet in range.
  */
-export function contextAction(world: WorldState, data: GameData, pending: PendingHint = null): ContextAction {
+export function contextAction(world: WorldState, data: GameData, pending: PendingHint = null, flyToSite = false): ContextAction {
   if (world.jump) return null;
   if (world.assist.kind === 'autopilot') return 'takeControl';
   if (towDestination(world, data)) return 'tow';
@@ -43,6 +44,8 @@ export function contextAction(world: WorldState, data: GameData, pending: Pendin
   }
   // A hail never blocks leaving: a plotted jump or autopilot-out outranks it.
   if (pending?.kind === 'hail') return 'answerHail';
+  // A story site in view but out of reach: the button flies there (a nearby port or the map must not hide it).
+  if (flyToSite && world.assist.kind === 'none') return 'flyToSite';
   const nearest = planetsByDistance(world, data)[0];
   if (nearest && dist(nearest.pos, world.ship.pos) <= LAND_CONTEXT_RANGE) return 'land';
   if (world.assist.kind === 'none' && !jumpDestination(world, data) && lanesOf(data, world.systemId, world.flags).length > 1) {

@@ -3,12 +3,14 @@ import { onlyPorts, testData, withoutPorts } from '../data/testData';
 import type { ActionId } from '../input/actions';
 import type { FrameInput, SimEvent, WorldState } from './types';
 import type { GameData } from '../data/schemas';
+import { SITE_MAX_SPEED, SITE_RANGE, siteReachable } from './context';
 import { hopDistance } from './galaxy';
 import { accept, offersAt } from './missions';
 import {
   advanceDays,
   applyRefuel,
   applyTow,
+  autopilotToSite,
   departFrom,
   interruptAutopilot,
   JUMP_ARRIVAL_INSET,
@@ -701,5 +703,27 @@ describe('setRoute to a mission destination', () => {
     const w = newWorld(data, 1);
     expect(w).toMatchObject({ flags: [], notes: [], stats: { jobsDone: 0 }, lastEncounterDay: null });
     expect(w.shipName).toBe(data.ships[data.config.startShipId].name);
+  });
+});
+
+describe('autopilot to a site', () => {
+  const site = { id: 'story', pos: { x: 640, y: -420 }, label: 'Dead lantern' };
+
+  it('flies beside the site and stops inside SITE_RANGE and below SITE_MAX_SPEED, never landing', () => {
+    let w = autopilotToSite(newWorld(data), site);
+    expect(w.assist).toEqual({ kind: 'autopilot', dest: { type: 'site', pos: site.pos, label: 'Dead lantern' }, autoLand: false });
+    const done = run(w, 120, OPTS, (x) => x.assist.kind === 'none');
+    w = done.world;
+    expect(w.assist).toEqual({ kind: 'none' });
+    expect(done.events.filter((e) => e.type === 'landed')).toEqual([]);
+    expect(dist(w.ship.pos, site.pos)).toBeLessThan(SITE_RANGE / 2);
+    expect(siteReachable(w, site.pos)).toBe(true);
+    expect(len(w.ship.vel)).toBeLessThan(SITE_MAX_SPEED);
+  });
+
+  it('pressing autopilot again cancels it', () => {
+    let w = autopilotToSite(newWorld(data), site);
+    w = stepWorld(w, data, frame(['autopilot']), DT, OPTS).world;
+    expect(w.assist).toEqual({ kind: 'none' });
   });
 });

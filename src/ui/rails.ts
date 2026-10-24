@@ -38,6 +38,8 @@ export function contextLabel(action: ContextAction, world: WorldState, data: Gam
       return 'Answer hail';
     case 'openSite':
       return siteVerb ?? 'Open site';
+    case 'flyToSite':
+      return siteVerb ?? 'Fly to site';
     case 'takeControl':
       return '✋ TAKE CONTROL';
     case 'tow':
@@ -127,6 +129,9 @@ export function mountRails(opts: RailsOptions): Rails {
   const target = el('div', { class: 'sw-rail-line sw-rail-dim' });
   const course = el('div', { class: 'sw-rail-line sw-rail-course', attrs: { 'data-testid': 'rail-course' } });
   course.hidden = true;
+  // The story objective ("Objective: scan the Dead lantern — out in space, 640 px"): in the HUD box, never over the view.
+  const objective = el('div', { class: 'sw-rail-line sw-rail-objective', attrs: { 'data-testid': 'rail-objective' } });
+  objective.hidden = true;
   const pause = holdButton('pause', 'II', 'pause', 'Pause', 'sw-rail-pause');
   const bar = (name: string, cls: string) =>
     el('div', { class: 'sw-rail-bar' }, [el('span', { text: name }), el('i', { class: cls })]);
@@ -139,6 +144,7 @@ export function mountRails(opts: RailsOptions): Rails {
     cargo,
     target,
     course,
+    objective,
   ]);
   // Pause sits inside the HUD box; it is checked through the HUD's box, so it isn't listed twice.
   pause.removeAttribute('data-rail-control');
@@ -269,13 +275,14 @@ export function mountRails(opts: RailsOptions): Rails {
   let lastLabel: string | null = null;
   let lastRoute: string | null = null;
   let lastHint: string | null = null;
+  let lastObjective: string | null = null;
 
-  const applyLayout = (w: number, h: number, layout: Layout, hintOn: boolean) => {
+  const applyLayout = (w: number, h: number, layout: Layout, hintOn: boolean, objectiveOn: boolean) => {
     const s = controller.settings.touch;
-    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}|${hintOn}`;
+    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}|${hintOn}|${objectiveOn}`;
     if (key === lastKey) return;
     lastKey = key;
-    const m = railMetrics(layout, s, s.steering, hintOn);
+    const m = railMetrics(layout, s, s.steering, hintOn, objectiveOn);
     layer.dataset.size = `${w}x${h}`;
     layer.dataset.view = JSON.stringify(layout.view);
     layer.dataset.clear = JSON.stringify(layout.clear);
@@ -329,7 +336,15 @@ export function mountRails(opts: RailsOptions): Rails {
     // The final card belongs to the screens it is reached on; the rail shows steps 1–10 only.
     const current = controller.guide?.current() ?? null;
     const hint = isFinalStep(current) ? null : current;
-    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null);
+    // The objective line shares the HUD box; while the guide's hint shows, the guide has the room.
+    const objectiveLine = controller.isFlying && hint === null ? controller.objectiveText() : null;
+    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null, objectiveLine !== null);
+    if (objectiveLine !== lastObjective) {
+      lastObjective = objectiveLine;
+      objective.textContent = objectiveLine ?? '';
+      objective.title = objectiveLine ?? '';
+      objective.hidden = objectiveLine === null;
+    }
     if ((hint?.text ?? null) !== lastHint) {
       lastHint = hint?.text ?? null;
       guideText.textContent = lastHint ?? '';
@@ -342,7 +357,7 @@ export function mountRails(opts: RailsOptions): Rails {
     const autopilot = world.assist.kind === 'autopilot';
     for (const node of [fire, missile, stick]) node.style.opacity = autopilot ? String(AUTOPILOT_DIM) : '';
 
-    const info = hudInfo(world, data, controller.traffic);
+    const info = hudInfo(world, data, controller.traffic, controller.targetedSite());
     sysName.textContent = info.system;
     fuel.textContent = info.fuel;
     fuel.style.color = info.fuelColor;
@@ -352,7 +367,7 @@ export function mountRails(opts: RailsOptions): Rails {
     course.textContent = info.nextHop ?? '';
     course.hidden = info.nextHop === null;
 
-    const label = controller.isFlying ? contextLabel(controller.currentContext(), world, data, controller.openSiteVerb()) : null;
+    const label = controller.isFlying ? contextLabel(controller.currentContext(), world, data, controller.siteContextText()) : null;
     if (label !== lastLabel) {
       lastLabel = label;
       contextBtn.textContent = label ?? '';

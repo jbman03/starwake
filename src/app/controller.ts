@@ -43,13 +43,15 @@ import {
 import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
+import { objectiveText, siteNoticeText } from '../sim/siteText';
 import { addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
-import type { FrameInput, Mission, ShipState, SimEvent, WorldState } from '../sim/types';
+import type { FrameInput, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
   applyRefuel,
   applyTow,
   autopilotToJumpPoint,
+  autopilotToSite,
   departFrom,
   interruptAutopilot,
   newWorld,
@@ -169,6 +171,8 @@ export class Controller {
   pending: PendingEncounter | null = null;
   /** The scan or find site of a story step in this system, or null. */
   storySite: StorySite | null = null;
+  /** Which site is targeted ('story' or 'encounter', see SiteTarget), or null. Use targetedSite(): it checks the site is still there. */
+  private targetSiteId: string | null = null;
   /** The meet ship of a story step in this system (its hail stands until answered), or null. */
   storyMeet: StoryMeet | null = null;
   /** The story mission that is hailing the pilot in this system (answering takes it), or null. */
@@ -349,7 +353,7 @@ export class Controller {
   }
 
   currentContext(): ContextAction {
-    return contextAction(this.world, this.data, this.pendingHint());
+    return contextAction(this.world, this.data, this.pendingHint(), this.canFlyToSite());
   }
 
   /**
@@ -363,6 +367,7 @@ export class Controller {
       this.pauseFlight();
       this.emit({ type: 'menu', action: 'map' });
     } else if (action === 'answerHail' || action === 'openSite') this.openEncounter();
+    else if (action === 'flyToSite') this.flyToStorySite();
     else if (action === 'takeControl') this.world = interruptAutopilot(this.world);
     else if (action === 'tow') this.callTow();
     else if (action === 'land') this.queued.add('land');
@@ -555,6 +560,7 @@ export class Controller {
   }
 
   selectPlanet(id: string | null): void {
+    if (id !== null) this.targetSiteId = null;
     this.world = { ...this.world, targetPlanetId: id };
     this.traffic = { ...this.traffic, targetId: null };
   }
@@ -563,7 +569,10 @@ export class Controller {
   targetShip(id: string | null): void {
     if (id !== null && !this.traffic.npcs.some((n) => n.id === id && isTargetable(n))) return;
     this.traffic = { ...this.traffic, targetId: id };
-    if (id !== null) this.world = { ...this.world, targetPlanetId: null };
+    if (id !== null) {
+      this.world = { ...this.world, targetPlanetId: null };
+      this.targetSiteId = null;
+    }
   }
 
   private maxNpcs(): number {
@@ -627,10 +636,19 @@ export class Controller {
       this.queued.clear();
       if (pressed.delete('interact') && this.openEncounter()) return;
       if (pressed.delete('nextTarget')) {
-        // Tab walks ships, then planets (the sim's own planet-only cycle is not used from here).
-        const pick = cycleTarget(this.world, this.data, this.traffic);
+        // Tab walks sites, then ships, then planets (the sim's own planet-only cycle is not used from here).
+        const pick = cycleTarget(this.world, this.data, this.traffic, this.targetSites(), this.targetedSite()?.id ?? null);
         this.traffic = { ...this.traffic, targetId: pick.shipId };
         this.world = { ...this.world, targetPlanetId: pick.planetId };
+        this.targetSiteId = pick.siteId;
+      }
+      // The autopilot key flies to a targeted site (the sim's own autopilot only knows planets and the jump point).
+      if (pressed.has('autopilot') && this.world.assist.kind !== 'autopilot') {
+        const site = this.targetedSite();
+        if (site) {
+          pressed.delete('autopilot');
+          this.world = autopilotToSite(this.world, site);
+        }
       }
       const input: FrameInput = touch.stick && !locked
         ? { actions: polled.actions, pressed, stick: touch.stick }
@@ -650,6 +668,7 @@ export class Controller {
       this.handleEvents(r.events);
       this.stepTraffic(dt);
       this.lapseHail(dt);
+      this.syncSiteTarget();
     });
     this.checkContext();
   }
@@ -700,6 +719,60 @@ export class Controller {
     return [this.sitePos(), this.visibleStorySite()?.pos ?? null].filter((p): p is Vec2 => p !== null);
   }
 
+  /** The sites a pilot can target (story first), as the Tab cycle sees them. */
+  targetSites(): SiteTarget[] {
+    const story = this.visibleStorySite();
+    const enc = this.pending?.kind === 'site' ? this.pending : null;
+    return [
+      ...(story ? [{ id: 'story', pos: story.pos, label: story.label }] : []),
+      ...(enc ? [{ id: 'encounter', pos: enc.pos, label: enc.def.title }] : []),
+    ];
+  }
+
+  /** The targeted site, or null (also when a ship or planet is targeted, or the site is gone). */
+  targetedSite(): SiteTarget | null {
+    if (!this.targetSiteId || this.world.targetPlanetId !== null || this.traffic.targetId !== null) return null;
+    return this.targetSites().find((s) => s.id === this.targetSiteId) ?? null;
+  }
+
+  /** Forget a site target that was replaced by a ship or planet target, or whose site is gone. */
+  private syncSiteTarget(): void {
+    if (this.targetSiteId && !this.targetedSite()) this.targetSiteId = null;
+  }
+
+  /** Is there a story site in view that the ship cannot open yet (the context button offers to fly there)? */
+  private canFlyToSite(): boolean {
+    const s = this.visibleStorySite();
+    return s !== null && !siteReachable(this.world, s.pos);
+  }
+
+  /** The context button's `flyToSite`: target the story site and engage the autopilot. */
+  private flyToStorySite(): void {
+    const site = this.targetSites().find((s) => s.id === 'story');
+    if (!site) return;
+    this.selectPlanet(null);
+    this.targetSiteId = site.id;
+    this.world = autopilotToSite(this.world, site);
+  }
+
+  /**
+   * The story objective for the HUD, or null: a scan or find step whose site is in this system.
+   * Text is final (no key names in it).
+   */
+  objectiveText(): string | null {
+    const s = this.storySite;
+    if (!s) return null;
+    const step = currentStep(this.world, this.data, s.missionId);
+    if (!step || (step.kind !== 'scan' && step.kind !== 'find')) return null;
+    const visible = this.visibleStorySite();
+    return objectiveText({
+      kind: step.kind,
+      label: s.label,
+      systemName: this.data.systems[this.world.systemId]?.name ?? this.world.systemId,
+      distance: visible ? dist(this.world.ship.pos, s.pos) : null,
+    });
+  }
+
   /** The name on the incoming hail (an encounter's or a story meet's), or null with no hail. */
   hailName(forButton = false): string | null {
     if (this.pending?.kind === 'hail') return this.pending.npcName;
@@ -717,12 +790,23 @@ export class Controller {
     return sites[0] ? { kind: 'site', pos: sites[0] } : null;
   }
 
-  /** "Scan" or "Search" when the site the ship can open right now is a story one, else null (the generic label). */
+  /** "Scan Dead lantern" or "Search Cache" when the site the ship can open right now is a story one, else null (the generic label). */
   openSiteVerb(): string | null {
     const s = this.visibleStorySite();
     const enc = this.sitePos();
     if (!s || !siteReachable(this.world, s.pos) || (enc && siteReachable(this.world, enc))) return null;
-    return currentStep(this.world, this.data, s.missionId)?.kind === 'find' ? 'Search' : 'Scan';
+    return `${currentStep(this.world, this.data, s.missionId)?.kind === 'find' ? 'Search' : 'Scan'} ${s.label}`;
+  }
+
+  /** The context button's text for a site action: "Scan Dead lantern" (openSite), "Fly to Dead lantern" (flyToSite), else null. */
+  siteContextText(): string | null {
+    const action = this.currentContext();
+    if (action === 'openSite') return this.openSiteVerb();
+    if (action === 'flyToSite') {
+      const s = this.visibleStorySite();
+      return s ? `Fly to ${s.label}` : null;
+    }
+    return null;
   }
 
   /**
@@ -999,6 +1083,7 @@ export class Controller {
         this.pending = null;
         this.card = null;
         this.storySite = null;
+        this.targetSiteId = null;
         this.storyMeet = null;
         this.storyHail = null;
         this.storyHailQuiet = null;
@@ -1046,6 +1131,8 @@ export class Controller {
       this.notices.push(...story.messages);
     }
     this.refreshStory();
+    // The scan or find site of a story step here is in open space, not at this port: say so.
+    if (autosave && this.storySite) this.notices.push(siteNoticeText(this.storySite.label, this.storySite.hiddenUntilNear));
     if (autosave) this.autosave();
   }
 
