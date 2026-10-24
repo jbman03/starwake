@@ -2,6 +2,8 @@
 
 /* The game surface never scrolls, zooms or selects text under a finger. Menus keep their own scrolling. */
 html, body { overscroll-behavior: none; }
+/* No double-tap zoom anywhere: on iPhones it zooms the whole page and the game canvas cannot undo it. */
+html, body, #ui { touch-action: manipulation; }
 #game, #game canvas, #touch { touch-action: none; }
 #touch { position: fixed; inset: 0; pointer-events: none; }
 
