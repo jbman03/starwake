@@ -111,6 +111,29 @@ test.describe('desktop', () => {
     expect(errors).toEqual([]);
   });
 
+  test('the objective stacks below an open hail banner without overlapping it', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Stacker');
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      h.acceptStoryNow('m1-lights-out');
+      h.teleport('skerry-light');
+    });
+    await leavePlanet(page);
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      const hail = Object.values(h.data.encounters).find((e) => e.kind === 'hail')!;
+      h.forceEncounter(hail.id);
+    });
+    await expect.poll(() => page.evaluate(() => window.__starwake!.hudHail!())).not.toBeNull();
+    const boxes = await page.evaluate(() => window.__starwake!.hudBannerBoxes!());
+    const hail = boxes.find((b) => b.name === 'hail')!;
+    const obj = boxes.find((b) => b.name === 'objective')!;
+    expect(hail && obj).toBeTruthy();
+    expect(obj.top).toBeGreaterThanOrEqual(hail.bottom);
+    expect(errors).toEqual([]);
+  });
+
   test('a meet ship hails with a banner; Y opens its card and the choice advances the step', async ({ page }) => {
     const errors = trackErrors(page);
     await newPilot(page, 'Greeter');
@@ -245,7 +268,7 @@ test.describe('phone', () => {
     await expect(ctxBtn).toHaveText('Fly to Dead lantern');
     const objective = page.getByTestId('rail-objective');
     await expect(objective).toBeVisible();
-    await expect(objective).toHaveText(/^Objective: scan the Dead lantern — out in space, \d+ px$/);
+    await expect(objective).toHaveText(/^Scan Dead lantern · \d+ px$/);
     // Nothing but the context button may cover the clear view: the objective lives in the HUD box in the stick rail.
     const { clear, box, hud } = await page.evaluate(() => {
       const layer = document.querySelector<HTMLElement>('[data-testid="touch-rails"]')!;
@@ -261,6 +284,7 @@ test.describe('phone', () => {
     await ctxBtn.tap();
     await expect(ctxBtn).toHaveText('✋ TAKE CONTROL');
     await expect(ctxBtn).toHaveText('Scan Dead lantern', { timeout: 60_000 });
+    await expect(objective).toHaveText('Tap Scan');
     await ctxBtn.tap();
     await expect.poll(() => page.evaluate(() => window.__starwake!.story().done)).toContain('m1-lights-out');
     await expect(objective).toBeHidden();

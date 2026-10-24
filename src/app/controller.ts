@@ -757,9 +757,9 @@ export class Controller {
 
   /**
    * The story objective for the HUD, or null: a scan or find step whose site is in this system.
-   * Text is final (no key names in it).
+   * PC text may hold an `{interact}` token (once the site is reachable); callers fill it with formatMessage.
    */
-  objectiveText(): string | null {
+  objectiveText(touch = false): string | null {
     const s = this.storySite;
     if (!s) return null;
     const step = currentStep(this.world, this.data, s.missionId);
@@ -770,7 +770,8 @@ export class Controller {
       label: s.label,
       systemName: this.data.systems[this.world.systemId]?.name ?? this.world.systemId,
       distance: visible ? dist(this.world.ship.pos, s.pos) : null,
-    });
+      reachable: visible !== null && siteReachable(this.world, s.pos),
+    }, touch);
   }
 
   /** The name on the incoming hail (an encounter's or a story meet's), or null with no hail. */

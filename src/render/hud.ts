@@ -188,6 +188,13 @@ export class Hud {
     return this.objective.visible ? this.objective.text : null;
   }
 
+  /** The top-centre banners that are showing (e2e checks that they do not overlap). */
+  bannerBoxes(): { name: string; top: number; bottom: number }[] {
+    return ([['route', this.banner], ['hail', this.hail], ['objective', this.objective]] as const)
+      .filter(([, t]) => t.visible)
+      .map(([name, t]) => ({ name, top: t.y, bottom: t.y + t.height }));
+  }
+
   /** The hint box under the status panel (the touch rail draws its own in touch mode). */
   private drawGuide(guide: HudGuide | null): void {
     const key = guide ? `${this.sidebar}|${this.panelH}|${guide.skip}|${guide.text}` : '';
@@ -242,7 +249,9 @@ export class Hud {
     if (objectiveText === null) this.objective.setVisible(false);
     else {
       if (!this.objective.visible || this.objective.text !== objectiveText) this.objective.setText(objectiveText).setVisible(true);
-      this.objective.setY(14 + (route === null ? 0 : 38) + (hailText === null ? 0 : 38));
+      // Stack from the real bottom of whichever banners show.
+      const bottoms = [this.banner, this.hail].filter((t) => t.visible).map((t) => t.y + t.height);
+      this.objective.setY(bottoms.length === 0 ? 14 : Math.max(...bottoms) + 6);
     }
 
     this.messageAge += dtSec;

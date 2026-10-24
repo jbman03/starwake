@@ -300,7 +300,9 @@ describe('rails: story site on a phone', () => {
     expect(btn.textContent).toBe('Fly to Dead lantern');
     const obj = parent.querySelector<HTMLElement>('[data-testid="rail-objective"]')!;
     expect(obj.hidden).toBe(false);
-    expect(obj.textContent).toMatch(/^Objective: scan the Dead lantern — out in space, \d+ px$/);
+    expect(obj.textContent).toMatch(/^Scan Dead lantern · \d+ px$/);
+    const hudBefore = parent.querySelector<HTMLElement>('[data-control="hud"]')!.style.height;
+    expect(hudBefore).toBe('178px');
     expect(parent.querySelector('[data-control="hud"]')!.contains(obj)).toBe(true);
     btn.dispatchEvent(new Event('pointerdown'));
     expect(c.world.assist.kind).toBe('autopilot');

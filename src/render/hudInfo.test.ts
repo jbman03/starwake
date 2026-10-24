@@ -80,6 +80,17 @@ describe('site targets and the objective line', () => {
       'Objective: search the Cache — out in space, 380 px',
     );
     expect(objectiveText({ kind: 'find', label: 'Cache', systemName: 'Calder', distance: null })).toBe('Objective: search Calder for the Cache');
+    expect(objectiveText({ kind: 'scan', label: 'Dead lantern', systemName: 'Skerry', distance: 20, reachable: true })).toBe(
+      'Objective: scan the Dead lantern — press {interact} to scan',
+    );
+  });
+
+  it('phone wording is short enough for two rail lines', () => {
+    const o = { label: 'Dead lantern', systemName: 'Skerry', distance: 640 };
+    expect(objectiveText({ kind: 'scan', ...o }, true)).toBe('Scan Dead lantern · 640 px');
+    expect(objectiveText({ kind: 'scan', ...o, reachable: true }, true)).toBe('Tap Scan');
+    expect(objectiveText({ kind: 'find', ...o, reachable: true }, true)).toBe('Tap Search');
+    expect(objectiveText({ kind: 'find', ...o, distance: null }, true)).toBe('Search Skerry for the Dead lantern');
   });
 });
 

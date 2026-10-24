@@ -96,7 +96,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
   function stepText(step: StoryStepDef): string {
     if (step.kind !== 'scan' && step.kind !== 'find') return step.text;
     const key = (a: ActionId) => hotkeyFor(controller.settings.bindings, a) ?? null;
-    return `${step.text} ${formatMessage(siteStepHint(step.kind === 'find'), key, ctx.inputMode.mode === 'touch')}`;
+    return `${step.text} ${formatMessage(siteStepHint(step.kind === 'find', ctx.inputMode.mode === 'touch'), key, ctx.inputMode.mode === 'touch')}`;
   }
 
   /** The Story section: active missions, the next lead when none is active, and the finished ones. */

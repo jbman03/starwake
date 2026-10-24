@@ -129,7 +129,7 @@ export function mountRails(opts: RailsOptions): Rails {
   const target = el('div', { class: 'sw-rail-line sw-rail-dim' });
   const course = el('div', { class: 'sw-rail-line sw-rail-course', attrs: { 'data-testid': 'rail-course' } });
   course.hidden = true;
-  // The story objective ("Objective: scan the Dead lantern — out in space, 640 px"): in the HUD box, never over the view.
+  // The story objective ("Scan Dead lantern · 640 px"): in the HUD box in the course line's place, never over the view.
   const objective = el('div', { class: 'sw-rail-line sw-rail-objective', attrs: { 'data-testid': 'rail-objective' } });
   objective.hidden = true;
   const pause = holdButton('pause', 'II', 'pause', 'Pause', 'sw-rail-pause');
@@ -277,12 +277,12 @@ export function mountRails(opts: RailsOptions): Rails {
   let lastHint: string | null = null;
   let lastObjective: string | null = null;
 
-  const applyLayout = (w: number, h: number, layout: Layout, hintOn: boolean, objectiveOn: boolean) => {
+  const applyLayout = (w: number, h: number, layout: Layout, hintOn: boolean) => {
     const s = controller.settings.touch;
-    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}|${hintOn}|${objectiveOn}`;
+    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}|${hintOn}`;
     if (key === lastKey) return;
     lastKey = key;
-    const m = railMetrics(layout, s, s.steering, hintOn, objectiveOn);
+    const m = railMetrics(layout, s, s.steering, hintOn);
     layer.dataset.size = `${w}x${h}`;
     layer.dataset.view = JSON.stringify(layout.view);
     layer.dataset.clear = JSON.stringify(layout.clear);
@@ -336,9 +336,9 @@ export function mountRails(opts: RailsOptions): Rails {
     // The final card belongs to the screens it is reached on; the rail shows steps 1–10 only.
     const current = controller.guide?.current() ?? null;
     const hint = isFinalStep(current) ? null : current;
-    // The objective line shares the HUD box; while the guide's hint shows, the guide has the room.
-    const objectiveLine = controller.isFlying && hint === null ? controller.objectiveText() : null;
-    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null, objectiveLine !== null);
+    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null);
+    // The story objective takes the course line's place (same two lines), so the HUD never grows.
+    const objectiveLine = controller.isFlying ? controller.objectiveText(true) : null;
     if (objectiveLine !== lastObjective) {
       lastObjective = objectiveLine;
       objective.textContent = objectiveLine ?? '';
@@ -365,7 +365,7 @@ export function mountRails(opts: RailsOptions): Rails {
     cargo.textContent = info.cargo;
     target.textContent = info.target;
     course.textContent = info.nextHop ?? '';
-    course.hidden = info.nextHop === null;
+    course.hidden = info.nextHop === null || lastObjective !== null;
 
     const label = controller.isFlying ? contextLabel(controller.currentContext(), world, data, controller.siteContextText()) : null;
     if (label !== lastLabel) {

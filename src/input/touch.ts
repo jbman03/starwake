@@ -124,9 +124,6 @@ export interface RailMetrics {
 const PAD = 8;
 const GAP = 8;
 const HUD_HEIGHT = 178; // room for the 44px Pause button, two bars, fuel, credits, cargo, target and a two-line course
-/** The story objective line under the HUD's course line: up to 3 lines of a 10 px font (12 px each) and the gap above. */
-export const OBJECTIVE_LINES = 3;
-const OBJECTIVE_HEIGHT = OBJECTIVE_LINES * 12 + 4;
 const MAX_RADAR = 84;
 /** The labelled Map button above the radar: a full 44 px touch target. */
 const MAP_HEIGHT = 44;
@@ -148,15 +145,13 @@ const MIN_STOP = 44;
  * Stick rail: HUD, Stop, joystick. Button rail: Map, radar, Target, Missile, [Thrust], Fire.
  * With `hint` (the First Flight guide is showing), the stick rail also holds the hint's text under
  * the HUD (HINT_LINES lines) and a Skip guide button beside Stop; only Stop and the stick give way.
- * With `objective` (a story scan or find step is in this system) the HUD grows by one objective line block;
- * the caller does not ask for both at once, so the guide hint always has its room.
+
  */
 export function railMetrics(
   layout: Layout,
   s: Pick<Settings['touch'], 'buttonSize'>,
   steering: Steering,
   hint = false,
-  objective = false,
 ): RailMetrics {
   const { insets } = layout;
   const h = layout.leftRail.h;
@@ -185,8 +180,7 @@ export function railMetrics(
   const skip = hint ? SKIP_SIZE : 0;
   // Stop shares its row with Skip guide while a hint shows.
   let stop = hint ? Math.min(button, inner - ROW_GAP - SKIP_SIZE) : button;
-  const hudH = HUD_HEIGHT + (objective ? OBJECTIVE_HEIGHT : 0);
-  const above = hudH + GAP + (hint ? hintH + GAP : 0);
+  const above = HUD_HEIGHT + GAP + (hint ? hintH + GAP : 0);
   const stickFor = (row: number) => Math.floor(Math.max(0, Math.min(inner, MAX_STICK, usable - above - row - GAP)));
   let stick = stickFor(Math.max(stop, skip));
   if (hint && stick < MIN_HINT_STICK) {
@@ -201,7 +195,7 @@ export function railMetrics(
     fire,
     radar,
     map: MAP_HEIGHT,
-    hud: hudH,
+    hud: HUD_HEIGHT,
     stick,
     hint: hintH,
     stop,

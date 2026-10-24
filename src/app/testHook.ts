@@ -36,6 +36,8 @@ export interface StarwakeTestHook {
   hudHail?: () => string | null;
   /** Set by SpaceScene: the PC HUD's story objective line, or null when hidden. */
   hudObjective?: () => string | null;
+  /** Set by SpaceScene: the top-centre banners that are showing, as {name, top, bottom} in screen px. */
+  hudBannerBoxes?: () => { name: string; top: number; bottom: number }[];
   /** Set by SpaceScene: the pending site's on-screen position, or null when there is none. */
   siteScreenPos?: () => { x: number; y: number } | null;
   /** Test-only: make `id` the pending encounter (a hail now, or a site 200 px ahead of the ship). */

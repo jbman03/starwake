@@ -99,6 +99,13 @@ describe('mission log: Story section', () => {
     }
   });
 
+  it('on a phone the hint talks about the bottom button', async () => {
+    const { ctx, item } = await setup([scanM], ['sc1']);
+    ctx.inputMode.set('touch');
+    showMissionLog(ctx, () => {});
+    expect(item('sc1')!.textContent).toContain('Tap the bottom button to fly there, then tap it again to scan.');
+  });
+
   it('other steps get no site hint', async () => {
     const { ctx, item } = await setup([main], ['m1']);
     showMissionLog(ctx, () => {});

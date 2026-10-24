@@ -11,18 +11,35 @@ export function siteTargetText(site: SiteTarget, from: Vec2): string {
 }
 
 /**
- * The story objective line: "Objective: scan the Dead lantern — out in space, 640 px". A find site
- * not yet seen (`distance` null) names the system to search instead.
+ * The story objective line. PC: "Objective: scan the Dead lantern — out in space, 640 px", and once the site
+ * is `reachable` "Objective: scan the Dead lantern — press {interact} to scan" (the token is filled with the
+ * bound key by formatMessage). A find site not yet seen (`distance` null) names the system to search instead.
+ * Phone (`touch`): short enough for two rail lines: "Scan Dead lantern · 640 px", "Tap Scan",
+ * "Search Skerry for the Cache".
  */
-export function objectiveText(o: { kind: 'scan' | 'find'; label: string; systemName: string; distance: number | null }): string {
+export function objectiveText(
+  o: { kind: 'scan' | 'find'; label: string; systemName: string; distance: number | null; reachable?: boolean },
+  touch = false,
+): string {
   const verb = o.kind === 'find' ? 'search' : 'scan';
+  const Verb = o.kind === 'find' ? 'Search' : 'Scan';
+  if (touch) {
+    if (o.distance === null) return `${Verb} ${o.systemName} for the ${o.label}`;
+    if (o.reachable) return `Tap ${Verb}`;
+    return `${Verb} ${o.label} · ${roundDistance(o.distance)} px`;
+  }
   if (o.distance === null) return `Objective: ${verb} ${o.systemName} for the ${o.label}`;
+  if (o.reachable) return `Objective: ${verb} the ${o.label} — press {interact} to ${verb}`;
   return `Objective: ${verb} the ${o.label} — out in space, ${roundDistance(o.distance)} px`;
 }
 
 /** Appended to a scan or find step's text in the mission log. `{nextTarget}` and `{interact}` are filled with the pilot's keys (src/ui/messageText.ts). */
-export const siteStepHint = (find: boolean): string =>
-  find
+export const siteStepHint = (find: boolean, touch = false): string =>
+  touch
+    ? find
+      ? "It's out in space, not at a port: fly around the system until it shows on the radar. Tap the bottom button to fly there, then tap it again to search."
+      : "It's out in space, not at a port. Tap the bottom button to fly there, then tap it again to scan."
+    : find
     ? "It's out in space, not at a port: fly around the system until it shows on the radar, then target it ({nextTarget}), fly beside it slowly and press {interact}."
     : "It's out in space, not at a port: target it ({nextTarget}), fly beside it slowly, then press {interact}.";
 

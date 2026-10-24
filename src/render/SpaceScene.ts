@@ -187,6 +187,7 @@ export class SpaceScene extends Phaser.Scene {
     hook.hudBanner = () => this.hud.bannerText();
     hook.hudHail = () => this.hud.hailText();
     hook.hudObjective = () => this.hud.objectiveText();
+    hook.hudBannerBoxes = () => this.hud.bannerBoxes();
     hook.hudMessage = () => this.hud.messageText();
     hook.siteScreenPos = () => {
       const pos = this.controller.sitePositions()[0] ?? null;
@@ -283,7 +284,9 @@ export class SpaceScene extends Phaser.Scene {
       this.guideHint(),
       this.controller.traffic,
       this.hailBanner(),
-      this.controller.isFlying ? this.controller.objectiveText() : null,
+      this.controller.isFlying
+        ? formatMessage(this.controller.objectiveText() ?? '', (a) => hotkeyFor(this.controller.settings.bindings, a) ?? null, false) || null
+        : null,
       this.controller.targetedSite(),
     );
     this.sidebar.update(world, data, dt, this.controller.traffic, this.controller.sitePositions(), this.controller.targetedSite());

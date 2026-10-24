@@ -1058,6 +1058,11 @@ describe('Controller story steps in flight', () => {
       expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache');
       park(f.c, fs.pos.x + 500, fs.pos.y);
       expect(f.c.objectiveText()).toBe('Objective: search the Cache — out in space, 500 px');
+      park(c, site.pos.x + 641, site.pos.y);
+      expect(c.objectiveText(true)).toBe('Scan Wreck · 640 px');
+      park(c, site.pos.x + 10, site.pos.y);
+      expect(c.objectiveText()).toBe('Objective: scan the Wreck — press {interact} to scan');
+      expect(c.objectiveText(true)).toBe('Tap Scan');
       const none = await flying(meet);
       expect(none.c.objectiveText()).toBeNull();
     });
