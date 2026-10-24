@@ -80,6 +80,9 @@ html, body { overscroll-behavior: none; }
 /* The course line may wrap to a second line rather than cut off the jump count. */
 .sw-rail-course { color: #9fe7a0; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .sw-rail-course[hidden] { display: none; }
+/* The story objective takes the course line's place: up to 2 lines. */
+.sw-rail-objective { color: #ffe9a8; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.sw-rail-objective[hidden] { display: none; }
 
 .sw-stick {
   flex: none;

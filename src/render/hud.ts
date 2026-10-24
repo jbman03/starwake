@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { GameData } from '../data/schemas';
 import type { Traffic } from '../sim/traffic';
-import type { WorldState } from '../sim/types';
+import type { SiteTarget, WorldState } from '../sim/types';
 import { hudInfo, routeBannerText } from './hudInfo';
 
 const MESSAGE_SECONDS = 3;
@@ -39,6 +39,8 @@ export class Hud {
   private message: Phaser.GameObjects.Text;
   /** Autopilot route banner, top-center (keyboard mode; the rails draw it in touch mode). */
   private banner: Phaser.GameObjects.Text;
+  /** Story objective line under the banners (keyboard mode; phones show it in the rail HUD). */
+  private objective: Phaser.GameObjects.Text;
   /** Incoming-hail banner under the route banner (keyboard mode only; phones use the context button). */
   private hail: Phaser.GameObjects.Text;
   private messageAge = Infinity;
@@ -91,6 +93,18 @@ export class Hud {
       .setScrollFactor(0)
       .setDepth(1000)
       .setVisible(false);
+    this.objective = scene.add
+      .text(0, 90, '', {
+        fontFamily: FONT,
+        fontSize: '14px',
+        color: '#ffe9a8',
+        backgroundColor: 'rgba(40, 32, 8, 0.85)',
+        padding: { x: 12, y: 6 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(1000)
+      .setVisible(false);
     this.guideBox = scene.add.graphics().setScrollFactor(0).setDepth(999).setVisible(false);
     this.guideText = scene.add
       .text(20, 0, '', { fontFamily: FONT, fontSize: '13px', color: '#eef3f9', lineSpacing: 2, wordWrap: { width: PANEL_W - 20, useAdvancedWrap: true } })
@@ -124,6 +138,7 @@ export class Hud {
     if (touchMode || sidebar) this.course.setVisible(false);
     this.banner.setPosition(viewW / 2, 14);
     this.hail.setPosition(viewW / 2, 52);
+    this.objective.setPosition(viewW / 2, 90);
     // Touch mode: the message sits below the (HTML) route banner, clear of the context button.
     if (touchMode) this.message.setOrigin(0.5, 0).setPosition(viewW / 2, 56);
     else this.message.setOrigin(0.5, 1).setPosition(viewW / 2, viewH - 28);
@@ -168,6 +183,18 @@ export class Hud {
     return this.hail.visible ? this.hail.text : null;
   }
 
+  /** The objective line's text when it is showing (e2e checks), else null. */
+  objectiveText(): string | null {
+    return this.objective.visible ? this.objective.text : null;
+  }
+
+  /** The top-centre banners that are showing (e2e checks that they do not overlap). */
+  bannerBoxes(): { name: string; top: number; bottom: number }[] {
+    return ([['route', this.banner], ['hail', this.hail], ['objective', this.objective]] as const)
+      .filter(([, t]) => t.visible)
+      .map(([name, t]) => ({ name, top: t.y, bottom: t.y + t.height }));
+  }
+
   /** The hint box under the status panel (the touch rail draws its own in touch mode). */
   private drawGuide(guide: HudGuide | null): void {
     const key = guide ? `${this.sidebar}|${this.panelH}|${guide.skip}|${guide.text}` : '';
@@ -199,9 +226,9 @@ export class Hud {
     this.messageAge = 0;
   }
 
-  update(world: WorldState, data: GameData, dtSec: number, guide: HudGuide | null = null, traffic: Traffic | null = null, hail: string | null = null): void {
+  update(world: WorldState, data: GameData, dtSec: number, guide: HudGuide | null = null, traffic: Traffic | null = null, hail: string | null = null, objective: string | null = null, site: SiteTarget | null = null): void {
     if (!this.touchMode && !this.sidebar) {
-      const info = hudInfo(world, data, traffic);
+      const info = hudInfo(world, data, traffic, site);
       this.system.setText(info.system);
       this.fuel.setText(info.fuel).setColor(info.fuelColor);
       this.credits.setText(info.credits);
@@ -217,6 +244,15 @@ export class Hud {
     const route = this.touchMode ? null : routeBannerText(world, data);
     if (route === null) this.banner.setVisible(false);
     else if (!this.banner.visible || this.banner.text !== route) this.banner.setText(route).setVisible(true);
+    // The objective stacks under whichever banners show; phones draw it in the rail instead.
+    const objectiveText = this.touchMode ? null : objective;
+    if (objectiveText === null) this.objective.setVisible(false);
+    else {
+      if (!this.objective.visible || this.objective.text !== objectiveText) this.objective.setText(objectiveText).setVisible(true);
+      // Stack from the real bottom of whichever banners show.
+      const bottoms = [this.banner, this.hail].filter((t) => t.visible).map((t) => t.y + t.height);
+      this.objective.setY(bottoms.length === 0 ? 14 : Math.max(...bottoms) + 6);
+    }
 
     this.messageAge += dtSec;
     const fade = 0.5;

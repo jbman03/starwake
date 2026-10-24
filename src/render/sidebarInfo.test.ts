@@ -139,3 +139,12 @@ describe('fitText', () => {
     expect(fitText('A very long system name', 10)).toBe('A very lo…');
   });
 });
+
+describe('sidebarInfo: site target', () => {
+  it('shows the site as the target with its distance', () => {
+    const w = at(base(), 0, 0);
+    const info = sidebarInfo(w, data, null, { id: 'story', pos: { x: 640, y: 0 }, label: 'Dead lantern' });
+    expect(info.target).toBe('Dead lantern — 640 px');
+    expect(info.targetDetail).toBe('Site');
+  });
+});

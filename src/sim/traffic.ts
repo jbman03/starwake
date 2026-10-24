@@ -4,7 +4,7 @@ import { stepShip } from './flight';
 import { lanesOf, systemOpen } from './galaxy';
 import { hashString, mulberry32, pick, randInt } from './random';
 import { JUMP_POINT_MARGIN, SYSTEM_CENTER } from './rules';
-import type { ShipState, WorldState } from './types';
+import type { ShipState, SiteTarget, WorldState } from './types';
 import { add, angleOf, dist, norm, scale, sub, type Vec2 } from './vec';
 import { AUTOPILOT_ARRIVE_SPEED, JUMP_ARRIVAL_INSET } from './world';
 
@@ -264,25 +264,29 @@ export const targetedNpc = (t: Traffic | null): Npc | undefined =>
 export interface TargetPick {
   /** Targeted NPC id, or null. */
   shipId: string | null;
-  /** Targeted planet id, or null. At most one of the two is set. */
+  /** Targeted planet id, or null. */
   planetId: string | null;
+  /** Targeted site id (see SiteTarget), or null. At most one of the three is set. */
+  siteId: string | null;
 }
 
 /**
- * The next target after the current one: ships nearest first, then planets nearest first, then
- * nothing (so a phone player can clear it). With no target it picks the nearest ship, or the
- * nearest planet when no ship is about.
+ * The next target after the current one: sites nearest first, then ships nearest first, then planets
+ * nearest first, then nothing (so a phone player can clear it). With no target it picks the nearest
+ * site, else the nearest ship, else the nearest planet. `siteId` is the site targeted now, if any.
  */
-export function cycleTarget(world: WorldState, data: GameData, t: Traffic): TargetPick {
+export function cycleTarget(world: WorldState, data: GameData, t: Traffic, sites: readonly SiteTarget[] = [], siteId: string | null = null): TargetPick {
   const pos = world.ship.pos;
-  const ships = t.npcs.filter(isTargetable).sort((a, b) => dist(pos, a.ship.pos) - dist(pos, b.ship.pos));
-  const planets = Object.values(data.planets)
-    .filter((p) => p.systemId === world.systemId)
-    .sort((a, b) => dist(pos, a.pos) - dist(pos, b.pos));
+  const byDist = <T>(items: readonly T[], at: (x: T) => Vec2) => [...items].sort((a, b) => dist(pos, at(a)) - dist(pos, at(b)));
+  const ships = byDist(t.npcs.filter(isTargetable), (n) => n.ship.pos);
+  const planets = byDist(Object.values(data.planets).filter((p) => p.systemId === world.systemId), (p) => p.pos);
   const order: TargetPick[] = [
-    ...ships.map((n) => ({ shipId: n.id, planetId: null })),
-    ...planets.map((p) => ({ shipId: null, planetId: p.id })),
+    ...byDist(sites, (s) => s.pos).map((s) => ({ shipId: null, planetId: null, siteId: s.id })),
+    ...ships.map((n) => ({ shipId: n.id, planetId: null, siteId: null })),
+    ...planets.map((p) => ({ shipId: null, planetId: p.id, siteId: null })),
   ];
-  const idx = order.findIndex((o) => (t.targetId ? o.shipId === t.targetId : o.planetId !== null && o.planetId === world.targetPlanetId));
-  return idx + 1 < order.length ? order[idx + 1] : { shipId: null, planetId: null };
+  const idx = order.findIndex((o) =>
+    siteId ? o.siteId === siteId : t.targetId ? o.shipId === t.targetId : o.planetId !== null && o.planetId === world.targetPlanetId,
+  );
+  return idx + 1 < order.length ? order[idx + 1] : { shipId: null, planetId: null, siteId: null };
 }

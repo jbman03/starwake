@@ -35,6 +35,8 @@ describe('contextLabel', () => {
     expect(contextLabel('takeControl', w, data)).toBe('✋ TAKE CONTROL');
     expect(contextLabel('tow', w, data)).toBe(`CALL TOW (${data.config.towFee} cr)`);
     expect(contextLabel(null, w, data)).toBeNull();
+    expect(contextLabel('openSite', w, data, 'Scan Dead lantern')).toBe('Scan Dead lantern');
+    expect(contextLabel('flyToSite', w, data, 'Fly to Dead lantern')).toBe('Fly to Dead lantern');
   });
 });
 
@@ -262,5 +264,54 @@ describe('mountRails', () => {
     rails.update();
     expect(parent.querySelector<HTMLElement>('[data-testid="rail-guide"]')!.hidden).toBe(true);
     expect(parent.querySelector<HTMLElement>('[data-control="guide-skip"]')!.hidden).toBe(true);
+  });
+});
+
+describe('rails: story site on a phone', () => {
+  const storyData = async () => {
+    const real = await loadGameData();
+    return {
+      ...real,
+      story: {
+        sc: {
+          id: 'sc', arc: 'side' as const, title: 'Lights', giver: { name: 'A', title: 'B' }, offer: { where: 'bar' as const, ports: ['halcyon'] },
+          text: 't', acceptText: 'a', declinable: true, onComplete: [],
+          steps: [{ kind: 'scan' as const, system: 'calder', site: { label: 'Dead lantern' }, text: 'Scan it.' }],
+        },
+      },
+    };
+  };
+
+  it('offers Fly to, then Scan, and shows the objective in the HUD box', async () => {
+    const data = await storyData();
+    const settings = { ...DEFAULT_SETTINGS, touch: { ...DEFAULT_SETTINGS.touch } };
+    const c = new Controller(data, settings, new EventTarget());
+    c.beginSession(newWorld(data, 7), { id: 'p', name: 'P' }, 'halcyon');
+    c.acceptStory('sc');
+    c.leavePlanet();
+    for (let i = 0; i < 60; i++) c.update(1 / 60);
+    const inputMode = new InputMode(new EventTarget(), () => settings.bindings, 'touch');
+    const parent = document.createElement('div');
+    document.body.append(parent);
+    const rails = mountRails({ parent, controller: c, inputMode, size: () => ({ w: 844, h: 390 }), autoUpdate: false });
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 } }, targetPlanetId: null };
+    rails.update();
+    const btn = parent.querySelector<HTMLButtonElement>('[data-testid="context-button"]')!;
+    expect(btn.textContent).toBe('Fly to Dead lantern');
+    const obj = parent.querySelector<HTMLElement>('[data-testid="rail-objective"]')!;
+    expect(obj.hidden).toBe(false);
+    expect(obj.textContent).toMatch(/^Scan Dead lantern · \d+ px$/);
+    const hudBefore = parent.querySelector<HTMLElement>('[data-control="hud"]')!.style.height;
+    expect(hudBefore).toBe('178px');
+    expect(parent.querySelector('[data-control="hud"]')!.contains(obj)).toBe(true);
+    btn.dispatchEvent(new Event('pointerdown'));
+    expect(c.world.assist.kind).toBe('autopilot');
+    for (let i = 0; i < 60 * 120 && c.world.assist.kind === 'autopilot'; i++) c.update(1 / 60);
+    rails.update();
+    expect(btn.textContent).toBe('Scan Dead lantern');
+    btn.dispatchEvent(new Event('pointerdown'));
+    expect(c.world.story.done).toEqual(['sc']);
+    rails.update();
+    expect(obj.hidden).toBe(true);
   });
 });

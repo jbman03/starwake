@@ -5,7 +5,15 @@ import type { Vec2 } from './vec';
 export type ShipState = { pos: Vec2; vel: Vec2; heading: number; fuel: number };
 export type FlightInput = { thrust: boolean; turn: -1 | 0 | 1; targetHeading?: number };
 
-export type AutopilotDest = { type: 'planet'; id: string } | { type: 'jumpPoint' };
+/** A site in open space the pilot can target (a story scan/find site or the pending encounter's). */
+export interface SiteTarget {
+  /** 'story' or 'encounter'. */
+  id: string;
+  pos: Vec2;
+  label: string;
+}
+
+export type AutopilotDest = { type: 'planet'; id: string } | { type: 'jumpPoint' } | { type: 'site'; pos: Vec2; label: string };
 
 export type Assist =
   | { kind: 'none' }

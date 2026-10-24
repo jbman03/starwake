@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import type { GameData } from '../data/schemas';
 import { HIDDEN_LANE_FLAG, lanesOf } from './galaxy';
-import { addStoryNpc, npcLabel, npcLanes, seedTraffic, stepTraffic, trafficLevel, isTargetable, type Traffic } from './traffic';
+import { addStoryNpc, cycleTarget, npcLabel, npcLanes, seedTraffic, stepTraffic, trafficLevel, isTargetable, type Traffic } from './traffic';
 import { newWorld } from './world';
 import type { WorldState } from './types';
 
@@ -218,5 +218,51 @@ describe('addStoryNpc', () => {
     let t = addStoryNpc({ systemId: 'calder', npcs: [], spawnCount: 0, nextSpawnSec: 0, targetId: null }, { ...spec, shipId });
     t = stepTraffic(t, w, data, DT, 8).traffic;
     expect(t.npcs.length).toBeGreaterThan(1);
+  });
+});
+
+describe('cycleTarget with sites', () => {
+  const w0 = newWorld(data);
+  const site = (id: string, x: number, y: number) => ({ id, pos: { x, y }, label: id });
+  const near = site('story', 300, 0);
+  const far = site('encounter', 900, 0);
+  const t0 = (): Traffic => ({ ...seedTraffic(w0, data, 8), targetId: null });
+
+  it('walks sites nearest first, then ships, then planets, then nothing', () => {
+    const w = { ...w0, ship: { ...w0.ship, pos: { x: 0, y: 0 } }, targetPlanetId: null as string | null };
+    let t = t0();
+    const nShips = t.npcs.filter(isTargetable).length;
+    const nPlanets = Object.values(data.planets).filter((p) => p.systemId === w0.systemId).length;
+    const seen: string[] = [];
+    let siteId: string | null = null;
+    let world: WorldState = w;
+    for (let i = 0; i < 40; i++) {
+      const p = cycleTarget(world, data, t, [far, near], siteId);
+      if (!p.siteId && !p.shipId && !p.planetId) break;
+      siteId = p.siteId;
+      t = { ...t, targetId: p.shipId };
+      world = { ...world, targetPlanetId: p.planetId };
+      seen.push(p.siteId ? `site:${p.siteId}` : p.shipId ? 'ship' : 'planet');
+    }
+    expect(seen).toEqual([
+      'site:story',
+      'site:encounter',
+      ...Array<string>(nShips).fill('ship'),
+      ...Array<string>(nPlanets).fill('planet'),
+    ]);
+  });
+
+  it('with no target picks the nearest site first, and no sites behaves as before', () => {
+    const w = { ...w0, ship: { ...w0.ship, pos: { x: 0, y: 0 } }, targetPlanetId: null };
+    expect(cycleTarget(w, data, t0(), [far, near]).siteId).toBe('story');
+    expect(cycleTarget(w, data, t0()).siteId).toBeNull();
+  });
+
+  it('after the last planet the cycle clears everything, including a site target', () => {
+    const last = Object.values(data.planets).filter((p) => p.systemId === w0.systemId);
+    const pos = w0.ship.pos;
+    last.sort((a, b) => Math.hypot(a.pos.x - pos.x, a.pos.y - pos.y) - Math.hypot(b.pos.x - pos.x, b.pos.y - pos.y));
+    const w = { ...w0, targetPlanetId: last[last.length - 1].id };
+    expect(cycleTarget(w, data, { ...t0(), npcs: [] }, [near])).toEqual({ shipId: null, planetId: null, siteId: null });
   });
 });

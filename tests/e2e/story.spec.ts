@@ -84,6 +84,56 @@ test.describe('desktop', () => {
     expect(errors).toEqual([]);
   });
 
+  test('M1 at Skerry: the notice, Tab to the Dead lantern, G to fly there, Y to scan it', async ({ page }) => {
+    test.setTimeout(90_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Lantern');
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      if (!h.acceptStoryNow('m1-lights-out').ok) throw new Error('accept refused');
+      h.teleport('skerry-light');
+    });
+    // Landing at the port says the site is out in space, with the bound target key.
+    await expect(page.getByTestId('planet-screen')).toContainText('The Dead lantern is out in space, not at this port. Target it with Tab and fly beside it.');
+    await leavePlanet(page);
+    await expect.poll(() => page.evaluate(() => window.__starwake!.hudObjective!())).toMatch(/^Objective: scan the Dead lantern — out in space, \d+ px$/);
+
+    await page.keyboard.press('Tab');
+    await expect.poll(() => page.evaluate(() => window.__starwake!.controller.targetedSite()?.label ?? null)).toBe('Dead lantern');
+    await expect.poll(() => page.evaluate(() => window.__starwake!.sidebar!().info.target)).toMatch(/^Dead lantern — \d+ px$/);
+
+    await page.keyboard.press('g');
+    await expect.poll(() => page.evaluate(() => window.__starwake!.hudBanner!())).toBe('Autopilot → Dead lantern');
+    await page.waitForFunction(() => window.__starwake!.controller.currentContext() === 'openSite', undefined, { timeout: 60_000 });
+    await page.keyboard.press('y');
+    await expect.poll(() => page.evaluate(() => window.__starwake!.story().done)).toContain('m1-lights-out');
+    expect(await page.evaluate(() => window.__starwake!.hudObjective!())).toBeNull();
+    expect(errors).toEqual([]);
+  });
+
+  test('the objective stacks below an open hail banner without overlapping it', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Stacker');
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      h.acceptStoryNow('m1-lights-out');
+      h.teleport('skerry-light');
+    });
+    await leavePlanet(page);
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      const hail = Object.values(h.data.encounters).find((e) => e.kind === 'hail')!;
+      h.forceEncounter(hail.id);
+    });
+    await expect.poll(() => page.evaluate(() => window.__starwake!.hudHail!())).not.toBeNull();
+    const boxes = await page.evaluate(() => window.__starwake!.hudBannerBoxes!());
+    const hail = boxes.find((b) => b.name === 'hail')!;
+    const obj = boxes.find((b) => b.name === 'objective')!;
+    expect(hail && obj).toBeTruthy();
+    expect(obj.top).toBeGreaterThanOrEqual(hail.bottom);
+    expect(errors).toEqual([]);
+  });
+
   test('a meet ship hails with a banner; Y opens its card and the choice advances the step', async ({ page }) => {
     const errors = trackErrors(page);
     await newPilot(page, 'Greeter');
@@ -198,6 +248,46 @@ test.describe('phone', () => {
     await expect(card).toBeVisible();
     await card.getByRole('button', { name: /Hear him out/ }).tap();
     await expect(page.getByTestId('encounter-outcome')).toContainText('Land at Halcyon.');
+    expect(errors).toEqual([]);
+  });
+  test('M1 on a phone: Fly to Dead lantern, then Scan Dead lantern, with nothing new over the view', async ({ page }) => {
+    test.setTimeout(90_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Tap Lantern');
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      if (!h.acceptStoryNow('m1-lights-out').ok) throw new Error('accept refused');
+      h.teleport('skerry-light');
+    });
+    await expect(page.getByTestId('planet-screen')).toContainText('Target it with the TGT button and fly beside it.');
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await waitForFlight(page);
+    await page.touchscreen.tap(422, 30); // touch mode: rails on
+
+    const ctxBtn = page.getByTestId('context-button');
+    await expect(ctxBtn).toHaveText('Fly to Dead lantern');
+    const objective = page.getByTestId('rail-objective');
+    await expect(objective).toBeVisible();
+    await expect(objective).toHaveText(/^Scan Dead lantern · \d+ px$/);
+    // Nothing but the context button may cover the clear view: the objective lives in the HUD box in the stick rail.
+    const { clear, box, hud } = await page.evaluate(() => {
+      const layer = document.querySelector<HTMLElement>('[data-testid="touch-rails"]')!;
+      const o = document.querySelector('[data-testid="rail-objective"]')!.getBoundingClientRect();
+      const h = document.querySelector('[data-control="hud"]')!.getBoundingClientRect();
+      return { clear: JSON.parse(layer.dataset.clear!) as { x: number; y: number; w: number; h: number }, box: o.toJSON(), hud: h.toJSON() };
+    });
+    const overlaps = box.left < clear.x + clear.w && clear.x < box.right && box.top < clear.y + clear.h && clear.y < box.bottom;
+    expect(overlaps).toBe(false);
+    expect(box.bottom).toBeLessThanOrEqual(hud.bottom + 1);
+    expect(box.top).toBeGreaterThanOrEqual(hud.top);
+
+    await ctxBtn.tap();
+    await expect(ctxBtn).toHaveText('✋ TAKE CONTROL');
+    await expect(ctxBtn).toHaveText('Scan Dead lantern', { timeout: 60_000 });
+    await expect(objective).toHaveText('Tap Scan');
+    await ctxBtn.tap();
+    await expect.poll(() => page.evaluate(() => window.__starwake!.story().done)).toContain('m1-lights-out');
+    await expect(objective).toBeHidden();
     expect(errors).toEqual([]);
   });
   test('the mission log with two story missions and several jobs keeps its buttons on screen', async ({ page }) => {

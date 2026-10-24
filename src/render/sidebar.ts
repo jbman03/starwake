@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { GameData } from '../data/schemas';
 import type { Traffic } from '../sim/traffic';
 import type { Vec2 } from '../sim/vec';
-import type { WorldState } from '../sim/types';
+import type { SiteTarget, WorldState } from '../sim/types';
 import { fitText, radarBlips, radarHeadingTip, sidebarInfo, type SidebarInfo } from './sidebarInfo';
 
 const FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
@@ -127,9 +127,9 @@ export class Sidebar {
     this.mapBtn.setPosition(b.x, b.y);
   }
 
-  update(world: WorldState, data: GameData, _dtSec: number, traffic: Traffic | null = null, sites: readonly Vec2[] = []): void {
+  update(world: WorldState, data: GameData, _dtSec: number, traffic: Traffic | null = null, sites: readonly Vec2[] = [], site: SiteTarget | null = null): void {
     if (!this.visible) return;
-    const info = sidebarInfo(world, data, traffic);
+    const info = sidebarInfo(world, data, traffic, site);
     const L = this.labels;
     L.shields.setText('Shields');
     L.armor.setText('Armor');

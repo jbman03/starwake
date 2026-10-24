@@ -168,7 +168,7 @@ export class SpaceScene extends Phaser.Scene {
     };
     hook.sidebar = () => ({
       visible: this.sidebar.isVisible(),
-      info: sidebarInfo(this.controller.world, this.controller.data, this.controller.traffic),
+      info: sidebarInfo(this.controller.world, this.controller.data, this.controller.traffic, this.controller.targetedSite()),
     });
     hook.traffic = () => {
       const c = this.cameras.main;
@@ -186,6 +186,8 @@ export class SpaceScene extends Phaser.Scene {
     hook.flightSpriteTexture = () => this.ship.texture.key;
     hook.hudBanner = () => this.hud.bannerText();
     hook.hudHail = () => this.hud.hailText();
+    hook.hudObjective = () => this.hud.objectiveText();
+    hook.hudBannerBoxes = () => this.hud.bannerBoxes();
     hook.hudMessage = () => this.hud.messageText();
     hook.siteScreenPos = () => {
       const pos = this.controller.sitePositions()[0] ?? null;
@@ -275,8 +277,19 @@ export class SpaceScene extends Phaser.Scene {
     this.drawNpcFx();
     this.drawJumpFx(x, y);
     this.drawSite();
-    this.hud.update(world, data, dt, this.guideHint(), this.controller.traffic, this.hailBanner());
-    this.sidebar.update(world, data, dt, this.controller.traffic, this.controller.sitePositions());
+    this.hud.update(
+      world,
+      data,
+      dt,
+      this.guideHint(),
+      this.controller.traffic,
+      this.hailBanner(),
+      this.controller.isFlying
+        ? formatMessage(this.controller.objectiveText() ?? '', (a) => hotkeyFor(this.controller.settings.bindings, a) ?? null, false) || null
+        : null,
+      this.controller.targetedSite(),
+    );
+    this.sidebar.update(world, data, dt, this.controller.traffic, this.controller.sitePositions(), this.controller.targetedSite());
   }
 
   /** "Incoming hail — Name (Y to answer)" while a hail is open, else null. */
@@ -322,7 +335,12 @@ export class SpaceScene extends Phaser.Scene {
     let cx0: number, cy0: number, r: number;
     const npc = targetedNpc(traffic);
     const sprite = npc ? this.npcSprites.get(npc.id) : undefined;
-    if (npc && sprite) {
+    const site = this.controller.targetedSite();
+    if (site) {
+      cx0 = site.pos.x;
+      cy0 = site.pos.y;
+      r = 24;
+    } else if (npc && sprite) {
       cx0 = sprite.x;
       cy0 = sprite.y;
       r = data.ships[npc.shipId].radius + 10;

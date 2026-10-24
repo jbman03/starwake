@@ -145,6 +145,7 @@ const MIN_STOP = 44;
  * Stick rail: HUD, Stop, joystick. Button rail: Map, radar, Target, Missile, [Thrust], Fire.
  * With `hint` (the First Flight guide is showing), the stick rail also holds the hint's text under
  * the HUD (HINT_LINES lines) and a Skip guide button beside Stop; only Stop and the stick give way.
+
  */
 export function railMetrics(
   layout: Layout,

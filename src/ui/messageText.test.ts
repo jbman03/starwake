@@ -30,3 +30,14 @@ describe('formatMessage', () => {
     expect(formatMessage('Not enough fuel to jump.', defaults, false)).toBe('Not enough fuel to jump.');
   });
 });
+
+describe('formatMessage: site tokens', () => {
+  const keys = (a: string) => ({ nextTarget: 'Tab', interact: 'Y' } as Record<string, string>)[a] ?? null;
+  it('fills nextTarget and interact with the bound keys, or phone wording', () => {
+    expect(formatMessage('Target it with {nextTarget}, then press {interact}.', keys, false)).toBe('Target it with Tab, then press Y.');
+    expect(formatMessage('Target it with {nextTarget}, then press {interact}.', keys, true)).toBe(
+      'Target it with the TGT button, then press the bottom button.',
+    );
+    expect(formatMessage('with {nextTarget}', () => null, false)).toBe('with the next-target key');
+  });
+});

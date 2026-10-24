@@ -246,3 +246,17 @@ describe('TouchSource', () => {
     expect(p.actions.size).toBe(0);
   });
 });
+
+describe('railMetrics: stick with real phone insets', () => {
+  const insets = { top: 0, bottom: 21, left: 47, right: 47 };
+  it('keeps the stick at least 64 px at every button size, steering mode and 844x390', () => {
+    for (const size of ['S', 'M', 'L'] as const) {
+      for (const steering of ['point', 'classic'] as const) {
+        const l = computeLayout(844, 390, touch(), insets);
+        const m = railMetrics(l, touch({ buttonSize: size }), steering);
+        expect(m.stick, `${size} ${steering}`).toBeGreaterThanOrEqual(64);
+        expect(m.leftStackHeight).toBeLessThanOrEqual(l.leftRail.h - insets.bottom - 16);
+      }
+    }
+  });
+});

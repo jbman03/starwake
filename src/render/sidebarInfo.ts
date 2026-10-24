@@ -5,9 +5,9 @@ import { cargoFree } from '../sim/cargo';
 import { jumpPoint, SYSTEM_CENTER } from '../sim/rules';
 import { isTargetable, npcLabel, targetedNpc, type Traffic } from '../sim/traffic';
 import { worldStats } from '../sim/shipStats';
-import type { WorldState } from '../sim/types';
+import type { SiteTarget, WorldState } from '../sim/types';
 import { dist, type Vec2 } from '../sim/vec';
-import { fuelJumps } from './hudInfo';
+import { fuelJumps, siteTargetText } from './hudInfo';
 
 /** World distance from the radar's centre to its edge (same as the touch rail radar). */
 export const RADAR_RANGE = 2500;
@@ -28,7 +28,7 @@ export interface SidebarInfo {
   date: string;
 }
 
-export function sidebarInfo(world: WorldState, data: GameData, traffic: Traffic | null = null): SidebarInfo {
+export function sidebarInfo(world: WorldState, data: GameData, traffic: Traffic | null = null, site: SiteTarget | null = null): SidebarInfo {
   const stats = worldStats(world, data);
   const next = world.route[0];
   const n = world.route.length;
@@ -42,8 +42,10 @@ export function sidebarInfo(world: WorldState, data: GameData, traffic: Traffic 
     jumps: fuelJumps(world, data),
     nav: next === undefined ? 'No course' : `${data.systems[next]?.name ?? next} · ${n} ${n === 1 ? 'jump' : 'jumps'}`,
     secondary: 'None',
-    target: ship ? npcLabel(ship, data) : hasTarget ? t.name : null,
-    targetDetail: ship
+    target: site ? siteTargetText(site, world.ship.pos) : ship ? npcLabel(ship, data) : hasTarget ? t.name : null,
+    targetDetail: site
+      ? 'Site'
+      : ship
       ? `Ship · ${Math.round(dist(ship.ship.pos, world.ship.pos)).toLocaleString('en-US')}`
       : hasTarget
         ? `${t.kind === 'station' ? 'Station' : 'Planet'} · ${Math.round(dist(t.pos, world.ship.pos)).toLocaleString('en-US')}`

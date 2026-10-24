@@ -1,8 +1,11 @@
+import type { ActionId } from '../input/actions';
 import type { GameData, StoryMissionDef, StoryStepDef } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
 import { systemOpen } from '../sim/galaxy';
 import { jobMissions, MAX_MISSIONS } from '../sim/missions';
+import { siteStepHint } from '../sim/siteText';
 import { nextLead, stepSystem } from '../sim/storyMissions';
+import { formatMessage } from './messageText';
 import type { UiContext } from './context';
 import { button, confirmDialog, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
 import { mapCornerButton, mapCornerKey } from './mapButton';
@@ -89,6 +92,13 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     render();
   }
 
+  /** A step's text; scan and find steps also say how to do them (the site is in open space, not at a port). */
+  function stepText(step: StoryStepDef): string {
+    if (step.kind !== 'scan' && step.kind !== 'find') return step.text;
+    const key = (a: ActionId) => hotkeyFor(controller.settings.bindings, a) ?? null;
+    return `${step.text} ${formatMessage(siteStepHint(step.kind === 'find', ctx.inputMode.mode === 'touch'), key, ctx.inputMode.mode === 'touch')}`;
+  }
+
   /** The Story section: active missions, the next lead when none is active, and the finished ones. */
   function renderStory(): void {
     const w = controller.world;
@@ -123,7 +133,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
         return el('div', { class: 'sw-story-item', attrs: { 'data-story': def.id } }, [
           el('h3', { class: 'sw-mc-title', text: def.title }),
           el('p', { class: 'sw-story-from', text: `from ${def.giver.name}` }),
-          el('p', { class: 'sw-mc-desc', text: step.text }),
+          el('p', { class: 'sw-mc-desc', text: stepText(step) }),
           el('dl', { class: 'sw-map-rows sw-mc-rows' }, rows),
           el('div', { class: 'sw-story-actions' }, [show, ...(def.arc === 'main' ? [] : [abandonBtnFor(def)])]),
         ]);

@@ -181,3 +181,28 @@ describe('contextAction', () => {
     });
   });
 });
+
+describe('contextAction: flyToSite', () => {
+  const far = { x: 4000, y: 4000 };
+  const w0 = (): WorldState => at(newWorld(data), { x: -400, y: 300 });
+
+  it('is offered when a story site is out of reach and nothing outranks it', () => {
+    // Near Halcyon (land in range) it still wins over nearby land and plotCourse.
+    expect(contextAction(w0(), data, { kind: 'site', pos: far }, true)).toBe('flyToSite');
+    expect(contextAction(w0(), data, null, false)).not.toBe('flyToSite');
+  });
+
+  it('ranks below a targeted planet, a plotted jump and autopilot-out, above nearby land and plotCourse', () => {
+    expect(contextAction({ ...w0(), targetPlanetId: 'halcyon' }, data, { kind: 'site', pos: far }, true)).toBe('land');
+    expect(contextAction(at({ ...newWorld(data), route: ['vesk'] }, { x: -2100, y: 0 }), data, { kind: 'site', pos: far }, true)).toBe('jump');
+    expect(contextAction(at({ ...newWorld(data), route: ['vesk'] }, { x: 0, y: -800 }), data, { kind: 'site', pos: far }, true)).toBe('autopilotOut');
+    expect(contextAction(at(newWorld(data), { x: 0, y: -1500 }), data, { kind: 'site', pos: far }, true)).toBe('flyToSite');
+  });
+
+  it('openSite still wins when the site is reachable; takeControl and tow outrank it', () => {
+    const w = at(newWorld(data), far);
+    expect(contextAction(w, data, { kind: 'site', pos: far }, true)).toBe('openSite');
+    const auto: WorldState = { ...w0(), assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
+    expect(contextAction(auto, data, { kind: 'site', pos: far }, true)).toBe('takeControl');
+  });
+});
