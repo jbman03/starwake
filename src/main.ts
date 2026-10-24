@@ -4,6 +4,7 @@ import { Controller } from './app/controller';
 import { WakeLockManager, vibrateIfEnabled, type WakeLockApi } from './app/device';
 import { installTestHook, testFlags } from './app/testHook';
 import { createUpdateGate } from './app/updateGate';
+import { installZoomBlock, restoreViewport, type GuardWindow } from './app/viewportGuard';
 import { DataError, loadGameData } from './data/load';
 import { InputMode } from './input/mode';
 import { createGame, planetImages, whenGameReady } from './render/game';
@@ -103,6 +104,15 @@ async function boot(): Promise<void> {
 
   const game = createGame(document.getElementById('game')!, controller, inputMode);
   await whenGameReady(game);
+  // iPhone browsers can leave the page zoomed or scrolled after a planet screen; the canvas can't
+  // undo that, so block page zoom and put the page back whenever flight resumes or the page moves.
+  installZoomBlock(window as unknown as GuardWindow);
+  const restore = () => restoreViewport(window as unknown as GuardWindow, () => game.scale.refresh());
+  controller.on('flying', (e) => {
+    if (e.flying) restore();
+  });
+  window.visualViewport?.addEventListener('resize', () => controller.isFlying && restore());
+  window.visualViewport?.addEventListener('scroll', () => controller.isFlying && restore());
   const ui = createUi(document.getElementById('ui')!, controller, store, planetImages(game, controller), inputMode);
   mountRails({ parent: document.getElementById('touch')!, controller, inputMode });
   ui.go.mainMenu();
