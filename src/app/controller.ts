@@ -310,8 +310,9 @@ export class Controller {
     const sysId = this.world.systemId;
     const gov = this.data.systems[sysId]?.government;
     const screen = !this.pilot ? 'menu' : this.landedPlanetId ? 'docked' : 'flying';
+    // Flight is paused while docked and traffic is frozen, so a raider left engaged must not keep the planet screen in combat.
     const inCombat =
-      this.combat.playerDisabled() || this.traffic.npcs.some((n) => n.engaged && !n.fled && this.combat.isHostile(n, this.world));
+      screen === 'flying' && (this.combat.playerDisabled() || this.traffic.npcs.some((n) => n.engaged && !n.fled && this.combat.isHostile(n, this.world)));
     return {
       screen,
       jumpPhase: this.world.jump?.phase ?? null,

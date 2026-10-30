@@ -1777,6 +1777,14 @@ describe('combat jobs in flight', () => {
 });
 
 describe('Controller.musicInput', () => {
+  /** A controller in a session, flying. */
+  async function inFlight() {
+    const s = await setup();
+    s.c.beginSession(s.c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    s.c.startFlight();
+    return s;
+  }
+
   it('reports no combat in a quiet system', async () => {
     const { c } = await setup();
     c.traffic = { ...c.traffic, npcs: [] };
@@ -1784,7 +1792,7 @@ describe('Controller.musicInput', () => {
   });
 
   it('reports inCombat with an engaged raider, but not once it has fled', async () => {
-    const { c } = await setup();
+    const { c } = await inFlight();
     const r = hostileAhead(c.world, c.traffic, c.data);
     c.traffic = r.traffic;
     expect(c.musicInput().inCombat).toBe(true);
@@ -1793,18 +1801,49 @@ describe('Controller.musicInput', () => {
   });
 
   it('reports inCombat while the player is disabled', async () => {
-    const { c } = await setup();
+    const { c } = await inFlight();
     c.traffic = { ...c.traffic, npcs: [] };
     c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, disabled: true } };
     expect(c.musicInput().inCombat).toBe(true);
   });
 
-  it('reports fringe in an unlit system and in an independent one', async () => {
+  it('does not count a demanding raider as combat', async () => {
+    const { c } = await inFlight();
+    const r = hostileAhead(c.world, c.traffic, c.data);
+    c.traffic = { ...r.traffic, npcs: r.traffic.npcs.map((n) => (n.id === r.id ? { ...n, demand: true, engaged: true } : n)) };
+    expect(c.musicInput()).toMatchObject({ screen: 'flying', inCombat: false });
+  });
+
+  it('is not in combat once landed, even with an engaged hostile left in traffic', async () => {
+    const { c } = await inFlight();
+    const r = hostileAhead(c.world, c.traffic, c.data);
+    c.traffic = r.traffic;
+    expect(c.musicInput()).toMatchObject({ screen: 'flying', inCombat: true });
+    (c as unknown as { landAt(id: string): void }).landAt('halcyon');
+    expect(c.traffic.npcs.some((n) => n.engaged && !n.fled)).toBe(true);
+    expect(c.musicInput()).toMatchObject({ screen: 'docked', inCombat: false });
+  });
+
+  it('maps the screen from the session and landing', async () => {
     const { c } = await setup();
-    c.world = { ...c.world, systemId: 'gloam' };
-    expect(c.musicInput().fringe).toBe(true);
-    c.world = { ...c.world, systemId: 'vesk' };
-    expect(c.musicInput().fringe).toBe(true);
+    expect(c.musicInput().screen).toBe('menu');
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    expect(c.musicInput().screen).toBe('docked');
+    c.startFlight();
+    expect(c.musicInput().screen).toBe('flying');
+  });
+
+  it('reports fringe from the government alone, with every port tier 3', async () => {
+    const real = await loadGameData();
+    const planets = Object.fromEntries(Object.entries(real.planets).map(([id, p]) => [id, { ...p, techTier: 3 as const }]));
+    const c = new Controller({ ...real, planets }, { ...DEFAULT_SETTINGS }, new EventTarget());
+    const at = (systemId: string) => {
+      c.world = { ...c.world, systemId };
+      return c.musicInput().fringe;
+    };
+    expect(at('brannock')).toBe(false);
+    expect(at('gloam')).toBe(true);
+    expect(at('vesk')).toBe(true);
   });
 
   it('reports the jump phase', async () => {
