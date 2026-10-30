@@ -55,7 +55,6 @@ async function boot(): Promise<void> {
     for (const t of unlockEvents) window.removeEventListener(t, unlockSound);
   };
   for (const t of unlockEvents) window.addEventListener(t, unlockSound);
-  controller.on('arrived', () => sound.play('arrive'));
   controller.on('landed', () => sound.play('land'));
   controller.on('missionsCompleted', () => sound.play('paid'));
   controller.on('sfx', (e) => sound.play(e.sfx));

@@ -52,7 +52,7 @@ import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
 import { addBountyNpc, addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
-import type { FrameInput, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
+import type { FrameInput, JumpPhase, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
   applyRefuel,
   applyTow,
@@ -73,6 +73,13 @@ const SITE_MIN_DIST = 500;
 const SITE_SPREAD = 400;
 /** The landing shrink-and-fade before the planet screen opens (also the take-off, reversed). */
 export const LANDING_FX_SEC = 0.4;
+
+/** The sound on entering each jump phase (spec §4.1): the wind-up whine, the deep whoosh, the softer arrival whoosh. */
+const JUMP_PHASE_SFX: Partial<Record<JumpPhase, 'jumpCharge' | 'jumpWhoosh' | 'jumpArrive'>> = {
+  charge: 'jumpCharge',
+  flash: 'jumpWhoosh',
+  arrive: 'jumpArrive',
+};
 
 /** The encounter waiting in this system: a hail that lapses, or a site to fly to. */
 export type PendingEncounter =
@@ -122,8 +129,8 @@ export type ControllerEvent =
   | { type: 'session'; active: boolean }
   /** The flight HUD or rail asked to skip the First Flight guide (the UI confirms). */
   | { type: 'guideSkip' }
-  /** Something happened that has a sound but no event of its own (arrival, landing and pay have theirs). */
-  | { type: 'sfx'; sfx: 'jump' | 'takeoff' | 'trade' | 'hail' | 'site' }
+  /** Something happened that has a sound but no event of its own (landing and pay have theirs; the jump's phases sound here). */
+  | { type: 'sfx'; sfx: 'jumpCharge' | 'jumpWhoosh' | 'jumpArrive' | 'takeoff' | 'trade' | 'hail' | 'site' }
   /** This tick's fight events (shots, hits, kills), once per tick when there are any. */
   | { type: 'battle'; events: BattleEvent[] }
   /** The pilot asked to board `npcId` (a disabled ship in reach); flight is already paused. */
@@ -495,7 +502,7 @@ export class Controller {
     else if (action === 'tow' || action === 'callTow') this.callTow();
     else if (action === 'land') this.queued.add('land');
     else if (action === 'autopilotOut') this.world = autopilotToJumpPoint(this.world);
-    else if (action === 'jump') this.queued.add('jump');
+    else if (action === 'jump' || action === 'skipJump') this.queued.add('jump'); // a second jump press skips to the flash
     this.checkContext();
   }
 
@@ -811,13 +818,11 @@ export class Controller {
       const f = this.combat.flightInput(this.world, raw, dt);
       const input = f.input;
       this.world = f.world;
-      const wasJumping = this.world.jump !== null;
       const r = stepWorld(this.world, this.data, input, dt, {
         autoLandOnArrival: this.settings.autoLandOnArrival,
       });
       this.world = r.world;
       this.thrusting = r.thrusting ?? false;
-      if (!wasJumping && this.world.jump) this.emit({ type: 'sfx', sfx: 'jump' });
       if (this.fx?.kind === 'takeoff') {
         this.fx.t += dt;
         if (this.fx.t >= LANDING_FX_SEC - 1e-9) this.fx = null;
@@ -1359,6 +1364,10 @@ export class Controller {
         this.storyHailQuiet = null;
         this.prevShip = this.world.ship; // no interpolation across systems
         this.traffic = this.freshTraffic(this.world);
+      }
+      if (e.type === 'jumpPhase') {
+        const sfx = JUMP_PHASE_SFX[e.phase];
+        if (sfx) this.emit({ type: 'sfx', sfx });
       }
       if (e.type === 'arrived') {
         this.combat.reset(this.world, { keepHull: true }); // shots in flight stay behind in the old system; the damage comes along

@@ -116,6 +116,54 @@ describe('Controller', () => {
     expect(sfx).toContain(c.pending!.kind);
   });
 
+  it('a jump emits jumpCharge, jumpWhoosh, jumpArrive once each, in order, and no jump sfx', async () => {
+    const data = await loadGameData();
+    const target = new EventTarget();
+    const c = new Controller({ ...data, encounters: {} }, { ...DEFAULT_SETTINGS }, target); // no arrival hail sound
+    const sfx: string[] = [];
+    c.on('sfx', (e) => sfx.push(e.sfx));
+    c.startFlight();
+    c.world = { ...c.world, route: ['vesk'], ship: { ...c.world.ship, pos: { x: 2100, y: 0 }, vel: { x: 0, y: 0 } } };
+    target.dispatchEvent(keyEvent('keydown', 'KeyJ'));
+    c.update(1 / 60);
+    target.dispatchEvent(keyEvent('keyup', 'KeyJ'));
+    expect(c.world.jump).not.toBeNull();
+    for (let i = 0; i < 600 && c.world.jump; i++) c.update(1 / 60);
+    expect(c.world.jump).toBeNull();
+    expect(c.world.systemId).toBe('vesk');
+    expect(sfx).toEqual(['jumpCharge', 'jumpWhoosh', 'jumpArrive']);
+  });
+
+  it('a skipped jump has no charge sound if skipped in the align, and still whooshes and arrives', async () => {
+    const data = await loadGameData();
+    const c = new Controller({ ...data, encounters: {} }, { ...DEFAULT_SETTINGS }, new EventTarget()); // no arrival hail sound
+    const sfx: string[] = [];
+    c.on('sfx', (e) => sfx.push(e.sfx));
+    c.startFlight();
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', phase: 'align', t: 0 } };
+    c.doContextAction(); // skipJump, applied on the next tick before the align can end
+    for (let i = 0; i < 600 && c.world.jump; i++) c.update(1 / 60);
+    expect(sfx).toEqual(['jumpWhoosh', 'jumpArrive']);
+  });
+
+  it('the skipJump context action shows during align, charge and burn and skips to the flash', async () => {
+    const { c, events } = await setup();
+    c.startFlight();
+    for (const phase of ['align', 'charge', 'burn'] as const) {
+      c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', phase, t: 0 } };
+      expect(c.currentContext()).toBe('skipJump');
+    }
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', phase: 'charge', t: 0.1 } };
+    c.update(1 / 60);
+    expect(events.at(-1)).toEqual({ type: 'contextChanged', action: 'skipJump' });
+    expect(contextLabel('skipJump', c.world, c.data)).toBe('⏩ SKIP');
+    c.doContextAction();
+    c.update(1 / 60);
+    expect(c.world.jump?.phase).toBe('flash');
+    expect(c.currentContext()).toBeNull();
+    expect(events.at(-1)).toEqual({ type: 'contextChanged', action: null });
+  });
+
   it('the autopilotOut context action engages the autopilot to the jump point', async () => {
     const { c, events } = await setup();
     c.startFlight();

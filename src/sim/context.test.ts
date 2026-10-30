@@ -60,7 +60,7 @@ describe('contextAction', () => {
     expect(contextAction(at(newWorld(data), { x: h.pos.x, y: h.pos.y - 600 }), data)).toBe('land');
     expect(contextAction({ ...w, assist: { kind: 'autoStop' } }, data)).toBeNull();
     expect(contextAction({ ...w, assist: { kind: 'face' } }, data)).toBeNull();
-    expect(contextAction({ ...w, jump: { toSystemId: 'vesk', phase: 'charge', t: 0.2 } }, data)).toBeNull();
+    expect(contextAction({ ...w, jump: { toSystemId: 'vesk', phase: 'charge', t: 0.2 } }, data)).toBe('skipJump'); // mid-jump the button only skips
   });
 
   it('land beats autopilotOut when a planet is in range', () => {
@@ -142,9 +142,16 @@ describe('contextAction', () => {
     expect(contextAction({ ...near, assist: { kind: 'autoStop' } }, data)).toBe('land');
   });
 
-  it('null while jumping', () => {
-    const w = { ...at(newWorld(data), { x: 2100, y: 0 }), jump: { toSystemId: 'vesk', phase: 'charge' as const, t: 0.5 } };
-    expect(contextAction(w, data)).toBeNull();
+  it('skipJump while the jump can still be skipped (align, charge, burn), then null (flash, arrive)', () => {
+    const base = at(newWorld(data), { x: 2100, y: 0 });
+    for (const phase of ['align', 'charge', 'burn'] as const) {
+      expect(contextAction({ ...base, jump: { toSystemId: 'vesk', phase, t: 0.1 } }, data), phase).toBe('skipJump');
+    }
+    for (const phase of ['flash', 'arrive'] as const) {
+      expect(contextAction({ ...base, jump: { toSystemId: 'vesk', phase, t: 0.1 } }, data), phase).toBeNull();
+    }
+    // Nothing outranks the skip mid-jump, not even a hail.
+    expect(contextAction({ ...base, jump: { toSystemId: 'vesk', phase: 'burn', t: 0 } }, data, { kind: 'hail' })).toBe('skipJump');
   });
 
   describe('encounters', () => {
