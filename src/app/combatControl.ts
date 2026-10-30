@@ -1,6 +1,6 @@
 import type { GameData } from '../data/schemas';
 import type { ActionId } from '../input/actions';
-import { angerGovernment, isHostileToPlayer, nearestHostile, newBattle, stepBattle, type Battle, type BattleEvent } from '../sim/battle';
+import { angerGovernment, isHostileToPlayer, newBattle, stepBattle, type Battle, type BattleEvent } from '../sim/battle';
 import {
   canBoard,
   canTakeCommand,
@@ -26,7 +26,7 @@ import { demandTerms, dumpCargo, payCredits, type DemandTerms } from '../sim/rai
 import { npcLoadout } from '../sim/weapons';
 import { newWorld } from '../sim/world';
 
-/** A disabled pilot may call a tow once no hostile has been this close (px)... */
+/** A disabled pilot may call a tow once no threatening hostile has been this close (px)... */
 export const CALM_RANGE = 1500;
 /** ...for this long (s). */
 export const CALM_SEC = 5;
@@ -96,7 +96,7 @@ export interface DemandOffer {
  */
 export class CombatControl {
   battle: Battle;
-  /** Seconds the player has been disabled with no hostile within CALM_RANGE; 0 otherwise. */
+  /** Seconds the player has been disabled with no threatening hostile within CALM_RANGE (CALM_SEC at least after a quiet spell); 0 otherwise. */
   disabledCalmSec = 0;
   /** Raiders whose demand has been put to the player (once each). */
   private readonly offered = new Set<string>();
@@ -160,8 +160,11 @@ export class CombatControl {
     if (this.battle.systemId !== world.systemId) this.reset(world, { keepHull: true });
     const r = stepBattle(this.battle, world, traffic, input, this.data, dt);
     this.battle = r.battle;
+    // Calm: no threat near for CALM_SEC; or, as a backstop, no hit at all for combat.tow.quietSec.
+    const quiet = r.world.timeSec - this.battle.player.lastHitSec >= this.data.combat.tow.quietSec - 1e-9;
     if (!this.playerDisabled()) this.disabledCalmSec = 0;
-    else if (this.hostileWithin(r.world, r.traffic, CALM_RANGE)) this.disabledCalmSec = 0;
+    else if (quiet) this.disabledCalmSec = Math.max(this.disabledCalmSec + dt, CALM_SEC);
+    else if (this.threatWithin(r.world, r.traffic, CALM_RANGE)) this.disabledCalmSec = 0;
     else this.disabledCalmSec += dt;
     let t = r.traffic;
     const events = [...r.events];
@@ -352,10 +355,14 @@ export class CombatControl {
     return isHostileToPlayer(n, world, this.battle);
   }
 
-  private hostileWithin(world: WorldState, traffic: Traffic, range: number): boolean {
-    const id = nearestHostile(world, traffic, this.battle);
-    const n = id ? traffic.npcs.find((x) => x.id === id) : undefined;
-    return n !== undefined && dist(n.ship.pos, world.ship.pos) <= range;
+  /**
+   * Is a hostile that could still fight within `range`? A ship that has fled (below its flee line)
+   * never fires again, even when it holds station near its hold point, so it does not count.
+   */
+  private threatWithin(world: WorldState, traffic: Traffic, range: number): boolean {
+    return traffic.npcs.some(
+      (n) => isTargetable(n) && !n.hull.disabled && !n.fled && isHostileToPlayer(n, world, this.battle) && dist(n.ship.pos, world.ship.pos) <= range,
+    );
   }
 }
 

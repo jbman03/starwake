@@ -44,8 +44,9 @@ const mkTraffic = (npcs: Npc[], targetId: string | null = null): Traffic => ({ s
 const wreck = (id: string, x: number, y: number, over: Partial<Npc> = {}) => mkNpc(id, x, y, { hull: { ...fullHull(60, 40), armor: 1, disabled: true }, ...over });
 const raider = (id: string, x: number, y: number) => mkNpc(id, x, y, { government: 'raiders', role: 'raider', peaceful: false });
 
-function disable(c: CombatControl): void {
-  c.battle = { ...c.battle, player: { ...c.battle.player, armor: 1, shields: 0, disabled: true } };
+/** Disabled by a hit at `atSec` (the world's clock; the test worlds start at 0). */
+function disable(c: CombatControl, atSec = 0): void {
+  c.battle = { ...c.battle, player: { ...c.battle.player, armor: 1, shields: 0, disabled: true, lastHitSec: atSec } };
 }
 
 describe('CombatControl', () => {
@@ -157,6 +158,50 @@ describe('CombatControl', () => {
     // A hostile coming back in range starts the wait again.
     c.tick(w, near, IDLE, DT);
     expect(c.disabledCalmSec).toBe(0);
+  });
+
+  it('a fled raider holding station does not block the tow', () => {
+    // The bounty case: hurt below its flee line, it has a hold point and sits there, silent, 800 px off.
+    const w = mkWorld();
+    const c = new CombatControl(data, w);
+    disable(c);
+    const hurt = { ...fullHull(60, 40), shields: 0, armor: 5, lastHitSec: 0 };
+    const fled = mkNpc('bounty', 800, 0, { government: 'raiders', role: 'raider', peaceful: false, fled: true, hold: { x: 800, y: 0 }, hull: hurt, outfits: { 'light-blaster': 1 } });
+    let t = mkTraffic([fled]);
+    let world = w;
+    for (let i = 0; i < Math.round(CALM_SEC * 60); i++) {
+      const r = c.tick(world, t, IDLE, DT);
+      t = r.traffic;
+      world = { ...r.world, timeSec: r.world.timeSec + DT };
+    }
+    expect(t.npcs[0].fled).toBe(true);
+    expect(c.battle.player.armor).toBe(1); // it never fired
+    expect(c.disabledCalm()).toBe(true);
+  });
+
+  it('a quiet spell with no hits makes a tow available even with a hostile near', () => {
+    // A hostile in range that holds fire (here a raider waiting out of its engage range) would block the tow
+    // forever; after the quiet spell (combat.tow.quietSec) with no hit, the tow comes anyway.
+    const w = mkWorld();
+    const c = new CombatControl(data, w);
+    disable(c);
+    const near = mkTraffic([raider('r', CALM_RANGE - 10, 0)]);
+    const quiet = data.combat.tow.quietSec;
+    let world = w;
+    const until = (sec: number) => {
+      while (world.timeSec < sec - 1e-9) {
+        c.tick(world, near, IDLE, DT);
+        world = { ...world, timeSec: world.timeSec + DT };
+      }
+    };
+    until(quiet - 0.5);
+    expect(c.disabledCalm()).toBe(false);
+    until(quiet + 0.1);
+    expect(c.disabledCalm()).toBe(true);
+    // A new hit ends the quiet spell, and the hostile near blocks the tow again.
+    disable(c, world.timeSec);
+    c.tick(world, near, IDLE, DT);
+    expect(c.disabledCalm()).toBe(false);
   });
 
   it('hostileAhead adds an engaged raider 400 px ahead', () => {

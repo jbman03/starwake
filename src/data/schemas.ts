@@ -395,6 +395,13 @@ const BountySchema = z
   .strict()
   .refine((b) => b.spawnMin <= b.spawnMax, { message: 'expected spawnMin <= spawnMax', path: ['spawnMin'] });
 
+/**
+ * A disabled pilot's tow. Besides the spec's wait (no threatening hostile within range for a few
+ * seconds), a tow is offered once the player has taken no hit for `quietSec`, so a hostile that
+ * sits near but never fires can't strand the pilot.
+ */
+const TowSchema = z.object({ quietSec: z.number().positive() }).strict();
+
 export const CombatSchema = z
   .object({
     ai: z.object({ trader: AiProfileSchema, patrol: AiProfileSchema, raider: AiProfileSchema }).strict(),
@@ -402,6 +409,7 @@ export const CombatSchema = z
     boarding: BoardingSchema,
     demand: DemandSchema,
     bounty: BountySchema,
+    tow: TowSchema,
   })
   .strict();
 export type CombatDef = z.infer<typeof CombatSchema>;

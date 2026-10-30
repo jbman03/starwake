@@ -1405,7 +1405,8 @@ describe('combat in flight', () => {
 
   it('a disabled ship does not thrust or jump; it can call a tow once it is calm', async () => {
     const { c, target } = await flying();
-    const disable = () => (c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true } });
+    // Disabled by a hit just now.
+    const disable = () => (c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true, lastHitSec: c.world.timeSec } });
     disable();
     target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
     run(c, 0.5);
