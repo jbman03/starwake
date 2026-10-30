@@ -9,6 +9,7 @@ import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
 import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordKill } from '../sim/combatMissions';
 import { governmentShortName } from '../sim/standing';
+import type { MoodInput } from '../audio/moods';
 import { CombatControl, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
 import type { DemandTerms } from '../sim/raiders';
 import { contextAction, siteReachable, type ContextAction, type PendingHint } from '../sim/context';
@@ -50,7 +51,7 @@ import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
-import { addBountyNpc, addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
+import { addBountyNpc, addStoryNpc, cycleTarget, isFringe, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
 import type { FrameInput, JumpPhase, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
@@ -302,6 +303,21 @@ export class Controller {
 
   get isFlying(): boolean {
     return this.flying;
+  }
+
+  /** What the music needs to pick a mood: the screen, the jump phase, whether a fight is on, and whether this is a fringe system. */
+  musicInput(): MoodInput {
+    const sysId = this.world.systemId;
+    const gov = this.data.systems[sysId]?.government;
+    const screen = !this.pilot ? 'menu' : this.landedPlanetId ? 'docked' : 'flying';
+    const inCombat =
+      this.combat.playerDisabled() || this.traffic.npcs.some((n) => n.engaged && !n.fled && this.combat.isHostile(n, this.world));
+    return {
+      screen,
+      jumpPhase: this.world.jump?.phase ?? null,
+      inCombat,
+      fringe: isFringe(this.data, sysId) || gov === 'independent' || gov === 'unlit',
+    };
   }
 
   // ---- session -------------------------------------------------------------

@@ -1775,3 +1775,41 @@ describe('combat jobs in flight', () => {
     expect(opts().noRaiders).toBe(true);
   });
 });
+
+describe('Controller.musicInput', () => {
+  it('reports no combat in a quiet system', async () => {
+    const { c } = await setup();
+    c.traffic = { ...c.traffic, npcs: [] };
+    expect(c.musicInput()).toMatchObject({ inCombat: false, jumpPhase: null, screen: 'menu' });
+  });
+
+  it('reports inCombat with an engaged raider, but not once it has fled', async () => {
+    const { c } = await setup();
+    const r = hostileAhead(c.world, c.traffic, c.data);
+    c.traffic = r.traffic;
+    expect(c.musicInput().inCombat).toBe(true);
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === r.id ? { ...n, fled: true } : n)) };
+    expect(c.musicInput().inCombat).toBe(false);
+  });
+
+  it('reports inCombat while the player is disabled', async () => {
+    const { c } = await setup();
+    c.traffic = { ...c.traffic, npcs: [] };
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, disabled: true } };
+    expect(c.musicInput().inCombat).toBe(true);
+  });
+
+  it('reports fringe in an unlit system and in an independent one', async () => {
+    const { c } = await setup();
+    c.world = { ...c.world, systemId: 'gloam' };
+    expect(c.musicInput().fringe).toBe(true);
+    c.world = { ...c.world, systemId: 'vesk' };
+    expect(c.musicInput().fringe).toBe(true);
+  });
+
+  it('reports the jump phase', async () => {
+    const { c } = await setup();
+    c.world = { ...c.world, jump: { toSystemId: 'brannock', phase: 'burn', t: 0 } };
+    expect(c.musicInput().jumpPhase).toBe('burn');
+  });
+});
