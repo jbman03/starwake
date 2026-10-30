@@ -46,9 +46,35 @@ describe('Mixer', () => {
     const { mixer, made } = rig({ musicVolume: 0.3, sfxVolume: 0.7 });
     mixer.unlock();
     const [master, music, sfx] = made.gains;
-    expect(last(master)).toBe('lin 1');
-    expect(last(music)).toBe('lin 0.3');
-    expect(last(sfx)).toBe('lin 0.7');
+    // Set outright at unlock: no ramp from the node default of 1.
+    expect(last(master)).toBe('set 1');
+    expect(last(music)).toBe('set 0.3');
+    expect(last(sfx)).toBe('set 0.7');
+    expect(made.gains.flatMap((g) => g.timed).some((e) => e.op === 'lin')).toBe(false);
+  });
+
+  it('the buses feed the master, and the master feeds the destination', () => {
+    const { mixer, made, destination } = rig();
+    mixer.unlock();
+    const [master, music, sfx] = made.nodes;
+    expect(mixer.musicBus()).toBe(music);
+    expect(mixer.sfxBus()).toBe(sfx);
+    expect(music.to).toEqual([master]);
+    expect(sfx.to).toEqual([master]);
+    expect(master.to).toEqual([destination]);
+  });
+
+  it('a change cancels, anchors at the current value and ramps over 0.05 s', () => {
+    const { mixer, made, ctx, s } = rig();
+    mixer.unlock();
+    (ctx as unknown as { currentTime: number }).currentTime = 2;
+    s.sfxVolume = 0.25;
+    mixer.apply();
+    const ev = made.gains[2].timed.slice(-3);
+    expect(ev.map((e) => e.op)).toEqual(['cancel', 'set', 'lin']);
+    expect(ev[0].t).toBe(2);
+    expect(ev[1].t).toBe(2);
+    expect(ev[2]).toEqual({ op: 'lin', v: 0.25, t: 2.05 });
   });
 
   it('apply ramps bus gains, no node recreated', () => {

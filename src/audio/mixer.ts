@@ -44,7 +44,7 @@ export class Mixer {
         this.master = master;
         this.music = music;
         this.sfx = sfx;
-        this.apply();
+        this.apply(true);
       }
       if (!this.hidden) this.wake(this.ctx);
     } catch {
@@ -70,14 +70,14 @@ export class Mixer {
   }
 
   /** Ramp the master, music and effects gains to the current settings. Call whenever settings change. */
-  apply(): void {
+  apply(immediate = false): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const s = this.getSettings();
     try {
-      this.ramp(this.master, 1);
-      this.ramp(this.music, s.muted ? 0 : clamp01(s.musicVolume));
-      this.ramp(this.sfx, s.muted ? 0 : clamp01(s.sfxVolume));
+      this.ramp(this.master, 1, immediate);
+      this.ramp(this.music, s.muted ? 0 : clamp01(s.musicVolume), immediate);
+      this.ramp(this.sfx, s.muted ? 0 : clamp01(s.sfxVolume), immediate);
     } catch {
       // ignore audio failures
     }
@@ -96,11 +96,15 @@ export class Mixer {
     }
   }
 
-  private ramp(node: GainNode | null, target: number): void {
+  private ramp(node: GainNode | null, target: number, immediate = false): void {
     if (!node || !this.ctx) return;
     const p = node.gain;
     const now = this.ctx.currentTime;
     p.cancelScheduledValues(now);
+    if (immediate) {
+      p.setValueAtTime(target, now); // first setting: start at the level, no ramp from the node default
+      return;
+    }
     p.setValueAtTime(p.value, now);
     p.linearRampToValueAtTime(target, now + RAMP_SEC);
   }
@@ -114,7 +118,7 @@ export class Mixer {
     }
   }
 
-  /** Ask a suspended context to resume (the caller drops its sound meanwhile). */
+  /** Ask a suspended context to resume (the caller drops its sound meanwhile). Not in the original contract; SoundBoard uses it. */
   wakeContext(): void {
     if (this.ctx && !this.hidden) this.wake(this.ctx);
   }

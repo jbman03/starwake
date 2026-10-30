@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`SoundBoard recipes from data > alarm makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > alarm makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type square
 osc0.freq set 880 @0
@@ -39,7 +39,7 @@ osc6 start 0.45
 osc6 stop 0.6200000000000001"
 `;
 
-exports[`SoundBoard recipes from data > armorHit makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > armorHit makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type square
 osc0.freq set 140 @0
@@ -63,7 +63,7 @@ src2 start 0
 src2 stop 0.19"
 `;
 
-exports[`SoundBoard recipes from data > arrive makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > arrive makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sawtooth
 osc0.freq set 1200 @0
@@ -87,7 +87,7 @@ src2 start 0
 src2 stop 0.55"
 `;
 
-exports[`SoundBoard recipes from data > beam makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > beam makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sawtooth
 osc0.freq set 110 @0
@@ -103,7 +103,7 @@ gain2.gain set 0.07 @0.1
 gain2.gain lin 0 @0.14"
 `;
 
-exports[`SoundBoard recipes from data > disabled makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > disabled makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sawtooth
 osc0.freq set 440 @0
@@ -126,7 +126,7 @@ osc2 start 0
 osc2 stop 0.65"
 `;
 
-exports[`SoundBoard recipes from data > explosion makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > explosion makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sine
 osc0.freq set 90 @0
@@ -150,7 +150,7 @@ src2 start 0
 src2 stop 0.9500000000000001"
 `;
 
-exports[`SoundBoard recipes from data > hail makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > hail makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sine
 osc0.freq set 700 @0
@@ -171,7 +171,7 @@ osc2 start 0.25
 osc2 stop 0.45"
 `;
 
-exports[`SoundBoard recipes from data > jump makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > jump makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sawtooth
 osc0.freq set 120 @0
@@ -195,7 +195,7 @@ src2 start 0
 src2 stop 0.9500000000000001"
 `;
 
-exports[`SoundBoard recipes from data > land makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > land makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sine
 osc0.freq set 160 @0
@@ -219,7 +219,7 @@ src2 start 0
 src2 stop 0.39999999999999997"
 `;
 
-exports[`SoundBoard recipes from data > missile makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > missile makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type triangle
 osc0.freq set 180 @0
@@ -243,7 +243,7 @@ src2 start 0
 src2 stop 0.45"
 `;
 
-exports[`SoundBoard recipes from data > paid makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > paid makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type triangle
 osc0.freq set 523 @0
@@ -282,7 +282,7 @@ osc6 start 0.3
 osc6 stop 0.65"
 `;
 
-exports[`SoundBoard recipes from data > shieldHit makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > shieldHit makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sine
 osc0.freq set 1400 @0
@@ -306,7 +306,7 @@ src2 start 0
 src2 stop 0.15000000000000002"
 `;
 
-exports[`SoundBoard recipes from data > shot makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > shot makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type triangle
 osc0.freq set 900 @0
@@ -319,7 +319,7 @@ osc0 start 0
 osc0 stop 0.14"
 `;
 
-exports[`SoundBoard recipes from data > site makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > site makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sine
 osc0.freq set 300 @0
@@ -332,7 +332,7 @@ osc0 start 0
 osc0 stop 0.55"
 `;
 
-exports[`SoundBoard recipes from data > takeoff makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > takeoff makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type triangle
 osc0.freq set 70 @0
@@ -370,7 +370,7 @@ gain2.gain set 0.12 @0
 gain2.gain lin 0 @0.1"
 `;
 
-exports[`SoundBoard recipes from data > trade makes the same nodes, frequencies and gains as the original recipe 1`] = `
+exports[`SoundBoard recipes from data > trade makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type square
 osc0.freq set 880 @0

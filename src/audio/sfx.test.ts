@@ -16,7 +16,7 @@ function board(over: Partial<Settings> = {}) {
 
 describe('SoundBoard', () => {
   it('plays nothing before unlock', () => {
-    const { sb, mixer, made } = board();
+    const { sb, made } = board();
     sb.play('jump');
     sb.setThrust(true);
     expect(made.osc + made.noise).toBe(0);
@@ -167,6 +167,37 @@ describe('SoundBoard', () => {
   });
 });
 
+describe('SoundBoard routing', () => {
+  /** Whether `from` reaches `target` through connect() calls. */
+  const reaches = (from: { to: unknown[] }, target: unknown): boolean =>
+    from.to.some((n) => n === target || reaches(n as { to: unknown[] }, target));
+
+  function audit(play: (sb: SoundBoard) => void) {
+    const { sb, mixer, made, destination } = board();
+    mixer.unlock();
+    const infra = new Set<unknown>(made.nodes); // master, music, effects
+    const sfx = mixer.sfxBus() as unknown as { to: unknown[] };
+    play(sb);
+    const voices = made.nodes.filter((n) => !infra.has(n));
+    expect(made.sources.length).toBeGreaterThan(0);
+    for (const src of made.sources) expect(reaches(src as { to: unknown[] }, sfx)).toBe(true);
+    for (const n of voices) {
+      expect(n.to).not.toContain(destination);
+      expect(n.to).not.toContain(mixer.musicBus());
+    }
+    // Every chain ends on the effects bus, so mute and volume apply to it.
+    expect(voices.some((n) => n.to.includes(sfx))).toBe(true);
+  }
+
+  for (const id of [
+    'jump', 'arrive', 'land', 'takeoff', 'trade', 'paid', 'hail', 'site', 'shot', 'missile',
+    'shieldHit', 'armorHit', 'explosion', 'disabled', 'alarm', 'beam', 'uiClick',
+  ] as const)
+    it(`${id} feeds the effects bus and never the destination`, () => audit((sb) => sb.play(id)));
+
+  it('the engine hum feeds the effects bus and never the destination', () => audit((sb) => sb.setThrust(true)));
+});
+
 describe('battleSounds', () => {
   it('turns one tick of fight events into each sound once', () => {
     expect(
@@ -255,7 +286,7 @@ describe('SoundBoard recipes from data', () => {
     'shieldHit', 'armorHit', 'explosion', 'disabled', 'alarm', 'beam',
   ] as const;
   for (const id of ids) {
-    it(`${id} makes the same nodes, frequencies and gains as the original recipe`, () => {
+    it(`${id} makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus)`, () => {
       const { ctx, log, mark } = recordingCtx();
       const mixer = new Mixer(() => settings(), () => ctx);
       const sb = new SoundBoard(() => settings(), testData().audio, mixer);

@@ -66,7 +66,7 @@ export class SoundBoard {
   /** Whether effects are audible at all; the level itself is the mixer's effects bus gain. */
   private audible(): boolean {
     const s = this.getSettings();
-    return !s.muted && s.sfxVolume > 0;
+    return !s.muted && Math.min(1, Math.max(0, s.sfxVolume)) > 0;
   }
 
   play(s: Sfx): void {
