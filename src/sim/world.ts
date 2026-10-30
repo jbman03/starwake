@@ -3,6 +3,7 @@ import { autopilotInput, autoStopInput, faceInput, reverseInput } from './assist
 import { stepShip } from './flight';
 import { economyDay } from './economy';
 import { hopDistance, lanesOf, revealOnArrival, revealWithin, routeBetween } from './galaxy';
+import { missionSystem } from './combatMissions';
 import { failOverdue, jobMissions } from './missions';
 import { checkStoryDeadlines, storyDestinations } from './storyMissions';
 import { hashString } from './random';
@@ -131,7 +132,7 @@ export function setRoute(
 ): { world: WorldState; ok: boolean; reason?: 'noRoute' } {
   const charted = new Set([...world.known, ...world.seen]);
   const missionTarget =
-    jobMissions(world).some((m) => data.planets[m.destId]?.systemId === toSystemId) || storyDestinations(world, data).includes(toSystemId);
+    jobMissions(world).some((m) => missionSystem(m, data) === toSystemId) || storyDestinations(world, data).includes(toSystemId);
   const route = missionTarget
     ? routeBetween(data, world.systemId, toSystemId, () => true, world.flags)
     : charted.has(toSystemId)

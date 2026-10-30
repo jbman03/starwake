@@ -28,5 +28,6 @@
     "cargoTons": 10,
     "lapseSec": 15,
     "chance": 0.5
-  }
+  },
+  "bounty": { "spawnMin": 700, "spawnMax": 1200 }
 }

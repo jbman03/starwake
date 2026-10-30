@@ -12,6 +12,7 @@ import type { Mission } from '../sim/types';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { showMissionComputer } from './missionComputer';
+import { missionSystem } from '../sim/combatMissions';
 import { showMissionLog } from './missionLog';
 import { dialogOpen } from './dom';
 import { showPauseMenu } from './pauseMenu';
@@ -299,7 +300,7 @@ describe('mission preview on the map', () => {
     const route = c.world.route;
     press('KeyN');
     expect(state.maps).toHaveLength(1); // not also the plain-map handler
-    expect(state.maps[0].preview).toEqual({ systemId: data.planets[o.destId].systemId, label: `Mission: ${o.title}` });
+    expect(state.maps[0].preview).toEqual({ systemId: missionSystem(o, data), label: `Mission: ${o.title}` });
     expect(c.world.route).toBe(route);
     state.maps[0].onClose!();
     expect(rows()[2].getAttribute('aria-selected')).toBe('true');

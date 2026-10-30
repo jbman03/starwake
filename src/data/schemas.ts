@@ -175,7 +175,15 @@ export const MissionTypeSchema = z.object({
   toDumpSite: z.boolean(),
   titleTemplate: z.string(),
   textTemplate: z.string(),
-  combat: z.object({ kind: z.enum(['bounty', 'clear']), count: range.optional() }).optional(),
+  combat: z
+    .object({
+      kind: z.enum(['bounty', 'clear']),
+      count: range.optional(), // clear: raiders to disable or destroy
+      perRaider: z.number().nonnegative().optional(), // clear: pay added per raider
+      hullPayDivisor: z.number().positive().optional(), // bounty: pay is scaled by max(1, hull price / this)
+      minTier: z.number().int().positive().optional(), // bounty: lowest hull tech tier the target may fly
+    })
+    .optional(),
 });
 
 export const NamesSchema = z.object({
@@ -381,12 +389,19 @@ const DemandSchema = z
   })
   .strict();
 
+/** Where a bounty target appears: this far (px) from the player on arrival. */
+const BountySchema = z
+  .object({ spawnMin: z.number().positive(), spawnMax: z.number().positive() })
+  .strict()
+  .refine((b) => b.spawnMin <= b.spawnMax, { message: 'expected spawnMin <= spawnMax', path: ['spawnMin'] });
+
 export const CombatSchema = z
   .object({
     ai: z.object({ trader: AiProfileSchema, patrol: AiProfileSchema, raider: AiProfileSchema }).strict(),
     spawn: SpawnSchema,
     boarding: BoardingSchema,
     demand: DemandSchema,
+    bounty: BountySchema,
   })
   .strict();
 export type CombatDef = z.infer<typeof CombatSchema>;

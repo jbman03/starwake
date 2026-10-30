@@ -380,14 +380,14 @@ describe('galaxy content', () => {
 
   it('mission types match the spec table', () => {
     const m = d.missionTypes;
-    expect(Object.keys(m).sort()).toEqual(['delivery', 'dump', 'ferry', 'rush', 'shipment', 'transport']);
+    expect(Object.keys(m).sort()).toEqual(['bounty', 'clear', 'delivery', 'dump', 'ferry', 'rush', 'shipment', 'transport']);
     expect([m.ferry.passengers, m.ferry.hops, m.ferry.deadline]).toEqual([[1, 4], [1, 4], { perHop: 3, plus: 0 }]);
     expect([m.rush.tons, m.rush.hops, m.rush.deadline]).toEqual([[1, 5], [1, 2], { perHop: 1, plus: 1 }]);
     expect([m.transport.tons, m.transport.hops, m.transport.deadline]).toEqual([[8, 15], [2, 4], { perHop: 2, plus: 2 }]);
     expect([m.shipment.tons, m.shipment.hops, m.shipment.deadline]).toEqual([[20, 40], [3, 6], { perHop: 3, plus: 3 }]);
     expect([m.delivery.tons, m.delivery.hops, m.delivery.deadline]).toEqual([[2, 10], [1, 1], { perHop: 0, plus: 4 }]);
     expect([m.dump.tons, m.dump.deadline, m.dump.paidUpfront, m.dump.toDumpSite]).toEqual([[5, 15], null, true, true]);
-    for (const t of Object.values(m)) expect(`${t.titleTemplate} ${t.textTemplate}`, t.id).toContain('{dest}');
+    for (const t of Object.values(m).filter((x) => !x.combat)) expect(`${t.titleTemplate} ${t.textTemplate}`, t.id).toContain('{dest}');
   });
 
   it('mission pay lands on the tuning targets', () => {

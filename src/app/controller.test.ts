@@ -1541,3 +1541,90 @@ describe('raider demands in flight', () => {
     expect(b.c.combat.isHostile(npc(b.c, b.id), b.c.world)).toBe(true);
   });
 });
+
+describe('combat jobs in flight', () => {
+  const bounty = (over: Partial<NonNullable<import('../sim/types').Mission['combat']>> = {}): import('../sim/types').Mission => ({
+    id: 'b1', typeId: 'bounty', originId: 'halcyon', destId: 'halcyon', tons: 0, passengers: 0, pay: 4000, paidUpfront: false,
+    deadlineDay: 20, title: 'Bounty: Brass Heron', description: '', cargoName: 'bounty',
+    combat: { kind: 'bounty', systemId: 'vesk', shipId: 'kestrel', targetName: 'Brass Heron', needed: 1, done: 0, ...over },
+  });
+  const clear = (): import('../sim/types').Mission => ({
+    id: 'c1', typeId: 'clear', originId: 'halcyon', destId: 'halcyon', tons: 0, passengers: 0, pay: 8000, paidUpfront: false,
+    deadlineDay: 20, title: 'Clear 2 raiders from Vesk', description: '', cargoName: 'raiders',
+    combat: { kind: 'clear', systemId: 'vesk', needed: 2, done: 0 },
+  });
+  async function flyingWith(...missions: import('../sim/types').Mission[]) {
+    const s = await setup();
+    s.c.world = { ...s.c.world, missions };
+    s.c.startFlight();
+    s.c.update(1 / 60);
+    return s;
+  }
+  const jumpTo = (c: Controller, systemId: string) => {
+    c.world = { ...c.world, route: [systemId], jump: { toSystemId: systemId, t: 99 } };
+    c.update(0.1);
+  };
+
+  it('a bounty target spawns 700-1200 px away on arrival, holds there and is not swept as stale', async () => {
+    const { c } = await flyingWith(bounty());
+    expect(c.traffic.npcs.some((n) => n.missionId)).toBe(false); // wrong system
+    jumpTo(c, 'vesk');
+    const npc = c.traffic.npcs.find((n) => n.missionId === 'b1')!;
+    expect(npc).toMatchObject({ name: 'Brass Heron', shipId: 'kestrel', role: 'raider', government: 'raiders' });
+    const d = Math.hypot(npc.ship.pos.x - c.world.ship.pos.x, npc.ship.pos.y - c.world.ship.pos.y);
+    expect(d).toBeGreaterThanOrEqual(700);
+    expect(d).toBeLessThanOrEqual(1200);
+    // refreshStory runs on arrival and on later calls; the held target stays.
+    run(c, 1);
+    c.targetShip(npc.id);
+    run(c, 1);
+    expect(c.traffic.npcs.filter((n) => n.missionId === 'b1')).toHaveLength(1);
+    expect(c.traffic.targetId).toBe(npc.id);
+  });
+
+  it('a bounty is not spawned once done, and a spawned one is not duplicated', async () => {
+    const { c } = await flyingWith(bounty({ done: 1 }));
+    jumpTo(c, 'vesk');
+    expect(c.traffic.npcs.some((n) => n.missionId)).toBe(false);
+    const b = await flyingWith(bounty());
+    jumpTo(b.c, 'vesk');
+    run(b.c, 2);
+    expect(b.c.traffic.npcs.filter((n) => n.missionId === 'b1')).toHaveLength(1);
+  });
+
+  it('disabling the target counts once for the bounty and each raider for a clear job', async () => {
+    const { c, target } = await flyingWith(bounty(), clear());
+    jumpTo(c, 'vesk');
+    const id = c.traffic.npcs.find((n) => n.missionId === 'b1')!.id;
+    const near = { x: c.world.ship.pos.x + 150, y: c.world.ship.pos.y };
+    c.traffic = {
+      ...c.traffic,
+      npcs: c.traffic.npcs.map((n) => (n.id === id ? { ...n, ship: { ...n.ship, pos: near }, hold: near, hull: { ...n.hull, shields: 0, armor: 1 } } : n)),
+    };
+    // Stand on the target and fire until it is disabled.
+    const t = c.world.ship;
+    c.world = { ...c.world, ship: { ...t, heading: 0, vel: { x: 0, y: 0 } } };
+    c.targetShip(id);
+    const done = () => c.world.missions.find((m) => m.id === 'b1')!.combat!.done;
+    target.dispatchEvent(keyEvent('keydown', 'Space'));
+    for (let i = 0; i < 600 && done() === 0; i++) {
+      c.world = { ...c.world, ship: { ...c.world.ship, heading: 0, vel: { x: 0, y: 0 } } };
+      c.update(1 / 60);
+    }
+    expect(done()).toBe(1);
+    expect(c.world.missions.find((m) => m.id === 'c1')!.combat!.done).toBe(1); // a raider in its system
+    run(c, 2);
+    expect(done()).toBe(1);
+    expect(c.world.missions.find((m) => m.id === 'c1')!.combat!.done).toBe(1);
+  });
+
+  it('controller passes clearBoost for an active clear job', async () => {
+    const { c } = await flyingWith(clear());
+    const opts = (c as unknown as { trafficOpts(): { clearBoost?: string } }).trafficOpts();
+    expect(opts.clearBoost).toBe('vesk');
+    c.world = { ...c.world, missions: [{ ...clear(), combat: { kind: 'clear', systemId: 'vesk', needed: 2, done: 2 } }] };
+    expect((c as unknown as { trafficOpts(): { clearBoost?: string } }).trafficOpts().clearBoost).toBeUndefined();
+    c.world = { ...c.world, missions: [] };
+    expect((c as unknown as { trafficOpts(): { clearBoost?: string } }).trafficOpts().clearBoost).toBeUndefined();
+  });
+});

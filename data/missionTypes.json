@@ -22,5 +22,15 @@
   { "id": "dump", "name": "Dump garbage", "hops": [1, 4], "tons": [5, 15], "passengers": [0, 0], "deadline": null,
     "basePay": 150, "perHop": 50, "perTon": 25, "perPassenger": 0, "urgency": 1.0, "paidUpfront": true, "toDumpSite": true,
     "titleTemplate": "Dispose of garbage at {dest}",
-    "textTemplate": "The port office pays {pay} credits up front for you to haul {tons} t of sealed garbage to {dest} in the {system} system. Nobody will check how long you take." }
+    "textTemplate": "The port office pays {pay} credits up front for you to haul {tons} t of sealed garbage to {dest} in the {system} system. Nobody will check how long you take." },
+  { "id": "bounty", "name": "Bounty", "hops": [1, 3], "tons": [0, 0], "passengers": [0, 0], "deadline": { "perHop": 3, "plus": 2 },
+    "basePay": 2500, "perHop": 800, "perTon": 0, "perPassenger": 0, "urgency": 1.0, "paidUpfront": false, "toDumpSite": false,
+    "combat": { "kind": "bounty", "hullPayDivisor": 35000, "minTier": 2 },
+    "titleTemplate": "Bounty: {target}",
+    "textTemplate": "{target} has been preying on the lanes of the {system} system. Find the ship, disable or destroy her, then come back here within {days} days. The bounty is {pay} credits." },
+  { "id": "clear", "name": "Clear the lanes", "hops": [1, 3], "tons": [0, 0], "passengers": [0, 0], "deadline": { "perHop": 3, "plus": 4 },
+    "basePay": 3000, "perHop": 700, "perTon": 0, "perPassenger": 0, "urgency": 1.0, "paidUpfront": false, "toDumpSite": false,
+    "combat": { "kind": "clear", "count": [2, 4], "perRaider": 1500 },
+    "titleTemplate": "Clear {count} raiders from {system}",
+    "textTemplate": "Raiders have the lanes of the {system} system. Disable or destroy {count} of them, then return here within {days} days to collect {pay} credits." }
 ]

@@ -2,6 +2,7 @@ import type { ActionId } from '../input/actions';
 import type { GameData, StoryMissionDef, StoryStepDef } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
 import { systemOpen } from '../sim/galaxy';
+import { combatTargetSystem, missionSystem } from '../sim/combatMissions';
 import { jobMissions, MAX_MISSIONS } from '../sim/missions';
 import { siteStepHint } from '../sim/siteText';
 import { nextLead, stepSystem } from '../sim/storyMissions';
@@ -68,7 +69,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
 
   function showOnMap(): void {
     const m = jobMissions(controller.world)[index];
-    const systemId = m ? data.planets[m.destId]?.systemId : undefined;
+    const systemId = m ? missionSystem(m, data) : undefined;
     if (!m || !systemId) return;
     // The map replaces this screen; closing it brings the log back with the same mission selected.
     ctx.go.map({ preview: { systemId, label: `Mission: ${m.title}` }, onClose: () => showMissionLog(ctx, onClose, { selectId: m.id }) });
@@ -189,7 +190,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
                 attrs: { role: 'option', 'aria-selected': String(i === index), 'data-mission': m.id },
                 onClick: () => select(i),
               },
-              [el('span', { class: 'sw-mc-rowtitle', text: m.title }), el('span', { class: 'sw-mc-rowpay', text: data.planets[m.destId]?.name ?? m.destId })],
+              [el('span', { class: 'sw-mc-rowtitle', text: m.title }), el('span', { class: 'sw-mc-rowpay', text: combatTargetSystem(m) ? (data.systems[combatTargetSystem(m)!]?.name ?? m.destId) : (data.planets[m.destId]?.name ?? m.destId) })],
             ),
           )),
     );

@@ -6,6 +6,7 @@ import { pickTarget } from '../guide/target';
 import { BUY_TONS } from '../guide/steps';
 import { hopDistance } from '../sim/galaxy';
 import { stepSystem } from '../sim/storyMissions';
+import { offersAt } from '../sim/missions';
 import type { Outcome, StoryMissionDef } from './schemas';
 import ships from '../../data/ships.json';
 
@@ -145,5 +146,31 @@ describe('story pay', () => {
       const finale = arc[arc.length - 1];
       for (const d of arc) expect(pay(finale), `${finale.id} vs ${d.id}`).toBeGreaterThanOrEqual(pay(d));
     }
+  });
+});
+
+describe('combat job pay', () => {
+  const data = testData();
+  const ports = Object.values(data.planets).filter((p) => p.services.includes('missions'));
+  const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+  const pays = (typeId: string): number[] => {
+    const out: number[] = [];
+    for (let day = 0; day < 60; day++) {
+      const w = { ...newWorld(data, 1), day };
+      for (const p of ports) for (const o of offersAt(w, data, p.id)) if (o.typeId === typeId) out.push(o.pay);
+    }
+    return out;
+  };
+  const rush = median(pays('rush'));
+  const shipment = median(pays('shipment'));
+
+  it('bounty pays between rush and shipment medians', () => {
+    const b = median(pays('bounty'));
+    expect(b, `rush ${rush}, bounty ${b}, shipment ${shipment}`).toBeGreaterThan(rush);
+    expect(b).toBeLessThan(shipment);
+  });
+  it('clear pays above the shipment median', () => {
+    const c = median(pays('clear'));
+    expect(c, `clear ${c}, shipment ${shipment}`).toBeGreaterThan(shipment);
   });
 });

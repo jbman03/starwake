@@ -101,7 +101,7 @@ describe('offersAt', () => {
   it('prices by the formula: rush of 2 t over 1 hop pays 1500', () => {
     const rush = sweep().find((s) => s.offer.typeId === 'rush' && s.hops === 1 && s.offer.tons === 2)!;
     expect(rush.offer.pay).toBe(1500); // (400 + 500 + 150*2) * 1.25
-    for (const { offer: o, hops } of sweep()) {
+    for (const { offer: o, hops } of sweep().filter((s) => !s.offer.combat)) {
       const t = data.missionTypes[o.typeId];
       const raw = (t.basePay + t.perHop * hops + t.perTon * o.tons + t.perPassenger * o.passengers) * t.urgency;
       expect(o.pay).toBe(Math.round(raw / 10) * 10);
@@ -111,7 +111,7 @@ describe('offersAt', () => {
   it('sets the deadline from the day, hops and type, and fills the text', () => {
     const w = at(5);
     for (const p of ports) {
-      for (const o of offersAt(w, data, p.id)) {
+      for (const o of offersAt(w, data, p.id).filter((x) => !x.combat)) {
         const t = data.missionTypes[o.typeId];
         const hops = hopDistance(data, p.systemId, sysOf(o.destId), []);
         expect(o.deadlineDay).toBe(t.deadline ? 5 + t.deadline.perHop * hops + t.deadline.plus : null);
@@ -202,8 +202,8 @@ describe('taken offers', () => {
   });
 
   it('keeps the offer of a completed mission hidden', () => {
-    const w = at(2);
-    const o = offersAt(w, data, home.id)[0];
+    const w = [2, 3, 4, 5].map((d) => at(d)).find((x) => offersAt(x, data, home.id).some((o) => !o.combat))!;
+    const o = offersAt(w, data, home.id).find((x) => !x.combat)!;
     const done = completeAt(accept(w, data, o), o.destId).world;
     expect(done.missions).toEqual([]);
     expect(offersAt(done, data, home.id).map((x) => x.offerId)).not.toContain(o.offerId);

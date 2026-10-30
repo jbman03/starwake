@@ -7,6 +7,7 @@ import { pilotFromWorld, worldFromPilot, type PilotSave } from '../save/pilot';
 import { hasPod, podRescue } from '../sim/death';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type BattleEvent } from '../sim/battle';
+import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordKill } from '../sim/combatMissions';
 import { governmentShortName } from '../sim/standing';
 import { CombatControl, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
 import type { DemandTerms } from '../sim/raiders';
@@ -49,7 +50,7 @@ import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
-import { addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
+import { addBountyNpc, addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
 import type { FrameInput, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
@@ -234,7 +235,7 @@ export class Controller {
     world: WorldState = newWorld(data),
   ) {
     this.world = world;
-    this.traffic = seedTraffic(world, data, this.trafficOpts());
+    this.traffic = this.freshTraffic(world);
     this.combat = new CombatControl(data, world);
     this.prevShip = world.ship;
     this.keyboard = new KeyboardSource(
@@ -289,7 +290,7 @@ export class Controller {
   /** Start playing `pilot`, landed at `planetId` (the planet screen comes next). */
   beginSession(world: WorldState, pilot: PilotMeta, planetId: string): void {
     this.world = world;
-    this.traffic = seedTraffic(world, this.data, this.trafficOpts());
+    this.traffic = this.freshTraffic(world);
     this.combat.reset(world);
     this.pending = null;
     this.card = null;
@@ -435,7 +436,7 @@ export class Controller {
     if (hasPod(this.world)) {
       const r = podRescue(this.world, this.data);
       this.world = r.world;
-      this.traffic = seedTraffic(this.world, this.data, this.trafficOpts());
+      this.traffic = this.freshTraffic(this.world);
       this.notices.push(...r.messages);
       this.landAt(r.planetId);
       this.emit({ type: 'landed', planetId: r.planetId });
@@ -688,12 +689,23 @@ export class Controller {
     }
   }
 
+  /** A new system's traffic, with the target of each active bounty there waiting 700-1,200 px from the ship. */
+  private freshTraffic(world: WorldState): Traffic {
+    let t = seedTraffic(world, this.data, this.trafficOpts());
+    for (const m of bountyToSpawn(world, world.systemId)) {
+      const id = bountyNpcId(m);
+      if (t.npcs.some((n) => n.id === id)) continue;
+      t = addBountyNpc(t, { id, name: m.combat!.targetName ?? 'Wanted ship', shipId: m.combat!.shipId!, missionId: m.id, pos: bountySpawnPos(world, this.data, m, world.ship.pos) }, this.data);
+    }
+    return t;
+  }
+
   private trafficOpts(): TrafficOpts {
     return {
       maxNpcs: this.maxNpcs(),
       guideActive: (this.guide?.current() ?? null) !== null,
       startSystem: this.data.config.startSystemId,
-      clearBoost: undefined, // Task 12: the system of an active clear job
+      clearBoost: clearBoostSystem(this.world),
     };
   }
 
@@ -809,8 +821,9 @@ export class Controller {
    */
   private stepCombat(input: FrameInput, dt: number): void {
     if (!this.flying || this.fx?.kind === 'land' || this.world.jump || this.traffic.systemId !== this.world.systemId) return;
+    const before = this.traffic;
     const r = this.combat.tick(this.world, this.traffic, input, dt);
-    this.world = r.world;
+    this.world = this.creditKills(r.world, before, r.events);
     this.traffic = r.traffic;
     this.checkDemands();
     if (r.lost) {
@@ -821,6 +834,20 @@ export class Controller {
     this.emit({ type: 'battle', events: r.events });
     const angered = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
     if (angered.length > 0) this.emit({ type: 'message', text: angered.join(' ') });
+  }
+
+  /** Count the player's kills this tick toward combat jobs, once per ship: only those `before` this tick had not already been credited. */
+  private creditKills(world: WorldState, before: Traffic, events: BattleEvent[]): WorldState {
+    let w = world;
+    const seen = new Set<string>();
+    for (const e of events) {
+      if ((e.type !== 'disabled' && e.type !== 'destroyed') || !e.byPlayer || seen.has(e.id)) continue;
+      const npc = before.npcs.find((n) => n.id === e.id);
+      if (!npc || npc.killCounted) continue;
+      seen.add(e.id);
+      w = recordKill(w, before.systemId, npc);
+    }
+    return w;
   }
 
   /** A raider that arrived wanting a payment hails; it attacks instead when anything else is pending. */
@@ -856,7 +883,7 @@ export class Controller {
   /** Advance the NPCs one tick; reseed on a new system and drop a target that is no longer there. */
   private stepTraffic(dt: number): void {
     if (this.traffic.systemId !== this.world.systemId) {
-      this.traffic = seedTraffic(this.world, this.data, this.trafficOpts());
+      this.traffic = this.freshTraffic(this.world);
       this.refreshStory();
       return;
     }
@@ -1016,7 +1043,7 @@ export class Controller {
     if (this.storyHail !== this.storyHailQuiet) this.storyHailQuiet = null;
     if (this.traffic.systemId !== sys) return; // the reseed that follows calls this again
     // Story ships left over from a finished step go; the current one stays where it is.
-    const stale = (n: { id: string; hold?: Vec2 }) => n.hold !== undefined && n.id !== meet?.npcId;
+    const stale = (n: { id: string; hold?: Vec2; missionId?: string }) => n.hold !== undefined && n.missionId === undefined && n.id !== meet?.npcId; // a bounty target holds too
     let t = this.traffic;
     if (t.npcs.some(stale)) {
       const target = t.npcs.find((n) => n.id === t.targetId);
@@ -1292,7 +1319,7 @@ export class Controller {
       if (e.type === 'towed') {
         this.pending = null;
         this.card = null;
-        this.traffic = seedTraffic(this.world, this.data, this.trafficOpts());
+        this.traffic = this.freshTraffic(this.world);
         this.landAt(e.planetId);
       } else if (e.type === 'jumped') {
         this.pending = null;
@@ -1303,7 +1330,7 @@ export class Controller {
         this.storyHail = null;
         this.storyHailQuiet = null;
         this.prevShip = this.world.ship; // no interpolation across systems
-        this.traffic = seedTraffic(this.world, this.data, this.trafficOpts());
+        this.traffic = this.freshTraffic(this.world);
       }
       if (e.type === 'arrived') {
         this.combat.reset(this.world); // shots in flight stay behind in the old system
