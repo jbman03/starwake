@@ -852,6 +852,14 @@ describe('combat data', () => {
     has(failure(r), 'startOutfits.no-such');
   });
 
+  it('rejects spawn hulls naming an unknown ship', () => {
+    const r = raw();
+    r.combat.spawn.raiderHulls = { ...r.combat.spawn.raiderHulls, 'no-such': 1 };
+    r.combat.spawn.patrolHulls = ['no-such-2'];
+    has(failure(r), 'spawn.hulls.no-such');
+    has(failure(r), 'spawn.hulls.no-such-2');
+  });
+
   it('every ship has crew', () => {
     const d = parseGameData(raw());
     for (const s of Object.values(d.ships)) expect(s.crew, s.id).toBeGreaterThan(0);

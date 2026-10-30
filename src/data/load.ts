@@ -395,7 +395,13 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
       if (!(oid in outfits)) combatIssues.push(fmt('ships.json', `${sh.id}.loadout.${oid}`, `unknown outfit "${oid}"`));
   for (const oid of Object.keys(config.startOutfits))
     if (!(oid in outfits)) combatIssues.push(fmt('config.json', `startOutfits.${oid}`, `unknown outfit "${oid}"`));
-  if (combatIssues.length) throw new DataError('outfits.json / ships.json / config.json', combatIssues);
+  const spawn = combat.spawn;
+  for (const sid of [...Object.keys(spawn.raiderHulls), ...spawn.patrolHulls])
+    if (!(sid in ships)) combatIssues.push(fmt('combat.json', `spawn.hulls.${sid}`, `unknown ship "${sid}"`));
+  for (const key of ['raiderChance', 'patrolChance'] as const)
+    for (const gid of Object.keys(spawn[key]))
+      if (gid !== 'fringe' && !(gid in governments)) combatIssues.push(fmt('combat.json', `spawn.${key}.${gid}`, `unknown government "${gid}"`));
+  if (combatIssues.length) throw new DataError('outfits.json / ships.json / config.json / combat.json', combatIssues);
 
   const missionIssues: string[] = [];
   const anyDump = Object.values(planets).some((p) => p.dumpSite);

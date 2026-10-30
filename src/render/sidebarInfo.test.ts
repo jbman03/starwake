@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import { worldStats } from '../sim/shipStats';
 import type { WorldState } from '../sim/types';
+import { fullHull } from '../sim/combat';
 import { npcLabel, type Npc, type Traffic } from '../sim/traffic';
 import { newWorld } from '../sim/world';
 import { fitText, radarBlips, radarHeadingTip, RADAR_RANGE, sidebarInfo } from './sidebarInfo';
@@ -19,6 +20,13 @@ const npcAt = (id: string, x: number, y: number, government = 'free-reach'): Npc
   phase: 'fly',
   phaseT: 0,
   thrusting: false,
+  role: 'trader',
+  hull: fullHull(10, 10),
+  outfits: {},
+  aggro: [],
+  engaged: false,
+  peaceful: false,
+  demand: false,
 });
 const trafficOf = (npcs: Npc[], targetId: string | null = null): Traffic => ({ systemId: base().systemId, npcs, spawnCount: 0, nextSpawnSec: 99, targetId });
 const at = (w: WorldState, x: number, y: number): WorldState => ({ ...w, ship: { ...w.ship, pos: { x, y } } });

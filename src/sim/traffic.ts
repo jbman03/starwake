@@ -1,5 +1,9 @@
 import type { GameData, PlanetDef, ShipDef } from '../data/schemas';
 import { autopilotInput } from './assists';
+import type { NpcRole } from './ai';
+import { fullHull, type Hull } from './combat';
+import { shipStats } from './shipStats';
+import { npcLoadout } from './weapons';
 import { stepShip } from './flight';
 import { lanesOf, systemOpen } from './galaxy';
 import { hashString, mulberry32, pick, randInt } from './random';
@@ -24,6 +28,28 @@ export interface Npc {
   thrusting: boolean;
   /** A story ship: it flies here and waits (never lands or jumps). */
   hold?: Vec2;
+  role: NpcRole;
+  hull: Hull;
+  /** Its loadout; ammo counts go down as it fires. */
+  outfits: Record<string, number>;
+  /** Ids (npc ids or the player's) that have attacked this ship; it fights back at them. */
+  aggro: string[];
+  /** Battle is moving this ship, so traffic leaves it alone. */
+  engaged: boolean;
+  /** A raider that has stood down (or any ship that won't fight). */
+  peaceful: boolean;
+  /** A raider that will hail first and demand a payment. */
+  demand: boolean;
+  /** The bounty mission this ship is the target of. */
+  missionId?: string;
+}
+
+export interface TrafficOpts {
+  maxNpcs: number;
+  guideActive: boolean;
+  startSystem: string;
+  /** The system of an active clear job, where raiders are likelier. */
+  clearBoost?: string;
 }
 
 export interface Traffic {
@@ -73,6 +99,40 @@ export function trafficLevel(data: GameData, systemId: string): [number, number]
   return sys.government === 'concord' ? [3, 5] : [2, 3];
 }
 
+const isFringe = (data: GameData, systemId: string): boolean => portsOf(data, systemId).every((p) => p.techTier <= 1);
+
+/** Chance that a spawn in this system is a raider. */
+export function raiderChance(data: GameData, systemId: string, opts: TrafficOpts): number {
+  if (opts.guideActive || systemId === opts.startSystem) return 0;
+  const sp = data.combat.spawn;
+  if (opts.clearBoost === systemId) return sp.clearBoost;
+  const byGov = sp.raiderChance[data.systems[systemId].government] ?? 0;
+  return isFringe(data, systemId) ? Math.max(byGov, sp.raiderChance.fringe ?? 0) : byGov;
+}
+
+/** Chance that a spawn in this system is a patrol. */
+export const patrolChance = (data: GameData, systemId: string): number => data.combat.spawn.patrolChance[data.systems[systemId].government] ?? 0;
+
+/** A weighted pick of `ids` (tier-limited, falling back to all of them), from the seeded stream. */
+function pickFrom(data: GameData, weights: Record<string, number>, bestTier: number, r: () => number): ShipDef {
+  const all = Object.entries(weights).filter(([id]) => data.ships[id]);
+  const fit = all.filter(([id]) => data.ships[id].techTier <= bestTier);
+  const pool = fit.length ? fit : all;
+  const total = pool.reduce((sum, [, w]) => sum + w, 0);
+  let x = r() * total;
+  for (const [id, w] of pool) {
+    x -= w;
+    if (x < 0) return data.ships[id];
+  }
+  return data.ships[pool[pool.length - 1][0]];
+}
+
+const combatState = (def: ShipDef, data: GameData) => {
+  const outfits = { ...npcLoadout(def) };
+  const st = shipStats(def.id, outfits, data);
+  return { outfits, hull: fullHull(st.shields, st.armor) };
+};
+
 function pickHull(data: GameData, systemId: string, r: () => number): ShipDef {
   const ports = portsOf(data, systemId);
   const bestTier = Math.max(1, ...ports.map((p) => p.techTier));
@@ -113,9 +173,9 @@ const exitPos = (world: WorldState, data: GameData, id: string): Vec2 =>
 /** A pilot's name for a ship, from the name lists. */
 export const shipName = (r: () => number, data: GameData): string => `${pick(r, data.names.first)} ${pick(r, data.names.second)}`;
 
-function spawnNpc(t: Traffic, world: WorldState, data: GameData, midErrand: boolean): { npc: Npc; event: TrafficEvent | null } {
+function spawnNpc(t: Traffic, world: WorldState, data: GameData, opts: TrafficOpts, midErrand: boolean): { npc: Npc; event: TrafficEvent | null } {
   const r = mulberry32(hashString(world.seed, 'npc', t.systemId, world.day, t.spawnCount));
-  const def = pickHull(data, t.systemId, r);
+  let def = pickHull(data, t.systemId, r);
   const ports = portsOf(data, t.systemId);
   const roll = r();
   const errand: Errand = ports.length === 0 || roll >= 0.7 ? 'pass' : roll < 0.4 ? 'arrive' : 'depart';
@@ -129,7 +189,25 @@ function spawnNpc(t: Traffic, world: WorldState, data: GameData, midErrand: bool
   const pos = midErrand ? add(from, scale(sub(to, from), frac)) : from;
   // Arrivals and pass-throughs fly the flag of the system they came from.
   const origin = errand === 'depart' ? null : laneDir(world, data, id, 'npcin').toId;
-  const government = origin ? data.systems[origin].government : data.systems[t.systemId].government;
+  let government = origin ? data.systems[origin].government : data.systems[t.systemId].government;
+
+  // The role comes last so the draws above stay where they were.
+  const bestTier = Math.max(1, ...ports.map((p) => p.techTier));
+  const rr = raiderChance(data, t.systemId, opts);
+  const pr = patrolChance(data, t.systemId);
+  const x = r();
+  const hostile = t.npcs.filter((n) => n.role === 'raider' && !n.peaceful).length;
+  let role: NpcRole = x < rr ? 'raider' : x < rr + pr ? 'patrol' : 'trader';
+  if (role === 'raider' && hostile >= data.combat.spawn.maxHostileRaiders) role = 'trader';
+  let demand = false;
+  if (role === 'raider') {
+    def = pickFrom(data, data.combat.spawn.raiderHulls, bestTier, r);
+    government = 'raiders';
+    demand = r() < 0.5;
+  } else if (role === 'patrol') {
+    def = pickFrom(data, Object.fromEntries(data.combat.spawn.patrolHulls.map((h) => [h, 1])), bestTier, r);
+    government = data.systems[t.systemId].government;
+  }
 
   const npc: Npc = {
     id,
@@ -142,6 +220,12 @@ function spawnNpc(t: Traffic, world: WorldState, data: GameData, midErrand: bool
     phase: midErrand || errand === 'depart' ? 'fly' : 'jumpIn',
     phaseT: 0,
     thrusting: false,
+    role,
+    ...combatState(def, data),
+    aggro: [],
+    engaged: false,
+    peaceful: false,
+    demand,
   };
   const event: TrafficEvent | null = midErrand ? null : { type: errand === 'depart' ? 'npcTookOff' : 'npcJumpIn', id };
   return { npc, event };
@@ -158,11 +242,11 @@ function wantedCount(world: WorldState, data: GameData, systemId: string, maxNpc
 }
 
 /** A system's traffic when the pilot arrives: the level minimum, spread mid-errand. */
-export function seedTraffic(world: WorldState, data: GameData, maxNpcs: number): Traffic {
+export function seedTraffic(world: WorldState, data: GameData, opts: TrafficOpts): Traffic {
   let t: Traffic = { systemId: world.systemId, npcs: [], spawnCount: 0, nextSpawnSec: 0, targetId: null };
-  const n = Math.min(trafficLevel(data, world.systemId)[0], maxNpcs);
+  const n = Math.min(trafficLevel(data, world.systemId)[0], opts.maxNpcs);
   for (let i = 0; i < n; i++) {
-    const { npc } = spawnNpc(t, world, data, true);
+    const { npc } = spawnNpc(t, world, data, opts, true);
     t = { ...t, npcs: [...t.npcs, npc], spawnCount: t.spawnCount + 1 };
   }
   return { ...t, nextSpawnSec: nextWait(world, world.systemId, t.spawnCount) };
@@ -178,6 +262,8 @@ function stepNpc(npc: Npc, world: WorldState, data: GameData, dt: number, events
     return phaseT >= JUMP_SEC ? { ...npc, ship, phase: 'gone', phaseT: 0 } : { ...npc, ship, phaseT };
   }
   if (npc.phase === 'gone') return npc;
+  // Battle moves an engaged or disabled ship; its errand is on hold (no timeout either).
+  if (npc.engaged || npc.hull.disabled) return npc;
 
   if (npc.hold) {
     const r = autopilotInput(npc.ship, def, npc.hold, HOLD_RADIUS, AUTOPILOT_ARRIVE_SPEED);
@@ -206,16 +292,16 @@ export function stepTraffic(
   world: WorldState,
   data: GameData,
   dt: number,
-  maxNpcs: number,
+  opts: TrafficOpts,
 ): { traffic: Traffic; events: TrafficEvent[] } {
   const events: TrafficEvent[] = [];
   const npcs = t.npcs.map((n) => stepNpc(n, world, data, dt, events)).filter((n) => n.phase !== 'gone');
   let next: Traffic = { ...t, npcs, nextSpawnSec: t.nextSpawnSec - dt };
   if (next.nextSpawnSec <= 0) {
-    const want = wantedCount(world, data, t.systemId, maxNpcs);
+    const want = wantedCount(world, data, t.systemId, opts.maxNpcs);
     const ordinary = npcs.filter((n) => !n.hold).length;
-    if (ordinary < want && ordinary < maxNpcs) {
-      const { npc, event } = spawnNpc(next, world, data, false);
+    if (ordinary < want && ordinary < opts.maxNpcs) {
+      const { npc, event } = spawnNpc(next, world, data, opts, false);
       if (event) events.push(event);
       next = { ...next, npcs: [...npcs, npc], spawnCount: next.spawnCount + 1 };
     }
@@ -228,6 +314,7 @@ export function stepTraffic(
 export function addStoryNpc(
   t: Traffic,
   spec: { id: string; name: string; shipId: string; government: string; holdPos: Vec2; from?: Vec2 },
+  data: GameData,
 ): Traffic {
   const from = spec.from ?? add(spec.holdPos, HOLD_APPROACH);
   const npc: Npc = {
@@ -242,6 +329,41 @@ export function addStoryNpc(
     phaseT: 0,
     thrusting: false,
     hold: spec.holdPos,
+    role: 'trader',
+    ...combatState(data.ships[spec.shipId], data),
+    aggro: [],
+    engaged: false,
+    peaceful: false,
+    demand: false,
+  };
+  return { ...t, npcs: [...t.npcs.filter((n) => n.id !== spec.id), npc] };
+}
+
+/** Add a bounty target: a raider that waits at `pos`, is never peaceful and never makes a demand. */
+export function addBountyNpc(
+  t: Traffic,
+  spec: { id: string; name: string; shipId: string; missionId: string; pos: Vec2 },
+  data: GameData,
+): Traffic {
+  const npc: Npc = {
+    id: spec.id,
+    name: spec.name,
+    shipId: spec.shipId,
+    government: 'raiders',
+    errand: 'pass',
+    ship: { pos: spec.pos, vel: { ...ZERO }, heading: 0, fuel: 0 },
+    portId: null,
+    phase: 'fly',
+    phaseT: 0,
+    thrusting: false,
+    hold: spec.pos,
+    role: 'raider',
+    ...combatState(data.ships[spec.shipId], data),
+    aggro: [],
+    engaged: false,
+    peaceful: false,
+    demand: false,
+    missionId: spec.missionId,
   };
   return { ...t, npcs: [...t.npcs.filter((n) => n.id !== spec.id), npc] };
 }

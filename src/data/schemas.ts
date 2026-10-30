@@ -337,9 +337,24 @@ const AiProfileSchema = z
   })
   .strict();
 
+const chance = z.number().min(0).max(1);
+
+/** Who spawns where. Chance keys are government ids (plus "fringe" for systems whose ports are all tier 1). */
+const SpawnSchema = z
+  .object({
+    raiderChance: z.record(z.string(), chance),
+    patrolChance: z.record(z.string(), chance),
+    clearBoost: chance, // raider chance in the system of an active clear job
+    maxHostileRaiders: z.number().int().nonnegative(),
+    raiderHulls: z.record(z.string(), z.number().positive()), // ship id -> weight
+    patrolHulls: z.array(z.string()).min(1),
+  })
+  .strict();
+
 export const CombatSchema = z
   .object({
     ai: z.object({ trader: AiProfileSchema, patrol: AiProfileSchema, raider: AiProfileSchema }).strict(),
+    spawn: SpawnSchema,
   })
   .strict();
 export type CombatDef = z.infer<typeof CombatSchema>;

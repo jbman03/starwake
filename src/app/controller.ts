@@ -44,7 +44,7 @@ import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
-import { addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic } from '../sim/traffic';
+import { addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
 import type { FrameInput, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
@@ -213,7 +213,7 @@ export class Controller {
     world: WorldState = newWorld(data),
   ) {
     this.world = world;
-    this.traffic = seedTraffic(world, data, this.maxNpcs());
+    this.traffic = seedTraffic(world, data, this.trafficOpts());
     this.prevShip = world.ship;
     this.keyboard = new KeyboardSource(
       keyTarget,
@@ -267,7 +267,7 @@ export class Controller {
   /** Start playing `pilot`, landed at `planetId` (the planet screen comes next). */
   beginSession(world: WorldState, pilot: PilotMeta, planetId: string): void {
     this.world = world;
-    this.traffic = seedTraffic(world, this.data, this.maxNpcs());
+    this.traffic = seedTraffic(world, this.data, this.trafficOpts());
     this.pending = null;
     this.card = null;
     this.storySite = null;
@@ -575,6 +575,15 @@ export class Controller {
     }
   }
 
+  private trafficOpts(): TrafficOpts {
+    return {
+      maxNpcs: this.maxNpcs(),
+      guideActive: (this.guide?.current() ?? null) !== null,
+      startSystem: this.data.config.startSystemId,
+      clearBoost: undefined, // Task 12: the system of an active clear job
+    };
+  }
+
   private maxNpcs(): number {
     return this.settings.quality === 'low' ? 4 : 8;
   }
@@ -676,12 +685,12 @@ export class Controller {
   /** Advance the NPCs one tick; reseed on a new system and drop a target that is no longer there. */
   private stepTraffic(dt: number): void {
     if (this.traffic.systemId !== this.world.systemId) {
-      this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+      this.traffic = seedTraffic(this.world, this.data, this.trafficOpts());
       this.refreshStory();
       return;
     }
     if (this.world.jump) return;
-    let t = stepTraffic(this.traffic, this.world, this.data, dt, this.maxNpcs()).traffic;
+    let t = stepTraffic(this.traffic, this.world, this.data, dt, this.trafficOpts()).traffic;
     // A ship target that landed or left, or a planet the sim just targeted (landing autopilot), ends it.
     const alive = targetedNpc(t) !== undefined;
     if (!alive || this.world.targetPlanetId !== null) t = { ...t, targetId: null };
@@ -842,7 +851,7 @@ export class Controller {
       const target = t.npcs.find((n) => n.id === t.targetId);
       t = { ...t, npcs: t.npcs.filter((n) => !stale(n)), targetId: target && stale(target) ? null : t.targetId };
     }
-    if (spec && !t.npcs.some((n) => n.id === spec.id)) t = addStoryNpc(t, spec);
+    if (spec && !t.npcs.some((n) => n.id === spec.id)) t = addStoryNpc(t, spec, this.data);
     this.traffic = t;
   }
 
@@ -1078,7 +1087,7 @@ export class Controller {
       if (e.type === 'towed') {
         this.pending = null;
         this.card = null;
-        this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+        this.traffic = seedTraffic(this.world, this.data, this.trafficOpts());
         this.landAt(e.planetId);
       } else if (e.type === 'jumped') {
         this.pending = null;
@@ -1089,7 +1098,7 @@ export class Controller {
         this.storyHail = null;
         this.storyHailQuiet = null;
         this.prevShip = this.world.ship; // no interpolation across systems
-        this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+        this.traffic = seedTraffic(this.world, this.data, this.trafficOpts());
       }
       if (e.type === 'arrived') {
         this.refreshStory();

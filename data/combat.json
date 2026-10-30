@@ -3,5 +3,13 @@
     "trader": { "flee": 0.3, "engageRange": 600, "keepRange": 220, "fireCone": 10 },
     "patrol": { "flee": 0, "engageRange": 900, "keepRange": 220, "fireCone": 10 },
     "raider": { "flee": 0.3, "engageRange": 900, "keepRange": 220, "fireCone": 10 }
+  },
+  "spawn": {
+    "raiderChance": { "concord": 0.05, "free-reach": 0.2, "independent": 0.3, "unlit": 0.4, "fringe": 0.4 },
+    "patrolChance": { "concord": 0.15, "free-reach": 0.15 },
+    "clearBoost": 0.6,
+    "maxHostileRaiders": 3,
+    "raiderHulls": { "shuttle": 3, "courier": 3, "scout": 2, "kestrel": 3, "warden": 1 },
+    "patrolHulls": ["kestrel", "warden"]
   }
 }

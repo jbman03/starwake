@@ -94,7 +94,7 @@ describe('npc ai', () => {
     expect(run(me, [player(700, 0), comb('t', 'concord', 0, 300)]).targetId).toBe('t');
   });
   it('reads its ranges from data', () => {
-    const tweaked = { ...data, combat: { ai: { ...data.combat.ai, raider: { ...data.combat.ai.raider, engageRange: 100 } } } };
+    const tweaked = { ...data, combat: { ...data.combat, ai: { ...data.combat.ai, raider: { ...data.combat.ai.raider, engageRange: 100 } } } };
     const s = selfOf('raider', comb('r1', 'raiders', 0, 0, 0, GUN));
     expect(decide(s, [player(500, 0)], [], FLEE_TO, tweaked).mode).toBe('errand');
   });
