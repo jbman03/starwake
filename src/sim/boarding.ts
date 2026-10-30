@@ -36,13 +36,14 @@ export function lootOf(world: WorldState, data: GameData, npc: Npc): Loot {
     const [fLo, fHi] = b.cargoFraction;
     const tons = Math.max(1, Math.round(hull.cargo * (fLo + r() * (fHi - fLo))));
     const goods = Object.keys(data.commodities).sort();
-    const kinds = tons >= 2 && r() < 0.5 ? 2 : 1;
+    const kinds = tons >= 2 && r() < b.twoGoodsChance ? 2 : 1;
     const first = goods[Math.floor(r() * goods.length)];
     if (kinds === 1) cargo[first] = tons;
     else {
       const rest = goods.filter((g) => g !== first);
       const second = rest[Math.floor(r() * rest.length)];
-      const part = Math.min(tons - 1, Math.max(1, Math.round(tons * (0.3 + r() * 0.4))));
+      const [sLo, sHi] = b.twoGoodsSplit;
+      const part = Math.min(tons - 1, Math.max(1, Math.round(tons * (sLo + r() * (sHi - sLo)))));
       cargo[first] = part;
       cargo[second] = tons - part;
     }

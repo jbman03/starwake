@@ -374,6 +374,10 @@ const BoardingSchema = z
     captureMin: chance,
     captureMax: chance,
     prizeFraction: chance, // of the hull price
+    twoGoodsChance: chance, // a trader with 2 t or more carries two goods instead of one
+    twoGoodsSplit: fractionRange, // the first good's share of the tons when there are two
+    scuttleSec: z.number().positive(), // a ship that drove off a boarding party blows up this long after the card closes
+    commandArmorFraction: z.number().positive().max(1), // take command patches the new hull to this much armor, no shields
   })
   .strict()
   .refine((b) => b.captureMin <= b.captureMax, { message: 'expected captureMin <= captureMax', path: ['captureMin'] });
@@ -395,6 +399,9 @@ const BountySchema = z
   .strict()
   .refine((b) => b.spawnMin <= b.spawnMax, { message: 'expected spawnMin <= spawnMax', path: ['spawnMin'] });
 
+/** Combat jobs: ports of these governments post them (government ids). */
+const CombatMissionsSchema = z.object({ offerGovernments: z.array(z.string()).min(1) }).strict();
+
 /**
  * A disabled pilot's tow. Besides the spec's wait (no threatening hostile within range for a few
  * seconds), a tow is offered once the player has taken no hit for `quietSec`, so a hostile that
@@ -409,6 +416,7 @@ export const CombatSchema = z
     boarding: BoardingSchema,
     demand: DemandSchema,
     bounty: BountySchema,
+    missions: CombatMissionsSchema,
     tow: TowSchema,
   })
   .strict();

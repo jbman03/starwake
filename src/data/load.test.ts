@@ -885,10 +885,22 @@ describe('combat data', () => {
 });
 
 describe('combat.json', () => {
+  const has = (e: DataError, s: string) => expect(e.issues.some((i) => i.includes(s)), e.issues.join(', ')).toBe(true);
   it('loads the AI profiles per role', () => {
     const d = parseGameData(raw());
     expect(d.combat.ai.patrol.flee).toBe(0);
     expect(d.combat.ai.raider.engageRange).toBe(900);
+  });
+  it('holds the boarding, mission and tow tunables', () => {
+    const d = parseGameData(raw());
+    expect(d.combat.boarding).toMatchObject({ scuttleSec: 3, commandArmorFraction: 0.25, twoGoodsChance: 0.5, twoGoodsSplit: [0.3, 0.7] });
+    expect(d.combat.missions.offerGovernments).toEqual(['concord', 'free-reach']);
+    expect(d.combat.tow.quietSec).toBe(15);
+  });
+  it('rejects combat-job governments that do not exist', () => {
+    const r = raw();
+    r.combat.missions.offerGovernments = ['concord', 'no-such-gov'];
+    has(failure(r), 'missions.offerGovernments.no-such-gov');
   });
   it('rejects a negative range, an unknown key, a bad fraction and a missing role', () => {
     const bad: ((c: any) => void)[] = [
@@ -897,6 +909,11 @@ describe('combat.json', () => {
       (c) => (c.bogus = {}),
       (c) => (c.ai.trader.flee = 1.5),
       (c) => delete c.ai.patrol,
+      (c) => (c.boarding.scuttleSec = 0),
+      (c) => (c.boarding.commandArmorFraction = 1.5),
+      (c) => (c.boarding.twoGoodsSplit = [0.7, 0.3]),
+      (c) => (c.tow.quietSec = -1),
+      (c) => delete c.missions,
     ];
     for (const mutate of bad) {
       const r = raw();

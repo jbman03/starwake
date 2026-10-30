@@ -401,6 +401,8 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   for (const key of ['raiderChance', 'patrolChance'] as const)
     for (const gid of Object.keys(spawn[key]))
       if (gid !== 'fringe' && !(gid in governments)) combatIssues.push(fmt('combat.json', `spawn.${key}.${gid}`, `unknown government "${gid}"`));
+  for (const gid of combat.missions.offerGovernments)
+    if (!(gid in governments)) combatIssues.push(fmt('combat.json', `missions.offerGovernments.${gid}`, `unknown government "${gid}"`));
   if (combatIssues.length) throw new DataError('outfits.json / ships.json / config.json / combat.json', combatIssues);
 
   const missionIssues: string[] = [];

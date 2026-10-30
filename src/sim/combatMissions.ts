@@ -7,14 +7,11 @@ import type { Mission, WorldState } from './types';
 import { hasWeapon } from './weapons';
 import { add, fromAngle, scale, type Vec2 } from './vec';
 
-/** Governments whose ports post combat jobs. */
-const OFFER_GOVERNMENTS: readonly string[] = ['concord', 'free-reach'];
-
-/** Combat jobs are offered at Concord and Free Reach ports, and only to a pilot who owns a weapon. */
+/** Combat jobs are offered at ports of the governments in combat.missions (Concord and Free Reach), and only to a pilot who owns a weapon. */
 export function combatOffersOk(world: WorldState, data: GameData, portId: string): boolean {
   const port = data.planets[portId];
   if (!port) return false;
-  return OFFER_GOVERNMENTS.includes(data.systems[port.systemId]?.government ?? '') && hasWeapon(world.outfits, data);
+  return data.combat.missions.offerGovernments.includes(data.systems[port.systemId]?.government ?? '') && hasWeapon(world.outfits, data);
 }
 
 /**

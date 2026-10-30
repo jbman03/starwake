@@ -20,7 +20,11 @@
     "captureBase": 0.5,
     "captureMin": 0.05,
     "captureMax": 0.85,
-    "prizeFraction": 0.3
+    "prizeFraction": 0.3,
+    "twoGoodsChance": 0.5,
+    "twoGoodsSplit": [0.3, 0.7],
+    "scuttleSec": 3,
+    "commandArmorFraction": 0.25
   },
   "demand": {
     "creditsFraction": 0.05,
@@ -30,5 +34,6 @@
     "chance": 0.5
   },
   "bounty": { "spawnMin": 700, "spawnMax": 1200 },
+  "missions": { "offerGovernments": ["concord", "free-reach"] },
   "tow": { "quietSec": 15 }
 }

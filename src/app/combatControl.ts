@@ -52,10 +52,6 @@ const allowed = (s: ReadonlySet<ActionId>): Set<ActionId> => new Set([...s].filt
 
 /** The player is out of the fight for this long (s) before the Destroyed card. */
 export const DESTROYED_DELAY_SEC = 2;
-/** A ship that drove off a boarding party is scuttled this long (s) after the card closes. */
-export const SCUTTLE_SEC = 3;
-/** Take command patches the new hull to this fraction of its armor, with no shields. */
-export const COMMAND_ARMOR_FRACTION = 0.25;
 
 export type BoardingChoice = 'credits' | 'cargo' | 'ammo' | 'capture' | 'command' | 'prize' | 'leave';
 
@@ -266,7 +262,7 @@ export class CombatControl {
       // Patched up: a quarter of the armor and no shields. Infinity keeps the shields from recharging until the next landing.
       this.battle = {
         ...this.battle,
-        player: { ...hull, armor: hull.maxArmor * COMMAND_ARMOR_FRACTION, shields: 0, lastHitSec: Infinity },
+        player: { ...hull, armor: hull.maxArmor * this.data.combat.boarding.commandArmorFraction, shields: 0, lastHitSec: Infinity },
         secondary: newBattle(w, this.data).secondary,
         cooldowns: {},
       };
@@ -276,11 +272,11 @@ export class CombatControl {
     return null;
   }
 
-  /** Close the boarding card. A ship that drove the party off is scuttled 3 s later. */
+  /** Close the boarding card. A ship that drove the party off is scuttled combat.boarding.scuttleSec (3 s) later. */
   leaveBoarding(): void {
     const s = this.boardingId ? this.sessions.get(this.boardingId) : undefined;
     this.boardingId = null;
-    if (s?.failed && !this.scuttling.some((x) => x.id === s.npcId)) this.scuttling.push({ id: s.npcId, sec: SCUTTLE_SEC });
+    if (s?.failed && !this.scuttling.some((x) => x.id === s.npcId)) this.scuttling.push({ id: s.npcId, sec: this.data.combat.boarding.scuttleSec });
   }
 
   private endBoarding(id: string): void {
