@@ -1,0 +1,7 @@
+{
+  "ai": {
+    "trader": { "flee": 0.3, "engageRange": 600, "keepRange": 220, "fireCone": 10 },
+    "patrol": { "flee": 0, "engageRange": 900, "keepRange": 220, "fireCone": 10 },
+    "raider": { "flee": 0.3, "engageRange": 900, "keepRange": 220, "fireCone": 10 }
+  }
+}

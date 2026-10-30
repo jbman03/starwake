@@ -327,6 +327,24 @@ export type StoryStepDef = z.infer<typeof StoryStepSchema>;
 export type StoryMissionDef = z.infer<typeof StoryMissionSchema>;
 export type GameConfig = z.infer<typeof ConfigSchema>;
 
+/** How one NPC role fights. `flee` is the armor fraction below which it runs (0 never flees). */
+const AiProfileSchema = z
+  .object({
+    flee: z.number().min(0).max(1),
+    engageRange: z.number().positive(),
+    keepRange: z.number().positive(),
+    fireCone: z.number().positive().max(180), // degrees
+  })
+  .strict();
+
+export const CombatSchema = z
+  .object({
+    ai: z.object({ trader: AiProfileSchema, patrol: AiProfileSchema, raider: AiProfileSchema }).strict(),
+  })
+  .strict();
+export type CombatDef = z.infer<typeof CombatSchema>;
+export type AiProfile = z.infer<typeof AiProfileSchema>;
+
 export interface GameData {
   ships: Record<string, ShipDef>;
   outfits: Record<string, OutfitDef>;
@@ -340,4 +358,5 @@ export interface GameData {
   encounters: Record<string, EncounterDef>;
   story: Record<string, StoryMissionDef>;
   config: GameConfig;
+  combat: CombatDef;
 }

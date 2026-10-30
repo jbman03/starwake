@@ -11,11 +11,12 @@ import outfits from '../../data/outfits.json';
 import names from '../../data/names.json';
 import encounters from '../../data/encounters.json';
 import story from '../../data/story.json';
+import combat from '../../data/combat.json';
 import { parseGameData, DataError, loadGameData } from './load';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
-  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story }) as {
+  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat }) as {
   ships: any[];
   systems: any[];
   planets: any[];
@@ -28,6 +29,7 @@ const raw = () =>
   names: { first: string[]; second: string[] };
   encounters: any[];
   story: { missions: any[] };
+  combat: any;
 };
 
 const port = (r: ReturnType<typeof raw>, id: string) => r.planets.find((p) => p.id === id);
@@ -871,5 +873,27 @@ describe('combat data', () => {
     expect(d.governments.raiders.name).toBe('Rimward Raiders');
     expect(d.config.startOutfits).toEqual({ 'light-blaster': 1 });
     expect(d.outfits['lance-beam'].soldAt).toEqual(['vanterre', 'corvana-works']);
+  });
+});
+
+describe('combat.json', () => {
+  it('loads the AI profiles per role', () => {
+    const d = parseGameData(raw());
+    expect(d.combat.ai.patrol.flee).toBe(0);
+    expect(d.combat.ai.raider.engageRange).toBe(900);
+  });
+  it('rejects a negative range, an unknown key, a bad fraction and a missing role', () => {
+    const bad: ((c: any) => void)[] = [
+      (c) => (c.ai.raider.engageRange = -5),
+      (c) => (c.ai.raider.bogus = 1),
+      (c) => (c.bogus = {}),
+      (c) => (c.ai.trader.flee = 1.5),
+      (c) => delete c.ai.patrol,
+    ];
+    for (const mutate of bad) {
+      const r = raw();
+      mutate(r.combat);
+      expect(failure(r).file).toBe('combat.json');
+    }
   });
 });
