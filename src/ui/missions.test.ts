@@ -12,6 +12,7 @@ import type { Mission } from '../sim/types';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { showMissionComputer } from './missionComputer';
+import { missionSystem } from '../sim/combatMissions';
 import { showMissionLog } from './missionLog';
 import { dialogOpen } from './dom';
 import { showPauseMenu } from './pauseMenu';
@@ -246,6 +247,27 @@ describe('pause menu and dialogs', () => {
     expect(btn('Mission Log').querySelector('.sw-key')).toBeNull();
   });
 
+  it('a disabled pilot: the pause menu says to wait while an enemy is near, then offers the tow', async () => {
+    const { ctx, c, root, btn } = await setup();
+    c.leavePlanet();
+    for (let i = 0; i < 30; i++) c.update(1 / 60);
+    c.traffic = { ...c.traffic, npcs: [], nextSpawnSec: 1e9 };
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true, lastHitSec: c.world.timeSec } };
+    c.update(1 / 60);
+    showPauseMenu(ctx);
+    const towBtn = () => [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('Call for tow'));
+    expect(towBtn()).toBeUndefined();
+    expect(root.querySelector('[data-testid="pause-tow-note"]')?.textContent).toBe('Your ship is disabled. You can call a tow once no enemy is near.');
+    // Resume, wait out the calm, and reopen: the tow is offered.
+    btn('Resume').click();
+    for (let i = 0; i < 6 * 60; i++) c.update(1 / 60);
+    showPauseMenu(ctx);
+    expect(towBtn()).toBeDefined();
+    expect(root.querySelector('[data-testid="pause-tow-note"]')).toBeNull();
+    towBtn()!.click();
+    expect(c.landedPlanetId).not.toBeNull();
+  });
+
   it('arrows do not move the log selection behind the Abandon dialog', async () => {
     const { ctx, root, btn, rows } = await setup((w) => ({ ...w, missions: [job(), job({ id: 'j2', title: 'Second job' })] }));
     showMissionLog(ctx, () => {});
@@ -299,7 +321,7 @@ describe('mission preview on the map', () => {
     const route = c.world.route;
     press('KeyN');
     expect(state.maps).toHaveLength(1); // not also the plain-map handler
-    expect(state.maps[0].preview).toEqual({ systemId: data.planets[o.destId].systemId, label: `Mission: ${o.title}` });
+    expect(state.maps[0].preview).toEqual({ systemId: missionSystem(o, data), label: `Mission: ${o.title}` });
     expect(c.world.route).toBe(route);
     state.maps[0].onClose!();
     expect(rows()[2].getAttribute('aria-selected')).toBe('true');

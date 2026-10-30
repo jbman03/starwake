@@ -7,8 +7,9 @@ import { boughtFlag } from './shipyard';
 import { sells } from './stock';
 import { hasFlag, setFlag } from './story';
 import type { WorldState } from './types';
+import { ammoCap, weaponsOf } from './weapons';
 
-export type OutfitBlock = 'credits' | 'space' | 'max' | 'notSold' | 'nothingToReveal' | 'standing' | 'gone' | 'locked';
+export type OutfitBlock = 'credits' | 'space' | 'max' | 'notSold' | 'nothingToReveal' | 'standing' | 'gone' | 'locked' | 'noLauncher';
 export type SellBlock = 'notOwned' | 'cargoWouldNotFit' | 'notSellable';
 
 export type BuyCheck = { ok: true } | { ok: false; reason: OutfitBlock };
@@ -25,13 +26,14 @@ export const OUTFIT_BLOCK_TEXT: Record<OutfitBlock | SellBlock, string> = {
   standing: 'Requires friendship with this government', // the screens name the government via standingBlockText
   gone: 'Sold once, and already sold.',
   locked: 'Not for sale yet.',
+  noLauncher: 'Needs a launcher',
   nothingToReveal: 'Everything in range is already on your chart.',
   notOwned: 'You do not have one fitted.',
   cargoWouldNotFit: 'Your hold would be too full without it.',
   notSellable: 'Charts cannot be sold back.',
 };
 
-/** Whether the outfit can be bought here. Checks run notSold, gone, locked, standing, max, space, credits (maps: notSold, nothingToReveal, credits). */
+/** Whether the outfit can be bought here. Checks run notSold, gone, locked, standing, noLauncher (ammo), max, space, credits (maps: notSold, nothingToReveal, credits). */
 export function outfitBuyCheck(world: WorldState, data: GameData, planetId: string, outfitId: string): BuyCheck {
   const def = data.outfits[outfitId];
   if (!def || !sells(planetId, def, data)) return { ok: false, reason: 'notSold' };
@@ -44,7 +46,10 @@ export function outfitBuyCheck(world: WorldState, data: GameData, planetId: stri
     const inRange = systemsWithin(data, system, def.effect.mapJumps, world.flags);
     if (inRange.every((id) => known.has(id))) return { ok: false, reason: 'nothingToReveal' };
   } else {
-    if ((world.outfits[outfitId] ?? 0) >= def.max) return { ok: false, reason: 'max' };
+    if (def.category === 'ammo') {
+      if (!weaponsOf(world.outfits, data).launchers.some((l) => l.def.effect.ammo === outfitId)) return { ok: false, reason: 'noLauncher' };
+      if ((world.outfits[outfitId] ?? 0) >= ammoCap(world.outfits, outfitId, data)) return { ok: false, reason: 'max' };
+    } else if ((world.outfits[outfitId] ?? 0) >= def.max) return { ok: false, reason: 'max' };
     if (worldStats(world, data).spaceFree < def.space) return { ok: false, reason: 'space' };
   }
   if (world.credits < def.price) return { ok: false, reason: 'credits' };

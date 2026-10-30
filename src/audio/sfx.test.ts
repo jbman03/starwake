@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type Settings } from '../save/settings';
-import { SoundBoard } from './sfx';
+import { battleSounds, SoundBoard } from './sfx';
 
 function param() {
   const calls: string[] = [];
@@ -168,5 +168,62 @@ describe('SoundBoard', () => {
       sb.play('jump');
       sb.setThrust(true);
     }).not.toThrow();
+  });
+  it('sfx: new sounds synthesise without throwing (mocked AudioContext)', () => {
+    for (const id of ['shot', 'missile', 'beam', 'shieldHit', 'armorHit', 'explosion', 'disabled', 'alarm'] as const) {
+      const { sb, made } = board();
+      sb.unlock();
+      expect(() => sb.play(id), id).not.toThrow();
+      expect(made.osc + made.noise, id).toBeGreaterThan(0);
+    }
+  });
+
+  it('the beam loops on one source while it keeps firing, and fades out 0.1 s after the last', () => {
+    const { sb, made, ctx } = board();
+    sb.unlock();
+    sb.play('beam');
+    const sources = made.osc + made.noise;
+    const gain = made.gains[made.gains.length - 1];
+    // Held at its level until 0.1 s after this pulse, then ramped to silence.
+    const [hold, fade] = gain.calls.slice(-2);
+    expect(hold).toMatch(/^set /);
+    expect(Number(hold.slice(4))).toBeGreaterThan(0);
+    expect(fade).toBe('lin 0');
+    expect(sb.beamStopsAt()).toBeCloseTo(0.1, 6);
+    (ctx as unknown as { currentTime: number }).currentTime = 0.05;
+    sb.play('beam');
+    sb.play('beam');
+    expect(made.osc + made.noise).toBe(sources); // the same loop, kept alive
+    expect(gain.calls[gain.calls.length - 1]).toBe('lin 0');
+    expect(sb.beamStopsAt()).toBeCloseTo(0.15, 6);
+  });
+
+  it('a muted beam does not start', () => {
+    const { sb, made } = board({ muted: true });
+    sb.unlock();
+    sb.play('beam');
+    expect(made.osc + made.noise).toBe(0);
+  });
+});
+
+describe('battleSounds', () => {
+  it('turns one tick of fight events into each sound once', () => {
+    expect(
+      battleSounds([
+        { type: 'shot', ownerId: 'player', kind: 'bolt' },
+        { type: 'shot', ownerId: 'n1', kind: 'bolt' },
+        { type: 'shot', ownerId: 'n1', kind: 'seeker' },
+        { type: 'shot', ownerId: 'n2', kind: 'beam' },
+        { type: 'hit', targetId: 'n1', shield: true, pos: { x: 0, y: 0 } },
+        { type: 'hit', targetId: 'n2', shield: false, pos: { x: 0, y: 0 } },
+        { type: 'disabled', id: 'n1', byPlayer: true },
+        { type: 'destroyed', id: 'n2', byPlayer: true, pos: { x: 0, y: 0 } },
+        { type: 'lowArmor' },
+        { type: 'angered', government: 'g' },
+        { type: 'fled', id: 'n3' },
+      ]),
+    ).toEqual(['shot', 'missile', 'beam', 'shieldHit', 'armorHit', 'disabled', 'explosion', 'alarm']);
+    expect(battleSounds([{ type: 'playerDisabled' }, { type: 'playerDestroyed', pos: { x: 0, y: 0 } }])).toEqual(['disabled', 'explosion']);
+    expect(battleSounds([{ type: 'shot', ownerId: 'n1', kind: 'rocket' }])).toEqual(['missile']);
   });
 });

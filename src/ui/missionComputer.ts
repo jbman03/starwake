@@ -1,6 +1,7 @@
 import { formatDate } from '../sim/calendar';
 import { berthsFree, cargoFree } from '../sim/cargo';
 import { rumor, SURVEY_RUMOUR } from '../sim/economy';
+import { missionSystem } from '../sim/combatMissions';
 import { canAccept, jobMissions, MAX_MISSIONS, type MissionOffer } from '../sim/missions';
 import type { UiContext } from './context';
 import { worldStats } from '../sim/shipStats';
@@ -54,7 +55,7 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
   /** Preview the selected job's destination on the map; closing it returns here with the job still selected. */
   function showOnMap(): void {
     const o = offers[index];
-    const systemId = o ? data.planets[o.destId]?.systemId : undefined;
+    const systemId = o ? missionSystem(o, data) : undefined;
     if (!o || !systemId) return;
     ctx.go.map({ preview: { systemId, label: `Mission: ${o.title}` }, onClose: () => reopen(o.offerId) });
   }

@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import type { GameData } from '../data/schemas';
+import type { Battle } from '../sim/battle';
 import type { Traffic } from '../sim/traffic';
 import type { Vec2 } from '../sim/vec';
 import type { SiteTarget, WorldState } from '../sim/types';
+import { FX_COLORS } from './combatFx';
 import { fitText, radarBlips, radarHeadingTip, sidebarInfo, type SidebarInfo } from './sidebarInfo';
 
 const FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
@@ -14,6 +16,8 @@ const MAX_CHARS = 26;
 const RADAR_R = 76;
 const BAR_H = 8;
 const MAP_H = 30;
+/** The target's thin shield and armor bars under its detail line. */
+const TARGET_BAR_H = 4;
 
 /**
  * Escape Velocity style right-hand sidebar for keyboard play: radar, shield/armor/fuel bars,
@@ -119,7 +123,7 @@ export class Sidebar {
     y += 50;
     L.target.setPosition(x, y);
     L.targetDetail.setPosition(x, y + 18);
-    y += 50;
+    y += 62;
     L.cargo.setPosition(x, y);
     L.credits.setPosition(x, y + 20);
     L.date.setPosition(x, y + 40);
@@ -127,17 +131,25 @@ export class Sidebar {
     this.mapBtn.setPosition(b.x, b.y);
   }
 
-  update(world: WorldState, data: GameData, _dtSec: number, traffic: Traffic | null = null, sites: readonly Vec2[] = [], site: SiteTarget | null = null): void {
+  update(
+    world: WorldState,
+    data: GameData,
+    _dtSec: number,
+    traffic: Traffic | null = null,
+    sites: readonly Vec2[] = [],
+    site: SiteTarget | null = null,
+    battle: Battle | null = null,
+  ): void {
     if (!this.visible) return;
-    const info = sidebarInfo(world, data, traffic, site);
+    const info = sidebarInfo(world, data, traffic, site, battle);
     const L = this.labels;
     L.shields.setText('Shields');
     L.armor.setText('Armor');
     L.fuel.setText(`Fuel · ${info.jumps === Infinity ? '∞' : info.jumps} ${info.jumps === 1 ? 'jump' : 'jumps'}`);
     L.nav.setText(fitText(`Nav: ${info.nav}`, MAX_CHARS));
-    L.secondary.setText(`Secondary: ${info.secondary}`);
+    L.secondary.setText(fitText(`Ammo: ${info.secondary}`, MAX_CHARS));
     L.target.setText(fitText(info.target ?? 'No target', MAX_CHARS));
-    L.targetDetail.setText(info.targetDetail ?? '');
+    L.targetDetail.setText(info.targetHull?.disabled ? `${info.targetDetail ?? ''} · Disabled` : (info.targetDetail ?? ''));
     L.cargo.setText(`Cargo free: ${info.cargoFree}`);
     L.credits.setText(info.credits);
     L.date.setText(info.date);
@@ -156,8 +168,8 @@ export class Sidebar {
 
     const x = this.x + PAD;
     const bars: [string, number, number][] = [
-      ['shields', info.shields > 0 ? 1 : 0, 0x4aa8ff],
-      ['armor', info.armor > 0 ? 1 : 0, 0xc9a24a],
+      ['shields', info.hull.shields, FX_COLORS.barShield],
+      ['armor', info.hull.armor, FX_COLORS.barArmor],
       ['fuel', info.fuelFrac, info.jumps >= 2 ? 0x9fe7a0 : info.jumps === 1 ? 0xffb347 : 0xff5a4f],
     ];
     const first = this.labels.shields.y;
@@ -168,6 +180,19 @@ export class Sidebar {
       g.fillStyle(color, 1);
       g.fillRect(x, by, Math.round((SIDEBAR_W - PAD * 2) * frac), BAR_H);
     });
+
+    // The target's hull: two thin bars under its detail line.
+    if (info.targetHull) {
+      const w = SIDEBAR_W - PAD * 2;
+      const ty = this.labels.targetDetail.y + 20;
+      ([[info.targetHull.shields, FX_COLORS.barShield], [info.targetHull.armor, FX_COLORS.barArmor]] as const).forEach(([frac, color], i) => {
+        const by = ty + i * (TARGET_BAR_H + 2);
+        g.fillStyle(FX_COLORS.barTrack, 1);
+        g.fillRect(x, by, w, TARGET_BAR_H);
+        g.fillStyle(color, 1);
+        g.fillRect(x, by, Math.round(w * frac), TARGET_BAR_H);
+      });
+    }
 
     // Radar.
     const cx = this.x + SIDEBAR_W / 2;

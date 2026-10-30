@@ -33,6 +33,18 @@ const GLYPHS: Record<OutfitDef['category'], string[]> = {
   map: ['M5 17l6-9 8 6', 'M5 17h0', 'M11 8h0', 'M19 14h0', 'M3 21h18'],
   // Funnel scoop gathering into a point.
   scoop: ['M3 5h18l-6 8v7l-6-3v-4z', 'M7 5l3 5', 'M17 5l-3 5'],
+  // Barrel with a muzzle flash.
+  gun: ['M3 10h12v4H3z', 'M15 12h3', 'M20 9l-2 3 2 3', 'M6 14v5h3v-5'],
+  // Round mount with a pivoting barrel.
+  turret: ['M12 12m-6 0a6 6 0 1 0 12 0a6 6 0 1 0-12 0', 'M12 12l8-8', 'M17 3l4 0 0 4', 'M12 18v3'],
+  // Tube rack with two ports.
+  launcher: ['M3 8h18v8H3z', 'M8 8v8', 'M16 8v8', 'M5 20h14'],
+  // Missile body with fins.
+  ammo: ['M6 18L16 8', 'M16 8l3-4 1 1-4 3', 'M6 18l-2-5 4 1z', 'M6 18l5 2-1-4z'],
+  // Straight beam from an emitter.
+  beam: ['M3 9h4v6H3z', 'M7 12h14', 'M17 9l4 3-4 3'],
+  // Capsule with a hatch window.
+  pod: ['M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z', 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0'],
 };
 
 /** Outline glyph for an outfit; `data-stroke` records the tier colour. */

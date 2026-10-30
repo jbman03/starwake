@@ -6,7 +6,7 @@ import { len } from './vec';
 
 const def: ShipDef = {
   id: 't', name: 't', turnRate: 180, acceleration: 150, maxSpeed: 300, fuelCapacity: 100, radius: 10, cargo: 20, passengers: 4,
-  price: 0, techTier: 1, shields: 0, armor: 0, outfitSpace: 0, role: 'starter', hull: 'pod', description: '',
+  price: 0, techTier: 1, shields: 0, armor: 0, outfitSpace: 0, role: 'starter', hull: 'pod', description: '', crew: 2,
 };
 const rest = (): ShipState => ({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, heading: 0, fuel: 100 });
 const run = (s: ShipState, input: Parameters<typeof stepShip>[2], secs: number, dt = 1 / 60) => {

@@ -253,6 +253,13 @@ export function advanceStory(
   return { world: w, messages, completed };
 }
 
+/** Send an active story mission back to its giver: its cargo is dropped, it is no longer active, and it is offered again from tomorrow. */
+export function returnToGiver(world: WorldState, data: GameData, id: string): WorldState {
+  if (!data.story[id] || !world.story.active.some((a) => a.id === id)) return world;
+  const w = dropCargo(world, id);
+  return declineStory({ ...w, story: { ...w.story, active: w.story.active.filter((x) => x.id !== id) } }, id);
+}
+
 /** Day-advance check. A late side mission fails (onFail, cargo lost); a late main mission goes back to the bar from tomorrow. */
 export function checkStoryDeadlines(world: WorldState, data: GameData): { world: WorldState; messages: string[] } {
   let w = world;
@@ -260,13 +267,13 @@ export function checkStoryDeadlines(world: WorldState, data: GameData): { world:
   for (const a of world.story.active) {
     const def = data.story[a.id];
     if (!def || a.deadlineDay === null || w.day <= a.deadlineDay) continue;
-    w = dropCargo(w, a.id);
-    const active = w.story.active.filter((x) => x.id !== a.id);
     if (def.arc === 'main' || def.onLate === 'retry') {
-      w = declineStory({ ...w, story: { ...w.story, active } }, a.id);
+      w = returnToGiver(w, data, a.id);
       messages.push(`${def.title}: the deadline passed and the cargo or passengers are lost. ${def.giver.name} will talk to you again.`);
       continue;
     }
+    w = dropCargo(w, a.id);
+    const active = w.story.active.filter((x) => x.id !== a.id);
     const failed = { ...w, story: { ...w.story, active, failed: [...w.story.failed, a.id] } };
     const r = applyOutcomes(failed, data, def.onFail ?? [], `story:${a.id}`, NO_NPC);
     w = r.world;

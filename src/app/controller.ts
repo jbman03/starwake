@@ -3,8 +3,14 @@ import type { Guide } from '../guide/guide';
 import { ACTION_GROUP, type ActionGroup, type ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
-import { pilotFromWorld, type PilotSave } from '../save/pilot';
+import { pilotFromWorld, worldFromPilot, type PilotSave } from '../save/pilot';
+import { hasPod, podRescue } from '../sim/death';
 import { saveSettings, type Settings } from '../save/settings';
+import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
+import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordKill } from '../sim/combatMissions';
+import { governmentShortName } from '../sim/standing';
+import { CombatControl, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
+import type { DemandTerms } from '../sim/raiders';
 import { contextAction, siteReachable, type ContextAction, type PendingHint } from '../sim/context';
 import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, hubName, rollEncounter } from '../sim/encounters';
 import { hashString, mulberry32 } from '../sim/random';
@@ -44,7 +50,7 @@ import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
-import { addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic } from '../sim/traffic';
+import { addBountyNpc, addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
 import type { FrameInput, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
@@ -70,7 +76,9 @@ export const LANDING_FX_SEC = 0.4;
 /** The encounter waiting in this system: a hail that lapses, or a site to fly to. */
 export type PendingEncounter =
   | { def: EncounterDef; npcName: string; kind: 'hail'; expiresSec: number }
-  | { def: EncounterDef; npcName: string; kind: 'site'; pos: Vec2 };
+  | { def: EncounterDef; npcName: string; kind: 'site'; pos: Vec2 }
+  /** A raider's demand: pay, dump cargo or refuse before `expiresSec` runs out. */
+  | { kind: 'demand'; npcId: string; npcName: string; terms: DemandTerms; expiresSec: number };
 
 /** A scan or find site placed in space for a story step. A find site is unseen until the ship is near. */
 export interface StorySite {
@@ -114,7 +122,15 @@ export type ControllerEvent =
   /** The flight HUD or rail asked to skip the First Flight guide (the UI confirms). */
   | { type: 'guideSkip' }
   /** Something happened that has a sound but no event of its own (arrival, landing and pay have theirs). */
-  | { type: 'sfx'; sfx: 'jump' | 'takeoff' | 'trade' | 'hail' | 'site' };
+  | { type: 'sfx'; sfx: 'jump' | 'takeoff' | 'trade' | 'hail' | 'site' }
+  /** This tick's fight events (shots, hits, kills), once per tick when there are any. */
+  | { type: 'battle'; events: BattleEvent[] }
+  /** The pilot asked to board `npcId` (a disabled ship in reach); flight is already paused. */
+  | { type: 'board'; npcId: string }
+  /** The player's ship was destroyed 2 s ago; flight is paused and the Destroyed card is asked for. */
+  | { type: 'destroyed' };
+
+export type { BoardingChoice, BoardingView };
 
 export type ControllerEventType = ControllerEvent['type'];
 type EventOf<T extends ControllerEventType> = Extract<ControllerEvent, { type: T }>;
@@ -140,9 +156,17 @@ export interface PilotMeta {
   name: string;
 }
 
+export const MSG_USED_BACKUP = 'Your last save was damaged; loaded the previous one.';
+/** Said once when the player's ship is disabled; `{callTow}` names the pause key, or CALL TOW on a phone. */
+export const MSG_DISABLED = 'Your ship is disabled. When no enemy is near, you can call a tow: {callTow}.';
+/** Said once when the disabled ship's wait is over and a tow can be called. */
+export const MSG_TOW_READY = 'No enemy near. You can call a tow now: {callTow}.';
+
 /** Where pilots are written. PilotStore satisfies this. */
 export interface SaveSink {
   save(p: PilotSave): Promise<void>;
+  /** Present on the real store; the no-pod Destroyed card reloads through it. */
+  load?(id: string): Promise<{ pilot: PilotSave; usedBackup: boolean }>;
 }
 
 type UiInput = { groups: readonly ActionGroup[]; handler: (pressed: Set<ActionId>) => void };
@@ -167,6 +191,8 @@ export class Controller {
 
   /** The NPC ships in this system (seeded on arrival, stepped while flying). */
   traffic: Traffic;
+  /** The fight in this system: the player's hull, shots in flight, the selected launcher. */
+  readonly combat: CombatControl;
   /** The hail or site waiting in this system, or null. */
   pending: PendingEncounter | null = null;
   /** The scan or find site of a story step in this system, or null. */
@@ -193,6 +219,8 @@ export class Controller {
   store: SaveSink | null = null;
   /** The First Flight guide for this session, set by the UI layer (src/ui/context.ts); null without a session. */
   guide: Guide | null = null;
+  /** Test-only (`?test&calm=1`, set by main.ts when the test hook is active): no raiders spawn. */
+  calm = false;
   /**
    * Jobs finished by the landing that opened the planet screen, until that screen shows them
    * (it mounts after `missionsCompleted` fires, so it collects them with takeCompletion()).
@@ -203,6 +231,9 @@ export class Controller {
    * hidden behind the planet screen by then, so that screen collects them with takeNotices().
    */
   private notices: string[] = [];
+  /** The disabled and tow-ready messages have been said for the current spell (see stepCombat). */
+  private saidDisabled = false;
+  private saidTowReady = false;
   /** Settles when the most recent autosave finishes (never rejects). */
   lastSave: Promise<void> = Promise.resolve();
 
@@ -213,7 +244,8 @@ export class Controller {
     world: WorldState = newWorld(data),
   ) {
     this.world = world;
-    this.traffic = seedTraffic(world, data, this.maxNpcs());
+    this.traffic = this.freshTraffic(world);
+    this.combat = new CombatControl(data, world);
     this.prevShip = world.ship;
     this.keyboard = new KeyboardSource(
       keyTarget,
@@ -267,7 +299,8 @@ export class Controller {
   /** Start playing `pilot`, landed at `planetId` (the planet screen comes next). */
   beginSession(world: WorldState, pilot: PilotMeta, planetId: string): void {
     this.world = world;
-    this.traffic = seedTraffic(world, this.data, this.maxNpcs());
+    this.traffic = this.freshTraffic(world);
+    this.combat.reset(world);
     this.pending = null;
     this.card = null;
     this.storySite = null;
@@ -323,6 +356,7 @@ export class Controller {
   leavePlanet(): void {
     if (!this.landedPlanetId) return;
     this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
+    this.combat.reset(this.world);
     this.prevShip = this.world.ship;
     this.refreshStory();
     this.fx = { kind: 'takeoff', t: 0 };
@@ -352,8 +386,95 @@ export class Controller {
     return { world: this.world, prevShip: this.prevShip, alpha: this.alpha, data: this.data, landingT, thrusting: this.thrusting };
   }
 
+  /** The fight as it stands, read-only, for drawing and the HUD: hull, shots in flight, this tick's beams, the launcher. */
+  battleView(): Readonly<Battle> {
+    return this.combat.battle;
+  }
+
   currentContext(): ContextAction {
-    return contextAction(this.world, this.data, this.pendingHint(), this.canFlyToSite());
+    const combat = {
+      board: this.combat.boardable(this.world, this.traffic) !== null,
+      disabledCalm: this.combat.disabledCalm(),
+      disabled: this.combat.playerDisabled(),
+    };
+    return contextAction(this.world, this.data, this.pendingHint(), this.canFlyToSite(), combat);
+  }
+
+  /** Ask to board the ship in reach (the boarding card listens for `board`); false when none is. */
+  board(): boolean {
+    const npc = this.combat.boardable(this.world, this.traffic);
+    if (!npc) return false;
+    this.combat.startBoarding(this.world, this.traffic);
+    this.pauseFlight();
+    this.emit({ type: 'board', npcId: npc.id });
+    return true;
+  }
+
+  /** The open boarding as the card shows it, or null. */
+  boardingView(): BoardingView | null {
+    return this.combat.boardingView(this.world, this.traffic);
+  }
+
+  /** Take a row, try the capture, take command or sell the prize; the outcome lines, or null if it can't be done. Leave closes the boarding. */
+  boardChoose(choice: BoardingChoice): string[] | null {
+    if (choice === 'leave') {
+      this.leaveBoarding();
+      return [];
+    }
+    const r = this.combat.boardChoose(this.world, this.traffic, choice);
+    if (!r) return null;
+    this.world = r.world;
+    this.traffic = r.traffic;
+    return r.messages;
+  }
+
+  /** Close the boarding card (the UI resumes flight). */
+  leaveBoarding(): void {
+    this.combat.leaveBoarding();
+    this.checkContext();
+  }
+
+  /** The Destroyed card's text: whether an escape pod got the pilot clear; null while the ship is whole. */
+  deathView(): { pod: boolean } | null {
+    return this.combat.battle.playerDestroyed ? { pod: hasPod(this.world) } : null;
+  }
+
+  /**
+   * After the Destroyed card. With a pod: wake at the rescue port in the starting ship and autosave there.
+   * Without: reload the last save of this pilot; with none (or an unreadable one) the session ends and the UI shows the main menu.
+   */
+  async continueAfterDeath(): Promise<void> {
+    if (!this.combat.battle.playerDestroyed) return;
+    this.pending = null;
+    this.card = null;
+    if (hasPod(this.world)) {
+      const r = podRescue(this.world, this.data);
+      this.world = r.world;
+      this.traffic = this.freshTraffic(this.world);
+      this.notices.push(...r.messages);
+      this.landAt(r.planetId);
+      this.emit({ type: 'landed', planetId: r.planetId });
+      return;
+    }
+    const id = this.pilot?.id;
+    try {
+      if (!id || !this.store?.load) throw new Error('no save');
+      const { pilot, usedBackup } = await this.store.load(id);
+      this.beginSession(worldFromPilot(pilot, this.data), { id: pilot.id, name: pilot.name }, pilot.planetId);
+      if (usedBackup) this.notices.push(MSG_USED_BACKUP);
+      this.emit({ type: 'landed', planetId: pilot.planetId });
+    } catch (err) {
+      console.warn(err);
+      this.endSession();
+    }
+  }
+
+  /** Target the nearest hostile ship, dropping any planet or site target; false (no change) when there is none. */
+  targetNearestHostile(): boolean {
+    const id = nearestHostile(this.world, this.traffic, this.combat.battle);
+    if (!id) return false;
+    this.targetShip(id);
+    return true;
   }
 
   /**
@@ -369,7 +490,8 @@ export class Controller {
     } else if (action === 'answerHail' || action === 'openSite') this.openEncounter();
     else if (action === 'flyToSite') this.flyToStorySite();
     else if (action === 'takeControl') this.world = interruptAutopilot(this.world);
-    else if (action === 'tow') this.callTow();
+    else if (action === 'board') this.board();
+    else if (action === 'tow' || action === 'callTow') this.callTow();
     else if (action === 'land') this.queued.add('land');
     else if (action === 'autopilotOut') this.world = autopilotToJumpPoint(this.world);
     else if (action === 'jump') this.queued.add('jump');
@@ -397,13 +519,19 @@ export class Controller {
   /** Planet a tow would take us to right now, or null when no tow is offered. */
   towDestination(): string | null {
     if (this.landedPlanetId || this.fx?.kind === 'land' || this.world.jump) return null;
-    return towDestination(this.world, this.data);
+    // A disabled ship waits until no hostile is near; then the nearest port sends a tow, fuel or not.
+    if (this.combat.playerDisabled() && !this.combat.disabledCalm()) return null;
+    return towDestination(this.world, this.data, this.towOpts());
+  }
+
+  private towOpts(): { disabled: boolean } {
+    return { disabled: this.combat.disabledCalm() };
   }
 
   /** Call for a tow (works while paused). Lands at the destination; false if none is offered. */
   callTow(): boolean {
     if (!this.towDestination()) return false;
-    const r = applyTow(this.world, this.data);
+    const r = applyTow(this.world, this.data, this.towOpts());
     this.world = r.world;
     this.prevShip = r.world.ship;
     this.handleEvents(r.events);
@@ -575,6 +703,27 @@ export class Controller {
     }
   }
 
+  /** A new system's traffic, with the target of each active bounty there waiting 700-1,200 px from the ship. */
+  private freshTraffic(world: WorldState): Traffic {
+    let t = seedTraffic(world, this.data, this.trafficOpts());
+    for (const m of bountyToSpawn(world, world.systemId)) {
+      const id = bountyNpcId(m);
+      if (t.npcs.some((n) => n.id === id)) continue;
+      t = addBountyNpc(t, { id, name: m.combat!.targetName ?? 'Wanted ship', shipId: m.combat!.shipId!, missionId: m.id, pos: bountySpawnPos(world, this.data, m, world.ship.pos) }, this.data);
+    }
+    return t;
+  }
+
+  private trafficOpts(): TrafficOpts {
+    return {
+      maxNpcs: this.maxNpcs(),
+      guideActive: (this.guide?.current() ?? null) !== null,
+      startSystem: this.data.config.startSystemId,
+      clearBoost: clearBoostSystem(this.world),
+      noRaiders: this.calm,
+    };
+  }
+
   private maxNpcs(): number {
     return this.settings.quality === 'low' ? 4 : 8;
   }
@@ -634,7 +783,8 @@ export class Controller {
       }
       const pressed = new Set([...polled.pressed, ...this.queued]);
       this.queued.clear();
-      if (pressed.delete('interact') && this.openEncounter()) return;
+      // A disabled ship can't answer a hail or open a site (the context button offers nothing either).
+      if (pressed.delete('interact') && !this.combat.playerDisabled() && this.openEncounter()) return;
       if (pressed.delete('nextTarget')) {
         // Tab walks sites, then ships, then planets (the sim's own planet-only cycle is not used from here).
         const pick = cycleTarget(this.world, this.data, this.traffic, this.targetSites(), this.targetedSite()?.id ?? null);
@@ -642,6 +792,8 @@ export class Controller {
         this.world = { ...this.world, targetPlanetId: pick.planetId };
         this.targetSiteId = pick.siteId;
       }
+      if (pressed.delete('nearestHostile')) this.targetNearestHostile();
+      if (pressed.delete('board')) this.board();
       // The autopilot key flies to a targeted site (the sim's own autopilot only knows planets and the jump point).
       if (pressed.has('autopilot') && this.world.assist.kind !== 'autopilot') {
         const site = this.targetedSite();
@@ -650,10 +802,14 @@ export class Controller {
           this.world = autopilotToSite(this.world, site);
         }
       }
-      const input: FrameInput = touch.stick && !locked
+      const raw: FrameInput = touch.stick && !locked
         ? { actions: polled.actions, pressed, stick: touch.stick }
         : { actions: polled.actions, pressed };
       this.prevShip = this.world.ship;
+      // A disabled ship can't steer, fire, land or jump: it drifts.
+      const f = this.combat.flightInput(this.world, raw, dt);
+      const input = f.input;
+      this.world = f.world;
       const wasJumping = this.world.jump !== null;
       const r = stepWorld(this.world, this.data, input, dt, {
         autoLandOnArrival: this.settings.autoLandOnArrival,
@@ -666,6 +822,7 @@ export class Controller {
         if (this.fx.t >= LANDING_FX_SEC - 1e-9) this.fx = null;
       }
       this.handleEvents(r.events);
+      this.stepCombat(input, dt);
       this.stepTraffic(dt);
       this.lapseHail(dt);
       this.syncSiteTarget();
@@ -673,15 +830,91 @@ export class Controller {
     this.checkContext();
   }
 
+  /**
+   * One fight tick after the world step. None while landing, once a tow or landing paused flight, or in
+   * hyperspace: the arrival resets the battle, so a hit taken mid-jump would be undone (and the calm wait would run).
+   */
+  private stepCombat(input: FrameInput, dt: number): void {
+    if (!this.flying || this.fx?.kind === 'land' || this.world.jump || this.traffic.systemId !== this.world.systemId) return;
+    const before = this.traffic;
+    const r = this.combat.tick(this.world, this.traffic, input, dt);
+    this.world = this.creditKills(r.world, before, r.events);
+    this.traffic = r.traffic;
+    this.checkDemands();
+    if (r.lost) {
+      this.pauseFlight();
+      this.emit({ type: 'destroyed' });
+    }
+    const said = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
+    // Disabled, then calm: say so once each, with how to call the tow.
+    const disabled = this.combat.playerDisabled() && !this.combat.battle.playerDestroyed;
+    const calm = this.combat.disabledCalm();
+    if (disabled && !this.saidDisabled) said.push(MSG_DISABLED);
+    if (calm && !this.saidTowReady) said.push(MSG_TOW_READY);
+    this.saidDisabled = disabled;
+    this.saidTowReady = calm;
+    if (r.events.length > 0) this.emit({ type: 'battle', events: r.events });
+    if (said.length > 0) this.emit({ type: 'message', text: said.join(' ') });
+  }
+
+  /** The ship is disabled and an enemy is still near, so no tow can be called yet. */
+  towWaiting(): boolean {
+    return this.combat.playerDisabled() && !this.combat.battle.playerDestroyed && !this.combat.disabledCalm();
+  }
+
+  /** Count the player's kills this tick toward combat jobs, once per ship: only those `before` this tick had not already been credited. */
+  private creditKills(world: WorldState, before: Traffic, events: BattleEvent[]): WorldState {
+    let w = world;
+    const seen = new Set<string>();
+    for (const e of events) {
+      if ((e.type !== 'disabled' && e.type !== 'destroyed') || !e.byPlayer || seen.has(e.id)) continue;
+      const npc = before.npcs.find((n) => n.id === e.id);
+      if (!npc || npc.killCounted) continue;
+      seen.add(e.id);
+      w = recordKill(w, before.systemId, npc);
+    }
+    return w;
+  }
+
+  /** A raider that arrived wanting a payment hails; it attacks instead when anything else is pending. */
+  private checkDemands(): void {
+    const busy = this.pending !== null || this.card !== null || this.hailName() !== null;
+    const d = this.combat.checkDemands(this.world, this.traffic, busy);
+    this.traffic = d.traffic;
+    if (!d.offer) return;
+    this.pending = { kind: 'demand', ...d.offer, expiresSec: this.data.combat.demand.lapseSec };
+    this.emit({ type: 'sfx', sfx: 'hail' });
+    this.checkContext();
+  }
+
+  /** The open demand as the combat module knows it, or null. */
+  private demandOffer(): DemandOffer | null {
+    const p = this.pending;
+    return p?.kind === 'demand' ? { npcId: p.npcId, npcName: p.npcName, terms: p.terms } : null;
+  }
+
+  /** Answer the open demand; null if it can't be done (the choice shows why). */
+  private answerDemand(answer: 'pay' | 'dump' | 'refuse'): string[] | null {
+    const offer = this.demandOffer();
+    if (!offer) return null;
+    const r = this.combat.resolveDemand(this.world, this.traffic, offer, answer);
+    if (!r) return null;
+    this.world = r.world;
+    this.traffic = r.traffic;
+    this.pending = null;
+    this.checkContext();
+    return r.messages;
+  }
+
   /** Advance the NPCs one tick; reseed on a new system and drop a target that is no longer there. */
   private stepTraffic(dt: number): void {
     if (this.traffic.systemId !== this.world.systemId) {
-      this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+      this.traffic = this.freshTraffic(this.world);
       this.refreshStory();
       return;
     }
     if (this.world.jump) return;
-    let t = stepTraffic(this.traffic, this.world, this.data, dt, this.maxNpcs()).traffic;
+    let t = stepTraffic(this.traffic, this.world, this.data, dt, this.trafficOpts()).traffic;
     // A ship target that landed or left, or a planet the sim just targeted (landing autopilot), ends it.
     const alive = targetedNpc(t) !== undefined;
     if (!alive || this.world.targetPlanetId !== null) t = { ...t, targetId: null };
@@ -776,7 +1009,7 @@ export class Controller {
 
   /** The name on the incoming hail (an encounter's or a story meet's), or null with no hail. */
   hailName(forButton = false): string | null {
-    if (this.pending?.kind === 'hail') return this.pending.npcName;
+    if (this.pending?.kind === 'hail' || this.pending?.kind === 'demand') return this.pending.npcName;
     if (this.storyHail && !(forButton && this.storyHail === this.storyHailQuiet)) return this.data.story[this.storyHail]?.giver.name ?? null;
     const step = this.storyMeet ? currentStep(this.world, this.data, this.storyMeet.missionId) : null;
     return step?.kind === 'meet' ? step.ship.name : null;
@@ -836,13 +1069,13 @@ export class Controller {
     if (this.storyHail !== this.storyHailQuiet) this.storyHailQuiet = null;
     if (this.traffic.systemId !== sys) return; // the reseed that follows calls this again
     // Story ships left over from a finished step go; the current one stays where it is.
-    const stale = (n: { id: string; hold?: Vec2 }) => n.hold !== undefined && n.id !== meet?.npcId;
+    const stale = (n: { id: string; hold?: Vec2; missionId?: string }) => n.hold !== undefined && n.missionId === undefined && n.id !== meet?.npcId; // a bounty target holds too
     let t = this.traffic;
     if (t.npcs.some(stale)) {
       const target = t.npcs.find((n) => n.id === t.targetId);
       t = { ...t, npcs: t.npcs.filter((n) => !stale(n)), targetId: target && stale(target) ? null : t.targetId };
     }
-    if (spec && !t.npcs.some((n) => n.id === spec.id)) t = addStoryNpc(t, spec);
+    if (spec && !t.npcs.some((n) => n.id === spec.id)) t = addStoryNpc(t, spec, this.data);
     this.traffic = t;
   }
 
@@ -857,9 +1090,18 @@ export class Controller {
 
   private lapseHail(dt: number): void {
     const p = this.pending;
-    if (p?.kind !== 'hail') return;
+    if (p?.kind !== 'hail' && p?.kind !== 'demand') return;
     const left = p.expiresSec - dt;
-    this.pending = left <= 1e-9 ? null : { ...p, expiresSec: left };
+    // A demand ends early when its raider is gone, disabled, or no longer waiting (it was shot, and fights).
+    const gone = p.kind === 'demand' && !this.traffic.npcs.some((n) => n.id === p.npcId && !n.hull.disabled && n.phase !== 'gone' && n.demand);
+    if (left > 1e-9 && !gone) {
+      this.pending = { ...p, expiresSec: left };
+    } else if (p.kind === 'demand') {
+      const msgs = this.answerDemand('refuse'); // unanswered: it attacks (or its hail goes quiet)
+      if (msgs) this.emit({ type: 'message', text: msgs.join(' ') });
+    } else {
+      this.pending = null;
+    }
   }
 
   /** Test aid: make `id` the pending encounter (a hail now, or a site 200 px ahead). */
@@ -872,7 +1114,7 @@ export class Controller {
       def.kind === 'hail'
         ? { def, npcName, kind: 'hail', expiresSec: HAIL_SECONDS }
         : { def, npcName, kind: 'site', pos: { x: pos.x + Math.cos(heading) * 200, y: pos.y + Math.sin(heading) * 200 } };
-    this.emit({ type: 'sfx', sfx: this.pending.kind });
+    this.emit({ type: 'sfx', sfx: this.pending.kind === 'site' ? 'site' : 'hail' });
     this.checkContext();
   }
 
@@ -891,7 +1133,7 @@ export class Controller {
       this.checkContext();
       return true;
     }
-    if (p?.kind === 'hail') return this.openCard('encounter');
+    if (p?.kind === 'hail' || p?.kind === 'demand') return this.openCard('encounter');
     if (this.storyHail) {
       const id = this.storyHail;
       const def = this.data.story[id];
@@ -938,6 +1180,10 @@ export class Controller {
       this.checkContext();
       return;
     }
+    if (this.pending?.kind === 'demand') {
+      this.answerDemand('refuse'); // Not now is Refuse
+      return;
+    }
     if (this.pending?.kind === 'hail') {
       this.pending = null;
       this.checkContext();
@@ -970,6 +1216,7 @@ export class Controller {
     }
     const p = this.pending;
     if (!p) return null;
+    if (p.kind === 'demand') return this.demandView(p);
     const ctx = this.cardContext(p.npcName);
     return {
       kind: p.kind,
@@ -979,6 +1226,23 @@ export class Controller {
         const block = choiceBlock(this.world, this.data, c, p.def.id);
         return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null };
       }),
+    };
+  }
+
+  private demandView(p: Extract<PendingEncounter, { kind: 'demand' }>): EncounterView {
+    const { credits, cargo } = p.terms;
+    const good = cargo ? (this.data.commodities[cargo.good]?.name ?? cargo.good) : '';
+    const spans = cargo ? Object.keys(cargo.take).length > 1 : false;
+    const tons = cargo?.tons ?? this.data.combat.demand.cargoTons;
+    return {
+      kind: 'hail',
+      title: `${p.npcName} demands a toll`,
+      text: `${p.npcName}, a raider, has you in its sights. "Pay ${credits} cr or dump ${tons} t of cargo, or we attack."`,
+      choices: [
+        { label: `Pay ${credits} cr`, blocked: this.world.credits >= credits ? null : 'Not enough credits' },
+        { label: cargo ? `Dump ${cargo.tons} t of ${spans ? `${good} and more` : good}` : `Dump ${tons} t of cargo`, blocked: cargo ? null : 'Hold is empty' },
+        { label: 'Refuse', blocked: null },
+      ],
     };
   }
 
@@ -1007,6 +1271,10 @@ export class Controller {
     }
     if (this.card === 'story') return this.chooseStory(idx);
     const p = this.pending;
+    if (p?.kind === 'demand') {
+      const msgs = idx === 0 ? this.answerDemand('pay') : idx === 1 ? this.answerDemand('dump') : idx === 2 ? this.answerDemand('refuse') : null;
+      return msgs ? { messages: msgs } : null;
+    }
     const choice = p?.def.choices[idx];
     if (!p || !choice || choiceBlock(this.world, this.data, choice, p.def.id)) return null;
     const r = applyChoice(this.world, this.data, p.def, idx, { npcName: p.npcName });
@@ -1078,7 +1346,7 @@ export class Controller {
       if (e.type === 'towed') {
         this.pending = null;
         this.card = null;
-        this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+        this.traffic = this.freshTraffic(this.world);
         this.landAt(e.planetId);
       } else if (e.type === 'jumped') {
         this.pending = null;
@@ -1089,14 +1357,15 @@ export class Controller {
         this.storyHail = null;
         this.storyHailQuiet = null;
         this.prevShip = this.world.ship; // no interpolation across systems
-        this.traffic = seedTraffic(this.world, this.data, this.maxNpcs());
+        this.traffic = this.freshTraffic(this.world);
       }
       if (e.type === 'arrived') {
+        this.combat.reset(this.world, { keepHull: true }); // shots in flight stay behind in the old system; the damage comes along
         this.refreshStory();
         this.pending = this.rollPending();
         if (this.pending) this.world = { ...this.world, lastEncounterDay: this.world.day };
         this.emit(e);
-        if (this.pending) this.emit({ type: 'sfx', sfx: this.pending.kind });
+        if (this.pending) this.emit({ type: 'sfx', sfx: this.pending.kind === 'site' ? 'site' : 'hail' });
         continue;
       }
       this.emit(e);
@@ -1111,6 +1380,7 @@ export class Controller {
   }
 
   private landAt(planetId: string, autosave = true): void {
+    this.combat.reset(this.world); // landing repairs the ship; no fight carries over
     this.fx = null;
     this.thrusting = false;
     this.pauseFlight();

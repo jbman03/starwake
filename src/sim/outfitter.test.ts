@@ -9,7 +9,7 @@ import { newWorld, stepWorld } from './world';
 
 const data = testData();
 const PORT = 'halcyon'; // Calder, tier 3, outfitter
-const base = (over: Partial<WorldState> = {}): WorldState => ({ ...newWorld(data, 1), ...over });
+const base = (over: Partial<WorldState> = {}): WorldState => ({ ...newWorld(data, 1), outfits: {}, ...over });
 
 describe('outfitBuyCheck / buyOutfit', () => {
   it('buys a cargo pod for 2000', () => {
@@ -178,5 +178,31 @@ describe('story outfits (House Rack, Cold Hold, Keeper\'s Lens)', () => {
     const dimming = Object.values(data.systems).filter((s) => s.government === 'unlit').map((s) => s.id);
     expect(dimming).toHaveLength(9);
     for (const id of dimming) expect(r.known).toContain(id);
+  });
+});
+
+describe('combat outfits', () => {
+  it('ammo needs a launcher; ammo always sells', () => {
+    const rich = { credits: 100000 };
+    expect(outfitBuyCheck(base(rich), data, PORT, 'rocket')).toEqual({ ok: false, reason: 'noLauncher' });
+    expect(OUTFIT_BLOCK_TEXT.noLauncher).toBe('Needs a launcher');
+    const withRack = base({ ...rich, outfits: { 'rocket-rack': 1 } });
+    expect(outfitBuyCheck(withRack, data, PORT, 'rocket')).toEqual({ ok: true });
+    const full = base({ ...rich, outfits: { 'rocket-rack': 1, rocket: 20 } });
+    expect(outfitBuyCheck(full, data, PORT, 'rocket')).toEqual({ ok: false, reason: 'max' });
+    // Sell the launcher with ammo aboard: allowed, and the ammo still sells.
+    const sold = sellOutfit(full, data, 'rocket-rack');
+    expect(sold.check.ok).toBe(true);
+    expect(sold.world.outfits['rocket-rack']).toBeUndefined();
+    expect(sold.world.outfits.rocket).toBe(20);
+    expect(outfitSellCheck(sold.world, data, 'rocket').ok).toBe(true);
+    expect(sellOutfit(sold.world, data, 'rocket').world.outfits.rocket).toBe(19);
+  });
+
+  it('escape pod max 1', () => {
+    const w = base({ credits: 100000 });
+    const once = buyOutfit(w, data, PORT, 'escape-pod');
+    expect(once.check).toEqual({ ok: true });
+    expect(outfitBuyCheck(once.world, data, PORT, 'escape-pod')).toEqual({ ok: false, reason: 'max' });
   });
 });

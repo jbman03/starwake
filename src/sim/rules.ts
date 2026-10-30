@@ -92,12 +92,18 @@ export function refuelQuote(fuel: number, fuelCapacity: number, planet: PlanetDe
 /**
  * Where a stranded ship gets towed: null unless fuel < fuelPerJump and the current system has no
  * port (every port sells fuel). BFS over links; in the first system with a port, the planet nearest its center.
+ * A disabled ship (`opts.disabled`) is towed whatever its fuel: to the port nearest the ship in this
+ * system, else by the same search.
  */
-export function towDestination(world: WorldState, data: GameData): string | null {
-  if (world.ship.fuel >= data.config.fuelPerJump) return null;
+export function towDestination(world: WorldState, data: GameData, opts: { disabled?: boolean } = {}): string | null {
+  if (!opts.disabled && world.ship.fuel >= data.config.fuelPerJump) return null;
   const planets = Object.values(data.planets);
   const fuelIn = (sysId: string) => planets.filter((p) => p.systemId === sysId);
-  if (fuelIn(world.systemId).length > 0) return null;
+  const here = fuelIn(world.systemId);
+  if (here.length > 0) {
+    if (!opts.disabled) return null;
+    return here.sort((a, b) => dist(a.pos, world.ship.pos) - dist(b.pos, world.ship.pos))[0].id;
+  }
 
   const seen = new Set<string>([world.systemId]);
   const queue = lanesOf(data, world.systemId, world.flags);

@@ -11,5 +11,6 @@
   "knownAtStart": ["calder", "tessaly", "aurelle", "minster", "corvana", "quillon", "hollis"],
   "startYear": 3207,
   "startMonth": 3,
-  "startDay": 1
+  "startDay": 1,
+  "startOutfits": {"light-blaster": 1}
 }

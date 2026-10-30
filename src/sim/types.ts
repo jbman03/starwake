@@ -48,6 +48,8 @@ export interface Mission {
   title: string;
   description: string;
   cargoName: string;
+  /** Combat jobs only: kill a named ship, or clear `needed` hostiles from a system. */
+  combat?: { kind: 'bounty' | 'clear'; systemId: string; shipId?: string; targetName?: string; needed: number; done: number };
 }
 
 export interface WorldState {
@@ -85,7 +87,7 @@ export interface WorldState {
   notes: { day: number; text: string }[];
   /** The player's name for the ship. */
   shipName: string;
-  stats: { jobsDone: number };
+  stats: { jobsDone: number; kills: number; captures: number };
   /** Day of the last random encounter, or null if none yet. */
   lastEncounterDay: number | null;
   /** Story missions (data/story.json): the ones under way, finished, failed and put off. */

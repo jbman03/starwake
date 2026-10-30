@@ -11,9 +11,11 @@ export const DEFAULT_BINDINGS: Bindings = {
   autoStop: ['KeyX', null],
   firePrimary: ['Space', null],
   fireSecondary: ['ShiftLeft', 'ShiftRight'],
+  cycleSecondary: ['KeyQ', null],
   nextTarget: ['Tab', null],
   nearestHostile: ['KeyR', null],
   faceTarget: ['KeyF', null],
+  board: ['KeyB', null],
   land: ['KeyL', null],
   jump: ['KeyJ', null],
   autopilot: ['KeyG', null],
@@ -42,6 +44,8 @@ export const DEFAULT_BINDINGS: Bindings = {
   encounterChoice1: ['Digit1', null],
   encounterChoice2: ['Digit2', null],
   encounterChoice3: ['Digit3', null],
+  encounterChoice4: ['Digit4', null],
+  encounterChoice5: ['Digit5', null],
   toggleSound: ['KeyV', null],
 };
 

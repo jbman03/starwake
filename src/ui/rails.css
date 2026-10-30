@@ -74,7 +74,8 @@ html, body, #ui { touch-action: manipulation; }
 .sw-rail-pause { width: 44px; height: 44px; border-radius: 6px; font-size: 13px; }
 .sw-rail-bar { display: flex; align-items: center; gap: 4px; color: var(--sw-dim); font-size: 10px; }
 .sw-rail-bar span { width: 40px; flex: none; }
-.sw-rail-bar i { flex: 1; height: 6px; }
+.sw-rail-bar i { flex: 1; height: 6px; background: #1a2433; }
+.sw-rail-bar b { display: block; width: 100%; height: 100%; }
 .sw-bar-shield { background: #4aa8ff; }
 .sw-bar-armor { background: #c9a24a; }
 .sw-rail-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -189,3 +190,23 @@ html, body, #ui { touch-action: manipulation; }
 }
 .sw-rail-row { flex: none; display: flex; align-items: center; justify-content: center; gap: 4px; }
 .sw-rail-skip { border-radius: 6px; font-size: 10px; line-height: 1.1; letter-spacing: 0; white-space: normal; text-align: center; color: #b8c4d2; }
+
+/* The weapon label under MSL ("Seeker 6"): tap it for the next launcher. */
+.sw-rail-secondary {
+  flex: none;
+  box-sizing: border-box;
+  padding: 0 4px;
+  border: 1px solid #2c3b50;
+  border-radius: 6px;
+  background: rgba(14, 22, 34, 0.9);
+  color: #ffd9a0;
+  font: 600 10px/1 var(--sw-font);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: var(--sw-touch-opacity, 0.85);
+  touch-action: none;
+  cursor: pointer;
+}
+.sw-rail-secondary:active { background: #2d4566; }

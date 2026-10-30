@@ -23,10 +23,11 @@ export async function clearPilots(page: Page): Promise<void> {
 
 /**
  * Main menu → New Pilot → name → planet screen at the start planet. The First Flight guide offer
- * that follows is answered Skip unless `guide` is true (then Start guide).
+ * that follows is answered Skip unless `guide` is true (then Start guide). `calm` loads `?test&calm=1`: no raiders
+ * spawn, so a story test at a fringe system is not hijacked by a random demand hail or attack.
  */
-export async function newPilot(page: Page, name = 'Test Pilot', guide = false): Promise<void> {
-  await page.goto('/?test');
+export async function newPilot(page: Page, name = 'Test Pilot', guide = false, calm = false): Promise<void> {
+  await page.goto(calm ? '/?test&calm=1' : '/?test');
   await clearPilots(page);
   await page.reload();
   await page.getByRole('button', { name: 'New Pilot' }).click();

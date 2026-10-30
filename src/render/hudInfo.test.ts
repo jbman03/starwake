@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import type { WorldState } from '../sim/types';
 import { newWorld } from '../sim/world';
-import { hudInfo, objectiveText, routeBannerText, siteTargetText } from './hudInfo';
+import { newBattle } from '../sim/battle';
+import { hudInfo, objectiveText, routeBannerText, secondaryShort, siteTargetText } from './hudInfo';
 
 const data = testData();
 const withFuel = (w: WorldState, fuel: number): WorldState => ({ ...w, ship: { ...w.ship, fuel } });
@@ -98,5 +99,23 @@ describe('routeBannerText: site', () => {
   it('names the site', () => {
     const w: WorldState = { ...newWorld(data), assist: { kind: 'autopilot', dest: { type: 'site', pos: { x: 1, y: 2 }, label: 'Dead lantern' }, autoLand: false } };
     expect(routeBannerText(w, data)).toBe('Autopilot → Dead lantern');
+  });
+});
+
+describe('hudInfo: hull', () => {
+  it('hudInfo hull fractions', () => {
+    const w = newWorld(data);
+    const b = newBattle(w, data);
+    expect(hudInfo(w, data, null, null, b).hull).toEqual({ shields: 1, armor: 1 });
+    const hit = { ...b, player: { ...b.player, shields: 0, armor: b.player.maxArmor * 0.3 } };
+    const h = hudInfo(w, data, null, null, hit).hull;
+    expect(h.shields).toBe(0);
+    expect(h.armor).toBeCloseTo(0.3, 6);
+  });
+
+  it('names the selected launcher short with its ammo, or a dash with none', () => {
+    const w: WorldState = { ...newWorld(data), outfits: { ...newWorld(data).outfits, 'seeker-launcher': 1, seeker: 6 } };
+    expect(secondaryShort(w, data, newBattle(w, data).secondary)).toBe('Seeker 6');
+    expect(secondaryShort(newWorld(data), data, null)).toBe('—');
   });
 });

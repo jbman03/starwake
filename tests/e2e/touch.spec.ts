@@ -97,6 +97,37 @@ test.describe('phone (touch, landscape)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('a ship over a planet: a mouse click targets the ship, a touch tap still lands', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Overlap');
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await waitForFlight(page);
+    await page.touchscreen.tap(422, 30);
+    await expect(page.getByTestId('touch-rails')).toBeVisible();
+    // Park a trader on Halcyon's centre and hold it there, the way an arriving trader overshoots it.
+    const id = await page.evaluate(() => {
+      const c = window.__starwake!.controller;
+      const hp = c.data.planets.halcyon.pos;
+      const n = c.traffic.npcs.find((m) => m.phase === 'fly' && m.role === 'trader')!;
+      c.traffic = {
+        ...c.traffic,
+        npcs: c.traffic.npcs.map((m) => (m.id === n.id ? { ...m, hold: { ...hp }, ship: { ...m.ship, pos: { ...hp }, vel: { x: 0, y: 0 } } } : m)),
+      };
+      return n.id;
+    });
+    await expect.poll(() => page.evaluate((i) => window.__starwake!.traffic!().find((n) => n.id === i)?.screen ?? null, id)).not.toBeNull();
+    const pos = (await page.evaluate(() => window.__starwake!.planetScreenPos!('halcyon')))!;
+
+    await page.mouse.click(pos.x, pos.y);
+    await expect.poll(() => page.evaluate(() => window.__starwake!.controller.traffic.targetId)).toBe(id);
+    expect(await page.evaluate(() => window.__starwake!.controller.isFlying)).toBe(true);
+
+    await page.touchscreen.tap(pos.x, pos.y);
+    await expect(page.getByTestId('planet-screen')).toBeVisible();
+    await expect(page.getByTestId('planet-screen')).toContainText('Halcyon');
+    expect(errors).toEqual([]);
+  });
+
   test('too close to jump: the context button autopilots out and the route banner shows', async ({ page }) => {
     const errors = trackErrors(page);
     await newPilot(page, 'Out');

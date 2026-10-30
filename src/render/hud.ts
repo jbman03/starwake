@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import type { GameData } from '../data/schemas';
+import type { Battle } from '../sim/battle';
 import type { Traffic } from '../sim/traffic';
 import type { SiteTarget, WorldState } from '../sim/types';
+import { FX_COLORS } from './combatFx';
 import { hudInfo, routeBannerText } from './hudInfo';
 
 const MESSAGE_SECONDS = 3;
@@ -36,6 +38,8 @@ export class Hud {
   /** "Course: Vesk (2 jumps)" under the target line while a course is plotted. */
   private course: Phaser.GameObjects.Text;
   private panelH = 0;
+  /** The hull the panel's bars last showed ("shields|armor"), so they are redrawn only on a change. */
+  private panelHull = '';
   private message: Phaser.GameObjects.Text;
   /** Autopilot route banner, top-center (keyboard mode; the rails draw it in touch mode). */
   private banner: Phaser.GameObjects.Text;
@@ -145,19 +149,23 @@ export class Hud {
   }
 
 
-  private drawPanel(height: number): void {
-    if (height === this.panelH) return;
+  private drawPanel(height: number, hull: { shields: number; armor: number } = { shields: 1, armor: 1 }): void {
+    const key = `${hull.shields.toFixed(3)}|${hull.armor.toFixed(3)}`;
+    if (height === this.panelH && key === this.panelHull) return;
     this.panelH = height;
+    this.panelHull = key;
     const g = this.panel;
     g.clear();
     g.fillStyle(0x0b1018, 0.72);
     g.fillRoundedRect(10, 10, PANEL_W, height, 6);
     g.lineStyle(1, 0x3a4a5e, 0.9);
     g.strokeRoundedRect(10, 10, PANEL_W, height, 6);
-    // Shields and armor: static full bars until combat exists.
-    for (const [y, color] of [[46, 0x4aa8ff], [62, 0xc9a24a]] as const) {
-      g.fillStyle(color, 1);
+    // Shields and armor: the hull's fractions over a dark track.
+    for (const [y, color, frac] of [[46, FX_COLORS.barShield, hull.shields], [62, FX_COLORS.barArmor, hull.armor]] as const) {
+      g.fillStyle(FX_COLORS.barTrack, 1);
       g.fillRect(84, y, PANEL_W - 84, 8);
+      g.fillStyle(color, 1);
+      g.fillRect(84, y, Math.round((PANEL_W - 84) * frac), 8);
     }
   }
 
@@ -226,16 +234,26 @@ export class Hud {
     this.messageAge = 0;
   }
 
-  update(world: WorldState, data: GameData, dtSec: number, guide: HudGuide | null = null, traffic: Traffic | null = null, hail: string | null = null, objective: string | null = null, site: SiteTarget | null = null): void {
+  update(
+    world: WorldState,
+    data: GameData,
+    dtSec: number,
+    guide: HudGuide | null = null,
+    traffic: Traffic | null = null,
+    hail: string | null = null,
+    objective: string | null = null,
+    site: SiteTarget | null = null,
+    battle: Battle | null = null,
+  ): void {
     if (!this.touchMode && !this.sidebar) {
-      const info = hudInfo(world, data, traffic, site);
+      const info = hudInfo(world, data, traffic, site, battle);
       this.system.setText(info.system);
       this.fuel.setText(info.fuel).setColor(info.fuelColor);
       this.credits.setText(info.credits);
       this.cargo.setText(info.cargo);
       this.target.setText(info.target);
       this.course.setText(info.nextHop ?? '').setVisible(info.nextHop !== null);
-      this.drawPanel(info.nextHop === null ? PANEL_H : PANEL_H + COURSE_H);
+      this.drawPanel(info.nextHop === null ? PANEL_H : PANEL_H + COURSE_H, info.hull);
     }
     this.drawGuide(this.touchMode ? null : guide);
     const hailText = this.touchMode ? null : hail;

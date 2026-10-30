@@ -15,7 +15,7 @@ import { pageSize, showShop, type ShopItem } from './shop';
 async function setup(portId: string, credits = 50000) {
   const data = await loadGameData();
   const c = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget());
-  const w = newWorld(data);
+  const w = { ...newWorld(data), outfits: {} };
   c.beginSession({ ...w, credits }, { id: 'p', name: 'P' }, portId);
   const root = document.createElement('div');
   document.body.replaceChildren(root);

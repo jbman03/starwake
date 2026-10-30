@@ -37,7 +37,7 @@ const mkWorld = (p: Partial<WorldState> = {}, ship: Partial<WorldState['ship']> 
   flags: [],
   notes: [],
   shipName: 'Shuttle',
-  stats: { jobsDone: 0 },
+  stats: { jobsDone: 0, kills: 0, captures: 0 },
   lastEncounterDay: null,
   story: { active: [], done: [], failed: [], declined: [] },
   standing: {},
@@ -111,6 +111,18 @@ describe('towDestination', () => {
   });
   it('null with enough fuel to jump, even with no port', () => {
     expect(towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 100 }), noVesk)).toBeNull();
+  });
+  it('disabled: the port nearest the ship in this system, whatever the fuel', () => {
+    const near = (x: number, y: number, fuel = 300) => mkWorld({ systemId: 'calder' }, { pos: { x, y }, fuel });
+    expect(towDestination(near(-800, 400), data, { disabled: true })).toBe('merrow');
+    expect(towDestination(near(450, 1000), data, { disabled: true })).toBe('brigg-station');
+    expect(towDestination(near(650, -150, 0), data, { disabled: true })).toBe('halcyon');
+    // Without the option a fuelled ship (or one in a system with ports) gets no tow.
+    expect(towDestination(near(-800, 400), data)).toBeNull();
+    expect(towDestination(near(-800, 400), data, { disabled: false })).toBeNull();
+  });
+  it('disabled with no port here: the nearest system with one, as when stranded', () => {
+    expect(towDestination(mkWorld({ systemId: 'vesk' }, { fuel: 300 }), noVesk, { disabled: true })).toBe('halcyon');
   });
 });
 

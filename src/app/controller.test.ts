@@ -12,7 +12,9 @@ import type { StoryMissionDef } from '../data/schemas';
 import { canAccept } from '../sim/missions';
 import { newWorld } from '../sim/world';
 import { contextLabel } from '../ui/rails';
-import { Controller, LANDING_FX_SEC, type ControllerEvent } from './controller';
+import { governmentShortName } from '../sim/standing';
+import { CALM_SEC, hostileAhead } from './combatControl';
+import { Controller, LANDING_FX_SEC, MSG_DISABLED, MSG_TOW_READY, type ControllerEvent } from './controller';
 
 /** Run `sec` of frames at 60 fps (the landing and take-off effects take time). */
 function run(c: Controller, sec: number): void {
@@ -1317,5 +1319,384 @@ describe('Controller story steps in flight', () => {
     expect(c.hailName()).toBe('Bram Kettle');
     expect(c.openEncounter()).toBe(true);
     expect(c.encounterView()?.title).toBe('Bram Kettle');
+  });
+});
+
+describe('combat in flight', () => {
+  const press = (c: Controller, target: EventTarget, code: string) => {
+    target.dispatchEvent(keyEvent('keydown', code));
+    target.dispatchEvent(keyEvent('keyup', code));
+    c.update(1 / 60);
+  };
+  const spawnHostile = (c: Controller): string => {
+    const r = hostileAhead(c.world, c.traffic, c.data);
+    c.traffic = r.traffic;
+    return r.id;
+  };
+  async function flying() {
+    const s = await setup();
+    s.c.startFlight();
+    s.c.update(1 / 60);
+    return s;
+  }
+
+  it('R targets the nearest hostile', async () => {
+    const { c, target } = await flying();
+    const far = spawnHostile(c);
+    // Move the first raider further out, then add a nearer one and a peaceful trader nearer still.
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === far ? { ...n, ship: { ...n.ship, pos: { x: c.world.ship.pos.x + 1200, y: c.world.ship.pos.y } } } : n)) };
+    const near = spawnHostile(c);
+    c.selectPlanet('halcyon');
+    press(c, target, 'KeyR');
+    expect(c.traffic.targetId).toBe(near);
+    expect(c.world.targetPlanetId).toBeNull();
+    expect(c.targetedSite()).toBeNull();
+  });
+
+  it('Q cycles the secondary', async () => {
+    const { c, target } = await flying();
+    c.world = { ...c.world, outfits: { ...c.world.outfits, 'rocket-rack': 1, rocket: 4, 'seeker-launcher': 1, seeker: 2 } };
+    c.combat.reset(c.world);
+    expect(c.combat.battle.secondary).toBe('rocket-rack');
+    press(c, target, 'KeyQ');
+    expect(c.combat.battle.secondary).toBe('seeker-launcher');
+    press(c, target, 'KeyQ');
+    expect(c.combat.battle.secondary).toBe('rocket-rack');
+  });
+
+  it('Space fires the gun in flight', async () => {
+    const { c, target } = await flying();
+    const battles: number[] = [];
+    c.on('battle', (e) => battles.push(e.events.length));
+    target.dispatchEvent(keyEvent('keydown', 'Space'));
+    c.update(1 / 60);
+    expect(c.combat.battle.projectiles.length).toBeGreaterThan(0);
+    expect(battles.length).toBeGreaterThan(0);
+  });
+
+  it('a jump and a landing clear the fight; the jump keeps the damage, the landing repairs it', async () => {
+    const { c, target, events } = await flying();
+    target.dispatchEvent(keyEvent('keydown', 'Space'));
+    c.update(1 / 60);
+    target.dispatchEvent(keyEvent('keyup', 'Space'));
+    expect(c.combat.battle.projectiles.length).toBeGreaterThan(0);
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, shields: 0, armor: 30 } };
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', t: 99 } };
+    c.update(1 / 60);
+    expect(events.some((e) => e.type === 'jumped')).toBe(true);
+    expect(c.combat.battle.systemId).toBe('vesk');
+    expect(c.combat.battle.projectiles).toEqual([]);
+    // Jumping out keeps the damage (spec §7).
+    expect(c.combat.battle.player.armor).toBe(30);
+    expect(c.combat.battle.player.shields).toBeLessThan(c.combat.battle.player.maxShields);
+    // Landing clears shots and repairs the ship.
+    target.dispatchEvent(keyEvent('keydown', 'Space'));
+    c.update(1 / 60);
+    target.dispatchEvent(keyEvent('keyup', 'Space'));
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, shields: 0 } };
+    const p = c.data.planets['tallow-rock'];
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { ...p.pos }, vel: { x: 0, y: 0 } } };
+    press(c, target, 'KeyL');
+    run(c, LANDING_FX_SEC + 0.05);
+    expect(c.landedPlanetId).toBe('tallow-rock');
+    expect(c.combat.battle.projectiles).toEqual([]);
+    expect(c.combat.battle.player.shields).toBe(c.combat.battle.player.maxShields);    expect(c.combat.battle.player.armor).toBe(c.combat.battle.player.maxArmor);
+  });
+
+  it('a disabled ship does not thrust or jump; it can call a tow once it is calm', async () => {
+    const { c, target } = await flying();
+    // Disabled by a hit just now.
+    const disable = () => (c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true, lastHitSec: c.world.timeSec } });
+    disable();
+    target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+    run(c, 0.5);
+    target.dispatchEvent(keyEvent('keyup', 'ArrowUp'));
+    expect(Math.hypot(c.world.ship.vel.x, c.world.ship.vel.y)).toBe(0);
+    expect(c.currentContext()).toBeNull();
+    run(c, 5);
+    expect(c.currentContext()).toBe('callTow');
+    expect(c.towDestination()).not.toBeNull();
+    const credits = c.world.credits;
+    c.doContextAction();
+    expect(c.landedPlanetId).not.toBeNull();
+    expect(c.world.credits).toBe(credits - c.data.config.towFee);
+    expect(c.combat.playerDisabled()).toBe(false);
+  });
+
+  it('B, or the context button, next to a wreck asks to board', async () => {
+    const { c, target } = await flying();
+    const boards: string[] = [];
+    c.on('board', (e) => boards.push(e.npcId));
+    const id = spawnHostile(c);
+    c.traffic = {
+      ...c.traffic,
+      npcs: c.traffic.npcs.map((n) =>
+        n.id === id ? { ...n, engaged: false, hull: { ...n.hull, armor: 1, disabled: true }, ship: { ...n.ship, pos: { x: c.world.ship.pos.x + 30, y: c.world.ship.pos.y }, vel: { ...c.world.ship.vel } } } : n,
+      ),
+    };
+    press(c, target, 'KeyB');
+    expect(boards).toEqual([id]);
+    expect(c.isFlying).toBe(false); // the card pauses flight
+    c.leaveBoarding();
+    c.startFlight();
+    expect(c.currentContext()).toBe('board');
+    c.doContextAction();
+    expect(boards).toEqual([id, id]);
+  });
+
+  it('hitting a trader says its government will remember', async () => {
+    const { c } = await flying();
+    const messages: string[] = [];
+    c.on('message', (e) => messages.push(e.text));
+    const id = spawnHostile(c);
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === id ? { ...n, role: 'trader', government: 'concord', peaceful: true, engaged: false } : n)) };
+    c.combat.battle = {
+      ...c.combat.battle,
+      projectiles: [{ id: 99, ownerId: 'player', targetId: null, kind: 'bolt', pos: { ...c.traffic.npcs.find((n) => n.id === id)!.ship.pos }, vel: { x: 0, y: 0 }, damage: 1, ttl: 1, turnRate: 0 }],
+    };
+    c.update(1 / 60);
+    expect(messages).toContain(`The ${governmentShortName('concord', c.data)} will remember that.`);
+  });
+
+  it('no fight in hyperspace: no hits and no calm-timer progress', async () => {
+    const { c } = await flying();
+    const id = spawnHostile(c);
+    // A raider's shot sits on the player as the jump starts.
+    const pos = { ...c.world.ship.pos };
+    c.combat.battle = {
+      ...c.combat.battle,
+      projectiles: [{ id: 98, ownerId: id, targetId: null, kind: 'bolt', pos, vel: { x: 0, y: 0 }, damage: 50, ttl: 5, turnRate: 0 }],
+    };
+    const before = { ...c.combat.battle.player };
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', t: 0 } };
+    c.update(1 / 60);
+    expect(c.world.jump).not.toBeNull();
+    expect(c.combat.battle.player).toEqual(before);
+    expect(c.combat.battle.projectiles.length).toBe(1);
+    // A disabled ship's calm wait does not run in hyperspace either.
+    c.combat.battle = { ...c.combat.battle, projectiles: [], player: { ...c.combat.battle.player, armor: 1, disabled: true } };
+    for (let i = 0; i < 30; i++) c.update(1 / 60);
+    expect(c.world.jump).not.toBeNull();
+    expect(c.combat.disabledCalmSec).toBe(0);
+  });
+
+  it('a disabled ship cannot jump; one disabled as its jump began arrives still disabled', async () => {
+    // A sound ship at the same spot, past the jump boundary, jumps (the control case).
+    const ok = await flying();
+    const out = { x: -(ok.c.data.systems[ok.c.world.systemId].jumpDistance + 100), y: 0 };
+    ok.c.world = { ...ok.c.world, route: ['vesk'], ship: { ...ok.c.world.ship, pos: out, vel: { x: 0, y: 0 } } };
+    press(ok.c, ok.target, 'KeyJ');
+    run(ok.c, 1);
+    expect(ok.c.world.jump !== null || ok.c.world.systemId === 'vesk').toBe(true);
+    const { c, target } = await flying();
+    c.world = { ...c.world, route: ['vesk'], ship: { ...c.world.ship, pos: out, vel: { x: 0, y: 0 } } };
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true } };
+    press(c, target, 'KeyJ');
+    run(c, 1);
+    expect(c.world.jump).toBeNull();
+    expect(c.world.systemId).not.toBe('vesk');
+    // Disabled while a jump is already under way (hyperspace runs no fight): the damage arrives too.
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 99 } };
+    c.update(1 / 60);
+    expect(c.world.systemId).toBe('vesk');
+    expect(c.combat.playerDisabled()).toBe(true);
+    expect(c.combat.battle.player.armor).toBe(1);
+  });
+
+  it('says when the ship is disabled and when a tow can be called', async () => {
+    const { c } = await flying();
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    const id = spawnHostile(c);
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true, lastHitSec: c.world.timeSec } };
+    c.update(1 / 60);
+    expect(said).toEqual([MSG_DISABLED]);
+    // Once the raider is gone, the calm wait runs and a tow is offered, once.
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.filter((n) => n.id !== id), nextSpawnSec: 1e9 };
+    c.combat.battle = { ...c.combat.battle, projectiles: [] };
+    run(c, CALM_SEC + 0.1);
+    expect(said).toEqual([MSG_DISABLED, MSG_TOW_READY]);
+    expect(c.towDestination()).not.toBeNull();
+    run(c, 1);
+    expect(said).toEqual([MSG_DISABLED, MSG_TOW_READY]);
+  });
+
+  it('a disabled ship cannot answer a hail with Y', async () => {
+    const { c, target } = await flying();
+    const opened: string[] = [];
+    c.on('encounter', () => opened.push('card'));
+    const hail = Object.values(c.data.encounters).find((e) => e.kind === 'hail')!;
+    c.forceEncounter(hail.id);
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true } };
+    press(c, target, 'KeyY');
+    expect(opened).toEqual([]);
+    expect(c.isFlying).toBe(true);
+    // Healthy again, Y answers it.
+    c.combat.reset(c.world);
+    press(c, target, 'KeyY');
+    expect(opened).toEqual(['card']);
+  });
+});
+
+
+describe('raider demands in flight', () => {
+  async function demanding() {
+    const s = await setup();
+    s.c.startFlight();
+    s.c.update(1 / 60);
+    s.c.traffic = { ...s.c.traffic, npcs: [] };
+    const r = hostileAhead(s.c.world, s.c.traffic, s.c.data);
+    s.c.traffic = { ...r.traffic, npcs: r.traffic.npcs.map((n) => ({ ...n, engaged: false, demand: true })) };
+    s.c.world = { ...s.c.world, credits: 2000 };
+    s.c.update(1 / 60);
+    return { ...s, id: r.id };
+  }
+  const npc = (c: Controller, id: string) => c.traffic.npcs.find((n) => n.id === id)!;
+
+  it('hails, and Pay sends the raider off peaceful', async () => {
+    const { c, id } = await demanding();
+    expect(c.pending).toMatchObject({ kind: 'demand', npcId: id });
+    expect(c.hailName()).toBe(npc(c, id).name);
+    expect(c.openEncounter()).toBe(true);
+    const v = c.encounterView()!;
+    expect(v.choices.map((x) => x.label)).toEqual(['Pay 300 cr', 'Dump 10 t of cargo', 'Refuse']);
+    expect(v.choices[1].blocked).toBe('Hold is empty');
+    expect(c.chooseEncounter(1)).toBeNull();
+    expect(c.chooseEncounter(0)).not.toBeNull();
+    expect(c.world.credits).toBe(1700);
+    expect(c.pending).toBeNull();
+    expect(npc(c, id)).toMatchObject({ peaceful: true, demand: false });
+  });
+
+  it('Not now refuses, and an unanswered demand lapses into an attack', async () => {
+    const a = await demanding();
+    a.c.openEncounter();
+    a.c.declineEncounter();
+    expect(a.c.pending).toBeNull();
+    expect(npc(a.c, a.id)).toMatchObject({ engaged: true, demand: false, peaceful: false });
+    const b = await demanding();
+    run(b.c, 14);
+    expect(b.c.pending?.kind).toBe('demand');
+    expect(npc(b.c, b.id)).toBeDefined(); // it did not leave while waiting
+    run(b.c, 2);
+    expect(b.c.pending).toBeNull();
+    expect(npc(b.c, b.id)).toMatchObject({ demand: false, engaged: true });
+    expect(b.c.traffic.systemId).toBe(b.c.world.systemId);
+    expect(b.c.combat.isHostile(npc(b.c, b.id), b.c.world)).toBe(true);
+  });
+
+  it('shooting the raider while it waits ends the demand: it attacks, and the hail closes', async () => {
+    const { c, id } = await demanding();
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    expect(c.pending?.kind).toBe('demand');
+    // A bolt from the player lands on it.
+    const at = { ...npc(c, id).ship.pos };
+    c.combat.battle = {
+      ...c.combat.battle,
+      projectiles: [{ id: 97, ownerId: 'player', targetId: id, kind: 'bolt', pos: at, vel: { x: 0, y: 0 }, damage: 1, ttl: 1, turnRate: 0 }],
+    };
+    c.update(1 / 60);
+    expect(npc(c, id)).toMatchObject({ demand: false, engaged: true, peaceful: false });
+    expect(c.pending).toBeNull();
+    expect(said.some((t) => t.includes(`${npc(c, id).name} attacks.`))).toBe(true);
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(true);
+  });
+});
+
+describe('combat jobs in flight', () => {
+  const bounty = (over: Partial<NonNullable<import('../sim/types').Mission['combat']>> = {}): import('../sim/types').Mission => ({
+    id: 'b1', typeId: 'bounty', originId: 'halcyon', destId: 'halcyon', tons: 0, passengers: 0, pay: 4000, paidUpfront: false,
+    deadlineDay: 20, title: 'Bounty: Brass Heron', description: '', cargoName: 'bounty',
+    combat: { kind: 'bounty', systemId: 'vesk', shipId: 'kestrel', targetName: 'Brass Heron', needed: 1, done: 0, ...over },
+  });
+  const clear = (): import('../sim/types').Mission => ({
+    id: 'c1', typeId: 'clear', originId: 'halcyon', destId: 'halcyon', tons: 0, passengers: 0, pay: 8000, paidUpfront: false,
+    deadlineDay: 20, title: 'Clear 2 raiders from Vesk', description: '', cargoName: 'raiders',
+    combat: { kind: 'clear', systemId: 'vesk', needed: 2, done: 0 },
+  });
+  async function flyingWith(...missions: import('../sim/types').Mission[]) {
+    const s = await setup();
+    s.c.world = { ...s.c.world, missions };
+    s.c.startFlight();
+    s.c.update(1 / 60);
+    return s;
+  }
+  const jumpTo = (c: Controller, systemId: string) => {
+    c.world = { ...c.world, route: [systemId], jump: { toSystemId: systemId, t: 99 } };
+    c.update(0.1);
+  };
+
+  it('a bounty target spawns 700-1200 px away on arrival, holds there and is not swept as stale', async () => {
+    const { c } = await flyingWith(bounty());
+    // A fixed seed: the world's default is the clock, and the ship drifts a few px in the ticks after the spawn,
+    // so a spawn rolled just over 700 px could measure under it.
+    c.world = { ...c.world, seed: 7 };
+    expect(c.traffic.npcs.some((n) => n.missionId)).toBe(false); // wrong system
+    jumpTo(c, 'vesk');
+    const npc = c.traffic.npcs.find((n) => n.missionId === 'b1')!;
+    expect(npc).toMatchObject({ name: 'Brass Heron', shipId: 'kestrel', role: 'raider', government: 'raiders' });
+    const d = Math.hypot(npc.ship.pos.x - c.world.ship.pos.x, npc.ship.pos.y - c.world.ship.pos.y);
+    expect(d).toBeGreaterThanOrEqual(700);
+    expect(d).toBeLessThanOrEqual(1200);
+    // refreshStory runs on arrival and on later calls; the held target stays.
+    run(c, 1);
+    c.targetShip(npc.id);
+    run(c, 1);
+    expect(c.traffic.npcs.filter((n) => n.missionId === 'b1')).toHaveLength(1);
+    expect(c.traffic.targetId).toBe(npc.id);
+  });
+
+  it('a bounty is not spawned once done, and a spawned one is not duplicated', async () => {
+    const { c } = await flyingWith(bounty({ done: 1 }));
+    jumpTo(c, 'vesk');
+    expect(c.traffic.npcs.some((n) => n.missionId)).toBe(false);
+    const b = await flyingWith(bounty());
+    jumpTo(b.c, 'vesk');
+    run(b.c, 2);
+    expect(b.c.traffic.npcs.filter((n) => n.missionId === 'b1')).toHaveLength(1);
+  });
+
+  it('disabling the target counts once for the bounty and each raider for a clear job', async () => {
+    const { c, target } = await flyingWith(bounty(), clear());
+    jumpTo(c, 'vesk');
+    const id = c.traffic.npcs.find((n) => n.missionId === 'b1')!.id;
+    const near = { x: c.world.ship.pos.x + 150, y: c.world.ship.pos.y };
+    c.traffic = {
+      ...c.traffic,
+      npcs: c.traffic.npcs.map((n) => (n.id === id ? { ...n, ship: { ...n.ship, pos: near }, hold: near, hull: { ...n.hull, shields: 0, armor: 1 } } : n)),
+    };
+    // Stand on the target and fire until it is disabled.
+    const t = c.world.ship;
+    c.world = { ...c.world, ship: { ...t, heading: 0, vel: { x: 0, y: 0 } } };
+    c.targetShip(id);
+    const done = () => c.world.missions.find((m) => m.id === 'b1')!.combat!.done;
+    target.dispatchEvent(keyEvent('keydown', 'Space'));
+    for (let i = 0; i < 600 && done() === 0; i++) {
+      c.world = { ...c.world, ship: { ...c.world.ship, heading: 0, vel: { x: 0, y: 0 } } };
+      c.update(1 / 60);
+    }
+    expect(done()).toBe(1);
+    expect(c.world.missions.find((m) => m.id === 'c1')!.combat!.done).toBe(1); // a raider in its system
+    run(c, 2);
+    expect(done()).toBe(1);
+    expect(c.world.missions.find((m) => m.id === 'c1')!.combat!.done).toBe(1);
+  });
+
+  it('controller passes clearBoost for an active clear job', async () => {
+    const { c } = await flyingWith(clear());
+    const opts = (c as unknown as { trafficOpts(): { clearBoost?: string } }).trafficOpts();
+    expect(opts.clearBoost).toBe('vesk');
+    c.world = { ...c.world, missions: [{ ...clear(), combat: { kind: 'clear', systemId: 'vesk', needed: 2, done: 2 } }] };
+    expect((c as unknown as { trafficOpts(): { clearBoost?: string } }).trafficOpts().clearBoost).toBeUndefined();
+    c.world = { ...c.world, missions: [] };
+    expect((c as unknown as { trafficOpts(): { clearBoost?: string } }).trafficOpts().clearBoost).toBeUndefined();
+  });
+  it('calm (the test flag) passes noRaiders to traffic', async () => {
+    const { c } = await flyingWith(clear());
+    const opts = () => (c as unknown as { trafficOpts(): { noRaiders?: boolean } }).trafficOpts();
+    expect(opts().noRaiders).toBe(false);
+    c.calm = true;
+    expect(opts().noRaiders).toBe(true);
   });
 });

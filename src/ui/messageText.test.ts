@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MSG_DISABLED, MSG_TOW_READY } from '../app/controller';
 import { MSG_NO_DESTINATION, MSG_TOO_CLOSE } from '../sim/world';
 import { DEFAULT_BINDINGS } from '../input/bindings';
 import { hotkeyFor } from './dom';
@@ -39,5 +40,15 @@ describe('formatMessage: site tokens', () => {
       'Target it with the TGT button, then press the bottom button.',
     );
     expect(formatMessage('with {nextTarget}', () => null, false)).toBe('with the next-target key');
+  });
+});
+
+describe('formatMessage: the tow token', () => {
+  it('names the pause key on a keyboard and the CALL TOW button on a phone', () => {
+    expect(formatMessage(MSG_DISABLED, defaults, false)).toBe('Your ship is disabled. When no enemy is near, you can call a tow: press Esc, then Call for tow.');
+    expect(formatMessage(MSG_TOW_READY, defaults, false)).toBe('No enemy near. You can call a tow now: press Esc, then Call for tow.');
+    expect(formatMessage(MSG_TOW_READY, defaults, true)).toBe('No enemy near. You can call a tow now: tap CALL TOW.');
+    expect(formatMessage(MSG_TOW_READY, (a) => (a === 'pause' ? 'P' : null), false)).toContain('press P, then Call for tow.');
+    expect(formatMessage(MSG_TOW_READY, none, false)).toContain('open the pause menu, then Call for tow.');
   });
 });

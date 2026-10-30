@@ -45,6 +45,8 @@ export const ShipSchema = z.object({
   hiddenByFlag: z.string().min(1).optional(), // once this flag is set the yard no longer lists the hull
   teaser: z.string().min(1).optional(), // caption on the locked silhouette tile; absent = a neutral default
   chartJumps: z.number().int().positive().optional(), // built-in chart: reveals this many jumps on arrival
+  crew: z.number().int().positive(), // NPC crew: sizes the fallback loadout and the boarding prize
+  loadout: z.record(id, z.number().int().positive()).optional(), // NPC-only fit: outfit id -> count
 });
 
 const outfitBase = {
@@ -64,6 +66,9 @@ const outfitBase = {
 
 const effect = <K extends string>(key: K) => z.object({ [key]: z.number().positive() } as Record<K, z.ZodNumber>).strict();
 
+const pos = z.number().positive();
+const nonneg = z.number().nonnegative();
+
 export const OutfitSchema = z.discriminatedUnion('category', [
   z.object({ ...outfitBase, category: z.literal('cargo'), effect: effect('cargo') }),
   z.object({ ...outfitBase, category: z.literal('fuel'), effect: effect('fuel') }),
@@ -71,6 +76,25 @@ export const OutfitSchema = z.discriminatedUnion('category', [
   z.object({ ...outfitBase, category: z.literal('shields'), effect: effect('shields') }),
   z.object({ ...outfitBase, category: z.literal('map'), effect: effect('mapJumps') }),
   z.object({ ...outfitBase, category: z.literal('scoop'), effect: effect('fuelPerMin') }),
+  // Weapons. Spread and assist are degrees, rate is shots per second, turnRate is degrees per second (0 = unguided).
+  z.object({
+    ...outfitBase,
+    category: z.literal('gun'),
+    effect: z.object({ damage: pos, rate: pos, speed: pos, range: pos, spread: nonneg, assist: nonneg }).strict(),
+  }),
+  z.object({
+    ...outfitBase,
+    category: z.literal('turret'),
+    effect: z.object({ damage: pos, rate: pos, speed: pos, range: pos }).strict(),
+  }),
+  z.object({ ...outfitBase, category: z.literal('launcher'), effect: z.object({ ammo: id, rate: pos }).strict() }),
+  z.object({
+    ...outfitBase,
+    category: z.literal('ammo'),
+    effect: z.object({ damage: pos, speed: pos, range: pos, turnRate: nonneg }).strict(),
+  }),
+  z.object({ ...outfitBase, category: z.literal('beam'), effect: z.object({ dps: pos, range: pos }).strict() }),
+  z.object({ ...outfitBase, category: z.literal('pod'), effect: z.object({ pods: z.literal(1) }).strict() }),
 ]);
 
 export const SystemSchema = z.object({
@@ -151,6 +175,15 @@ export const MissionTypeSchema = z.object({
   toDumpSite: z.boolean(),
   titleTemplate: z.string(),
   textTemplate: z.string(),
+  combat: z
+    .object({
+      kind: z.enum(['bounty', 'clear']),
+      count: range.optional(), // clear: raiders to disable or destroy
+      perRaider: z.number().nonnegative().optional(), // clear: pay added per raider
+      hullPayDivisor: z.number().positive().optional(), // bounty: pay is scaled by max(1, hull price / this)
+      minTier: z.number().int().positive().optional(), // bounty: lowest hull tech tier the target may fly
+    })
+    .optional(),
 });
 
 export const NamesSchema = z.object({
@@ -285,6 +318,7 @@ export const ConfigSchema = z.object({
   startYear: z.number().int(),
   startMonth: z.number().int().min(1).max(12),
   startDay: z.number().int().min(1).max(31),
+  startOutfits: z.record(id, z.number().int().positive()), // outfit id -> count a new pilot starts with
 });
 
 export type ShipDef = z.infer<typeof ShipSchema>;
@@ -301,6 +335,94 @@ export type StoryStepDef = z.infer<typeof StoryStepSchema>;
 export type StoryMissionDef = z.infer<typeof StoryMissionSchema>;
 export type GameConfig = z.infer<typeof ConfigSchema>;
 
+/** How one NPC role fights. `flee` is the armor fraction below which it runs (0 never flees). */
+const AiProfileSchema = z
+  .object({
+    flee: z.number().min(0).max(1),
+    engageRange: z.number().positive(),
+    keepRange: z.number().positive(),
+    fireCone: z.number().positive().max(180), // degrees
+  })
+  .strict();
+
+const chance = z.number().min(0).max(1);
+
+/** Who spawns where. Chance keys are government ids (plus "fringe" for systems whose ports are all tier 1). */
+const SpawnSchema = z
+  .object({
+    raiderChance: z.record(z.string(), chance),
+    patrolChance: z.record(z.string(), chance),
+    clearBoost: chance, // raider chance in the system of an active clear job
+    maxHostileRaiders: z.number().int().nonnegative(),
+    raiderHulls: z.record(z.string(), z.number().positive()), // ship id -> weight
+    patrolHulls: z.array(z.string()).min(1),
+  })
+  .strict();
+
+const fractionRange = z
+  .tuple([chance, chance])
+  .refine(([lo, hi]) => lo <= hi, 'expected min <= max');
+
+/** Boarding and capture tunables. */
+const BoardingSchema = z
+  .object({
+    range: z.number().positive(),
+    maxSpeed: z.number().positive(), // relative speed
+    creditsFraction: fractionRange, // of the hull price
+    cargoFraction: fractionRange, // of the hull's cargo tons (traders)
+    captureBase: chance,
+    captureMin: chance,
+    captureMax: chance,
+    prizeFraction: chance, // of the hull price
+    twoGoodsChance: chance, // a trader with 2 t or more carries two goods instead of one
+    twoGoodsSplit: fractionRange, // the first good's share of the tons when there are two
+    scuttleSec: z.number().positive(), // a ship that drove off a boarding party blows up this long after the card closes
+    commandArmorFraction: z.number().positive().max(1), // take command patches the new hull to this much armor, no shields
+  })
+  .strict()
+  .refine((b) => b.captureMin <= b.captureMax, { message: 'expected captureMin <= captureMax', path: ['captureMin'] });
+
+/** A raider's demand: pay credits or dump cargo, or it attacks. */
+const DemandSchema = z
+  .object({
+    creditsFraction: chance, // of the pilot's credits
+    minCredits: z.number().int().nonnegative(),
+    cargoTons: z.number().positive(),
+    lapseSec: z.number().positive(), // flight seconds before an unanswered demand turns into an attack
+    chance, // of a new raider hailing first
+  })
+  .strict();
+
+/** Where a bounty target appears: this far (px) from the player on arrival. */
+const BountySchema = z
+  .object({ spawnMin: z.number().positive(), spawnMax: z.number().positive() })
+  .strict()
+  .refine((b) => b.spawnMin <= b.spawnMax, { message: 'expected spawnMin <= spawnMax', path: ['spawnMin'] });
+
+/** Combat jobs: ports of these governments post them (government ids). */
+const CombatMissionsSchema = z.object({ offerGovernments: z.array(z.string()).min(1) }).strict();
+
+/**
+ * A disabled pilot's tow. Besides the spec's wait (no threatening hostile within range for a few
+ * seconds), a tow is offered once the player has taken no hit for `quietSec`, so a hostile that
+ * sits near but never fires can't strand the pilot.
+ */
+const TowSchema = z.object({ quietSec: z.number().positive() }).strict();
+
+export const CombatSchema = z
+  .object({
+    ai: z.object({ trader: AiProfileSchema, patrol: AiProfileSchema, raider: AiProfileSchema }).strict(),
+    spawn: SpawnSchema,
+    boarding: BoardingSchema,
+    demand: DemandSchema,
+    bounty: BountySchema,
+    missions: CombatMissionsSchema,
+    tow: TowSchema,
+  })
+  .strict();
+export type CombatDef = z.infer<typeof CombatSchema>;
+export type AiProfile = z.infer<typeof AiProfileSchema>;
+
 export interface GameData {
   ships: Record<string, ShipDef>;
   outfits: Record<string, OutfitDef>;
@@ -314,4 +436,5 @@ export interface GameData {
   encounters: Record<string, EncounterDef>;
   story: Record<string, StoryMissionDef>;
   config: GameConfig;
+  combat: CombatDef;
 }

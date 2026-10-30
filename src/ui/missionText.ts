@@ -1,5 +1,6 @@
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
+import { combatTargetSystem } from '../sim/combatMissions';
 import type { Mission } from '../sim/types';
 import { formatCredits } from './dom';
 
@@ -12,7 +13,7 @@ export const ACCEPT_REASON = {
 } as const;
 
 /** The part of a mission both screens describe (an offer has the same fields). */
-export type JobInfo = Pick<Mission, 'destId' | 'tons' | 'passengers' | 'pay' | 'paidUpfront' | 'deadlineDay' | 'cargoName'>;
+export type JobInfo = Pick<Mission, 'destId' | 'tons' | 'passengers' | 'pay' | 'paidUpfront' | 'deadlineDay' | 'cargoName' | 'combat'>;
 
 /** "14 Mar 3207 (5 days left)", "… (due today)", or "No deadline". */
 export function deadlineText(job: Pick<JobInfo, 'deadlineDay'>, day: number, data: GameData): string {
@@ -24,6 +25,8 @@ export function deadlineText(job: Pick<JobInfo, 'deadlineDay'>, day: number, dat
 
 /** "Halcyon Station, Halcyon system". */
 export function destinationText(job: JobInfo, data: GameData): string {
+  const target = combatTargetSystem(job);
+  if (target) return `${data.systems[target]?.name ?? target} system`; // until the fighting is done; then the port to collect at
   const p = data.planets[job.destId];
   if (!p) return job.destId;
   return `${p.name}, ${data.systems[p.systemId]?.name ?? p.systemId} system`;
@@ -31,6 +34,11 @@ export function destinationText(job: JobInfo, data: GameData): string {
 
 /** Cargo and passenger needs, e.g. "12 t of mining tools · 2 passengers". */
 export function loadText(job: JobInfo): string {
+  const c = job.combat;
+  if (c) {
+    if (c.done >= c.needed) return 'Done. Collect your pay at the port.';
+    return c.kind === 'bounty' ? `Target: ${c.targetName ?? 'unnamed'}` : `Raiders cleared: ${c.done} of ${c.needed}`;
+  }
   const parts: string[] = [];
   if (job.tons > 0) parts.push(`${job.tons} t of ${job.cargoName}`);
   if (job.passengers > 0) parts.push(`${job.passengers} ${job.passengers === 1 ? 'passenger' : 'passengers'}`);

@@ -11,11 +11,12 @@ import outfits from '../../data/outfits.json';
 import names from '../../data/names.json';
 import encounters from '../../data/encounters.json';
 import story from '../../data/story.json';
+import combat from '../../data/combat.json';
 import { parseGameData, DataError, loadGameData } from './load';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
-  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story }) as {
+  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat }) as {
   ships: any[];
   systems: any[];
   planets: any[];
@@ -28,6 +29,7 @@ const raw = () =>
   names: { first: string[]; second: string[] };
   encounters: any[];
   story: { missions: any[] };
+  combat: any;
 };
 
 const port = (r: ReturnType<typeof raw>, id: string) => r.planets.find((p) => p.id === id);
@@ -378,14 +380,14 @@ describe('galaxy content', () => {
 
   it('mission types match the spec table', () => {
     const m = d.missionTypes;
-    expect(Object.keys(m).sort()).toEqual(['delivery', 'dump', 'ferry', 'rush', 'shipment', 'transport']);
+    expect(Object.keys(m).sort()).toEqual(['bounty', 'clear', 'delivery', 'dump', 'ferry', 'rush', 'shipment', 'transport']);
     expect([m.ferry.passengers, m.ferry.hops, m.ferry.deadline]).toEqual([[1, 4], [1, 4], { perHop: 3, plus: 0 }]);
     expect([m.rush.tons, m.rush.hops, m.rush.deadline]).toEqual([[1, 5], [1, 2], { perHop: 1, plus: 1 }]);
     expect([m.transport.tons, m.transport.hops, m.transport.deadline]).toEqual([[8, 15], [2, 4], { perHop: 2, plus: 2 }]);
     expect([m.shipment.tons, m.shipment.hops, m.shipment.deadline]).toEqual([[20, 40], [3, 6], { perHop: 3, plus: 3 }]);
     expect([m.delivery.tons, m.delivery.hops, m.delivery.deadline]).toEqual([[2, 10], [1, 1], { perHop: 0, plus: 4 }]);
     expect([m.dump.tons, m.dump.deadline, m.dump.paidUpfront, m.dump.toDumpSite]).toEqual([[5, 15], null, true, true]);
-    for (const t of Object.values(m)) expect(`${t.titleTemplate} ${t.textTemplate}`, t.id).toContain('{dest}');
+    for (const t of Object.values(m).filter((x) => !x.combat)) expect(`${t.titleTemplate} ${t.textTemplate}`, t.id).toContain('{dest}');
   });
 
   it('mission pay lands on the tuning targets', () => {
@@ -798,5 +800,125 @@ describe('gear flag validation', () => {
     const c = raw();
     c.outfits.find((o) => o.id === 'house-rack')!.requiresFlag = 'no-such-flag';
     has(failure(c), 'house-rack.requiresFlag');
+  });
+});
+
+describe('combat data', () => {
+  const has = (e: DataError, s: string) => expect(e.issues.some((i) => i.includes(s)), e.issues.join(', ')).toBe(true);
+  const base = { description: '', price: 1, techTier: 1, space: 1, max: 1 };
+  const withOutfit = (o: any) => {
+    const r = raw();
+    r.outfits.push({ ...base, name: 'T', ...o });
+    return r;
+  };
+
+  it('parses every new outfit category', () => {
+    const good = [
+      { id: 't-gun', category: 'gun', effect: { damage: 6, rate: 4, speed: 700, range: 450, spread: 0, assist: 0 } },
+      { id: 't-turret', category: 'turret', effect: { damage: 8, rate: 3, speed: 650, range: 400 } },
+      { id: 't-launcher', category: 'launcher', effect: { ammo: 'rocket', rate: 1 } },
+      { id: 't-ammo', category: 'ammo', space: 0, effect: { damage: 40, speed: 500, range: 700, turnRate: 0 } },
+      { id: 't-beam', category: 'beam', effect: { dps: 30, range: 350 } },
+      { id: 't-pod', category: 'pod', effect: { pods: 1 } },
+    ];
+    for (const o of good) expect(() => parseGameData(withOutfit(o)), o.id).not.toThrow();
+    const bad = [
+      { id: 'b-gun', category: 'gun', effect: { damage: 0, rate: 4, speed: 700, range: 450, spread: 0, assist: 0 } },
+      { id: 'b-gun2', category: 'gun', effect: { damage: 6, rate: 4, speed: 700, range: 450, spread: -1, assist: 0 } },
+      { id: 'b-turret', category: 'turret', effect: { damage: 8, rate: 0, speed: 650, range: 400 } },
+      { id: 'b-launcher', category: 'launcher', effect: { ammo: 'rocket', rate: 0 } },
+      { id: 'b-ammo', category: 'ammo', effect: { damage: 40, speed: 500, range: 700, turnRate: -1 } },
+      { id: 'b-beam', category: 'beam', effect: { dps: 0, range: 350 } },
+      { id: 'b-pod', category: 'pod', effect: { pods: 2 } },
+      { id: 'b-extra', category: 'beam', effect: { dps: 3, range: 350, extra: 1 } },
+    ];
+    for (const o of bad) expect(() => parseGameData(withOutfit(o)), o.id).toThrow(DataError);
+  });
+
+  it('rejects a launcher whose ammo id is missing or not ammo', () => {
+    has(failure(withOutfit({ id: 't-l', category: 'launcher', effect: { ammo: 'no-such', rate: 1 } })), 't-l.effect.ammo');
+    has(failure(withOutfit({ id: 't-l', category: 'launcher', effect: { ammo: 'fuel-tank', rate: 1 } })), 't-l.effect.ammo');
+  });
+
+  it('rejects a ship loadout naming an unknown outfit', () => {
+    const r = raw();
+    r.ships.find((s) => s.id === 'kestrel')!.loadout = { 'no-such': 1 };
+    has(failure(r), 'kestrel.loadout.no-such');
+  });
+
+  it('rejects startOutfits naming an unknown outfit', () => {
+    const r = raw();
+    r.config.startOutfits = { 'no-such': 1 };
+    has(failure(r), 'startOutfits.no-such');
+  });
+
+  it('rejects spawn hulls naming an unknown ship', () => {
+    const r = raw();
+    r.combat.spawn.raiderHulls = { ...r.combat.spawn.raiderHulls, 'no-such': 1 };
+    r.combat.spawn.patrolHulls = ['no-such-2'];
+    has(failure(r), 'spawn.hulls.no-such');
+    has(failure(r), 'spawn.hulls.no-such-2');
+  });
+
+  it('every ship has crew', () => {
+    const d = parseGameData(raw());
+    for (const s of Object.values(d.ships)) expect(s.crew, s.id).toBeGreaterThan(0);
+    const r = raw();
+    delete r.ships[0].crew;
+    expect(() => parseGameData(r)).toThrow(DataError);
+  });
+
+  it('every loadout fits its hull\'s outfit space', () => {
+    const d = parseGameData(raw());
+    for (const s of Object.values(d.ships)) {
+      const used = Object.entries(s.loadout ?? {}).reduce((n, [id, c]) => n + d.outfits[id].space * c, 0);
+      expect(used, s.id).toBeLessThanOrEqual(s.outfitSpace);
+    }
+  });
+
+  it('ships the raiders government, starter gun and tier-5 lance', () => {
+    const d = parseGameData(raw());
+    expect(d.governments.raiders.name).toBe('Rimward Raiders');
+    expect(d.config.startOutfits).toEqual({ 'light-blaster': 1 });
+    expect(d.outfits['lance-beam'].soldAt).toEqual(['vanterre', 'corvana-works']);
+  });
+});
+
+describe('combat.json', () => {
+  const has = (e: DataError, s: string) => expect(e.issues.some((i) => i.includes(s)), e.issues.join(', ')).toBe(true);
+  it('loads the AI profiles per role', () => {
+    const d = parseGameData(raw());
+    expect(d.combat.ai.patrol.flee).toBe(0);
+    expect(d.combat.ai.raider.engageRange).toBe(900);
+  });
+  it('holds the boarding, mission and tow tunables', () => {
+    const d = parseGameData(raw());
+    expect(d.combat.boarding).toMatchObject({ scuttleSec: 3, commandArmorFraction: 0.25, twoGoodsChance: 0.5, twoGoodsSplit: [0.3, 0.7] });
+    expect(d.combat.missions.offerGovernments).toEqual(['concord', 'free-reach']);
+    expect(d.combat.tow.quietSec).toBe(15);
+  });
+  it('rejects combat-job governments that do not exist', () => {
+    const r = raw();
+    r.combat.missions.offerGovernments = ['concord', 'no-such-gov'];
+    has(failure(r), 'missions.offerGovernments.no-such-gov');
+  });
+  it('rejects a negative range, an unknown key, a bad fraction and a missing role', () => {
+    const bad: ((c: any) => void)[] = [
+      (c) => (c.ai.raider.engageRange = -5),
+      (c) => (c.ai.raider.bogus = 1),
+      (c) => (c.bogus = {}),
+      (c) => (c.ai.trader.flee = 1.5),
+      (c) => delete c.ai.patrol,
+      (c) => (c.boarding.scuttleSec = 0),
+      (c) => (c.boarding.commandArmorFraction = 1.5),
+      (c) => (c.boarding.twoGoodsSplit = [0.7, 0.3]),
+      (c) => (c.tow.quietSec = -1),
+      (c) => delete c.missions,
+    ];
+    for (const mutate of bad) {
+      const r = raw();
+      mutate(r.combat);
+      expect(failure(r).file).toBe('combat.json');
+    }
   });
 });

@@ -53,7 +53,7 @@ describe('KeyboardSource', () => {
   it('prevents default on bound keys only', () => {
     const { key } = setup();
     expect(key('keydown', 'Tab').defaultPrevented).toBe(true);
-    expect(key('keydown', 'KeyQ').defaultPrevented).toBe(false);
+    expect(key('keydown', 'KeyZ').defaultPrevented).toBe(false);
   });
 
   it('releases held keys on blur and stops on dispose', () => {

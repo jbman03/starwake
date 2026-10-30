@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   CommoditySchema,
+  CombatSchema,
   ConfigSchema,
   EncounterSchema,
   EventSchema,
@@ -12,6 +13,7 @@ import {
   ShipSchema,
   StoryMissionSchema,
   SystemSchema,
+  type CombatDef,
   type GameConfig,
   type Outcome,
   type GameData,
@@ -132,6 +134,7 @@ const KEYS = [
   'names',
   'encounters',
   'story',
+  'combat',
 ] as const;
 
 export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): GameData {
@@ -156,6 +159,10 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   const cfg = ConfigSchema.safeParse(raw.config);
   if (!cfg.success) throw new DataError('config.json', zodIssues('config.json', '', cfg.error));
   const config: GameConfig = cfg.data;
+
+  const cb = CombatSchema.safeParse(raw.combat);
+  if (!cb.success) throw new DataError('combat.json', zodIssues('combat.json', '', cb.error));
+  const combat: CombatDef = cb.data;
 
   const sysIssues: string[] = [];
   for (const s of Object.values(systems)) {
@@ -229,7 +236,8 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
 
   const shopIssues: string[] = [];
   const hubsByGov: Record<string, string[]> = {};
-  for (const gid of Object.keys(governments)) hubsByGov[gid] = [];
+  // Only governments that hold a system need a hub (the raiders hold none).
+  for (const gid of Object.keys(governments)) if (Object.values(systems).some((sy) => sy.government === gid)) hubsByGov[gid] = [];
   for (const p of Object.values(planets)) {
     if (!p.hub) continue;
     if (!p.services.includes('shipyard') || !p.services.includes('outfitter'))
@@ -247,7 +255,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
           );
       }
   }
-  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config } as GameData;
+  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat } as GameData;
   const items: { file: string; item: { id: string; techTier: number; soldBy?: string[] } }[] = [
     ...Object.values(ships).map((item) => ({ file: 'ships.json', item })),
     ...Object.values(outfits).map((item) => ({ file: 'outfits.json', item })),
@@ -377,6 +385,26 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     if (o.requiresFlag && !settable.has(o.requiresFlag)) gearIssues.push(fmt('outfits.json', `${o.id}.requiresFlag`, `flag "${o.requiresFlag}" is never set by any outcome or system`));
   if (gearIssues.length) throw new DataError('ships.json / outfits.json', gearIssues);
 
+  const combatIssues: string[] = [];
+  for (const o of Object.values(outfits)) {
+    if (o.category === 'launcher' && outfits[o.effect.ammo]?.category !== 'ammo')
+      combatIssues.push(fmt('outfits.json', `${o.id}.effect.ammo`, `"${o.effect.ammo}" is not an ammo outfit`));
+  }
+  for (const sh of Object.values(ships))
+    for (const oid of Object.keys(sh.loadout ?? {}))
+      if (!(oid in outfits)) combatIssues.push(fmt('ships.json', `${sh.id}.loadout.${oid}`, `unknown outfit "${oid}"`));
+  for (const oid of Object.keys(config.startOutfits))
+    if (!(oid in outfits)) combatIssues.push(fmt('config.json', `startOutfits.${oid}`, `unknown outfit "${oid}"`));
+  const spawn = combat.spawn;
+  for (const sid of [...Object.keys(spawn.raiderHulls), ...spawn.patrolHulls])
+    if (!(sid in ships)) combatIssues.push(fmt('combat.json', `spawn.hulls.${sid}`, `unknown ship "${sid}"`));
+  for (const key of ['raiderChance', 'patrolChance'] as const)
+    for (const gid of Object.keys(spawn[key]))
+      if (gid !== 'fringe' && !(gid in governments)) combatIssues.push(fmt('combat.json', `spawn.${key}.${gid}`, `unknown government "${gid}"`));
+  for (const gid of combat.missions.offerGovernments)
+    if (!(gid in governments)) combatIssues.push(fmt('combat.json', `missions.offerGovernments.${gid}`, `unknown government "${gid}"`));
+  if (combatIssues.length) throw new DataError('outfits.json / ships.json / config.json / combat.json', combatIssues);
+
   const missionIssues: string[] = [];
   const anyDump = Object.values(planets).some((p) => p.dumpSite);
   for (const m of Object.values(missionTypes)) {
@@ -405,14 +433,14 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   });
   if (cfgIssues.length) throw new DataError('config.json', cfgIssues);
 
-  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config };
+  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat };
 }
 
 /** Loads and validates the bundled data. `override` swaps raw payloads (used by test flags). */
 export async function loadGameData(
   override: Partial<Record<(typeof KEYS)[number], unknown>> = {},
 ): Promise<GameData> {
-  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story] =
+  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat] =
     await Promise.all([
       import('../../data/ships.json'),
       import('../../data/systems.json'),
@@ -426,6 +454,7 @@ export async function loadGameData(
       import('../../data/names.json'),
       import('../../data/encounters.json'),
       import('../../data/story.json'),
+      import('../../data/combat.json'),
     ]);
   return parseGameData({
     ships: ships.default,
@@ -440,6 +469,7 @@ export async function loadGameData(
     names: names.default,
     encounters: encounters.default,
     story: story.default,
+    combat: combat.default,
     ...override,
   });
 }

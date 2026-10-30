@@ -120,6 +120,8 @@ describe('How to Play', () => {
     expect(all).toContain('Each jump uses 75 fuel');
     expect(all).toContain("holds 4 jumps' worth");
     expect(all).toContain('It costs 650 cr');
+    expect(all).toContain('press Esc and choose Call for tow in the pause menu');
+    expect(all).toContain('The tow takes you to a port for 650 cr.');
     expect(all).toContain(`You can hold up to ${MAX_MISSIONS} jobs`);
   });
 
@@ -237,25 +239,26 @@ describe('phone column matches the real touch controls', () => {
         expect(ok, `"${token}" in "${text}" is not a real control`).toBe(true);
       }
     }
-    // Controls with no phone equivalent say so; the weapons rows are flagged as not working yet.
-    expect(PHONE_CONTROLS.nearestHostile).toBe('None on phone');
+    // Controls with no phone equivalent say so.
+    expect(PHONE_CONTROLS.nearestHostile).toBe('Hold TGT');
+    expect(PHONE_CONTROLS.cycleSecondary).toBe('Tap the label under MSL');
+    expect(PHONE_CONTROLS.board).toBe('Board button');
     expect(PHONE_CONTROLS.faceTarget).toBe('None on phone');
     expect(PHONE_CONTROLS.nextTarget).toBe('TGT');
   });
 });
 
-describe('weapons are marked as not working yet', () => {
-  it('Flying tab does not teach the fire keys; Controls marks those rows coming soon', async () => {
+describe('weapons', () => {
+  it('Flying tab teaches the fire keys; no Controls row is marked coming soon', async () => {
     const { ctx, root } = await setup();
     showHowToPlay(ctx, { onClose: () => {} });
     const flying = root.querySelector('[role="tabpanel"]')!.textContent!;
-    expect(flying).toContain('Weapons and combat arrive in a later update');
-    expect(flying).not.toContain('fires your main weapon');
+    expect(flying).not.toContain('later update');
+    expect(flying).toContain('fires your guns');
     tabButton(root, 'Controls').click();
-    for (const id of ['firePrimary', 'fireSecondary', 'nearestHostile']) {
-      expect(root.querySelector(`[data-action="${id}"]`)!.textContent).toContain('(coming soon)');
+    for (const id of ['firePrimary', 'fireSecondary', 'nearestHostile', 'cycleSecondary', 'board']) {
+      expect(root.querySelector(`[data-action="${id}"]`)!.textContent).not.toContain('(coming soon)');
     }
-    expect(root.querySelector('[data-action="thrust"]')!.textContent).not.toContain('coming soon');
   });
 
   it('autopilot wording covers a targeted planet and the jump point', async () => {

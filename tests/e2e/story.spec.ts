@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
 
+// Story pilots fly calm (`?test&calm=1`, no raiders): a fringe system such as Skerry has a 40% raider chance, and a
+// raider's demand hail takes the context button and the Y key, which these story steps assert on.
+
 /** Adds fixture story missions through the dev test hook (data/story.json ships empty until the content task). */
 async function injectMissions(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -53,7 +56,7 @@ test.describe('desktop', () => {
 
   test('a scan site at Skerry: fly beside it, press Y, the next step shows', async ({ page }) => {
     const errors = trackErrors(page);
-    await newPilot(page, 'Scanner');
+    await newPilot(page, 'Scanner', false, true);
     await injectMissions(page);
     await page.evaluate(() => {
       const h = window.__starwake!;
@@ -87,7 +90,7 @@ test.describe('desktop', () => {
   test('M1 at Skerry: the notice, Tab to the Dead lantern, G to fly there, Y to scan it', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = trackErrors(page);
-    await newPilot(page, 'Lantern');
+    await newPilot(page, 'Lantern', false, true);
     await page.evaluate(() => {
       const h = window.__starwake!;
       if (!h.acceptStoryNow('m1-lights-out').ok) throw new Error('accept refused');
@@ -113,7 +116,7 @@ test.describe('desktop', () => {
 
   test('the objective stacks below an open hail banner without overlapping it', async ({ page }) => {
     const errors = trackErrors(page);
-    await newPilot(page, 'Stacker');
+    await newPilot(page, 'Stacker', false, true);
     await page.evaluate(() => {
       const h = window.__starwake!;
       h.acceptStoryNow('m1-lights-out');
@@ -136,7 +139,7 @@ test.describe('desktop', () => {
 
   test('a meet ship hails with a banner; Y opens its card and the choice advances the step', async ({ page }) => {
     const errors = trackErrors(page);
-    await newPilot(page, 'Greeter');
+    await newPilot(page, 'Greeter', false, true);
     await injectMissions(page);
     await page.evaluate(() => window.__starwake!.acceptStoryNow('e2e-meet'));
     await leavePlanet(page);
@@ -158,7 +161,7 @@ test.describe('desktop', () => {
   test('the M4 choice locks the other side: Concord is friend on the pilot card, Free Reach is not chosen', async ({ page }) => {
     test.setTimeout(60_000);
     const errors = trackErrors(page);
-    await newPilot(page, 'Chooser');
+    await newPilot(page, 'Chooser', false, true);
     await page.evaluate(() => {
       const c = window.__starwake!.controller;
       // M4 at its choice (the meet step), with the lane open, as if the earlier steps were done.
@@ -202,7 +205,7 @@ test.describe('story hulls', () => {
 
   test('a Concord friend who finished the Relight arc can buy the Lantern-tender at Concordance', async ({ page }) => {
     const errors = trackErrors(page);
-    await newPilot(page, 'Tender');
+    await newPilot(page, 'Tender', false, true);
     await page.evaluate(() => {
       const h = window.__starwake!;
       const c = h.controller;
@@ -233,7 +236,7 @@ test.describe('phone', () => {
   test('a meet hail is the context button only; tapping it opens the card', async ({ page }) => {
     test.setTimeout(60_000);
     const errors = trackErrors(page);
-    await newPilot(page, 'Tap Greeter');
+    await newPilot(page, 'Tap Greeter', false, true);
     await injectMissions(page);
     await page.evaluate(() => window.__starwake!.acceptStoryNow('e2e-meet'));
     await page.getByRole('button', { name: /^Leave/ }).tap();
@@ -253,7 +256,7 @@ test.describe('phone', () => {
   test('M1 on a phone: Fly to Dead lantern, then Scan Dead lantern, with nothing new over the view', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = trackErrors(page);
-    await newPilot(page, 'Tap Lantern');
+    await newPilot(page, 'Tap Lantern', false, true);
     await page.evaluate(() => {
       const h = window.__starwake!;
       if (!h.acceptStoryNow('m1-lights-out').ok) throw new Error('accept refused');
@@ -292,7 +295,7 @@ test.describe('phone', () => {
   });
   test('the mission log with two story missions and several jobs keeps its buttons on screen', async ({ page }) => {
     const errors = trackErrors(page);
-    await newPilot(page, 'Logger');
+    await newPilot(page, 'Logger', false, true);
     await injectMissions(page);
     await page.evaluate(() => {
       const h = window.__starwake!;

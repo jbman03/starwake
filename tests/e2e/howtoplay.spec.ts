@@ -8,6 +8,8 @@ test.describe('desktop', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
   test('opens from the main menu, the pause menu and the planet screen (H), and closes back to each', async ({ page }) => {
+    // Three screens, a new pilot and a take-off: on a slow machine this runs close to the 30 s default.
+    test.setTimeout(60_000);
     const errors = trackErrors(page);
     await page.goto('/?test');
     await page.getByTestId('main-menu').waitFor();

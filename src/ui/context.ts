@@ -4,6 +4,8 @@ import type { InputMode } from '../input/mode';
 import type { PilotStore } from '../save/store';
 import { Guide } from '../guide/guide';
 import { dialogOpen } from './dom';
+import { showBoardingCard } from './boardingCard';
+import { showDestroyedCard } from './destroyedCard';
 import { showEncounterCard } from './encounterCard';
 import { confirmSkipGuide, guideKey, guideState, type GuideScreen } from './guideHint';
 import { showMainMenu } from './mainMenu';
@@ -135,6 +137,14 @@ export function createUi(
     const view = controller.encounterView();
     if (view) showEncounterCard(ctx, view, (i) => controller.chooseEncounter(i)?.messages ?? null);
     else controller.startFlight();
+  });
+  controller.on('board', () => {
+    if (controller.boardingView()) showBoardingCard(ctx, controller);
+    else controller.startFlight();
+  });
+  controller.on('destroyed', () => {
+    const view = controller.deathView();
+    if (view) showDestroyedCard(ctx, view);
   });
   controller.on('menu', (e) => {
     if (e.action === 'pause') ctx.go.pause();

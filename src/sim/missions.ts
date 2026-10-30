@@ -1,5 +1,6 @@
 import type { GameData, MissionTypeDef } from '../data/schemas';
 import { berthsFree, cargoFree } from './cargo';
+import { buildCombatOffer, combatOffersOk, combatTargets, missionSystem } from './combatMissions';
 import { hopDistance } from './galaxy';
 import { hashString, mulberry32, pick, randInt } from './random';
 import type { Mission, WorldState } from './types';
@@ -22,12 +23,12 @@ export type MissionOffer = Omit<Mission, 'id'> & { offerId: string };
 export type AcceptCheck = { ok: true } | { ok: false; reason: 'tooMany' | 'noSpace' | 'noBerths' };
 
 /** Rounded to the nearest 10 credits. */
-function roundPay(x: number): number {
+export function roundPay(x: number): number {
   return Math.round(x / 10) * 10;
 }
 
 /** Fill a template's {placeholders}; unknown ones are left as written. */
-function fill(template: string, vars: Record<string, string | number>): string {
+export function fill(template: string, vars: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m));
 }
 
@@ -100,7 +101,8 @@ export function buildOffer(
 /** Jobs at `portId` today: 3–7, identical for the same (seed, port, day) and fresh each day. */
 export function offersAt(world: WorldState, data: GameData, portId: string): MissionOffer[] {
   const r = mulberry32(hashString(world.seed, portId, world.day));
-  const types = Object.values(data.missionTypes);
+  const combatOk = combatOffersOk(world, data, portId);
+  const types = Object.values(data.missionTypes).filter((t) => !t.combat || combatOk);
   const names = Object.values(data.commodities).filter((c) => !c.origin).map((c) => c.name);
   const want = randInt(r, MIN_OFFERS, MAX_OFFERS);
   const offers: MissionOffer[] = [];
@@ -110,6 +112,13 @@ export function offersAt(world: WorldState, data: GameData, portId: string): Mis
     let made: MissionOffer | null = null;
     for (let k = 0; k < types.length && !made; k++) {
       const type = types[(start + k) % types.length];
+      if (type.combat) {
+        const targets = combatTargets(world, data, type, portId);
+        if (targets.length === 0) continue;
+        const t = pick(r, targets);
+        made = buildCombatOffer(world, data, type, portId, t.systemId, t.hops, r, `${portId}:${world.day}:${index}`);
+        continue;
+      }
       const dests = destinations(data, world.flags, portId, type);
       if (dests.length === 0) continue;
       let pool = dests;
@@ -141,7 +150,7 @@ export function accept(world: WorldState, data: GameData, offer: MissionOffer): 
   if (world.takenOffers.includes(offer.offerId) || world.missions.some((m) => m.id === offer.offerId)) return world;
   if (!canAccept(world, data, offer).ok) return world;
   const { offerId, ...rest } = offer;
-  const destSystem = data.planets[offer.destId]?.systemId;
+  const destSystem = missionSystem(offer, data);
   const charts = destSystem !== undefined && !world.known.includes(destSystem) && !world.seen.includes(destSystem);
   return {
     ...world,
@@ -154,7 +163,11 @@ export function accept(world: WorldState, data: GameData, offer: MissionOffer): 
 
 /** Deliver every mission bound for `portId` that is not overdue; pays the ones not paid up front. */
 export function completeAt(world: WorldState, portId: string): { world: WorldState; completed: Mission[]; pay: number } {
-  const done = (m: Mission) => m.typeId !== STORY_TYPE && m.destId === portId && (m.deadlineDay === null || world.day <= m.deadlineDay);
+  const done = (m: Mission) =>
+    m.typeId !== STORY_TYPE &&
+    m.destId === portId &&
+    (m.deadlineDay === null || world.day <= m.deadlineDay) &&
+    (!m.combat || m.combat.done >= m.combat.needed); // a combat job pays only once the fighting is done
   const completed = world.missions.filter(done);
   if (completed.length === 0) return { world, completed, pay: 0 };
   const pay = completed.reduce((sum, m) => sum + (m.paidUpfront ? 0 : m.pay), 0);

@@ -7,7 +7,7 @@ import { newWorld } from './world';
 
 const data = testData();
 const PORT = 'vanterre';
-const base = (over: Partial<WorldState> = {}): WorldState => ({ ...newWorld(data, 1), credits: 100000, ...over });
+const base = (over: Partial<WorldState> = {}): WorldState => ({ ...newWorld(data, 1), outfits: {}, credits: 100000, ...over });
 const mission = (over: Partial<Mission>): Mission => ({
   id: 'm1', typeId: 't', originId: 'vanterre', destId: 'halcyon', tons: 0, passengers: 0, pay: 0,
   paidUpfront: false, deadlineDay: null, title: 't', description: 'd', cargoName: 'c', ...over,

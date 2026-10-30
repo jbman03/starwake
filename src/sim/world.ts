@@ -3,6 +3,7 @@ import { autopilotInput, autoStopInput, faceInput, reverseInput } from './assist
 import { stepShip } from './flight';
 import { economyDay } from './economy';
 import { hopDistance, lanesOf, revealOnArrival, revealWithin, routeBetween } from './galaxy';
+import { missionSystem } from './combatMissions';
 import { failOverdue, jobMissions } from './missions';
 import { checkStoryDeadlines, storyDestinations } from './storyMissions';
 import { hashString } from './random';
@@ -80,11 +81,11 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     pressure: {},
     events: [],
     takenOffers: [],
-    outfits: {},
+    outfits: { ...data.config.startOutfits },
     flags: [],
     notes: [],
     shipName: def.name,
-    stats: { jobsDone: 0 },
+    stats: { jobsDone: 0, kills: 0, captures: 0 },
     lastEncounterDay: null,
     story: { active: [], done: [], failed: [], declined: [] },
     standing: {},
@@ -131,7 +132,7 @@ export function setRoute(
 ): { world: WorldState; ok: boolean; reason?: 'noRoute' } {
   const charted = new Set([...world.known, ...world.seen]);
   const missionTarget =
-    jobMissions(world).some((m) => data.planets[m.destId]?.systemId === toSystemId) || storyDestinations(world, data).includes(toSystemId);
+    jobMissions(world).some((m) => missionSystem(m, data) === toSystemId) || storyDestinations(world, data).includes(toSystemId);
   const route = missionTarget
     ? routeBetween(data, world.systemId, toSystemId, () => true, world.flags)
     : charted.has(toSystemId)
@@ -197,8 +198,8 @@ export function applyRefuel(
  * The tow takes a day per hop (at least one). A route through the tow system keeps its remaining
  * hops; one whose next hop isn't linked from there is cleared.
  */
-export function applyTow(world: WorldState, data: GameData): { world: WorldState; events: SimEvent[] } {
-  const planetId = towDestination(world, data);
+export function applyTow(world: WorldState, data: GameData, opts: { disabled?: boolean } = {}): { world: WorldState; events: SimEvent[] } {
+  const planetId = towDestination(world, data, opts);
   if (!planetId) return { world, events: [] };
   const toSystemId = data.planets[planetId].systemId;
   const days = Math.max(1, hopDistance(data, world.systemId, toSystemId, world.flags));
@@ -374,7 +375,7 @@ export function stepWorld(
       events.push({ type: 'message', text: MSG_NO_DESTINATION });
     }
   }
-  // firePrimary, fireSecondary, nearestHostile: accepted and ignored for now.
+  // firePrimary, fireSecondary, cycleSecondary, nearestHostile and board are handled by the battle step and the controller.
 
   // Manual flight cancels any assist; holding reverse *is* the reverse assist.
   const manual = manualInput(w, input);

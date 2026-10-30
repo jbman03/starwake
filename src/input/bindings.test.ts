@@ -91,4 +91,20 @@ describe('bindings', () => {
     expect(b.thrust[0]).toBeNull();
     expect(resetBindings()).toEqual(DEFAULT_BINDINGS);
   });
+
+  it('new combat defaults do not clash in the flight group', () => {
+    expect(ACTION_GROUP.cycleSecondary).toBe('flight');
+    expect(ACTION_GROUP.board).toBe('flight');
+    expect(ACTION_GROUP.encounterChoice4).toBe('menus');
+    expect(ACTION_GROUP.encounterChoice5).toBe('menus');
+    expect(DEFAULT_BINDINGS.cycleSecondary).toEqual(['KeyQ', null]);
+    expect(DEFAULT_BINDINGS.board).toEqual(['KeyB', null]);
+    expect(DEFAULT_BINDINGS.encounterChoice4).toEqual(['Digit4', null]);
+    expect(DEFAULT_BINDINGS.encounterChoice5).toEqual(['Digit5', null]);
+    expect(ACTION_LABEL.cycleSecondary).toBe('Cycle secondary');
+    expect(ACTION_LABEL.board).toBe('Board');
+    for (const id of ['cycleSecondary', 'board', 'encounterChoice4', 'encounterChoice5'] as const) {
+      expect(findConflict(DEFAULT_BINDINGS, id, DEFAULT_BINDINGS[id][0]!)).toBeNull();
+    }
+  });
 });

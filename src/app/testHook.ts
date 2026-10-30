@@ -3,6 +3,8 @@ import type { StoryAccept } from '../sim/storyMissions';
 import type { PilotStore } from '../save/store';
 import type { WorldState } from '../sim/types';
 import type { SidebarInfo } from '../render/sidebarInfo';
+import type { Hull } from '../sim/combat';
+import { hostileAhead } from './combatControl';
 import type { Controller, StoryMeet, StorySite } from './controller';
 
 export interface StarwakeTestHook {
@@ -22,10 +24,20 @@ export interface StarwakeTestHook {
   acceptStoryNow: (id: string) => StoryAccept;
   /** Test-only: put the world at `planetId` (in its system) and land there, as a real landing would. */
   teleport: (planetId: string) => void;
+  /** The fight: the player's hull, the selected launcher and every NPC's hull and stance. */
+  combatState: () => { player: Hull; secondary: string | null; npcs: { id: string; role: string; hull: Hull; hostile: boolean }[] };
+  /** Test-only: add an engaged raider (a `shipId` hull, default kestrel) 400 px ahead of the ship; returns its id. */
+  spawnHostile: (shipId?: string) => string;
+  /** Test-only: drop the targeted ship to 1 armor and disable it; false with no ship targeted. */
+  disableTarget: () => boolean;
   /** Set by SpaceScene: the main camera's viewport in screen px. */
   cameraViewport?: () => { x: number; y: number; w: number; h: number };
   /** Set by SpaceScene: the texture key of the flight ship sprite. */
   flightSpriteTexture?: () => string;
+  /** Set by SpaceScene: how many shots (bolts, rockets, seekers) were drawn on the last frame. */
+  projectiles?: () => number;
+  /** Set by SpaceScene: the targeted ship's hull gauge (0–1) as drawn on the last frame, or null with none. */
+  targetBars?: () => { shields: number; armor: number } | null;
   /** Set by SpaceScene: the desktop HUD's autopilot route banner text, or null when hidden. */
   hudBanner?: () => string | null;
   /** Set by SpaceScene: the desktop HUD course line, or null when hidden. */
@@ -66,6 +78,8 @@ export function testHookActive(): boolean {
 export interface TestFlags {
   /** `?crash=1`: throw during boot. */
   crash: boolean;
+  /** `?calm=1`: no raiders spawn, so no demand hails or attacks (story e2e at fringe systems). */
+  calm?: boolean;
   /** Raw data overrides for `?baddata=1`: a shuttle whose maxSpeed is a string. */
   dataOverride?: { ships: unknown };
 }
@@ -75,6 +89,7 @@ export function testFlags(search: string = location.search): TestFlags {
   if (!testHookActive()) return { crash: false };
   const q = new URLSearchParams(search);
   const flags: TestFlags = { crash: q.get('crash') === '1' };
+  if (q.get('calm') === '1') flags.calm = true;
   if (q.get('baddata') === '1') {
     flags.dataOverride = {
       ships: [
@@ -101,5 +116,39 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     c.landAt(planetId);
     c.emit({ type: 'landed', planetId });
   };
-  window.__starwake = { world: () => controller.world, data, controller, store, teleport, storyOffers: () => controller.storyOffers(), story: () => controller.world.story, storySite: () => controller.storySite, storyMeet: () => controller.storyMeet, acceptStoryNow: (id) => controller.acceptStory(id), forceEncounter: (id) => controller.forceEncounter(id) };
+  const combatState: StarwakeTestHook['combatState'] = () => ({
+    player: { ...controller.combat.battle.player },
+    secondary: controller.combat.battle.secondary,
+    npcs: controller.traffic.npcs.map((n) => ({ id: n.id, role: n.role, hull: { ...n.hull }, hostile: controller.combat.isHostile(n, controller.world) })),
+  });
+  const spawnHostile = (shipId?: string): string => {
+    const r = hostileAhead(controller.world, controller.traffic, data, shipId);
+    controller.traffic = r.traffic;
+    return r.id;
+  };
+  const disableTarget = (): boolean => {
+    const id = controller.traffic.targetId;
+    if (!id || !controller.traffic.npcs.some((n) => n.id === id)) return false;
+    controller.traffic = {
+      ...controller.traffic,
+      npcs: controller.traffic.npcs.map((n) => (n.id === id ? { ...n, engaged: false, hull: { ...n.hull, armor: 1, disabled: true } } : n)),
+    };
+    return true;
+  };
+  window.__starwake = {
+    world: () => controller.world,
+    data,
+    controller,
+    store,
+    teleport,
+    storyOffers: () => controller.storyOffers(),
+    story: () => controller.world.story,
+    storySite: () => controller.storySite,
+    storyMeet: () => controller.storyMeet,
+    acceptStoryNow: (id) => controller.acceptStory(id),
+    forceEncounter: (id) => controller.forceEncounter(id),
+    combatState,
+    spawnHostile,
+    disableTarget,
+  };
 }
