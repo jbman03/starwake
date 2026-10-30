@@ -1567,6 +1567,9 @@ describe('combat jobs in flight', () => {
 
   it('a bounty target spawns 700-1200 px away on arrival, holds there and is not swept as stale', async () => {
     const { c } = await flyingWith(bounty());
+    // A fixed seed: the world's default is the clock, and the ship drifts a few px in the ticks after the spawn,
+    // so a spawn rolled just over 700 px could measure under it.
+    c.world = { ...c.world, seed: 7 };
     expect(c.traffic.npcs.some((n) => n.missionId)).toBe(false); // wrong system
     jumpTo(c, 'vesk');
     const npc = c.traffic.npcs.find((n) => n.missionId === 'b1')!;

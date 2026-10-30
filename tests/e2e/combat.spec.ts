@@ -1,10 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import { leavePlanet, newPilot, trackErrors, waitForFlight } from './helpers';
 
-// Combat pilots start at Halcyon in Calder, the start system, where no raiders spawn: every fight here is one
-// the test sets up with the test hooks (spawnHostile, disableTarget, combatState).
-
-type Rect = { x: number; y: number; w: number; h: number };
+// Combat pilots start at Halcyon in Calder, the start system, where no raiders spawn. Concord patrols do, so each
+// fight first clears the sky (quietSky); every fight here is one the test sets up with the test hooks.
 
 const npcOf = (page: Page, id: string) =>
   page.evaluate((i) => window.__starwake!.combatState().npcs.find((n) => n.id === i) ?? null, id);
@@ -14,6 +12,22 @@ const hullOf = async (page: Page, id: string) => {
   const n = await npcOf(page, id);
   return n ? n.hull.shields + n.hull.armor : -1;
 };
+
+/**
+ * Test-only: clear the sky for a set-up fight. Ambient traffic goes (a bounty target stays), and no new ship
+ * spawns: a Concord patrol would join any fight with a raider, and a random raider could attack or demand.
+ */
+async function quietSky(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const c = window.__starwake!.controller;
+    const npcs = c.traffic.npcs.filter((n) => n.id.startsWith('bounty-'));
+    c.traffic = { ...c.traffic, npcs, nextSpawnSec: 1e9, targetId: npcs.some((n) => n.id === c.traffic.targetId) ? c.traffic.targetId : null };
+  });
+}
+
+/** How many of the player's own shots are in flight. */
+const playerShots = (page: Page) =>
+  page.evaluate(() => window.__starwake!.controller.battleView().projectiles.filter((p) => p.ownerId === 'player').length);
 
 /** Spawn a raider of hull `shipId` 400 px ahead; returns its id. */
 const spawn = (page: Page, shipId: string) => page.evaluate((s) => window.__starwake!.spawnHostile(s), shipId);
@@ -30,42 +44,60 @@ async function patchNpc(page: Page, id: string, patch: Record<string, unknown>):
 }
 
 /**
- * Test-only: leave NPC `id` one bolt from the disable line: no shields, and armor 4 above 10% so a 6-damage bolt
- * disables her with armor to spare (a disabled ship at 0 armor is destroyed by the next hit).
+ * Test-only: leave NPC `id` one bolt from the disable line with a margin. Her armor becomes 24 of 200: one 6-damage
+ * bolt takes her below 10% and disables her at 18, and three more would be needed to destroy her. Slow (CI) frames
+ * can let one short press of fire loose two bolts that land together; a plain 40-armor courier has no such margin
+ * (a disabled ship is under 4 armor, and the next hit destroys her). Shields stay down until she is hit
+ * (lastHitSec Infinity, as the game does for a ship just taken command of).
  */
 async function weaken(page: Page, id: string): Promise<void> {
   await page.evaluate((i) => {
     const c = window.__starwake!.controller;
     c.traffic = {
       ...c.traffic,
-      npcs: c.traffic.npcs.map((n) => (n.id === i ? { ...n, hull: { ...n.hull, shields: 0, armor: n.hull.maxArmor * 0.1 + 4 } } : n)),
+      npcs: c.traffic.npcs.map((n) => (n.id === i ? { ...n, hull: { ...n.hull, shields: 0, maxArmor: 200, armor: 24, lastHitSec: Infinity } } : n)),
     };
   }, id);
 }
 
-/** Test-only: hold NPC `id` still, 150 px dead ahead of the player's ship (which stops), in the forward gun's line. */
+/**
+ * Test-only: hold NPC `id` still, 80 px dead ahead of the player's ship (which stops, turned toward the system
+ * centre), in the forward gun's line. She is given a hold point there, as bounty and story ships have: a hurt
+ * raider flees (it never fires while fleeing), and a fleeing ship with a hold point flies to it and waits instead
+ * of running for the jump boundary. Inward, because Halcyon sits near Calder's boundary.
+ */
 async function holdAhead(page: Page, id: string): Promise<void> {
   await page.evaluate((i) => {
     const c = window.__starwake!.controller;
-    const { pos, heading } = c.world.ship;
-    const at = { x: pos.x + Math.cos(heading) * 150, y: pos.y + Math.sin(heading) * 150 };
-    c.world = { ...c.world, ship: { ...c.world.ship, vel: { x: 0, y: 0 } } };
-    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === i ? { ...n, ship: { ...n.ship, pos: at, vel: { x: 0, y: 0 } } } : n)) };
+    const { pos } = c.world.ship;
+    const heading = Math.atan2(-pos.y, -pos.x);
+    const at = { x: pos.x + Math.cos(heading) * 80, y: pos.y + Math.sin(heading) * 80 };
+    c.world = { ...c.world, ship: { ...c.world.ship, heading, vel: { x: 0, y: 0 } } };
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === i ? { ...n, hold: at, ship: { ...n.ship, pos: at, vel: { x: 0, y: 0 } } } : n)) };
   }, id);
 }
 
 /**
- * Fire single shots (`shoot` presses and releases the fire control) at NPC `id`, held ahead, until she is
- * disabled. One shot at a time, so no second bolt is in flight to destroy her once she is.
+ * Fire single shots (`shoot` presses and releases the fire control) at NPC `id` until she is disabled. State-based,
+ * with no shot count or time budget of its own, so slow (software-rendered CI) timing only makes it take longer:
+ * whenever none of the player's shots is in flight and she is still up, she is weakened, held ahead and shot once.
+ * One press at a time, plus weaken's armor margin, means a stray extra bolt cannot destroy her once she is disabled.
+ * Call it with no player shot in flight.
  */
 async function shootUntilDisabled(page: Page, id: string, shoot: () => Promise<void>): Promise<void> {
-  for (let i = 0; i < 20; i++) {
-    await holdAhead(page, id);
-    await shoot();
-    await page.waitForTimeout(600); // 150 px at 700 px/s, with room to spare
-    if ((await npcOf(page, id))?.hull.disabled) return;
-  }
-  throw new Error(`${id} was not disabled`);
+  const state = async () => {
+    const n = await npcOf(page, id);
+    if (!n) return 'gone';
+    if (n.hull.disabled) return 'disabled';
+    if ((await playerShots(page)) === 0) {
+      await weaken(page, id);
+      await holdAhead(page, id);
+      await shoot();
+    }
+    return 'up';
+  };
+  await expect.poll(state, { timeout: 60_000, intervals: [100] }).not.toBe('up');
+  expect(await state(), `${id} was not disabled`).toBe('disabled');
 }
 
 /** Park the player's ship at rest beside NPC `id`, facing it (the boarding range is 60 px). */
@@ -104,10 +136,11 @@ test.describe('desktop', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test('R targets a hostile, Space fires until disabled, B boards, take cargo, capture, take command', async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     const errors = trackErrors(page);
     await newPilot(page, 'Gunner');
     await leavePlanet(page);
+    await quietSky(page);
     const id = await spawn(page, 'courier');
     const start = await hullOf(page, id);
 
@@ -118,6 +151,8 @@ test.describe('desktop', () => {
     await page.keyboard.down('Space');
     await expect.poll(() => hullOf(page, id), { timeout: 20_000 }).toBeLessThan(start);
     await page.keyboard.up('Space');
+    // Bolts still in flight could disable the weakened ship, and the next shot would then destroy her.
+    await expect.poll(() => playerShots(page)).toBe(0);
     await weaken(page, id);
     await shootUntilDisabled(page, id, async () => {
       await page.keyboard.down('Space');
@@ -126,8 +161,8 @@ test.describe('desktop', () => {
     });
     expect(await page.evaluate(() => window.__starwake!.targetBars!())).not.toBeNull();
 
-    // The test raider carries no trade goods: make her a trader's hull so there is cargo to take.
-    await patchNpc(page, id, { role: 'trader', government: 'independent' });
+    // Only traders carry trade goods: give the raider a trader's hold (she stays a raider-government ship) so there is cargo to take.
+    await patchNpc(page, id, { role: 'trader' });
     await parkBeside(page, id);
     await expect.poll(() => page.evaluate(() => window.__starwake!.controller.currentContext())).toBe('board');
     await page.keyboard.press('b');
@@ -159,6 +194,7 @@ test.describe('desktop', () => {
     const errors = trackErrors(page);
     await newPilot(page, 'Payer');
     await leavePlanet(page);
+    await quietSky(page);
     const id = await spawn(page, 'kestrel');
     await patchNpc(page, id, { engaged: false, demand: true });
     await expect.poll(() => page.evaluate(() => window.__starwake!.hudHail!())).not.toBeNull();
@@ -221,10 +257,10 @@ test.describe('desktop', () => {
   });
 
   test('bounty: accept, fly, disable, return, paid', async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     const errors = trackErrors(page);
-    await newPilot(page, 'Hunter');
-    // Advance the date until Halcyon posts a bounty, then take it.
+    await newPilot(page, 'Hunter', false, true); // calm: no random raider in the target system
+    // Advance the date until Halcyon posts a bounty, then take it at the Mission Computer.
     const offer = await page.evaluate(() => {
       const h = window.__starwake!;
       for (let i = 0; i < 200; i++) {
@@ -234,7 +270,15 @@ test.describe('desktop', () => {
       }
       throw new Error('no bounty offer found');
     });
-    expect(await page.evaluate((o) => window.__starwake!.controller.acceptMission(o).ok, offer.id)).toBe(true);
+    await page.keyboard.press('KeyM');
+    const mc = page.getByTestId('mission-computer');
+    await expect(mc).toBeVisible();
+    await mc.locator(`[data-offer="${offer.id}"]`).click();
+    await expect(mc.getByTestId('mc-detail')).toContainText(offer.title);
+    await page.keyboard.press('Enter'); // accept
+    await expect(mc.getByTestId('mc-message')).toContainText('Accepted');
+    await page.keyboard.press('Escape');
+    await expect(mc).toBeHidden();
     const job = await page.evaluate(() => window.__starwake!.world().missions.find((m) => m.combat?.kind === 'bounty')!);
     const target = await page.evaluate((sys) => Object.values(window.__starwake!.data.planets).find((p) => p.systemId === sys)!.id, job.combat!.systemId);
 
@@ -242,7 +286,9 @@ test.describe('desktop', () => {
     await page.evaluate((p) => window.__starwake!.teleport(p), target);
     await leavePlanet(page);
     const id = `bounty-${job.id}`;
-    await expect.poll(() => npcOf(page, id)).not.toBeNull();
+    await expect.poll(() => npcOf(page, id)).not.toBeNull(); // calm does not stop the bounty target
+    await quietSky(page);
+    expect(await npcOf(page, id)).not.toBeNull();
     await page.evaluate((i) => window.__starwake!.controller.targetShip(i), id);
     await weaken(page, id);
     await shootUntilDisabled(page, id, () => page.keyboard.press('Space', { delay: 50 }));
@@ -271,13 +317,15 @@ test.describe('desktop', () => {
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await page.getByRole('button', { name: /^Resume/ }).click();
     await waitForFlight(page);
+    await quietSky(page);
 
     // Space no longer fires; Z does.
     await page.keyboard.down('Space');
     await page.waitForTimeout(400);
     await page.keyboard.up('Space');
-    expect(await page.evaluate(() => window.__starwake!.controller.battleView().projectiles.length)).toBe(0);
+    expect(await playerShots(page)).toBe(0);
     await page.keyboard.down('KeyZ');
+    await expect.poll(() => playerShots(page)).toBeGreaterThan(0);
     await expect.poll(() => page.evaluate(() => window.__starwake!.projectiles!())).toBeGreaterThan(0);
     await page.keyboard.up('KeyZ');
     expect(errors).toEqual([]);
@@ -286,6 +334,7 @@ test.describe('desktop', () => {
 
 /** Test-only: leave the player's ship disabled with no armor and put a raider on her; it finishes the job. */
 async function dieInFlight(page: Page): Promise<void> {
+  await quietSky(page);
   await page.evaluate(() => {
     const h = window.__starwake!;
     h.spawnHostile('kestrel');
@@ -298,7 +347,7 @@ test.describe('phone', () => {
   test.use({ hasTouch: true, viewport: { width: 844, height: 390 } });
 
   test('hold TGT targets the hostile, FIRE disables, the context button reads Board and opens the card', async ({ page }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     const errors = trackErrors(page);
     await newPilot(page, 'Thumb Gunner');
     await page.getByRole('button', { name: /^Leave/ }).tap();
@@ -306,22 +355,25 @@ test.describe('phone', () => {
     await page.touchscreen.tap(422, 30); // touch mode: rails on
     await expect(page.getByTestId('touch-rails')).toBeVisible();
 
-    // Every element over the clear view before the fight: nothing new may join them but the context button.
-    const overClear = () =>
-      page.evaluate(() => {
+    // Every element over the clear view (full-screen layers included) before the fight is marked; afterwards any
+    // unmarked element over it is new, and only the context button may be.
+    const overClear = (mark: boolean) =>
+      page.evaluate((m) => {
         const layer = document.querySelector<HTMLElement>('[data-testid="touch-rails"]')!;
         const c = JSON.parse(layer.dataset.clear!) as { x: number; y: number; w: number; h: number };
         const out: string[] = [];
-        document.querySelectorAll<HTMLElement>('body *').forEach((e, i) => {
+        document.querySelectorAll<HTMLElement>('body *').forEach((e) => {
           if (e.tagName === 'CANVAS' || e.contains(layer)) return;
           const r = e.getBoundingClientRect();
           if (r.width === 0 || r.height === 0 || getComputedStyle(e).visibility === 'hidden') return;
-          if (r.left <= c.x && r.top <= c.y && r.right >= c.x + c.w && r.bottom >= c.y + c.h) return; // full-screen layers
-          if (r.left < c.x + c.w && c.x < r.right && r.top < c.y + c.h && c.y < r.bottom) out.push(e.dataset.testid ?? e.dataset.control ?? `${e.tagName}#${i}`);
+          if (!(r.left < c.x + c.w && c.x < r.right && r.top < c.y + c.h && c.y < r.bottom)) return;
+          if (m) e.dataset.e2eBase = '1';
+          else if (e.dataset.e2eBase !== '1') out.push(e.dataset.testid ?? e.dataset.control ?? `${e.tagName}.${e.className}`);
         });
         return out;
-      });
-    const before = new Set(await overClear());
+      }, mark);
+    await overClear(true);
+    await quietSky(page);
 
     const id = await spawn(page, 'courier');
     await holdRail(page, 'target', 700);
@@ -334,10 +386,10 @@ test.describe('phone', () => {
     const ctxBtn = page.getByTestId('context-button');
     await expect(ctxBtn).toHaveText('BOARD');
     // The context button sits over the view's bottom edge from the start; nothing else may have joined it.
-    const added = (await overClear()).filter((x) => !before.has(x) && x !== 'context-button');
+    const added = (await overClear(false)).filter((x) => x !== 'context-button');
     expect(added).toEqual([]);
 
-    await ctxBtn.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true });
+    await ctxBtn.tap();
     await expect(page.getByTestId('boarding-card')).toBeVisible();
     await expect(page.getByTestId('boarding-card')).toContainText('Attempt capture');
     expect(errors).toEqual([]);
