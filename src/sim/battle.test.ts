@@ -183,11 +183,14 @@ describe('standing', () => {
     const s = tick(begin(mkWorld(), trader()), FIRE, 30);
     expect(s.w.standing.concord).toBe('cool');
   });
-  it('disabling a patrol sets standing cool', () => {
+  it('disabling a patrol drops standing one level; destroying it sets standing cool (spec §9)', () => {
     const w = mkWorld({ standing: { concord: 'friend' } });
     const t = mkTraffic([mkNpc('p1', 'concord', 120, 0, { role: 'patrol', hull: hullAt(5) })], 'p1');
-    const s = tick(begin(w, t), FIRE, 14);
+    let s = tick(begin(w, t), FIRE, 14);
     expect(npc(s, 'p1').hull.disabled).toBe(true);
+    expect(s.w.standing.concord).toBe('neutral');
+    s = tick(s, FIRE, 120);
+    expect(count(s, 'destroyed')).toBe(1);
     expect(s.w.standing.concord).toBe('cool');
   });
 });

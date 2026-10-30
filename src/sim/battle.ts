@@ -150,7 +150,7 @@ export function nearestHostile(world: WorldState, traffic: Traffic, b: Battle): 
 
 /**
  * The player harmed a trader or patrol (§9). The first time per visit its government turns hostile
- * and standing drops a level; a patrol put out of action (disabled, destroyed or captured) sets it
+ * and standing drops a level; a patrol put out of action for good (destroyed or captured) sets it
  * to cool. Raiders change nothing. Returns the new standing and whether `angry` should gain the government.
  */
 export function angerOnHit(
@@ -423,7 +423,8 @@ export function stepBattle(
     if (updated.demand) updated = { ...updated, demand: false, engaged: true };
     events.push({ type: 'hit', targetId: n.id, shield: r.shieldHit, pos: h.pos });
     if (byPlayer && !isRaider(n)) {
-      const a = angerOnHit(standing, angry, n, r.disabledNow || r.destroyed);
+      // Spec §9: destroying (or capturing) a patrol sets standing cool; disabling one is a plain hit.
+      const a = angerOnHit(standing, angry, n, r.destroyed);
       standing = a.standing;
       if (a.angered) {
         angry.push(n.government);
