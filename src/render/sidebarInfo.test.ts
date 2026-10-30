@@ -27,6 +27,7 @@ const npcAt = (id: string, x: number, y: number, government = 'free-reach'): Npc
   engaged: false,
   peaceful: false,
   demand: false,
+  killCounted: false,
 });
 const trafficOf = (npcs: Npc[], targetId: string | null = null): Traffic => ({ systemId: base().systemId, npcs, spawnCount: 0, nextSpawnSec: 99, targetId });
 const at = (w: WorldState, x: number, y: number): WorldState => ({ ...w, ship: { ...w.ship, pos: { x, y } } });

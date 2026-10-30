@@ -40,6 +40,10 @@ export interface Npc {
   peaceful: boolean;
   /** A raider that will hail first and demand a payment. */
   demand: boolean;
+  /** The player has already been credited with a kill for this ship. */
+  killCounted: boolean;
+  /** Battle has already announced that this ship is fleeing. */
+  fled?: boolean;
   /** The bounty mission this ship is the target of. */
   missionId?: string;
 }
@@ -226,6 +230,7 @@ function spawnNpc(t: Traffic, world: WorldState, data: GameData, opts: TrafficOp
     engaged: false,
     peaceful: false,
     demand,
+    killCounted: false,
   };
   const event: TrafficEvent | null = midErrand ? null : { type: errand === 'depart' ? 'npcTookOff' : 'npcJumpIn', id };
   return { npc, event };
@@ -335,6 +340,7 @@ export function addStoryNpc(
     engaged: false,
     peaceful: false,
     demand: false,
+    killCounted: false,
   };
   return { ...t, npcs: [...t.npcs.filter((n) => n.id !== spec.id), npc] };
 }
@@ -363,6 +369,7 @@ export function addBountyNpc(
     engaged: false,
     peaceful: false,
     demand: false,
+    killCounted: false,
     missionId: spec.missionId,
   };
   return { ...t, npcs: [...t.npcs.filter((n) => n.id !== spec.id), npc] };
