@@ -1,6 +1,8 @@
 import type { JumpPhase } from '../sim/types';
 
-export type MoodId = 'core' | 'fringe' | 'combat' | 'docked' | 'hyperspace';
+/** Every music mood; `data/audio.json` → `moods` has a record for each. */
+export const MOOD_IDS = ['core', 'fringe', 'combat', 'docked', 'hyperspace'] as const;
+export type MoodId = (typeof MOOD_IDS)[number];
 
 export interface MoodInput {
   screen: 'menu' | 'docked' | 'flying';

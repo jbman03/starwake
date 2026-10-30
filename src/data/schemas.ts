@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { MoodId } from '../audio/moods';
 
 const vec2 = z.object({ x: z.number(), y: z.number() });
 const id = z.string().min(1);
@@ -475,6 +476,35 @@ export type SoundLayer = z.infer<typeof SoundLayerSchema>;
 
 const recipe = z.object({ layers: z.array(SoundLayerSchema).min(1) }).strict();
 
+const chordLen = z.number().min(8).max(20);
+/** One music mood: a root and scale, a filtered pad, a drone, an optional melody and (combat only) a pulse. */
+export const MoodSchema = z
+  .object({
+    /** Hz of the drone; the pad sits an octave up and the melody two. */
+    root: z.number().positive(),
+    /** Semitone offsets from the root, ascending; chords stack every other degree. */
+    scale: z
+      .array(z.number().int().min(0).max(11))
+      .min(5)
+      .refine((s) => s[0] === 0 && s.every((v, i) => i === 0 || v > s[i - 1]), 'scale must start at 0 and ascend'),
+    /** Seconds per chord: [min, max], within 8–20. */
+    chordSec: z.tuple([chordLen, chordLen]).refine(([lo, hi]) => lo <= hi, 'chordSec min must not exceed max'),
+    pad: z
+      .object({
+        waves: z.array(z.enum(['sine', 'triangle', 'sawtooth'])).min(1).max(3),
+        cutoff: z.number().positive(),
+        gain: z.number().nonnegative(),
+      })
+      .strict(),
+    drone: z.object({ gain: z.number().nonnegative() }).strict(),
+    melody: z.object({ chance: z.number().min(0).max(1), gain: z.number().nonnegative() }).strict().nullable(),
+    pulse: z.object({ bpm: z.number().min(30).max(240), gain: z.number().nonnegative() }).strict().nullable(),
+    level: z.number().min(0).max(1),
+  })
+  .strict();
+export type MoodDef = z.infer<typeof MoodSchema>;
+const calmMood = MoodSchema.refine((m) => m.pulse === null, 'only combat has a pulse');
+
 export const AudioSchema = z
   .object({
     sfx: z
@@ -506,11 +536,17 @@ export const AudioSchema = z
         beam: z.object({ gain: z.number().nonnegative(), holdSec: z.number().positive(), fadeSec: z.number().positive() }).strict(),
       })
       .strict(),
+    moods: z
+      .object({ core: calmMood, fringe: calmMood, docked: calmMood, hyperspace: calmMood, combat: MoodSchema })
+      .strict(),
   })
   .strict();
 export type AudioDef = z.infer<typeof AudioSchema>;
 /** Compile-time check: audio.json has a recipe for exactly the ids in RecipeId. */
 export type AudioRecipesMatch = AudioDef['sfx'] extends Record<RecipeId, unknown> ? (keyof AudioDef['sfx'] extends RecipeId ? true : never) : never;
+/** Compile-time check: audio.json has a mood for exactly the ids in MoodId. */
+const audioMoodsMatch: [keyof AudioDef['moods']] extends [MoodId] ? ([MoodId] extends [keyof AudioDef['moods']] ? true : never) : never = true;
+void audioMoodsMatch;
 
 export interface GameData {
   ships: Record<string, ShipDef>;

@@ -15,6 +15,7 @@ import combat from '../../data/combat.json';
 import audio from '../../data/audio.json';
 import { parseGameData, DataError, loadGameData } from './load';
 import { SFX_IDS } from './schemas';
+import { MOOD_IDS } from '../audio/moods';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
@@ -951,6 +952,33 @@ describe('audio.json and config.jump', () => {
     const r = raw();
     delete r.audio.sfx.uiClick;
     has(failure(r), 'audio.json');
+  });
+  it('has a music mood record for every MoodId, chords of 8–20 s, and a pulse only in combat', () => {
+    const { moods } = parseGameData(raw()).audio;
+    expect(Object.keys(moods).sort()).toEqual([...MOOD_IDS].sort());
+    for (const id of MOOD_IDS) {
+      const [lo, hi] = moods[id].chordSec;
+      expect(lo, id).toBeGreaterThanOrEqual(8);
+      expect(hi, id).toBeLessThanOrEqual(20);
+      expect(lo, id).toBeLessThanOrEqual(hi);
+      expect(moods[id].pulse !== null, id).toBe(id === 'combat');
+    }
+  });
+  it('rejects a mood with chords outside 8–20 s, a pulse outside combat, an unordered scale, or a missing mood', () => {
+    const bad: ((a: any) => void)[] = [
+      (a) => (a.moods.core.chordSec = [4, 12]),
+      (a) => (a.moods.fringe.chordSec = [12, 30]),
+      (a) => (a.moods.docked.chordSec = [16, 10]),
+      (a) => (a.moods.core.pulse = { bpm: 90, gain: 0.1 }),
+      (a) => (a.moods.core.scale = [0, 4, 2, 7, 9]),
+      (a) => delete a.moods.hyperspace,
+      (a) => (a.moods.calm = a.moods.core),
+    ];
+    for (const mutate of bad) {
+      const r = raw();
+      mutate(r.audio);
+      has(failure(r), 'audio.json');
+    }
   });
   it('holds the jump timings in config', () => {
     expect(parseGameData(raw()).config.jump).toEqual({

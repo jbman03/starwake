@@ -14,9 +14,17 @@ export function param() {
   };
 }
 
+/** What happened to a node: disconnect calls, and for sources the start and stop times. */
+export interface NodeLog {
+  disconnects: number;
+  starts: number[];
+  stops: number[];
+}
+
 /** A fake audio node that records what it is connected to. */
 export interface FakeNode {
   to: unknown[];
+  log: NodeLog;
   connect: (n: unknown) => unknown;
   disconnect: () => void;
 }
@@ -33,9 +41,15 @@ export function fakeCtx() {
     suspended: 0,
     autoRun: true,
   };
+  // Spread into richer nodes below, so the state lives in shared objects, not copied fields.
   const node = (): FakeNode => {
     const to: unknown[] = [];
-    return { to, connect: (n: unknown) => (to.push(n), n), disconnect: () => undefined };
+    const log: NodeLog = { disconnects: 0, starts: [], stops: [] };
+    return { to, log, connect: (n: unknown) => (to.push(n), n), disconnect: () => void (log.disconnects += 1) };
+  };
+  const source = () => {
+    const n = node();
+    return { ...n, start: (t = 0) => void n.log.starts.push(t), stop: (t = 0) => void n.log.stops.push(t) };
   };
   const made_ = <T extends FakeNode>(n: T, source = false): T => {
     made.nodes.push(n);
@@ -59,7 +73,7 @@ export function fakeCtx() {
     },
     createOscillator: () => {
       made.osc += 1;
-      return made_({ ...node(), type: 'sine', frequency: param(), start: () => undefined, stop: () => undefined }, true);
+      return made_({ ...source(), type: 'sine', frequency: param(), detune: param() }, true);
     },
     createGain: () => {
       const gain = param();
@@ -70,7 +84,7 @@ export function fakeCtx() {
     createBuffer: (_c: number, len: number) => ({ getChannelData: () => new Float32Array(len) }),
     createBufferSource: () => {
       made.noise += 1;
-      return made_({ ...node(), buffer: null, loop: false, start: () => undefined, stop: () => undefined }, true);
+      return made_({ ...source(), buffer: null, loop: false }, true);
     },
   };
   return { ctx: ctx as unknown as AudioContext, made, destination: ctx.destination };

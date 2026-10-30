@@ -1,5 +1,7 @@
 import './ui/styles.css';
 import { Mixer } from './audio/mixer';
+import { moodFor } from './audio/moods';
+import { Music } from './audio/music';
 import { battleSounds, SoundBoard } from './audio/sfx';
 import { Controller } from './app/controller';
 import { WakeLockManager, vibrateIfEnabled, type WakeLockApi } from './app/device';
@@ -69,6 +71,33 @@ async function boot(): Promise<void> {
   }, 50);
   // The hum follows the engine, and stops whenever flight is paused or the ship is not flying.
   setInterval(() => sound.setThrust(document.visibilityState === 'visible' && controller.isFlying && controller.view().thrusting), 50);
+
+  // Music follows the mood of the moment, scheduled a little ahead on the audio clock. It fades out
+  // with the pause menu and back in when flight resumes (or the menu leads to a planet or the main
+  // menu); the star map, cards and planet screens keep it playing.
+  const music = new Music(mixer, data.audio.moods);
+  let menuPaused = false;
+  const resumeMusic = () => {
+    if (!menuPaused) return;
+    menuPaused = false;
+    music.resume();
+  };
+  controller.on('menu', (e) => {
+    if (e.action !== 'pause') return;
+    menuPaused = true;
+    music.pause();
+  });
+  controller.on('flying', (e) => e.flying && resumeMusic());
+  setInterval(() => {
+    try {
+      const input = controller.musicInput();
+      music.setMood(moodFor(input));
+      if (input.screen !== 'flying') resumeMusic(); // a tow or Quit left the pause menu
+      music.tick();
+    } catch {
+      // music never breaks the game
+    }
+  }, 250);
 
   // Nothing stays held when the app is backgrounded.
   const releaseInputs = () => controller.releaseInputs();
