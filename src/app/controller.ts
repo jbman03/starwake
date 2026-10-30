@@ -5,6 +5,9 @@ import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
 import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import { saveSettings, type Settings } from '../save/settings';
+import { nearestHostile, type BattleEvent } from '../sim/battle';
+import { governmentShortName } from '../sim/standing';
+import { CombatControl } from './combatControl';
 import { contextAction, siteReachable, type ContextAction, type PendingHint } from '../sim/context';
 import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, hubName, rollEncounter } from '../sim/encounters';
 import { hashString, mulberry32 } from '../sim/random';
@@ -114,7 +117,11 @@ export type ControllerEvent =
   /** The flight HUD or rail asked to skip the First Flight guide (the UI confirms). */
   | { type: 'guideSkip' }
   /** Something happened that has a sound but no event of its own (arrival, landing and pay have theirs). */
-  | { type: 'sfx'; sfx: 'jump' | 'takeoff' | 'trade' | 'hail' | 'site' };
+  | { type: 'sfx'; sfx: 'jump' | 'takeoff' | 'trade' | 'hail' | 'site' }
+  /** This tick's fight events (shots, hits, kills), once per tick when there are any. */
+  | { type: 'battle'; events: BattleEvent[] }
+  /** The pilot asked to board `npcId` (a disabled ship in reach). */
+  | { type: 'board'; npcId: string };
 
 export type ControllerEventType = ControllerEvent['type'];
 type EventOf<T extends ControllerEventType> = Extract<ControllerEvent, { type: T }>;
@@ -167,6 +174,8 @@ export class Controller {
 
   /** The NPC ships in this system (seeded on arrival, stepped while flying). */
   traffic: Traffic;
+  /** The fight in this system: the player's hull, shots in flight, the selected launcher. */
+  readonly combat: CombatControl;
   /** The hail or site waiting in this system, or null. */
   pending: PendingEncounter | null = null;
   /** The scan or find site of a story step in this system, or null. */
@@ -214,6 +223,7 @@ export class Controller {
   ) {
     this.world = world;
     this.traffic = seedTraffic(world, data, this.trafficOpts());
+    this.combat = new CombatControl(data, world);
     this.prevShip = world.ship;
     this.keyboard = new KeyboardSource(
       keyTarget,
@@ -268,6 +278,7 @@ export class Controller {
   beginSession(world: WorldState, pilot: PilotMeta, planetId: string): void {
     this.world = world;
     this.traffic = seedTraffic(world, this.data, this.trafficOpts());
+    this.combat.reset(world);
     this.pending = null;
     this.card = null;
     this.storySite = null;
@@ -323,6 +334,7 @@ export class Controller {
   leavePlanet(): void {
     if (!this.landedPlanetId) return;
     this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
+    this.combat.reset(this.world);
     this.prevShip = this.world.ship;
     this.refreshStory();
     this.fx = { kind: 'takeoff', t: 0 };
@@ -353,7 +365,28 @@ export class Controller {
   }
 
   currentContext(): ContextAction {
-    return contextAction(this.world, this.data, this.pendingHint(), this.canFlyToSite());
+    const combat = {
+      board: this.combat.boardable(this.world, this.traffic) !== null,
+      disabledCalm: this.combat.disabledCalm(),
+      disabled: this.combat.playerDisabled(),
+    };
+    return contextAction(this.world, this.data, this.pendingHint(), this.canFlyToSite(), combat);
+  }
+
+  /** Ask to board the ship in reach (the boarding card listens for `board`); false when none is. */
+  board(): boolean {
+    const npc = this.combat.boardable(this.world, this.traffic);
+    if (!npc) return false;
+    this.emit({ type: 'board', npcId: npc.id });
+    return true;
+  }
+
+  /** Target the nearest hostile ship, dropping any planet or site target; false (no change) when there is none. */
+  targetNearestHostile(): boolean {
+    const id = nearestHostile(this.world, this.traffic, this.combat.battle);
+    if (!id) return false;
+    this.targetShip(id);
+    return true;
   }
 
   /**
@@ -369,7 +402,8 @@ export class Controller {
     } else if (action === 'answerHail' || action === 'openSite') this.openEncounter();
     else if (action === 'flyToSite') this.flyToStorySite();
     else if (action === 'takeControl') this.world = interruptAutopilot(this.world);
-    else if (action === 'tow') this.callTow();
+    else if (action === 'board') this.board();
+    else if (action === 'tow' || action === 'callTow') this.callTow();
     else if (action === 'land') this.queued.add('land');
     else if (action === 'autopilotOut') this.world = autopilotToJumpPoint(this.world);
     else if (action === 'jump') this.queued.add('jump');
@@ -397,13 +431,19 @@ export class Controller {
   /** Planet a tow would take us to right now, or null when no tow is offered. */
   towDestination(): string | null {
     if (this.landedPlanetId || this.fx?.kind === 'land' || this.world.jump) return null;
-    return towDestination(this.world, this.data);
+    // A disabled ship waits until no hostile is near; then the nearest port sends a tow, fuel or not.
+    if (this.combat.playerDisabled() && !this.combat.disabledCalm()) return null;
+    return towDestination(this.world, this.data, this.towOpts());
+  }
+
+  private towOpts(): { disabled: boolean } {
+    return { disabled: this.combat.disabledCalm() };
   }
 
   /** Call for a tow (works while paused). Lands at the destination; false if none is offered. */
   callTow(): boolean {
     if (!this.towDestination()) return false;
-    const r = applyTow(this.world, this.data);
+    const r = applyTow(this.world, this.data, this.towOpts());
     this.world = r.world;
     this.prevShip = r.world.ship;
     this.handleEvents(r.events);
@@ -651,6 +691,8 @@ export class Controller {
         this.world = { ...this.world, targetPlanetId: pick.planetId };
         this.targetSiteId = pick.siteId;
       }
+      if (pressed.delete('nearestHostile')) this.targetNearestHostile();
+      if (pressed.delete('board')) this.board();
       // The autopilot key flies to a targeted site (the sim's own autopilot only knows planets and the jump point).
       if (pressed.has('autopilot') && this.world.assist.kind !== 'autopilot') {
         const site = this.targetedSite();
@@ -659,10 +701,14 @@ export class Controller {
           this.world = autopilotToSite(this.world, site);
         }
       }
-      const input: FrameInput = touch.stick && !locked
+      const raw: FrameInput = touch.stick && !locked
         ? { actions: polled.actions, pressed, stick: touch.stick }
         : { actions: polled.actions, pressed };
       this.prevShip = this.world.ship;
+      // A disabled ship can't steer, fire, land or jump: it drifts.
+      const f = this.combat.flightInput(this.world, raw, dt);
+      const input = f.input;
+      this.world = f.world;
       const wasJumping = this.world.jump !== null;
       const r = stepWorld(this.world, this.data, input, dt, {
         autoLandOnArrival: this.settings.autoLandOnArrival,
@@ -675,11 +721,24 @@ export class Controller {
         if (this.fx.t >= LANDING_FX_SEC - 1e-9) this.fx = null;
       }
       this.handleEvents(r.events);
+      this.stepCombat(input, dt);
       this.stepTraffic(dt);
       this.lapseHail(dt);
       this.syncSiteTarget();
     });
     this.checkContext();
+  }
+
+  /** One fight tick after the world step (not while landing, or once a tow or landing paused flight). */
+  private stepCombat(input: FrameInput, dt: number): void {
+    if (!this.flying || this.fx?.kind === 'land' || this.traffic.systemId !== this.world.systemId) return;
+    const r = this.combat.tick(this.world, this.traffic, input, dt);
+    this.world = r.world;
+    this.traffic = r.traffic;
+    if (r.events.length === 0) return;
+    this.emit({ type: 'battle', events: r.events });
+    const angered = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
+    if (angered.length > 0) this.emit({ type: 'message', text: angered.join(' ') });
   }
 
   /** Advance the NPCs one tick; reseed on a new system and drop a target that is no longer there. */
@@ -1101,6 +1160,7 @@ export class Controller {
         this.traffic = seedTraffic(this.world, this.data, this.trafficOpts());
       }
       if (e.type === 'arrived') {
+        this.combat.reset(this.world); // shots in flight stay behind in the old system
         this.refreshStory();
         this.pending = this.rollPending();
         if (this.pending) this.world = { ...this.world, lastEncounterDay: this.world.day };
@@ -1120,6 +1180,7 @@ export class Controller {
   }
 
   private landAt(planetId: string, autosave = true): void {
+    this.combat.reset(this.world); // landing repairs the ship; no fight carries over
     this.fx = null;
     this.thrusting = false;
     this.pauseFlight();

@@ -34,9 +34,11 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   autoStop: 'STOP',
   firePrimary: 'FIRE',
   fireSecondary: 'MSL',
+  cycleSecondary: 'Tap the label under MSL',
   nextTarget: 'TGT',
-  nearestHostile: 'None on phone',
+  nearestHostile: 'Hold TGT',
   faceTarget: 'None on phone',
+  board: 'Board button',
   land: 'LAND ON (planet) button, or tap the planet',
   jump: 'JUMP TO (system) button',
   autopilot: 'AUTOPILOT TO JUMP POINT or Fly to (site) button; TAKE CONTROL stops it',
@@ -63,13 +65,15 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   encounterChoice1: 'Tap the choice',
   encounterChoice2: 'Tap the choice',
   encounterChoice3: 'Tap the choice',
+  encounterChoice4: 'Tap the choice',
+  encounterChoice5: 'Tap the choice',
   back: 'Back or Close button',
   menuHowToPlay: 'Tap the button',
   toggleSound: 'Settings → General → Mute sound'
 };
 
-/** Actions the game accepts and binds but that do nothing yet (no combat in this version). */
-export const COMING_SOON: readonly ActionId[] = ['firePrimary', 'fireSecondary', 'nearestHostile'];
+/** Actions the game accepts and binds but that do nothing yet (none at the moment). */
+export const COMING_SOON: readonly ActionId[] = [];
 
 export interface ControlRow {
   action: ActionId;
@@ -110,7 +114,7 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
         { heading: 'Targets', text: `${k('nextTarget')} cycles through the ships in the system, then the planets and stations; ${k('faceTarget')} turns you to face the target. Click or tap a ship or planet to target it. A targeted ship's name, faction, hull and role show on the target line. ${k('autopilot')} flies to the targeted planet, or out to the jump point when nothing is targeted; press it again, or any steering key, to take over.` },
         { heading: 'Other ships', text: 'The galaxy is busy. Ships jump in, land, take off and pass through, and the busy core sees more of them than the quiet fringe. For now they are all just going about their business.' },
         { heading: 'Hails and sites', text: `Now and then a ship hails you on the radio, or a white diamond appears in space, on the view and the radar. ${k('interact')} answers a hail. To open a site, fly close and slow, then press ${k('interact')}. On a phone, the bottom button changes to Answer hail or Open site. An encounter is a short card: press ${k('encounterChoice1')}, ${k('encounterChoice2')} or ${k('encounterChoice3')} to choose, then Done (or Esc) to carry on.` },
-        { heading: 'Weapons', text: 'Weapons and combat arrive in a later update. The fire keys are bindable already but do nothing yet.' },
+        { heading: 'Weapons', text: `${k('firePrimary')} fires your guns and ${k('fireSecondary')} fires the selected launcher; ${k('cycleSecondary')} picks the next launcher. ${k('nearestHostile')} targets the nearest hostile ship. On a phone, hold FIRE or MSL.` },
         { heading: 'Landing', text: `Target a planet or station, fly close, slow right down, then press ${k('land')}. On a phone, tap the planet or the LAND ON button.` },
         { heading: 'Sound', text: `${k('toggleSound')} turns sound on or off. Volume and mute are also in Settings → General.` },
         { heading: 'Pause', text: `${k('pause')} pauses the game and opens the pause menu, where you can save, change settings or quit.` },

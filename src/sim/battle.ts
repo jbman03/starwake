@@ -60,8 +60,6 @@ export type BattleEvent =
   | { type: 'fled'; id: string };
 
 const STANDING_BY_RANK: StandingLevel[] = ['cool', 'neutral', 'friend'];
-/** Held-weapon names the controller may add before the action list does. */
-const CYCLE_SECONDARY = 'cycleSecondary';
 
 const hasAmmo = (outfits: Record<string, number>, launcherAmmo: string): boolean => (outfits[launcherAmmo] ?? 0) > 0;
 
@@ -126,16 +124,20 @@ function aiSelfOf(n: Npc, me: Combatant, data: GameData): AiSelf {
   };
 }
 
+/** Would this NPC fight the player (whether or not it can right now)? A stood-down raider would not. */
+export function isHostileToPlayer(n: Npc, world: WorldState, b: Battle): boolean {
+  const player: Combatant = { id: PLAYER_ID, government: '', ship: world.ship, radius: 0, hull: b.player, outfits: world.outfits };
+  const me: Combatant = { id: n.id, government: n.government, ship: n.ship, radius: 0, hull: n.hull, outfits: n.outfits };
+  const self: AiSelf = { role: n.role, me, peaceful: n.peaceful || n.demand, aggro: n.aggro, maxSpeed: 0, fireRange: 0 };
+  return isHostileTo(self, player, b.angry);
+}
+
 /** Nearest targetable, active NPC that is hostile to the player (a stood-down raider is not). */
 export function nearestHostile(world: WorldState, traffic: Traffic, b: Battle): string | null {
-  const player: Combatant = { id: PLAYER_ID, government: '', ship: world.ship, radius: 0, hull: b.player, outfits: world.outfits };
   let best: string | null = null;
   let bestD = Infinity;
   for (const n of traffic.npcs) {
-    if (!isTargetable(n) || n.hull.disabled) continue;
-    const me: Combatant = { id: n.id, government: n.government, ship: n.ship, radius: 0, hull: n.hull, outfits: n.outfits };
-    const self: AiSelf = { role: n.role, me, peaceful: n.peaceful || n.demand, aggro: n.aggro, maxSpeed: 0, fireRange: 0 };
-    if (!isHostileTo(self, player, b.angry)) continue;
+    if (!isTargetable(n) || n.hull.disabled || !isHostileToPlayer(n, world, b)) continue;
     const d = dist(world.ship.pos, n.ship.pos);
     if (d < bestD) {
       bestD = d;
@@ -268,8 +270,7 @@ export function stepBattle(
   const targetNpc = npcs.find((n) => n.id === traffic.targetId && isTargetable(n) && alive(n.hull));
 
   // 2. Player fire.
-  // TODO(task 9): drop this cast once the cycleSecondary action exists in ActionId.
-  if ((input.pressed as ReadonlySet<string>).has(CYCLE_SECONDARY)) battle = cycleSecondary(battle, world, data);
+  if (input.pressed.has('cycleSecondary')) battle = cycleSecondary(battle, world, data);
   if (!world.jump && !playerHull.disabled && !playerDead) {
     const me = playerC();
     const victims = combatants().filter((c) => c.id !== PLAYER_ID);

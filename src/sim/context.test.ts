@@ -206,3 +206,30 @@ describe('contextAction: flyToSite', () => {
     expect(contextAction(auto, data, { kind: 'site', pos: far }, true)).toBe('takeControl');
   });
 });
+
+describe('contextAction: combat', () => {
+  const board = { board: true, disabledCalm: false, disabled: false };
+  it('board outranks land and hail', () => {
+    const w = newWorld(data); // near halcyon: land
+    expect(contextAction(w, data)).toBe('land');
+    expect(contextAction(w, data, null, false, board)).toBe('board');
+    expect(contextAction(w, data, { kind: 'hail' }, false, board)).toBe('board');
+    expect(contextAction({ ...w, targetPlanetId: 'halcyon' }, data, null, true, board)).toBe('board');
+    // Only taking control of the autopilot outranks it.
+    const auto: WorldState = { ...w, assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
+    expect(contextAction(auto, data, null, false, board)).toBe('takeControl');
+    expect(contextAction(w, data, null, false, { ...board, board: false })).toBe('land');
+  });
+
+  it('disabled player: callTow when calm, nothing otherwise', () => {
+    const w = newWorld(data);
+    const calm = { board: false, disabledCalm: true, disabled: true };
+    expect(contextAction(w, data, null, false, calm)).toBe('callTow');
+    expect(contextAction(w, data, { kind: 'hail' }, true, { ...calm, disabledCalm: false })).toBeNull();
+    expect(contextAction({ ...w, targetPlanetId: 'halcyon' }, data, null, false, { ...calm, disabledCalm: false })).toBeNull();
+    // Board is not offered to a disabled ship either.
+    expect(contextAction(w, data, null, false, { ...calm, board: true, disabledCalm: false })).toBeNull();
+    // Calm only matters while disabled.
+    expect(contextAction(w, data, null, false, { board: false, disabledCalm: true, disabled: false })).toBe('land');
+  });
+});

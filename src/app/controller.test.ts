@@ -12,6 +12,8 @@ import type { StoryMissionDef } from '../data/schemas';
 import { canAccept } from '../sim/missions';
 import { newWorld } from '../sim/world';
 import { contextLabel } from '../ui/rails';
+import { governmentShortName } from '../sim/standing';
+import { hostileAhead } from './combatControl';
 import { Controller, LANDING_FX_SEC, type ControllerEvent } from './controller';
 
 /** Run `sec` of frames at 60 fps (the landing and take-off effects take time). */
@@ -1319,3 +1321,135 @@ describe('Controller story steps in flight', () => {
     expect(c.encounterView()?.title).toBe('Bram Kettle');
   });
 });
+
+describe('combat in flight', () => {
+  const press = (c: Controller, target: EventTarget, code: string) => {
+    target.dispatchEvent(keyEvent('keydown', code));
+    target.dispatchEvent(keyEvent('keyup', code));
+    c.update(1 / 60);
+  };
+  const spawnHostile = (c: Controller): string => {
+    const r = hostileAhead(c.world, c.traffic, c.data);
+    c.traffic = r.traffic;
+    return r.id;
+  };
+  async function flying() {
+    const s = await setup();
+    s.c.startFlight();
+    s.c.update(1 / 60);
+    return s;
+  }
+
+  it('R targets the nearest hostile', async () => {
+    const { c, target } = await flying();
+    const far = spawnHostile(c);
+    // Move the first raider further out, then add a nearer one and a peaceful trader nearer still.
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === far ? { ...n, ship: { ...n.ship, pos: { x: c.world.ship.pos.x + 1200, y: c.world.ship.pos.y } } } : n)) };
+    const near = spawnHostile(c);
+    c.selectPlanet('halcyon');
+    press(c, target, 'KeyR');
+    expect(c.traffic.targetId).toBe(near);
+    expect(c.world.targetPlanetId).toBeNull();
+    expect(c.targetedSite()).toBeNull();
+  });
+
+  it('Q cycles the secondary', async () => {
+    const { c, target } = await flying();
+    c.world = { ...c.world, outfits: { ...c.world.outfits, 'rocket-rack': 1, rocket: 4, 'seeker-launcher': 1, seeker: 2 } };
+    c.combat.reset(c.world);
+    expect(c.combat.battle.secondary).toBe('rocket-rack');
+    press(c, target, 'KeyQ');
+    expect(c.combat.battle.secondary).toBe('seeker-launcher');
+    press(c, target, 'KeyQ');
+    expect(c.combat.battle.secondary).toBe('rocket-rack');
+  });
+
+  it('Space fires the gun in flight', async () => {
+    const { c, target } = await flying();
+    const battles: number[] = [];
+    c.on('battle', (e) => battles.push(e.events.length));
+    target.dispatchEvent(keyEvent('keydown', 'Space'));
+    c.update(1 / 60);
+    expect(c.combat.battle.projectiles.length).toBeGreaterThan(0);
+    expect(battles.length).toBeGreaterThan(0);
+  });
+
+  it('a jump and a landing clear the fight', async () => {
+    const { c, target, events } = await flying();
+    target.dispatchEvent(keyEvent('keydown', 'Space'));
+    c.update(1 / 60);
+    target.dispatchEvent(keyEvent('keyup', 'Space'));
+    expect(c.combat.battle.projectiles.length).toBeGreaterThan(0);
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, shields: 0, armor: 30 } };
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', t: 99 } };
+    c.update(1 / 60);
+    expect(events.some((e) => e.type === 'jumped')).toBe(true);
+    expect(c.combat.battle.systemId).toBe('vesk');
+    expect(c.combat.battle.projectiles).toEqual([]);
+    expect(c.combat.battle.player.armor).toBe(c.combat.battle.player.maxArmor);
+    // Landing too.
+    target.dispatchEvent(keyEvent('keydown', 'Space'));
+    c.update(1 / 60);
+    target.dispatchEvent(keyEvent('keyup', 'Space'));
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, shields: 0 } };
+    const p = c.data.planets['tallow-rock'];
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { ...p.pos }, vel: { x: 0, y: 0 } } };
+    press(c, target, 'KeyL');
+    run(c, LANDING_FX_SEC + 0.05);
+    expect(c.landedPlanetId).toBe('tallow-rock');
+    expect(c.combat.battle.projectiles).toEqual([]);
+    expect(c.combat.battle.player.shields).toBe(c.combat.battle.player.maxShields);
+  });
+
+  it('a disabled ship does not thrust or jump; it can call a tow once it is calm', async () => {
+    const { c, target } = await flying();
+    const disable = () => (c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true } });
+    disable();
+    target.dispatchEvent(keyEvent('keydown', 'ArrowUp'));
+    run(c, 0.5);
+    target.dispatchEvent(keyEvent('keyup', 'ArrowUp'));
+    expect(Math.hypot(c.world.ship.vel.x, c.world.ship.vel.y)).toBe(0);
+    expect(c.currentContext()).toBeNull();
+    run(c, 5);
+    expect(c.currentContext()).toBe('callTow');
+    expect(c.towDestination()).not.toBeNull();
+    const credits = c.world.credits;
+    c.doContextAction();
+    expect(c.landedPlanetId).not.toBeNull();
+    expect(c.world.credits).toBe(credits - c.data.config.towFee);
+    expect(c.combat.playerDisabled()).toBe(false);
+  });
+
+  it('B, or the context button, next to a wreck asks to board', async () => {
+    const { c, target } = await flying();
+    const boards: string[] = [];
+    c.on('board', (e) => boards.push(e.npcId));
+    const id = spawnHostile(c);
+    c.traffic = {
+      ...c.traffic,
+      npcs: c.traffic.npcs.map((n) =>
+        n.id === id ? { ...n, engaged: false, hull: { ...n.hull, armor: 1, disabled: true }, ship: { ...n.ship, pos: { x: c.world.ship.pos.x + 30, y: c.world.ship.pos.y }, vel: { ...c.world.ship.vel } } } : n,
+      ),
+    };
+    press(c, target, 'KeyB');
+    expect(boards).toEqual([id]);
+    expect(c.currentContext()).toBe('board');
+    c.doContextAction();
+    expect(boards).toEqual([id, id]);
+  });
+
+  it('hitting a trader says its government will remember', async () => {
+    const { c } = await flying();
+    const messages: string[] = [];
+    c.on('message', (e) => messages.push(e.text));
+    const id = spawnHostile(c);
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === id ? { ...n, role: 'trader', government: 'concord', peaceful: true, engaged: false } : n)) };
+    c.combat.battle = {
+      ...c.combat.battle,
+      projectiles: [{ id: 99, ownerId: 'player', targetId: null, kind: 'bolt', pos: { ...c.traffic.npcs.find((n) => n.id === id)!.ship.pos }, vel: { x: 0, y: 0 }, damage: 1, ttl: 1, turnRate: 0 }],
+    };
+    c.update(1 / 60);
+    expect(messages).toContain(`The ${governmentShortName('concord', c.data)} will remember that.`);
+  });
+});
+

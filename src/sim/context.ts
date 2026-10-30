@@ -20,19 +20,30 @@ export function siteReachable(world: WorldState, pos: Vec2): boolean {
   return dist(pos, world.ship.pos) <= SITE_RANGE && Math.hypot(world.ship.vel.x, world.ship.vel.y) < SITE_MAX_SPEED;
 }
 
-export type ContextAction = 'takeControl' | 'tow' | 'answerHail' | 'openSite' | 'flyToSite' | 'land' | 'plotCourse' | 'autopilotOut' | 'jump' | null;
+export type ContextAction = 'takeControl' | 'board' | 'callTow' | 'tow' | 'answerHail' | 'openSite' | 'flyToSite' | 'land' | 'plotCourse' | 'autopilotOut' | 'jump' | null;
+
+/** The fight's say in the context button: a wreck in reach to board, and the player's own state. */
+export interface CombatHint {
+  board: boolean;
+  /** Disabled, with no hostile near for long enough to call a tow. */
+  disabledCalm: boolean;
+  disabled: boolean;
+}
 
 /**
  * The one action a context button should offer right now, by priority:
- * takeControl > tow > openSite > land (a planet is targeted, at any range) > jump / autopilotOut (a course is
+ * (disabled: callTow once calm, else nothing) > takeControl > board > tow > openSite > land (a planet is targeted, at any range) > jump / autopilotOut (a course is
  * set, nothing targeted, no assist) > answerHail > flyToSite (`flyToSite`: a story site is in view but out of reach)
  * > land (a planet is in range) > plotCourse. `plotCourse` (open the star map)
  * covers the phone dead end: no jump destination can be chosen (no usable course and more than
  * one lane out), no assist running and no planet in range.
  */
-export function contextAction(world: WorldState, data: GameData, pending: PendingHint = null, flyToSite = false): ContextAction {
+export function contextAction(world: WorldState, data: GameData, pending: PendingHint = null, flyToSite = false, combat?: CombatHint): ContextAction {
   if (world.jump) return null;
+  // A disabled ship can do nothing but wait for a tow.
+  if (combat?.disabled) return combat.disabledCalm ? 'callTow' : null;
   if (world.assist.kind === 'autopilot') return 'takeControl';
+  if (combat?.board) return 'board';
   if (towDestination(world, data)) return 'tow';
   if (pending?.kind === 'site' && siteReachable(world, pending.pos)) return 'openSite';
   // A targeted planet wins at any range: land does what the L key does (autopilot in, then land).

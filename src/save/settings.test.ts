@@ -122,4 +122,17 @@ describe('settings', () => {
     expect(b.bindings.howToPlay).toEqual([null, null]);
     expect(b.bindings.menuHowToPlay).toEqual(['KeyH', null]); // menus group: no clash
   });
+  it('old saved bindings gain cycleSecondary and board', () => {
+    const old = resetBindings() as Record<string, unknown>;
+    for (const id of ['cycleSecondary', 'board', 'encounterChoice4', 'encounterChoice5']) delete old[id];
+    localStorage.setItem(KEY, JSON.stringify({ bindings: old }));
+    const b = loadSettings().bindings;
+    expect(b.cycleSecondary).toEqual(['KeyQ', null]);
+    expect(b.board).toEqual(['KeyB', null]);
+    expect(b.encounterChoice4).toEqual(['Digit4', null]);
+    expect(b.encounterChoice5).toEqual(['Digit5', null]);
+    // A pilot who already put Q on thrust keeps it; the new action waits for a key.
+    localStorage.setItem(KEY, JSON.stringify({ bindings: { ...old, thrust: ['KeyQ', null] } }));
+    expect(loadSettings().bindings.cycleSecondary).toEqual([null, null]);
+  });
 });

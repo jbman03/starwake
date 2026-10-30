@@ -53,7 +53,7 @@ describe('hotkey editor Escape invariant errors', () => {
   it('shows an inline error when capture would remove Escape from pause', () => {
     const { ed, settings } = setup();
     slot('slot-pause-0').click();
-    press('KeyQ');
+    press('KeyZ');
     expect(ed.node.querySelector('.sw-error')!.textContent).toMatch(/pause.*Escape/);
     expect(settings.bindings.pause[0]).toBe('Escape');
     ed.dispose();

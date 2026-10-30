@@ -42,7 +42,10 @@ export function contextLabel(action: ContextAction, world: WorldState, data: Gam
       return siteVerb ?? 'Fly to site';
     case 'takeControl':
       return '✋ TAKE CONTROL';
+    case 'board':
+      return 'BOARD';
     case 'tow':
+    case 'callTow':
       return `CALL TOW (${data.config.towFee} cr)`;
     default:
       return null;
