@@ -78,6 +78,8 @@ export function testHookActive(): boolean {
 export interface TestFlags {
   /** `?crash=1`: throw during boot. */
   crash: boolean;
+  /** `?calm=1`: no raiders spawn, so no demand hails or attacks (story e2e at fringe systems). */
+  calm?: boolean;
   /** Raw data overrides for `?baddata=1`: a shuttle whose maxSpeed is a string. */
   dataOverride?: { ships: unknown };
 }
@@ -87,6 +89,7 @@ export function testFlags(search: string = location.search): TestFlags {
   if (!testHookActive()) return { crash: false };
   const q = new URLSearchParams(search);
   const flags: TestFlags = { crash: q.get('crash') === '1' };
+  if (q.get('calm') === '1') flags.calm = true;
   if (q.get('baddata') === '1') {
     flags.dataOverride = {
       ships: [

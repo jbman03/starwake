@@ -54,6 +54,8 @@ export interface TrafficOpts {
   startSystem: string;
   /** The system of an active clear job, where raiders are likelier. */
   clearBoost?: string;
+  /** Test-only (`?test&calm=1`): no raiders spawn anywhere, so no demands or attacks. */
+  noRaiders?: boolean;
 }
 
 export interface Traffic {
@@ -107,7 +109,7 @@ const isFringe = (data: GameData, systemId: string): boolean => portsOf(data, sy
 
 /** Chance that a spawn in this system is a raider. */
 export function raiderChance(data: GameData, systemId: string, opts: TrafficOpts): number {
-  if (opts.guideActive || systemId === opts.startSystem) return 0;
+  if (opts.noRaiders || opts.guideActive || systemId === opts.startSystem) return 0;
   const sp = data.combat.spawn;
   if (opts.clearBoost === systemId) return sp.clearBoost;
   const byGov = sp.raiderChance[data.systems[systemId].government] ?? 0;

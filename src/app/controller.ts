@@ -215,6 +215,8 @@ export class Controller {
   store: SaveSink | null = null;
   /** The First Flight guide for this session, set by the UI layer (src/ui/context.ts); null without a session. */
   guide: Guide | null = null;
+  /** Test-only (`?test&calm=1`, set by main.ts when the test hook is active): no raiders spawn. */
+  calm = false;
   /**
    * Jobs finished by the landing that opened the planet screen, until that screen shows them
    * (it mounts after `missionsCompleted` fires, so it collects them with takeCompletion()).
@@ -711,6 +713,7 @@ export class Controller {
       guideActive: (this.guide?.current() ?? null) !== null,
       startSystem: this.data.config.startSystemId,
       clearBoost: clearBoostSystem(this.world),
+      noRaiders: this.calm,
     };
   }
 

@@ -9,13 +9,15 @@ describe('test hook gating', () => {
     vi.stubEnv('DEV', true);
     expect(testHookActive()).toBe(true);
     expect(testFlags('?crash=1').crash).toBe(true);
+    expect(testFlags('?test&calm=1').calm).toBe(true);
+    expect(testFlags('?test').calm).toBeUndefined();
   });
 
   it('is never active in production, even when the URL mentions test', () => {
     vi.stubEnv('DEV', false);
-    (window as unknown as { happyDOM: { setURL(url: string): void } }).happyDOM.setURL('https://example.test/starwake/?test&crash=1&baddata=1');
+    (window as unknown as { happyDOM: { setURL(url: string): void } }).happyDOM.setURL('https://example.test/starwake/?test&crash=1&baddata=1&calm=1');
     expect(testHookActive()).toBe(false);
-    expect(testFlags('?test&crash=1&baddata=1')).toEqual({ crash: false });
+    expect(testFlags('?test&crash=1&baddata=1&calm=1')).toEqual({ crash: false });
   });
 });
 

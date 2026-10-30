@@ -1627,4 +1627,11 @@ describe('combat jobs in flight', () => {
     c.world = { ...c.world, missions: [] };
     expect((c as unknown as { trafficOpts(): { clearBoost?: string } }).trafficOpts().clearBoost).toBeUndefined();
   });
+  it('calm (the test flag) passes noRaiders to traffic', async () => {
+    const { c } = await flyingWith(clear());
+    const opts = () => (c as unknown as { trafficOpts(): { noRaiders?: boolean } }).trafficOpts();
+    expect(opts().noRaiders).toBe(false);
+    c.calm = true;
+    expect(opts().noRaiders).toBe(true);
+  });
 });

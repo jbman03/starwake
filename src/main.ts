@@ -39,6 +39,7 @@ async function boot(): Promise<void> {
   const data = await loadGameData(flags.dataOverride);
   const settings = loadSettings();
   const controller = new Controller(data, settings, window);
+  controller.calm = flags.calm === true;
   const store = new PilotStore();
   controller.store = store;
   installTestHook(controller, data, store);

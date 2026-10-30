@@ -297,6 +297,11 @@ describe('raiderChance / patrolChance', () => {
     expect(raiderChance(data, 'gloam', o(8, { guideActive: true, clearBoost: 'gloam' }))).toBe(0);
   });
 
+  it('no raiders anywhere with the calm test option, even with a clear job', () => {
+    expect(raiderChance(data, sysOf('unlit'), o(8, { noRaiders: true }))).toBe(0);
+    if (fringeSys) expect(raiderChance(data, fringeSys, o(8, { noRaiders: true, clearBoost: fringeSys }))).toBe(0);
+  });
+
   it('clear job raises the raider chance to 60%', () => {
     expect(raiderChance(data, sysOf('concord'), o(8, { clearBoost: sysOf('concord') }))).toBe(0.6);
     expect(raiderChance(data, sysOf('concord'), o(8, { clearBoost: 'elsewhere' }))).toBe(0.05);
