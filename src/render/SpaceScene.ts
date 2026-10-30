@@ -3,7 +3,7 @@ import type { Controller } from '../app/controller';
 import type { SystemDef } from '../data/schemas';
 import type { InputMode } from '../input/mode';
 import { getInsets } from '../input/insets';
-import { pointerTypeOf } from '../input/pointer';
+import { pointerTypeOf, resolveShipPress } from '../input/pointer';
 import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { npcLabel, targetedNpc } from '../sim/traffic';
@@ -240,6 +240,7 @@ export class SpaceScene extends Phaser.Scene {
       const img = this.add.image(p.pos.x, p.pos.y, makePlanetTexture(this, p)).setDepth(1);
       const r = Math.max(MIN_TAP_RADIUS, p.radius + TAP_MARGIN);
       img.setInteractive(new Phaser.Geom.Circle(img.width / 2, img.height / 2, r), Phaser.Geom.Circle.Contains);
+      img.setData('planetId', p.id);
       // Mouse click: select only. Touch tap: select and land.
       img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, (pointer: Phaser.Input.Pointer) =>
         this.controller.tapPlanet(p.id, pointerTypeOf(pointer.event, pointer.wasTouch)),
@@ -409,7 +410,17 @@ export class SpaceScene extends Phaser.Scene {
         if (color) img.setTint(parseInt(color.slice(1), 16));
         const hit = Math.max(MIN_TAP_RADIUS, def.radius + TAP_MARGIN);
         img.setInteractive(new Phaser.Geom.Circle(img.width / 2, img.height / 2, hit), Phaser.Geom.Circle.Contains);
-        img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => this.controller.targetShip(n.id));
+        // Ships draw above planets, so a ship over a planet takes the press; a touch tap there still lands.
+        img.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+          const type = pointerTypeOf(pointer.event, pointer.wasTouch);
+          const planets = this.input.hitTestPointer(pointer).flatMap((o) => {
+            const id: unknown = o.getData('planetId');
+            return typeof id === 'string' ? [id] : [];
+          });
+          const press = resolveShipPress(n.id, planets, type);
+          if (press.kind === 'planet') this.controller.tapPlanet(press.id, type);
+          else this.controller.targetShip(press.id);
+        });
         img.setData('sig', sig);
         this.addWorldObject(img);
         this.npcSprites.set(n.id, img);
