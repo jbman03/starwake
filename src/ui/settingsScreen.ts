@@ -1,4 +1,4 @@
-import { saveSettings, type Settings } from '../save/settings';
+import type { Settings } from '../save/settings';
 import type { UiContext } from './context';
 import { button, el } from './dom';
 import { createHotkeyEditor } from './hotkeyEditor';
@@ -77,7 +77,7 @@ function replayField(ctx: UiContext): HTMLElement {
 export function showSettings(ctx: UiContext, opts: { mode: SettingsMode; onClose?: () => void }): void {
   const { controller } = ctx;
   const s: Settings = controller.settings;
-  const persist = () => saveSettings(s);
+  const persist = () => controller.settingsChanged();
   const close = opts.onClose ?? (() => ctx.unmount());
 
   const editor = opts.mode === 'keyboard' ? createHotkeyEditor(ctx) : null;

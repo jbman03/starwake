@@ -1,4 +1,5 @@
 import './ui/styles.css';
+import { Mixer } from './audio/mixer';
 import { battleSounds, SoundBoard } from './audio/sfx';
 import { Controller } from './app/controller';
 import { WakeLockManager, vibrateIfEnabled, type WakeLockApi } from './app/device';
@@ -46,12 +47,15 @@ async function boot(): Promise<void> {
   const inputMode = new InputMode(window, () => settings.bindings);
 
   // Sound: the audio context wakes on the first key or tap; events play their effects.
-  const sound = new SoundBoard(() => settings, data.audio);
+  const mixer = new Mixer(() => settings);
+  const sound = new SoundBoard(() => settings, data.audio, mixer);
+  // Volume sliders, the mute toggle and the V key all end in controller.settingsChanged().
+  controller.on('settings', () => mixer.apply());
   // Touch pointerdown and Escape are not activating gestures, so keep listening until the context runs.
   const unlockEvents = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown', 'keyup'];
   const unlockSound = () => {
-    sound.unlock();
-    if (!sound.running()) return;
+    mixer.unlock();
+    if (!mixer.running()) return;
     for (const t of unlockEvents) window.removeEventListener(t, unlockSound);
   };
   for (const t of unlockEvents) window.addEventListener(t, unlockSound);
@@ -78,6 +82,7 @@ async function boot(): Promise<void> {
   controller.on('flying', (e) => wakeLock.setFlying(e.flying));
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') releaseInputs();
+    mixer.setHidden(document.visibilityState === 'hidden');
     wakeLock.visibilityChanged();
   });
 

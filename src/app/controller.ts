@@ -131,6 +131,8 @@ export type ControllerEvent =
   | { type: 'guideSkip' }
   /** Something happened that has a sound but no event of its own (landing and pay have theirs; the jump's phases sound here). */
   | { type: 'sfx'; sfx: 'jumpCharge' | 'jumpWhoosh' | 'jumpArrive' | 'takeoff' | 'trade' | 'hail' | 'site' }
+  /** Settings were changed and saved (volume, mute): the mixer re-reads them. */
+  | { type: 'settings' }
   /** This tick's fight events (shots, hits, kills), once per tick when there are any. */
   | { type: 'battle'; events: BattleEvent[] }
   /** The pilot asked to board `npcId` (a disabled ship in reach); flight is already paused. */
@@ -1304,10 +1306,16 @@ export class Controller {
     return { messages: r.messages };
   }
 
+  /** Save the settings and tell listeners (the mixer) that they changed. */
+  settingsChanged(): void {
+    saveSettings(this.settings);
+    this.emit({ type: 'settings' });
+  }
+
   /** Flip mute, save it and say so (the HUD shows the message in flight, the planet screen while landed). */
   toggleSound(): void {
     this.settings.muted = !this.settings.muted;
-    saveSettings(this.settings);
+    this.settingsChanged();
     this.emit({ type: 'message', text: this.settings.muted ? 'Sound off' : 'Sound on' });
   }
 

@@ -6,7 +6,7 @@ osc0 type square
 osc0.freq set 880 @0
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.04000000000000001 @0.02
+gain1.gain lin 0.05 @0.02
 gain1.gain exp 0.0001 @0.12
 osc0 start 0
 osc0 stop 0.16999999999999998
@@ -15,7 +15,7 @@ osc2 type square
 osc2.freq set 660 @0.15
 create gain3
 gain3.gain set 0.0001 @0.15
-gain3.gain lin 0.04000000000000001 @0.16999999999999998
+gain3.gain lin 0.05 @0.16999999999999998
 gain3.gain exp 0.0001 @0.27
 osc2 start 0.15
 osc2 stop 0.32
@@ -24,7 +24,7 @@ osc4 type square
 osc4.freq set 880 @0.3
 create gain5
 gain5.gain set 0.0001 @0.3
-gain5.gain lin 0.04000000000000001 @0.32
+gain5.gain lin 0.05 @0.32
 gain5.gain exp 0.0001 @0.42
 osc4 start 0.3
 osc4 stop 0.47
@@ -33,7 +33,7 @@ osc6 type square
 osc6.freq set 660 @0.45
 create gain7
 gain7.gain set 0.0001 @0.45
-gain7.gain lin 0.04000000000000001 @0.47000000000000003
+gain7.gain lin 0.05 @0.47000000000000003
 gain7.gain exp 0.0001 @0.5700000000000001
 osc6 start 0.45
 osc6 stop 0.6200000000000001"
@@ -46,7 +46,7 @@ osc0.freq set 140 @0
 osc0.freq exp 70 @0.12
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.04000000000000001 @0.02
+gain1.gain lin 0.05 @0.02
 gain1.gain exp 0.0001 @0.12
 osc0 start 0
 osc0 stop 0.16999999999999998
@@ -57,7 +57,7 @@ filter3.freq set 1500 @0
 filter3.freq exp 300 @0.14
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.11200000000000002 @0.02
+gain4.gain lin 0.14 @0.02
 gain4.gain exp 0.0001 @0.14
 src2 start 0
 src2 stop 0.19"
@@ -70,7 +70,7 @@ osc0.freq set 1200 @0
 osc0.freq exp 180 @0.7
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.12 @0.02
+gain1.gain lin 0.15 @0.02
 gain1.gain exp 0.0001 @0.7
 osc0 start 0
 osc0 stop 0.75
@@ -81,7 +81,7 @@ filter3.freq set 3500 @0
 filter3.freq exp 300 @0.5
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.2 @0.02
+gain4.gain lin 0.25 @0.02
 gain4.gain exp 0.0001 @0.5
 src2 start 0
 src2 stop 0.55"
@@ -98,8 +98,8 @@ create gain2
 gain2.gain set 0 @0
 osc0 start 
 gain2.gain set 0 @0
-gain2.gain lin 0.05600000000000001 @0.02
-gain2.gain set 0.05600000000000001 @0.1
+gain2.gain lin 0.07 @0.02
+gain2.gain set 0.07 @0.1
 gain2.gain lin 0 @0.14"
 `;
 
@@ -110,7 +110,7 @@ osc0.freq set 440 @0
 osc0.freq exp 110 @0.6
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.048 @0.02
+gain1.gain lin 0.06 @0.02
 gain1.gain exp 0.0001 @0.6
 osc0 start 0
 osc0 stop 0.65
@@ -120,7 +120,7 @@ osc2.freq set 220 @0
 osc2.freq exp 55 @0.6
 create gain3
 gain3.gain set 0.0001 @0
-gain3.gain lin 0.096 @0.02
+gain3.gain lin 0.12 @0.02
 gain3.gain exp 0.0001 @0.6
 osc2 start 0
 osc2 stop 0.65"
@@ -133,7 +133,7 @@ osc0.freq set 90 @0
 osc0.freq exp 35 @0.8
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.24 @0.02
+gain1.gain lin 0.3 @0.02
 gain1.gain exp 0.0001 @0.8
 osc0 start 0
 osc0 stop 0.8500000000000001
@@ -144,7 +144,7 @@ filter3.freq set 2200 @0
 filter3.freq exp 120 @0.9
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.256 @0.02
+gain4.gain lin 0.32 @0.02
 gain4.gain exp 0.0001 @0.9
 src2 start 0
 src2 stop 0.9500000000000001"
@@ -156,7 +156,7 @@ osc0 type sine
 osc0.freq set 700 @0
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.16000000000000003 @0.02
+gain1.gain lin 0.2 @0.02
 gain1.gain exp 0.0001 @0.15
 osc0 start 0
 osc0 stop 0.2
@@ -165,7 +165,7 @@ osc2 type sine
 osc2.freq set 700 @0.25
 create gain3
 gain3.gain set 0.0001 @0.25
-gain3.gain lin 0.16000000000000003 @0.27
+gain3.gain lin 0.2 @0.27
 gain3.gain exp 0.0001 @0.4
 osc2 start 0.25
 osc2 stop 0.45"
@@ -178,7 +178,7 @@ osc0.freq set 120 @0
 osc0.freq exp 1400 @0.9
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.144 @0.02
+gain1.gain lin 0.18 @0.02
 gain1.gain exp 0.0001 @0.9
 osc0 start 0
 osc0 stop 0.9500000000000001
@@ -189,7 +189,7 @@ filter3.freq set 300 @0
 filter3.freq exp 4000 @0.9
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.2 @0.02
+gain4.gain lin 0.25 @0.02
 gain4.gain exp 0.0001 @0.9
 src2 start 0
 src2 stop 0.9500000000000001"
@@ -202,7 +202,7 @@ osc0.freq set 160 @0
 osc0.freq exp 60 @0.5
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.27999999999999997 @0.02
+gain1.gain lin 0.35 @0.02
 gain1.gain exp 0.0001 @0.5
 osc0 start 0
 osc0 stop 0.55
@@ -213,7 +213,7 @@ filter3.freq set 500 @0
 filter3.freq exp 150 @0.35
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.24 @0.02
+gain4.gain lin 0.3 @0.02
 gain4.gain exp 0.0001 @0.35
 src2 start 0
 src2 stop 0.39999999999999997"
@@ -226,7 +226,7 @@ osc0.freq set 180 @0
 osc0.freq exp 520 @0.35
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.05600000000000001 @0.02
+gain1.gain lin 0.07 @0.02
 gain1.gain exp 0.0001 @0.35
 osc0 start 0
 osc0 stop 0.39999999999999997
@@ -237,7 +237,7 @@ filter3.freq set 900 @0
 filter3.freq exp 2400 @0.4
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.096 @0.02
+gain4.gain lin 0.12 @0.02
 gain4.gain exp 0.0001 @0.4
 src2 start 0
 src2 stop 0.45"
@@ -249,7 +249,7 @@ osc0 type triangle
 osc0.freq set 523 @0
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.144 @0.02
+gain1.gain lin 0.18 @0.02
 gain1.gain exp 0.0001 @0.12
 osc0 start 0
 osc0 stop 0.16999999999999998
@@ -258,7 +258,7 @@ osc2 type triangle
 osc2.freq set 659 @0.1
 create gain3
 gain3.gain set 0.0001 @0.1
-gain3.gain lin 0.144 @0.12000000000000001
+gain3.gain lin 0.18 @0.12000000000000001
 gain3.gain exp 0.0001 @0.22
 osc2 start 0.1
 osc2 stop 0.27
@@ -267,7 +267,7 @@ osc4 type triangle
 osc4.freq set 784 @0.2
 create gain5
 gain5.gain set 0.0001 @0.2
-gain5.gain lin 0.144 @0.22
+gain5.gain lin 0.18 @0.22
 gain5.gain exp 0.0001 @0.32
 osc4 start 0.2
 osc4 stop 0.37
@@ -276,7 +276,7 @@ osc6 type triangle
 osc6.freq set 1047 @0.3
 create gain7
 gain7.gain set 0.0001 @0.3
-gain7.gain lin 0.144 @0.32
+gain7.gain lin 0.18 @0.32
 gain7.gain exp 0.0001 @0.6
 osc6 start 0.3
 osc6 stop 0.65"
@@ -289,7 +289,7 @@ osc0.freq set 1400 @0
 osc0.freq exp 900 @0.12
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.05600000000000001 @0.02
+gain1.gain lin 0.07 @0.02
 gain1.gain exp 0.0001 @0.12
 osc0 start 0
 osc0 stop 0.16999999999999998
@@ -300,7 +300,7 @@ filter3.freq set 4000 @0
 filter3.freq exp 2000 @0.1
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.04000000000000001 @0.02
+gain4.gain lin 0.05 @0.02
 gain4.gain exp 0.0001 @0.1
 src2 start 0
 src2 stop 0.15000000000000002"
@@ -313,7 +313,7 @@ osc0.freq set 900 @0
 osc0.freq exp 320 @0.09
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.064 @0.02
+gain1.gain lin 0.08 @0.02
 gain1.gain exp 0.0001 @0.09
 osc0 start 0
 osc0 stop 0.14"
@@ -326,7 +326,7 @@ osc0.freq set 300 @0
 osc0.freq exp 900 @0.5
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.144 @0.02
+gain1.gain lin 0.18 @0.02
 gain1.gain exp 0.0001 @0.5
 osc0 start 0
 osc0 stop 0.55"
@@ -339,7 +339,7 @@ osc0.freq set 70 @0
 osc0.freq exp 220 @0.6
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.2 @0.02
+gain1.gain lin 0.25 @0.02
 gain1.gain exp 0.0001 @0.6
 osc0 start 0
 osc0 stop 0.65
@@ -350,7 +350,7 @@ filter3.freq set 200 @0
 filter3.freq exp 1500 @0.6
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.2 @0.02
+gain4.gain lin 0.25 @0.02
 gain4.gain exp 0.0001 @0.6
 src2 start 0
 src2 stop 0.65"
@@ -365,8 +365,8 @@ create gain2
 gain2.gain set 0 @0
 src0 start 
 gain2.gain set 0 @0
-gain2.gain lin 0.096 @0.1
-gain2.gain set 0.096 @0
+gain2.gain lin 0.12 @0.1
+gain2.gain set 0.12 @0
 gain2.gain lin 0 @0.1"
 `;
 
@@ -376,7 +376,7 @@ osc0 type square
 osc0.freq set 880 @0
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.064 @0.02
+gain1.gain lin 0.08 @0.02
 gain1.gain exp 0.0001 @0.08
 osc0 start 0
 osc0 stop 0.13
@@ -385,7 +385,7 @@ osc2 type square
 osc2.freq set 1320 @0.07
 create gain3
 gain3.gain set 0.0001 @0.07
-gain3.gain lin 0.064 @0.09000000000000001
+gain3.gain lin 0.08 @0.09000000000000001
 gain3.gain exp 0.0001 @0.19
 osc2 start 0.07
 osc2 stop 0.24"

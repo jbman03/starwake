@@ -1,6 +1,7 @@
 import type { Settings } from '../save/settings';
 import type { AudioDef, SfxId, SoundLayer } from '../data/schemas';
 import type { BattleEvent } from '../sim/battle';
+import type { Mixer } from './mixer';
 
 export type Sfx = SfxId;
 
@@ -39,20 +40,12 @@ export function battleSounds(events: readonly BattleEvent[]): Sfx[] {
 /** How long the beam hum lasts after the last pulse (then a short fade). Read from audio.json. */
 export const BEAM_HOLD_SEC = 0.1;
 
-function defaultContext(): AudioContext {
-  const w = window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
-  const C = w.AudioContext ?? w.webkitAudioContext;
-  if (!C) throw new Error('Web Audio is unavailable');
-  return new C();
-}
-
 /**
  * Synthesised sound effects: oscillators, noise buffers and gain envelopes, no audio files.
- * Independent of Phaser. The AudioContext is made on `unlock` (a user gesture); volume and mute
- * are read from the live settings on every call.
+ * Independent of Phaser. The Mixer owns the AudioContext (made on its `unlock`) and the effects bus,
+ * which carries the Effects volume and mute; the board only skips work when that level is zero.
  */
 export class SoundBoard {
-  private ctx: AudioContext | null = null;
   private noise: AudioBuffer | null = null;
   private hum: { gain: GainNode } | null = null;
   private humLevel = 0;
@@ -63,77 +56,53 @@ export class SoundBoard {
   constructor(
     private getSettings: () => Settings,
     private audio: AudioDef,
-    private ctxFactory: () => AudioContext = defaultContext,
+    private mixer: Mixer,
   ) {}
 
   muted(): boolean {
     return this.getSettings().muted;
   }
 
-  /** Make (or wake) the audio context. Call from a pointerdown or keydown handler. */
-  unlock(): void {
-    try {
-      this.ctx ??= this.ctxFactory();
-      this.wake(this.ctx);
-    } catch {
-      this.ctx = null; // no audio on this device: every call stays a no-op
-    }
-  }
-
-  /** Whether the context exists and is running (a gesture has really unlocked audio). */
-  running(): boolean {
-    return this.ctx?.state === 'running';
-  }
-
-  /** Ask a suspended context to resume; the caller drops its sound meanwhile. */
-  private wake(ctx: AudioContext): void {
-    if (ctx.state === 'running') return;
-    try {
-      void Promise.resolve(ctx.resume()).catch(() => undefined);
-    } catch {
-      // ignore
-    }
-  }
-
-  private level(): number {
+  /** Whether effects are audible at all; the level itself is the mixer's effects bus gain. */
+  private audible(): boolean {
     const s = this.getSettings();
-    return s.muted ? 0 : Math.min(1, Math.max(0, s.sfxVolume));
+    return !s.muted && s.sfxVolume > 0;
   }
 
   play(s: Sfx): void {
     if (s === 'thrust') return; // the hum follows setThrust, never a one-shot
-    const ctx = this.ctx;
-    const vol = this.level();
-    if (!ctx || vol <= 0) return;
-    if (ctx.state !== 'running') return this.wake(ctx); // dropped, not queued
-    if (s === 'beam') return this.beam(ctx, vol);
+    const ctx = this.mixer.context();
+    const bus = this.mixer.sfxBus();
+    if (!ctx || !bus || !this.audible()) return;
+    if (ctx.state !== 'running') return this.mixer.wakeContext(); // dropped, not queued
+    if (s === 'beam') return this.beam(ctx, bus);
     try {
       for (const l of this.audio.sfx[s].layers)
-        if (l.kind === 'tone') this.tone(ctx, l, vol);
-        else this.burst(ctx, l, vol);
+        if (l.kind === 'tone') this.tone(ctx, bus, l);
+        else this.burst(ctx, bus, l);
     } catch {
       // a failing audio node must never break the game
     }
   }
 
-  private envelope(ctx: AudioContext, peak: number, at: number, dur: number): GainNode {
+  private envelope(ctx: AudioContext, bus: GainNode, peak: number, at: number, dur: number): GainNode {
     const g = ctx.createGain();
     const t = ctx.currentTime + at;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(peak, t + Math.min(0.02, dur / 4));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    g.connect(ctx.destination);
+    g.connect(bus);
     return g;
   }
 
-  private tone(ctx: AudioContext, t: Extract<SoundLayer, { kind: 'tone' }>, vol: number): void {
+  private tone(ctx: AudioContext, bus: GainNode, t: Extract<SoundLayer, { kind: 'tone' }>): void {
     const at = t.at ?? 0;
     const o = ctx.createOscillator();
     o.type = t.wave;
     const start = ctx.currentTime + at;
     o.frequency.setValueAtTime(t.f0, start);
     if (t.f1 !== undefined) o.frequency.exponentialRampToValueAtTime(t.f1, start + t.dur);
-    o.connect(this.envelope(ctx, t.gain * vol, at, t.dur));
+    o.connect(this.envelope(ctx, bus, t.gain, at, t.dur));
     o.start(start);
     o.stop(start + t.dur + 0.05);
   }
@@ -151,7 +120,7 @@ export class SoundBoard {
     return (this.noise = buf);
   }
 
-  private burst(ctx: AudioContext, b: Extract<SoundLayer, { kind: 'noise' }>, vol: number): void {
+  private burst(ctx: AudioContext, bus: GainNode, b: Extract<SoundLayer, { kind: 'noise' }>): void {
     const at = b.at ?? 0;
     const src = ctx.createBufferSource();
     src.buffer = this.noiseBuffer(ctx);
@@ -162,7 +131,7 @@ export class SoundBoard {
     f.frequency.setValueAtTime(b.c0, start);
     if (b.c1 !== undefined) f.frequency.exponentialRampToValueAtTime(b.c1, start + b.dur);
     src.connect(f);
-    f.connect(this.envelope(ctx, b.gain * vol, at, b.dur));
+    f.connect(this.envelope(ctx, bus, b.gain, at, b.dur));
     src.start(start);
     src.stop(start + b.dur + 0.05);
   }
@@ -171,7 +140,7 @@ export class SoundBoard {
    * The beam hum: a buzzing loop that plays for BEAM_HOLD_SEC after each pulse, then fades. Call it
    * on every beam event (or every poll while a beam fires) to keep it going; it stops on its own.
    */
-  private beam(ctx: AudioContext, vol: number): void {
+  private beam(ctx: AudioContext, bus: GainNode): void {
     try {
       if (!this.beamLoop) {
         const o = ctx.createOscillator();
@@ -184,12 +153,12 @@ export class SoundBoard {
         gain.gain.setValueAtTime(0, ctx.currentTime);
         o.connect(f);
         f.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(bus);
         o.start();
         this.beamLoop = { gain };
       }
       const now = ctx.currentTime;
-      const level = this.audio.voices.beam.gain * vol;
+      const level = this.audio.voices.beam.gain;
       const p = this.beamLoop.gain.gain;
       const running = now < this.beamUntil;
       p.cancelScheduledValues(now);
@@ -213,13 +182,14 @@ export class SoundBoard {
 
   /** Engine hum: low-passed looping noise whose gain ramps over 0.1 s. Silent when muted or not unlocked. */
   setThrust(on: boolean): void {
-    const ctx = this.ctx;
-    if (!ctx) return;
+    const ctx = this.mixer.context();
+    const bus = this.mixer.sfxBus();
+    if (!ctx || !bus) return;
     if (ctx.state !== 'running') {
-      if (on) this.wake(ctx);
+      if (on) this.mixer.wakeContext();
       return;
     }
-    const target = on ? this.audio.voices.hum.gain * this.level() : 0;
+    const target = on && this.audible() ? this.audio.voices.hum.gain : 0;
     if (target === this.humLevel) return;
     try {
       if (!this.hum) {
@@ -234,7 +204,7 @@ export class SoundBoard {
         gain.gain.setValueAtTime(0, ctx.currentTime);
         src.connect(f);
         f.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(bus);
         src.start();
         this.hum = { gain };
       }

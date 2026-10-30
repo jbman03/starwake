@@ -100,6 +100,18 @@ describe('Controller', () => {
     expect(seen).toEqual([['howToPlay']]);
   });
 
+  it('announces a settings change on toggleSound and settingsChanged', async () => {
+    const { c } = await setup();
+    let n = 0;
+    c.on('settings', () => n++);
+    const before = c.settings.muted;
+    c.toggleSound();
+    expect(c.settings.muted).toBe(!before);
+    expect(n).toBe(1);
+    c.settingsChanged();
+    expect(n).toBe(2);
+  });
+
   it('announces effects that have no event of their own', async () => {
     const { c } = await setup();
     const sfx: string[] = [];

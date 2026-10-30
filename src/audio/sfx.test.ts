@@ -1,71 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type Settings } from '../save/settings';
 import { testData } from '../data/testData';
+import { fakeCtx } from './fakeContext';
+import { Mixer } from './mixer';
 import { battleSounds, SoundBoard } from './sfx';
-
-function param() {
-  const calls: string[] = [];
-  return {
-    value: 0,
-    calls,
-    setValueAtTime: (v: number) => (calls.push(`set ${v}`), undefined),
-    linearRampToValueAtTime: (v: number) => (calls.push(`lin ${v}`), undefined),
-    exponentialRampToValueAtTime: (v: number) => (calls.push(`exp ${v}`), undefined),
-    cancelScheduledValues: () => undefined,
-  };
-}
-
-function fakeCtx() {
-  const made = { osc: 0, noise: 0, gains: [] as ReturnType<typeof param>[], resumed: 0, autoRun: true };
-  const node = () => ({ connect: (n: unknown) => n, disconnect: () => undefined });
-  const ctx = {
-    currentTime: 0,
-    sampleRate: 8000,
-    state: 'suspended' as string,
-    destination: node(),
-    resume: () => {
-      made.resumed += 1;
-      if (made.autoRun) ctx.state = 'running';
-      return Promise.resolve();
-    },
-    createOscillator: () => {
-      made.osc += 1;
-      return { ...node(), type: 'sine', frequency: param(), start: () => undefined, stop: () => undefined };
-    },
-    createGain: () => {
-      const gain = param();
-      made.gains.push(gain);
-      return { ...node(), gain };
-    },
-    createBiquadFilter: () => ({ ...node(), type: 'lowpass', frequency: param(), Q: param() }),
-    createBuffer: (_c: number, len: number) => ({ getChannelData: () => new Float32Array(len) }),
-    createBufferSource: () => {
-      made.noise += 1;
-      return { ...node(), buffer: null, loop: false, start: () => undefined, stop: () => undefined };
-    },
-  };
-  return { ctx: ctx as unknown as AudioContext, made };
-}
 
 const settings = (over: Partial<Settings> = {}): Settings => ({ ...DEFAULT_SETTINGS, ...over });
 
 function board(over: Partial<Settings> = {}) {
   const s = settings(over);
   const f = fakeCtx();
-  return { sb: new SoundBoard(() => s, testData().audio, () => f.ctx), s, ...f };
+  const mixer = new Mixer(() => s, () => f.ctx);
+  return { sb: new SoundBoard(() => s, testData().audio, mixer), mixer, s, ...f };
 }
 
 describe('SoundBoard', () => {
   it('plays nothing before unlock', () => {
-    const { sb, made } = board();
+    const { sb, mixer, made } = board();
     sb.play('jump');
     sb.setThrust(true);
     expect(made.osc + made.noise).toBe(0);
   });
 
   it('unlock resumes the context and play then creates nodes', () => {
-    const { sb, made } = board();
-    sb.unlock();
+    const { sb, mixer, made } = board();
+    mixer.unlock();
     expect(made.resumed).toBe(1);
     sb.play('jump');
     expect(made.osc).toBeGreaterThan(0);
@@ -73,19 +32,19 @@ describe('SoundBoard', () => {
 
   it('plays nothing when muted or at zero volume', () => {
     const a = board({ muted: true });
-    a.sb.unlock();
+    a.mixer.unlock();
     a.sb.play('jump');
     expect(a.made.osc + a.made.noise).toBe(0);
     expect(a.sb.muted()).toBe(true);
     const b = board({ sfxVolume: 0 });
-    b.sb.unlock();
+    b.mixer.unlock();
     b.sb.play('land');
     expect(b.made.osc + b.made.noise).toBe(0);
   });
 
   it('follows the live settings: muting after unlock silences it', () => {
-    const { sb, s, made } = board();
-    sb.unlock();
+    const { sb, mixer, s, made } = board();
+    mixer.unlock();
     s.muted = true;
     sb.play('trade');
     expect(made.osc + made.noise).toBe(0);
@@ -96,16 +55,16 @@ describe('SoundBoard', () => {
 
   it('every one-shot can be played', () => {
     for (const id of ['jump', 'arrive', 'land', 'takeoff', 'trade', 'paid', 'hail', 'site'] as const) {
-      const { sb, made } = board();
-      sb.unlock();
+      const { sb, mixer, made } = board();
+      mixer.unlock();
       sb.play(id);
       expect(made.osc + made.noise, id).toBeGreaterThan(0);
     }
   });
 
   it('thrust hum is a looping noise that ramps its gain', () => {
-    const { sb, made } = board();
-    sb.unlock();
+    const { sb, mixer, made } = board();
+    mixer.unlock();
     sb.setThrust(true);
     expect(made.noise).toBe(1);
     const hum = made.gains[made.gains.length - 1];
@@ -117,17 +76,17 @@ describe('SoundBoard', () => {
   });
 
   it('thrust off does not poke a suspended context awake', () => {
-    const { sb, made } = board();
+    const { sb, mixer, made } = board();
     made.autoRun = false;
-    sb.unlock();
+    mixer.unlock();
     const before = made.resumed;
     sb.setThrust(false);
     expect(made.resumed).toBe(before);
   });
 
   it('thrust hum goes quiet when muted', () => {
-    const { sb, s, made } = board();
-    sb.unlock();
+    const { sb, mixer, s, made } = board();
+    mixer.unlock();
     sb.setThrust(true);
     const hum = made.gains[made.gains.length - 1];
     s.muted = true;
@@ -136,53 +95,53 @@ describe('SoundBoard', () => {
   });
 
   it('a context that stays suspended drops sounds, retries resume, and plays once running', () => {
-    const { sb, made, ctx } = board();
+    const { sb, mixer, made, ctx } = board();
     made.autoRun = false;
-    sb.unlock();
-    expect(sb.running()).toBe(false);
+    mixer.unlock();
+    expect(mixer.running()).toBe(false);
     sb.play('jump');
     sb.setThrust(true);
     expect(made.osc + made.noise).toBe(0);
     expect(made.resumed).toBe(3); // unlock, play and setThrust(true) each ask again
     (ctx as unknown as { state: string }).state = 'running';
-    expect(sb.running()).toBe(true);
+    expect(mixer.running()).toBe(true);
     sb.play('jump'); // the dropped one is not replayed, new ones play
     expect(made.osc).toBe(1);
   });
 
   it("play('thrust') does not start the hum", () => {
-    const { sb, made } = board();
-    sb.unlock();
+    const { sb, mixer, made } = board();
+    mixer.unlock();
     sb.play('thrust');
     expect(made.noise).toBe(0);
   });
 
   it('survives a context that cannot be made', () => {
-    const sb = new SoundBoard(
+    const mixer = new Mixer(
       () => settings(),
-      testData().audio,
       () => {
         throw new Error('no audio');
       },
     );
+    const sb = new SoundBoard(() => settings(), testData().audio, mixer);
     expect(() => {
-      sb.unlock();
+      mixer.unlock();
       sb.play('jump');
       sb.setThrust(true);
     }).not.toThrow();
   });
   it('sfx: new sounds synthesise without throwing (mocked AudioContext)', () => {
     for (const id of ['shot', 'missile', 'beam', 'shieldHit', 'armorHit', 'explosion', 'disabled', 'alarm'] as const) {
-      const { sb, made } = board();
-      sb.unlock();
+      const { sb, mixer, made } = board();
+      mixer.unlock();
       expect(() => sb.play(id), id).not.toThrow();
       expect(made.osc + made.noise, id).toBeGreaterThan(0);
     }
   });
 
   it('the beam loops on one source while it keeps firing, and fades out 0.1 s after the last', () => {
-    const { sb, made, ctx } = board();
-    sb.unlock();
+    const { sb, mixer, made, ctx } = board();
+    mixer.unlock();
     sb.play('beam');
     const sources = made.osc + made.noise;
     const gain = made.gains[made.gains.length - 1];
@@ -201,8 +160,8 @@ describe('SoundBoard', () => {
   });
 
   it('a muted beam does not start', () => {
-    const { sb, made } = board({ muted: true });
-    sb.unlock();
+    const { sb, mixer, made } = board({ muted: true });
+    mixer.unlock();
     sb.play('beam');
     expect(made.osc + made.noise).toBe(0);
   });
@@ -282,7 +241,12 @@ function recordingCtx() {
       };
     },
   };
-  return { ctx: ctx as unknown as AudioContext, log };
+  // The mixer's own nodes are made at unlock; mark() forgets them so the recipe logs show only the board's.
+  const mark = () => {
+    log.length = 0;
+    n = 0;
+  };
+  return { ctx: ctx as unknown as AudioContext, log, mark };
 }
 
 describe('SoundBoard recipes from data', () => {
@@ -292,17 +256,21 @@ describe('SoundBoard recipes from data', () => {
   ] as const;
   for (const id of ids) {
     it(`${id} makes the same nodes, frequencies and gains as the original recipe`, () => {
-      const { ctx, log } = recordingCtx();
-      const sb = new SoundBoard(() => settings(), testData().audio, () => ctx);
-      sb.unlock();
+      const { ctx, log, mark } = recordingCtx();
+      const mixer = new Mixer(() => settings(), () => ctx);
+      const sb = new SoundBoard(() => settings(), testData().audio, mixer);
+      mixer.unlock();
+      mark();
       sb.play(id);
       expect(log.join('\n')).toMatchSnapshot();
     });
   }
   it('the engine hum is unchanged', () => {
-    const { ctx, log } = recordingCtx();
-    const sb = new SoundBoard(() => settings(), testData().audio, () => ctx);
-    sb.unlock();
+    const { ctx, log, mark } = recordingCtx();
+    const mixer = new Mixer(() => settings(), () => ctx);
+    const sb = new SoundBoard(() => settings(), testData().audio, mixer);
+    mixer.unlock();
+    mark();
     sb.setThrust(true);
     sb.setThrust(false);
     expect(log.join('\n')).toMatchSnapshot();
@@ -311,14 +279,16 @@ describe('SoundBoard recipes from data', () => {
 
 describe('SoundBoard noise layers', () => {
   it('sets the filter Q only when the layer gives one, and uses the layer filter type', () => {
-    const { ctx, log } = recordingCtx();
+    const { ctx, log, mark } = recordingCtx();
     const audio = structuredClone(testData().audio);
     audio.sfx.uiClick.layers = [
       { kind: 'noise', filter: 'bandpass', c0: 1000, dur: 0.1, gain: 0.1, q: 4 },
       { kind: 'noise', filter: 'highpass', c0: 2000, dur: 0.1, gain: 0.1 },
     ];
-    const sb = new SoundBoard(() => settings(), audio, () => ctx);
-    sb.unlock();
+    const mixer = new Mixer(() => settings(), () => ctx);
+    const sb = new SoundBoard(() => settings(), audio, mixer);
+    mixer.unlock();
+    mark();
     sb.play('uiClick');
     expect(log.some((l) => / type bandpass$/.test(l))).toBe(true);
     expect(log.filter((l) => l.includes('.Q set'))).toHaveLength(1);
