@@ -295,4 +295,27 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    dev server port is configurable with `SW_PORT` (default 5173), so a checkout can run e2e while
    another serves 5173, e.g. `SW_PORT=5174 npm run test:e2e`.
    *Fun-review items now fully built:* 3 (story hook), 7 (rare ships) and 8 (discovery rewards).
-Later: combat, reputation and police, boarding, contraband, more regions.
+7. **Cycle 4 — combat and boarding (2026-10-25)** — danger at the edges, and boarding.
+   *Built:* ten weapon outfits (three guns, a turret, rocket and seeker launchers with their ammo,
+   a beam) plus an escape pod, in `data/outfits.json`; hulls gain `crew` and NPC loadouts; new
+   pilots (and v5 shuttle pilots, by the v6 save migration) carry the Spark Blaster. EV-style
+   damage: shields, then armor, then disabled (below a tenth of the armor, drifting to rest), then
+   destroyed. Traffic has traders, patrols and raiders (rare in the Concord core, common at the
+   fringe and in the Dimming; none in the start system or while the guide runs); about half the
+   raiders hail first with a demand (pay, dump cargo or refuse; unanswered, they attack), hurt
+   ships flee, and patrols hunt raiders and anyone who angers them. Shooting the wrong ship cools
+   that faction toward you, at most once per visit. Boarding a disabled ship (B, or the BOARD
+   context button): take credits, cargo or ammo, or try a capture (odds from crew against crew;
+   a failed try gets her scuttled), then take command (old ship traded in, flown patched up until
+   you land) or sell her as a prize. Disabled with no enemy near, CALL TOW; destroyed, the escape
+   pod wakes you at a nearby port in a starter ship, else the last save loads. Bounty and
+   clear-the-lanes jobs from Concord and Free Reach ports, for an armed pilot. Controls: Space
+   fires the guns, Shift the selected launcher, Q cycles it, R targets the nearest hostile; on a
+   phone FIRE and MSL, hold TGT for the nearest hostile, tap the label under MSL to cycle, and no
+   new rail buttons. Combat effects and sounds, the target's hull gauge and the player's hull on
+   the HUD. Saves are v6 (v1-v5 still load). How to Play has a Combat and boarding section. Test
+   hooks: `combatState`, `spawnHostile`, `disableTarget`, `projectiles`, `targetBars`, and the
+   `?test&calm=1` flag (no raiders spawn) that the story e2e uses so a random raider at a fringe
+   system cannot take its context button or Y key.
+   *Still to come:* escorts (keeping a captured ship), reputation and police, contraband.
+Later: escorts, reputation and police, contraband, more regions.

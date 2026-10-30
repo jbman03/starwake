@@ -36,10 +36,13 @@ Arrow keys fly: Up thrusts, Left/Right turn, Down reverses. Default hotkeys
 | --- | --- |
 | Space | Fire primary weapon |
 | Shift | Fire secondary weapon |
+| Q | Cycle secondary weapon |
 | X | Auto-stop |
 | Tab | Next target |
 | R | Nearest hostile (refuel while landed) |
 | F | Face target |
+| B | Board a disabled ship (in flight) |
+| Y | Answer a hail, open a site |
 | L | Land (leave while landed) |
 | J | Hyperspace jump |
 | G | Autopilot |
@@ -74,10 +77,20 @@ tracks active jobs, shows them on the star map, and lets you abandon one.
 Plan trips on the star map: pick a known system, set a course, then use
 autopilot (G) and jump (J) along the route. Each jump costs fuel and a day.
 
+**Combat.** Raiders are rare in the Concord core and common at the fringe;
+some demand a toll first (pay, dump cargo or refuse). Hits take shields, then
+armor; a ship below a tenth of its armor is disabled and drifts. Fly beside a
+disabled ship and board it (B) to take credits, cargo or ammo, or try to
+capture it, then take command or sell it as a prize. An escape pod saves you
+if your ship is destroyed; without one the last save loads. Concord and Free
+Reach ports post bounty and clear-the-lanes jobs for armed pilots.
+
 ### Phone
 
 - Play in landscape; the on-screen controls sit in side rails.
 - Tap a planet to land on it.
+- Hold FIRE (guns) or MSL (launcher); hold TGT to target the nearest hostile.
+  The bottom button turns into BOARD beside a disabled ship.
 - Install it: browser menu, then Add to Home Screen, to run full screen
   and offline.
 
