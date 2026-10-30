@@ -320,4 +320,32 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    `?test&calm=1` flag (no raiders spawn) that the story e2e uses so a random raider at a fringe
    system cannot take its context button or Y key.
    *Still to come:* escorts (keeping a captured ship), reputation and police, contraband.
+8. **Cycle 5 — sound, music and the EV-style jump (2026-10-30)** — spec
+   `docs/superpowers/specs/2026-10-30-starwake-sound-music-design.md`.
+   *The jump:* `world.jump` is `{ toSystemId, phase, t }` with the phases align (turn to the
+   destination, up to `alignMaxSec`), charge, burn (3× thrust, uncapped speed), flash (the system change
+   happens at its end) and arrive (in fast along the jump line, slowing to today's 100 px/s arrival
+   speed), about 2 s in all. The timings live in `data/config.json` → `jump`; `jumpFixedSec(data)` is
+   everything but the align. A second J (on a phone, the context button's "⏩ SKIP") during align,
+   charge or burn skips to the flash; a tap on the view still steers. Render draws the glow, streaks,
+   flash and arrival from the phase; NPC jumps keep their shorter look.
+   *Audio architecture* (`src/audio`, no Phaser): `mixer.ts` owns the one AudioContext, made on the
+   first key or tap, with master, music and effects gain buses that follow the settings (mute zeroes
+   both buses); `sfx.ts` (`SoundBoard`) plays named effects from data recipes, plus the engine hum and
+   beam as continuous voices, and `battleSounds` turns combat events into effects (guns by
+   `gunVoices`); `moods.ts` is the pure `moodFor(state)` (combat > hyperspace > docked and the menu >
+   fringe > core), fed by `controller.musicInput()`; `music.ts` is the generative engine, seeded per
+   mood, scheduled ahead on the audio clock every 250 ms from `main.ts`, crossfading 3 s (2 s for
+   combat), fading out with the pause menu and suspended with a hidden tab. Every audio failure is
+   silent. The sim emits `jumpPhase` events; the controller turns charge, flash and arrive into the
+   `jumpCharge`, `jumpWhoosh` and `jumpArrive` effects.
+   *Data:* `data/audio.json` (Zod `AudioSchema`, loaded into `GameData.audio`): `sfx` (one recipe per
+   effect id, each a list of tone or filtered-noise layers with timing, gain and an optional
+   `attack`), `voices` (the hum's rumble and `tone`, the beam's level and fade), `gunVoices` (gun
+   outfit id → `shot` or `cannon`) and `moods` (root, scale, chord pace, pad, drone, melody, combat
+   pulse, level per mood). Jump timings stay in `data/config.json` because they are gameplay.
+   *Settings:* `musicVolume`, `sfxVolume` (old saves take `sfxVolume` from `volume`, music 0.6) and
+   `muted`; Settings → General has Music and Effects sliders and the mute box, which follows V (V
+   mutes music and effects on every screen, even with a slider focused). How to Play explains the
+   jump sequence, its skip, the sliders and V. Test hooks: `jumpPhase()` and `musicMood()`.
 Later: escorts, reputation and police, contraband, more regions.

@@ -1,6 +1,6 @@
 # Starwake — Sound, Music and the Hyperspace Jump (design)
 
-Status: draft for owner review · 2026-10-30
+Status: built · 2026-10-30 (aligned with what shipped, controller Rulings 3, 4, 7 and 8)
 
 ## 1. Goal
 
@@ -47,23 +47,27 @@ never break the live game.
 | `charge` | 0.7 s | Engines wind up: a rising whine; the engine glow brightens. No thrust yet. |
 | `burn` | 0.5 s | Hard acceleration along the heading (3× the ship's normal thrust, uncapped speed); stars stretch into lines. |
 | `flash` | 0.15 s | White flash; the deep whoosh; the system change happens at the end of this phase. |
-| `arrive` | 0.6 s | In the new system: the ship enters at high speed along the jump line and slows to its normal maximum; streaks shorten; a softer whoosh. |
+| `arrive` | 0.6 s | In the new system: the ship enters at high speed (`arriveSpeedMul` × its maximum) along the jump line and slows to today's arrival speed (100 px/s, `JUMP_ARRIVAL_SPEED`), so the arrival feel and the "fly out again" rule are unchanged; streaks shorten; a softer whoosh. |
 
-The total is about 2 s. All lengths, the burn multiplier and the arrival speed are gameplay, so
-they live in `data/config.json` → `jump` (the sim reads them; sound and render follow). The existing rules stay: input is ignored during the jump (except skip, §4.2), combat
+The total is about 2 s. All lengths, the burn multiplier and the arrival entry speed multiplier are gameplay,
+so they live in `data/config.json` → `jump` (`alignMaxSec`, `alignToleranceDeg`, `chargeSec`, `burnSec`,
+`burnThrustMul`, `flashSec`, `arriveSec`, `arriveSpeedMul`; the sim reads them; sound and render follow). The
+speed the arrival ends at stays the sim constant `JUMP_ARRIVAL_SPEED`. The existing rules stay: input is ignored during the jump (except skip, §4.2), combat
 does not run during it, fuel and the day advance as now, and NPC jumps keep their 1 s look
 (re-using the same visuals, scaled down).
 
 ### 4.2 Skip
 
-A second press of Jump (key J, or the context button / a tap on phones) during `align`,
-`charge` or `burn` goes straight to `flash`. Skipping costs nothing and changes nothing but time.
+A second press of Jump during `align`, `charge` or `burn` goes straight to `flash`: key J on PC; on
+phones, the context button, which shows "⏩ SKIP" during those phases. A tap on the open view keeps
+steering (point to steer) and does not skip. Skipping costs nothing and changes nothing but time.
 `arrive` cannot be skipped but accepts no input either way; it is short.
 
 ### 4.3 Compatibility
 
 - `JUMP_DURATION` is replaced by the phase table. Code and tests that assume a 1 s jump move to
-  a helper `jumpTotalSec(data)` or step until the `jumped` event.
+  the helper `jumpFixedSec(data)` (charge + burn + flash + arrive; align comes on top, up to
+  `alignMaxSec`, since it depends on how far the ship must turn) or step until the `jumped` event.
 - The `jumped` and `arrived` events keep their meaning and order.
 - The jump is not saved (it never was); a save made in flight is unchanged.
 - Arrival position stays where it is today (just inside the jump boundary); `arrive` only changes
@@ -98,13 +102,19 @@ the game silent and running.
 
 ## 6. Sound effects
 
-Every effect is a recipe in `data/audio.json` → `sfx`, keyed by the existing `Sfx` ids (`thrust`,
-`jump`, `arrive`, `land`, `takeoff`, `trade`, `paid`, `hail`, `site`, `shot`, `missile`, `beam`,
-`shieldHit`, `armorHit`, `explosion`, `disabled`, `alarm`) plus `jumpCharge`, `jumpWhoosh`,
-`jumpArrive` and `uiClick`. A recipe is a list of layers; each layer is a tone (wave, start and
-end frequency, gain, timing) or a noise burst (filter type and frequency sweep, gain, timing).
-The engine hum and the beam loop stay continuous voices driven from code, with their timbre in
-data. Volume caps and "at most once per tick" rules from cycle 4 stay.
+Every effect is a recipe in `data/audio.json` → `sfx`, keyed by the `Sfx` ids `land`, `takeoff`,
+`trade`, `paid`, `hail`, `site`, `shot`, `cannon`, `missile`, `seeker`, `shieldHit`, `armorHit`,
+`explosion`, `disabled`, `alarm`, `jumpCharge`, `jumpWhoosh`, `jumpArrive` and `uiClick`. The old
+`jump` and `arrive` effects are gone: the jump's charge, flash and arrive phases play `jumpCharge`,
+`jumpWhoosh` and `jumpArrive`. Guns sound by type: `gunVoices` maps a gun outfit id to its voice
+(`shot`, the blaster chirp, by default; `cannon`, a thud, for the rapid cannon), and seeker launchers
+play `seeker` where rockets play `missile`. A recipe is a list of layers; each layer is a tone (wave,
+start and end frequency, gain, timing) or a noise burst (filter type and frequency sweep, optional Q,
+gain, timing), and either may set an `attack` (rise time, shorter than the layer) so a sound can
+swell rather than strike, as the jump charge does. `thrust` (the engine hum) and `beam` stay
+continuous voices driven from code, with their timbre in `audio.json` → `voices`: the hum is
+low-passed noise under a filtered tone (`hum.tone`: wave, frequency, cutoff, mix). Volume caps and
+"at most once per tick" rules from cycle 4 stay.
 
 ## 7. Settings and controls
 

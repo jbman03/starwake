@@ -3,6 +3,7 @@ import type { GameData } from '../data/schemas';
 import type { Bindings } from '../input/bindings';
 import { keyName } from '../input/keyNames';
 import { MAX_MISSIONS } from '../sim/missions';
+import { jumpFixedSec } from '../sim/world';
 import type { UiContext } from './context';
 import { button, el, hotkeyFor } from './dom';
 
@@ -40,7 +41,7 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   faceTarget: 'None on phone',
   board: 'Board button',
   land: 'LAND ON (planet) button, or tap the planet',
-  jump: 'JUMP TO (system) button',
+  jump: 'JUMP TO (system) button; SKIP during the jump',
   autopilot: 'AUTOPILOT TO JUMP POINT or Fly to (site) button; TAKE CONTROL stops it',
   map: 'Tap Map, or PLOT COURSE',
   flightMissionLog: 'Pause (II), then Mission Log',
@@ -107,6 +108,7 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
   const ship = data.ships[data.config.startShipId];
   const perJump = data.config.fuelPerJump;
   const tank = Math.floor(ship.fuelCapacity / perJump);
+  const jumpSec = Math.max(1, Math.round(jumpFixedSec(data)));
   switch (tab) {
     case 'flying':
       return [
@@ -121,7 +123,7 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
         { heading: 'Losing your ship', text: `If you are disabled, wait until no enemy is near (a message says when). Then call a tow: press ${k('pause')} and choose Call for tow in the pause menu, or on a phone tap CALL TOW. The tow takes you to a port for ${data.config.towFee} cr. If your ship is destroyed, an escape pod (sold at the Outfitter) gets you to a nearby port in a starter ship, with any job cargo and passengers lost. Without a pod, your last save loads.` },
         { heading: 'Combat jobs', text: 'Concord and Free Reach ports post bounties (find a named ship, disable or destroy her) and clear-the-lanes jobs (disable or destroy a number of raiders in a system), but only for a pilot with a gun. Come back to the port to be paid.' },
         { heading: 'Landing', text: `Target a planet or station, fly close, slow right down, then press ${k('land')}. On a phone, tap the planet or the LAND ON button.` },
-        { heading: 'Sound', text: `${k('toggleSound')} turns sound on or off. Volume and mute are also in Settings → General.` },
+        { heading: 'Sound and music', text: `Quiet ambient music follows what you are doing: docked, flying the core or the fringe, jumping or fighting. Settings → General has separate Music and Effects sliders. ${k('toggleSound')} mutes everything, music included, and turns it back on; the Mute sound box in Settings → General does the same.` },
         { heading: 'Pause', text: `${k('pause')} pauses the game and opens the pause menu, where you can save, change settings or quit.` },
       ];
     case 'trade':
@@ -147,6 +149,7 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
     case 'travel':
       return [
         { heading: 'Jumping', text: `Fly clear of the star, then press ${k('jump')}. Each jump uses ${perJump} fuel and takes one day. The starter shuttle's tank holds ${tank} jumps' worth; the Outfitter sells bigger tanks. With nothing targeted, ${k('autopilot')} flies you out to the jump point.` },
+        { heading: 'The jump sequence', text: `A jump takes about ${jumpSec} seconds, plus a moment to turn: your ship turns toward the next system, the engines charge, it burns hard as the stars stretch, a flash, and you streak into the new system and slow down. The controls wait until you arrive. In a hurry? Press ${k('jump')} again while turning, charging or burning to skip straight to the flash; on a phone, tap the SKIP button.` },
         { heading: 'The star map', text: `Press ${k('map')} in flight (${k('openMap')} on a planet) to open the map. Pick a system you know, then Set course. Autopilot and jump along the route. On a phone, tap PLOT COURSE, or the Map button (always shown, on every planet screen too).` },
         { heading: 'Refuelling', text: `Every port sells fuel; press ${k('refuel')} to refuel. Fuel is charged per unit, and fringe ports charge more, so top up in the core worlds when you can.` },
         { heading: 'Stranded?', text: `With less than one jump of fuel and no port in the system, you can call a tow from the pause menu or the CALL TOW button. It costs ${data.config.towFee} cr, which can leave you in debt. The tow takes you to the nearest port, uses days on the way, and jobs that pass their deadline fail.` },

@@ -52,6 +52,7 @@ Arrow keys fly: Up thrusts, Left/Right turn, Down reverses. Default hotkeys
 | K | Mission log |
 | H | How to Play (on a planet and in menus) |
 | B / S | Buy / sell in the exchange (10 t; hold Shift for 1 t) |
+| V | Sound on / off (music and effects) |
 | Esc | Pause / back |
 
 ### How to play
@@ -84,6 +85,13 @@ disabled ship and board it (B) to take credits, cargo or ammo, or try to
 capture it, then take command or sell it as a prize. An escape pod saves you
 if your ship is destroyed; without one the last save loads. Concord and Free
 Reach ports post bounty and clear-the-lanes jobs for armed pilots.
+
+**Sound, music and the jump.** A jump plays out like Escape Velocity's: the
+ship turns, the engines charge, it burns as the stars stretch, a flash, and it
+streaks into the next system (press J again, or SKIP on a phone, to skip ahead).
+Generated ambient music follows the moment (docked, core, fringe, jumping,
+combat), every effect is synthesised from recipes in `data/audio.json`, and
+Settings → General has Music and Effects sliders; V mutes everything.
 
 ### Phone
 
