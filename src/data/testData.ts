@@ -8,6 +8,7 @@ import names from '../../data/names.json';
 import encounters from '../../data/encounters.json';
 import story from '../../data/story.json';
 import combat from '../../data/combat.json';
+import audio from '../../data/audio.json';
 import planets from '../../data/planets.json';
 import ships from '../../data/ships.json';
 import systems from '../../data/systems.json';
@@ -18,7 +19,7 @@ let cached: GameData | null = null;
 
 /** The shipped game data, parsed once and shared. For tests; treat it as read-only. */
 export function testData(): GameData {
-  cached ??= parseGameData({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat });
+  cached ??= parseGameData({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio });
   return cached;
 }
 

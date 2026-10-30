@@ -1,0 +1,85 @@
+{
+  "sfx": {
+    "jump": {"layers": [
+      {"kind": "tone", "wave": "sawtooth", "f0": 120, "f1": 1400, "dur": 0.9, "gain": 0.18},
+      {"kind": "noise", "filter": "lowpass", "c0": 300, "c1": 4000, "dur": 0.9, "gain": 0.25}
+    ]},
+    "arrive": {"layers": [
+      {"kind": "tone", "wave": "sawtooth", "f0": 1200, "f1": 180, "dur": 0.7, "gain": 0.15},
+      {"kind": "noise", "filter": "lowpass", "c0": 3500, "c1": 300, "dur": 0.5, "gain": 0.25}
+    ]},
+    "land": {"layers": [
+      {"kind": "tone", "wave": "sine", "f0": 160, "f1": 60, "dur": 0.5, "gain": 0.35},
+      {"kind": "noise", "filter": "lowpass", "c0": 500, "c1": 150, "dur": 0.35, "gain": 0.3}
+    ]},
+    "takeoff": {"layers": [
+      {"kind": "tone", "wave": "triangle", "f0": 70, "f1": 220, "dur": 0.6, "gain": 0.25},
+      {"kind": "noise", "filter": "lowpass", "c0": 200, "c1": 1500, "dur": 0.6, "gain": 0.25}
+    ]},
+    "trade": {"layers": [
+      {"kind": "tone", "wave": "square", "f0": 880, "dur": 0.08, "gain": 0.08},
+      {"kind": "tone", "wave": "square", "f0": 1320, "dur": 0.12, "gain": 0.08, "at": 0.07}
+    ]},
+    "paid": {"layers": [
+      {"kind": "tone", "wave": "triangle", "f0": 523, "dur": 0.12, "gain": 0.18},
+      {"kind": "tone", "wave": "triangle", "f0": 659, "dur": 0.12, "gain": 0.18, "at": 0.1},
+      {"kind": "tone", "wave": "triangle", "f0": 784, "dur": 0.12, "gain": 0.18, "at": 0.2},
+      {"kind": "tone", "wave": "triangle", "f0": 1047, "dur": 0.3, "gain": 0.18, "at": 0.3}
+    ]},
+    "hail": {"layers": [
+      {"kind": "tone", "wave": "sine", "f0": 700, "dur": 0.15, "gain": 0.2},
+      {"kind": "tone", "wave": "sine", "f0": 700, "dur": 0.15, "gain": 0.2, "at": 0.25}
+    ]},
+    "site": {"layers": [
+      {"kind": "tone", "wave": "sine", "f0": 300, "f1": 900, "dur": 0.5, "gain": 0.18}
+    ]},
+    "shot": {"layers": [
+      {"kind": "tone", "wave": "triangle", "f0": 900, "f1": 320, "dur": 0.09, "gain": 0.08}
+    ]},
+    "missile": {"layers": [
+      {"kind": "tone", "wave": "triangle", "f0": 180, "f1": 520, "dur": 0.35, "gain": 0.07},
+      {"kind": "noise", "filter": "lowpass", "c0": 900, "c1": 2400, "dur": 0.4, "gain": 0.12}
+    ]},
+    "shieldHit": {"layers": [
+      {"kind": "tone", "wave": "sine", "f0": 1400, "f1": 900, "dur": 0.12, "gain": 0.07},
+      {"kind": "noise", "filter": "lowpass", "c0": 4000, "c1": 2000, "dur": 0.1, "gain": 0.05}
+    ]},
+    "armorHit": {"layers": [
+      {"kind": "tone", "wave": "square", "f0": 140, "f1": 70, "dur": 0.12, "gain": 0.05},
+      {"kind": "noise", "filter": "lowpass", "c0": 1500, "c1": 300, "dur": 0.14, "gain": 0.14}
+    ]},
+    "explosion": {"layers": [
+      {"kind": "tone", "wave": "sine", "f0": 90, "f1": 35, "dur": 0.8, "gain": 0.3},
+      {"kind": "noise", "filter": "lowpass", "c0": 2200, "c1": 120, "dur": 0.9, "gain": 0.32}
+    ]},
+    "disabled": {"layers": [
+      {"kind": "tone", "wave": "sawtooth", "f0": 440, "f1": 110, "dur": 0.6, "gain": 0.06},
+      {"kind": "tone", "wave": "sine", "f0": 220, "f1": 55, "dur": 0.6, "gain": 0.12}
+    ]},
+    "alarm": {"layers": [
+      {"kind": "tone", "wave": "square", "f0": 880, "dur": 0.12, "gain": 0.05},
+      {"kind": "tone", "wave": "square", "f0": 660, "dur": 0.12, "gain": 0.05, "at": 0.15},
+      {"kind": "tone", "wave": "square", "f0": 880, "dur": 0.12, "gain": 0.05, "at": 0.3},
+      {"kind": "tone", "wave": "square", "f0": 660, "dur": 0.12, "gain": 0.05, "at": 0.45}
+    ]},
+    "jumpCharge": {"layers": [
+      {"kind": "tone", "wave": "sawtooth", "f0": 120, "f1": 1400, "dur": 0.9, "gain": 0.18},
+      {"kind": "noise", "filter": "lowpass", "c0": 300, "c1": 4000, "dur": 0.9, "gain": 0.25}
+    ]},
+    "jumpWhoosh": {"layers": [
+      {"kind": "tone", "wave": "sawtooth", "f0": 120, "f1": 1400, "dur": 0.9, "gain": 0.18},
+      {"kind": "noise", "filter": "lowpass", "c0": 300, "c1": 4000, "dur": 0.9, "gain": 0.25}
+    ]},
+    "jumpArrive": {"layers": [
+      {"kind": "tone", "wave": "sawtooth", "f0": 1200, "f1": 180, "dur": 0.7, "gain": 0.15},
+      {"kind": "noise", "filter": "lowpass", "c0": 3500, "c1": 300, "dur": 0.5, "gain": 0.25}
+    ]},
+    "uiClick": {"layers": [
+      {"kind": "tone", "wave": "square", "f0": 1800, "dur": 0.03, "gain": 0.04}
+    ]}
+  },
+  "voices": {
+    "hum": {"gain": 0.12, "rampSec": 0.1, "f": 240},
+    "beam": {"gain": 0.07, "holdSec": 0.1, "fadeSec": 0.04}
+  }
+}

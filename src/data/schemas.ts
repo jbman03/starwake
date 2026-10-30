@@ -304,6 +304,21 @@ export const StoryMissionSchema = z.object({
   combatLater: z.string().optional(), // the note for the combat cycle
 });
 
+/** Jump timings (seconds unless named): the align, charge, burn, flash and arrive phases of a hyperspace jump. */
+export const JumpConfigSchema = z
+  .object({
+    alignMaxSec: z.number().positive(),
+    alignToleranceDeg: z.number().positive(),
+    chargeSec: z.number().positive(),
+    burnSec: z.number().positive(),
+    burnThrustMul: z.number().positive(),
+    flashSec: z.number().positive(),
+    arriveSec: z.number().positive(),
+    arriveSpeedMul: z.number().positive(),
+  })
+  .strict();
+export type JumpConfig = z.infer<typeof JumpConfigSchema>;
+
 export const ConfigSchema = z.object({
   startSystemId: id,
   startPlanetId: id,
@@ -319,6 +334,7 @@ export const ConfigSchema = z.object({
   startMonth: z.number().int().min(1).max(12),
   startDay: z.number().int().min(1).max(31),
   startOutfits: z.record(id, z.number().int().positive()), // outfit id -> count a new pilot starts with
+  jump: JumpConfigSchema,
 });
 
 export type ShipDef = z.infer<typeof ShipSchema>;
@@ -423,6 +439,79 @@ export const CombatSchema = z
 export type CombatDef = z.infer<typeof CombatSchema>;
 export type AiProfile = z.infer<typeof AiProfileSchema>;
 
+/** Every sound effect id. `thrust` and `beam` are voices, not recipes. */
+export const SFX_IDS = [
+  'thrust', 'jump', 'arrive', 'land', 'takeoff', 'trade', 'paid', 'hail', 'site', 'shot', 'missile',
+  'beam', 'shieldHit', 'armorHit', 'explosion', 'disabled', 'alarm',
+  'jumpCharge', 'jumpWhoosh', 'jumpArrive', 'uiClick',
+] as const;
+export type SfxId = (typeof SFX_IDS)[number];
+export type RecipeId = Exclude<SfxId, 'thrust' | 'beam'>;
+
+const layerCommon = { dur: z.number().positive(), gain: z.number().nonnegative(), at: z.number().nonnegative().optional() };
+/** One layer of a sound: a pitched tone sliding f0 to f1, or lowpass/highpass/bandpass noise sweeping c0 to c1. */
+export const SoundLayerSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('tone'),
+      wave: z.enum(['sine', 'square', 'sawtooth', 'triangle']),
+      f0: z.number().positive(),
+      f1: z.number().positive().optional(),
+      ...layerCommon,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('noise'),
+      filter: z.enum(['lowpass', 'highpass', 'bandpass']),
+      c0: z.number().positive(),
+      c1: z.number().positive().optional(),
+      q: z.number().positive().optional(),
+      ...layerCommon,
+    })
+    .strict(),
+]);
+export type SoundLayer = z.infer<typeof SoundLayerSchema>;
+
+const recipe = z.object({ layers: z.array(SoundLayerSchema).min(1) }).strict();
+
+export const AudioSchema = z
+  .object({
+    sfx: z
+      .object({
+        jump: recipe,
+        arrive: recipe,
+        land: recipe,
+        takeoff: recipe,
+        trade: recipe,
+        paid: recipe,
+        hail: recipe,
+        site: recipe,
+        shot: recipe,
+        missile: recipe,
+        shieldHit: recipe,
+        armorHit: recipe,
+        explosion: recipe,
+        disabled: recipe,
+        alarm: recipe,
+        jumpCharge: recipe,
+        jumpWhoosh: recipe,
+        jumpArrive: recipe,
+        uiClick: recipe,
+      })
+      .strict(),
+    voices: z
+      .object({
+        hum: z.object({ gain: z.number().nonnegative(), rampSec: z.number().positive(), f: z.number().positive() }).strict(),
+        beam: z.object({ gain: z.number().nonnegative(), holdSec: z.number().positive(), fadeSec: z.number().positive() }).strict(),
+      })
+      .strict(),
+  })
+  .strict();
+export type AudioDef = z.infer<typeof AudioSchema>;
+/** Compile-time check: audio.json has a recipe for exactly the ids in RecipeId. */
+export type AudioRecipesMatch = AudioDef['sfx'] extends Record<RecipeId, unknown> ? (keyof AudioDef['sfx'] extends RecipeId ? true : never) : never;
+
 export interface GameData {
   ships: Record<string, ShipDef>;
   outfits: Record<string, OutfitDef>;
@@ -437,4 +526,5 @@ export interface GameData {
   story: Record<string, StoryMissionDef>;
   config: GameConfig;
   combat: CombatDef;
+  audio: AudioDef;
 }

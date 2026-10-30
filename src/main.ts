@@ -46,7 +46,7 @@ async function boot(): Promise<void> {
   const inputMode = new InputMode(window, () => settings.bindings);
 
   // Sound: the audio context wakes on the first key or tap; events play their effects.
-  const sound = new SoundBoard(() => settings);
+  const sound = new SoundBoard(() => settings, data.audio);
   // Touch pointerdown and Escape are not activating gestures, so keep listening until the context runs.
   const unlockEvents = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown', 'keyup'];
   const unlockSound = () => {

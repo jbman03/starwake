@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   CommoditySchema,
   CombatSchema,
+  AudioSchema,
   ConfigSchema,
   EncounterSchema,
   EventSchema,
@@ -14,6 +15,7 @@ import {
   StoryMissionSchema,
   SystemSchema,
   type CombatDef,
+  type AudioDef,
   type GameConfig,
   type Outcome,
   type GameData,
@@ -135,6 +137,7 @@ const KEYS = [
   'encounters',
   'story',
   'combat',
+  'audio',
 ] as const;
 
 export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): GameData {
@@ -163,6 +166,10 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   const cb = CombatSchema.safeParse(raw.combat);
   if (!cb.success) throw new DataError('combat.json', zodIssues('combat.json', '', cb.error));
   const combat: CombatDef = cb.data;
+
+  const au = AudioSchema.safeParse(raw.audio);
+  if (!au.success) throw new DataError('audio.json', zodIssues('audio.json', '', au.error));
+  const audio: AudioDef = au.data;
 
   const sysIssues: string[] = [];
   for (const s of Object.values(systems)) {
@@ -255,7 +262,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
           );
       }
   }
-  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat } as GameData;
+  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio } as GameData;
   const items: { file: string; item: { id: string; techTier: number; soldBy?: string[] } }[] = [
     ...Object.values(ships).map((item) => ({ file: 'ships.json', item })),
     ...Object.values(outfits).map((item) => ({ file: 'outfits.json', item })),
@@ -433,14 +440,14 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   });
   if (cfgIssues.length) throw new DataError('config.json', cfgIssues);
 
-  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat };
+  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio };
 }
 
 /** Loads and validates the bundled data. `override` swaps raw payloads (used by test flags). */
 export async function loadGameData(
   override: Partial<Record<(typeof KEYS)[number], unknown>> = {},
 ): Promise<GameData> {
-  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat] =
+  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio] =
     await Promise.all([
       import('../../data/ships.json'),
       import('../../data/systems.json'),
@@ -455,6 +462,7 @@ export async function loadGameData(
       import('../../data/encounters.json'),
       import('../../data/story.json'),
       import('../../data/combat.json'),
+      import('../../data/audio.json'),
     ]);
   return parseGameData({
     ships: ships.default,
@@ -470,6 +478,7 @@ export async function loadGameData(
     encounters: encounters.default,
     story: story.default,
     combat: combat.default,
+    audio: audio.default,
     ...override,
   });
 }

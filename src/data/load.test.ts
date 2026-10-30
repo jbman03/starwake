@@ -12,11 +12,13 @@ import names from '../../data/names.json';
 import encounters from '../../data/encounters.json';
 import story from '../../data/story.json';
 import combat from '../../data/combat.json';
+import audio from '../../data/audio.json';
 import { parseGameData, DataError, loadGameData } from './load';
+import { SFX_IDS } from './schemas';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
-  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat }) as {
+  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio }) as {
   ships: any[];
   systems: any[];
   planets: any[];
@@ -30,6 +32,7 @@ const raw = () =>
   encounters: any[];
   story: { missions: any[] };
   combat: any;
+  audio: any;
 };
 
 const port = (r: ReturnType<typeof raw>, id: string) => r.planets.find((p) => p.id === id);
@@ -920,5 +923,45 @@ describe('combat.json', () => {
       mutate(r.combat);
       expect(failure(r).file).toBe('combat.json');
     }
+  });
+});
+
+describe('audio.json and config.jump', () => {
+  const has = (e: DataError, s: string) => expect(e.issues.some((i) => i.includes(s)), e.issues.join(', ')).toBe(true);
+  it('the shipped audio data parses and has a recipe for every sound but the two voices', () => {
+    const d = parseGameData(raw());
+    for (const id of SFX_IDS.filter((x) => x !== 'thrust' && x !== 'beam')) expect(d.audio.sfx[id].layers.length, id).toBeGreaterThan(0);
+    expect(Object.keys(d.audio.sfx).sort()).toEqual(SFX_IDS.filter((x) => x !== 'thrust' && x !== 'beam').sort());
+    expect(d.audio.voices.beam.holdSec).toBe(0.1);
+    expect(d.audio.sfx.uiClick.layers).toEqual([{ kind: 'tone', wave: 'square', f0: 1800, dur: 0.03, gain: 0.04 }]);
+  });
+  it('rejects a noise layer with no filter, naming audio.json', () => {
+    const r = raw();
+    r.audio.sfx.jump.layers[1] = { kind: 'noise', c0: 300, dur: 0.9, gain: 0.25 };
+    const e = failure(r);
+    expect(e.file).toBe('audio.json');
+    has(e, 'audio.json');
+  });
+  it('rejects a sound id outside SfxId', () => {
+    const r = raw();
+    r.audio.sfx.bogus = { layers: [{ kind: 'tone', wave: 'sine', f0: 440, dur: 0.1, gain: 0.1 }] };
+    has(failure(r), 'audio.json');
+  });
+  it('rejects a missing recipe', () => {
+    const r = raw();
+    delete r.audio.sfx.uiClick;
+    has(failure(r), 'audio.json');
+  });
+  it('holds the jump timings in config', () => {
+    expect(parseGameData(raw()).config.jump).toEqual({
+      alignMaxSec: 0.6, alignToleranceDeg: 3, chargeSec: 0.7, burnSec: 0.5, burnThrustMul: 3, flashSec: 0.15, arriveSec: 0.6, arriveSpeedMul: 3,
+    });
+  });
+  it('rejects a negative jump timing, naming config.json', () => {
+    const r = raw();
+    r.config.jump.chargeSec = -1;
+    const e = failure(r);
+    expect(e.file).toBe('config.json');
+    has(e, 'chargeSec');
   });
 });

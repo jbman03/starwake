@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS, type Settings } from '../save/settings';
+import { testData } from '../data/testData';
 import { battleSounds, SoundBoard } from './sfx';
 
 function param() {
@@ -51,7 +52,7 @@ const settings = (over: Partial<Settings> = {}): Settings => ({ ...DEFAULT_SETTI
 function board(over: Partial<Settings> = {}) {
   const s = settings(over);
   const f = fakeCtx();
-  return { sb: new SoundBoard(() => s, () => f.ctx), s, ...f };
+  return { sb: new SoundBoard(() => s, testData().audio, () => f.ctx), s, ...f };
 }
 
 describe('SoundBoard', () => {
@@ -159,6 +160,7 @@ describe('SoundBoard', () => {
   it('survives a context that cannot be made', () => {
     const sb = new SoundBoard(
       () => settings(),
+      testData().audio,
       () => {
         throw new Error('no audio');
       },
@@ -225,5 +227,102 @@ describe('battleSounds', () => {
     ).toEqual(['shot', 'missile', 'beam', 'shieldHit', 'armorHit', 'disabled', 'explosion', 'alarm']);
     expect(battleSounds([{ type: 'playerDisabled' }, { type: 'playerDestroyed', pos: { x: 0, y: 0 } }])).toEqual(['disabled', 'explosion']);
     expect(battleSounds([{ type: 'shot', ownerId: 'n1', kind: 'rocket' }])).toEqual(['missile']);
+  });
+});
+
+/** A context that logs every node made and every parameter call, so a recipe port can be compared exactly. */
+function recordingCtx() {
+  const log: string[] = [];
+  let n = 0;
+  const param = (name: string) => ({
+    setValueAtTime: (v: number, t: number) => (log.push(`${name} set ${v} @${t}`), undefined),
+    linearRampToValueAtTime: (v: number, t: number) => (log.push(`${name} lin ${v} @${t}`), undefined),
+    exponentialRampToValueAtTime: (v: number, t: number) => (log.push(`${name} exp ${v} @${t}`), undefined),
+    cancelScheduledValues: () => undefined,
+  });
+  const node = (name: string) => ({ connect: (x: unknown) => x, disconnect: () => undefined, name });
+  const ctx = {
+    currentTime: 0,
+    sampleRate: 8000,
+    state: 'running',
+    destination: node('dest'),
+    resume: () => Promise.resolve(),
+    createOscillator: () => {
+      const id = `osc${n++}`;
+      log.push(`create ${id}`);
+      const o = {
+        ...node(id),
+        frequency: param(`${id}.freq`),
+        start: (t?: number) => (log.push(`${id} start ${t ?? ''}`), undefined),
+        stop: (t?: number) => (log.push(`${id} stop ${t ?? ''}`), undefined),
+      };
+      return new Proxy(o, { set: (t, k, v) => (k === 'type' && log.push(`${id} type ${v}`), Reflect.set(t, k, v)) });
+    },
+    createGain: () => {
+      const id = `gain${n++}`;
+      log.push(`create ${id}`);
+      return { ...node(id), gain: param(`${id}.gain`) };
+    },
+    createBiquadFilter: () => {
+      const id = `filter${n++}`;
+      log.push(`create ${id}`);
+      const f = { ...node(id), frequency: param(`${id}.freq`), Q: param(`${id}.Q`) };
+      return new Proxy(f, { set: (t, k, v) => (k === 'type' && log.push(`${id} type ${v}`), Reflect.set(t, k, v)) });
+    },
+    createBuffer: (_c: number, len: number) => ({ getChannelData: () => new Float32Array(len) }),
+    createBufferSource: () => {
+      const id = `src${n++}`;
+      log.push(`create ${id}`);
+      return {
+        ...node(id),
+        buffer: null,
+        loop: false,
+        start: (t?: number) => (log.push(`${id} start ${t ?? ''}`), undefined),
+        stop: (t?: number) => (log.push(`${id} stop ${t ?? ''}`), undefined),
+      };
+    },
+  };
+  return { ctx: ctx as unknown as AudioContext, log };
+}
+
+describe('SoundBoard recipes from data', () => {
+  const ids = [
+    'jump', 'arrive', 'land', 'takeoff', 'trade', 'paid', 'hail', 'site', 'shot', 'missile',
+    'shieldHit', 'armorHit', 'explosion', 'disabled', 'alarm', 'beam',
+  ] as const;
+  for (const id of ids) {
+    it(`${id} makes the same nodes, frequencies and gains as the original recipe`, () => {
+      const { ctx, log } = recordingCtx();
+      const sb = new SoundBoard(() => settings(), testData().audio, () => ctx);
+      sb.unlock();
+      sb.play(id);
+      expect(log.join('\n')).toMatchSnapshot();
+    });
+  }
+  it('the engine hum is unchanged', () => {
+    const { ctx, log } = recordingCtx();
+    const sb = new SoundBoard(() => settings(), testData().audio, () => ctx);
+    sb.unlock();
+    sb.setThrust(true);
+    sb.setThrust(false);
+    expect(log.join('\n')).toMatchSnapshot();
+  });
+});
+
+describe('SoundBoard noise layers', () => {
+  it('sets the filter Q only when the layer gives one, and uses the layer filter type', () => {
+    const { ctx, log } = recordingCtx();
+    const audio = structuredClone(testData().audio);
+    audio.sfx.uiClick.layers = [
+      { kind: 'noise', filter: 'bandpass', c0: 1000, dur: 0.1, gain: 0.1, q: 4 },
+      { kind: 'noise', filter: 'highpass', c0: 2000, dur: 0.1, gain: 0.1 },
+    ];
+    const sb = new SoundBoard(() => settings(), audio, () => ctx);
+    sb.unlock();
+    sb.play('uiClick');
+    expect(log.some((l) => / type bandpass$/.test(l))).toBe(true);
+    expect(log.filter((l) => l.includes('.Q set'))).toHaveLength(1);
+    expect(log.filter((l) => l.includes('.Q set'))[0]).toMatch(/\.Q set 4 @0$/);
+    expect(log.some((l) => l.includes('type highpass'))).toBe(true);
   });
 });
