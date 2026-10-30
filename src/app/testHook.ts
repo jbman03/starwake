@@ -34,6 +34,10 @@ export interface StarwakeTestHook {
   cameraViewport?: () => { x: number; y: number; w: number; h: number };
   /** Set by SpaceScene: the texture key of the flight ship sprite. */
   flightSpriteTexture?: () => string;
+  /** Set by SpaceScene: how many shots (bolts, rockets, seekers) were drawn on the last frame. */
+  projectiles?: () => number;
+  /** Set by SpaceScene: the targeted ship's hull gauge (0–1) as drawn on the last frame, or null with none. */
+  targetBars?: () => { shields: number; armor: number } | null;
   /** Set by SpaceScene: the desktop HUD's autopilot route banner text, or null when hidden. */
   hudBanner?: () => string | null;
   /** Set by SpaceScene: the desktop HUD course line, or null when hidden. */

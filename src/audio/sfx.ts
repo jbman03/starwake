@@ -1,6 +1,56 @@
 import type { Settings } from '../save/settings';
+import type { BattleEvent } from '../sim/battle';
 
-export type Sfx = 'thrust' | 'jump' | 'arrive' | 'land' | 'takeoff' | 'trade' | 'paid' | 'hail' | 'site';
+export type Sfx =
+  | 'thrust'
+  | 'jump'
+  | 'arrive'
+  | 'land'
+  | 'takeoff'
+  | 'trade'
+  | 'paid'
+  | 'hail'
+  | 'site'
+  | 'shot'
+  | 'missile'
+  | 'beam'
+  | 'shieldHit'
+  | 'armorHit'
+  | 'explosion'
+  | 'disabled'
+  | 'alarm';
+
+/** The sounds for one tick of fight events, each at most once (a volley of bolts is one shot). */
+export function battleSounds(events: readonly BattleEvent[]): Sfx[] {
+  const out: Sfx[] = [];
+  const add = (s: Sfx) => {
+    if (!out.includes(s)) out.push(s);
+  };
+  for (const e of events) {
+    switch (e.type) {
+      case 'shot':
+        add(e.kind === 'bolt' ? 'shot' : e.kind === 'beam' ? 'beam' : 'missile');
+        break;
+      case 'hit':
+        add(e.shield ? 'shieldHit' : 'armorHit');
+        break;
+      case 'disabled':
+      case 'playerDisabled':
+        add('disabled');
+        break;
+      case 'destroyed':
+      case 'playerDestroyed':
+        add('explosion');
+        break;
+      case 'lowArmor':
+        add('alarm');
+        break;
+      default:
+        break;
+    }
+  }
+  return out;
+}
 
 /** One pitched voice: slides from `f0` to `f1` over `dur` seconds, starting `at` seconds from now. */
 interface Tone {
@@ -22,8 +72,12 @@ interface Burst {
 
 const HUM_GAIN = 0.12;
 const HUM_RAMP_SEC = 0.1;
+/** The beam hum: its level, and how long it lasts after the last pulse (then a short fade). */
+const BEAM_GAIN = 0.07;
+export const BEAM_HOLD_SEC = 0.1;
+const BEAM_FADE_SEC = 0.04;
 
-const RECIPES: Record<Exclude<Sfx, 'thrust'>, { tones?: Tone[]; bursts?: Burst[] }> = {
+const RECIPES: Record<Exclude<Sfx, 'thrust' | 'beam'>, { tones?: Tone[]; bursts?: Burst[] }> = {
   jump: {
     tones: [{ f0: 120, f1: 1400, dur: 0.9, wave: 'sawtooth', gain: 0.18 }],
     bursts: [{ dur: 0.9, c0: 300, c1: 4000, gain: 0.25 }],
@@ -63,6 +117,40 @@ const RECIPES: Record<Exclude<Sfx, 'thrust'>, { tones?: Tone[]; bursts?: Burst[]
   site: {
     tones: [{ f0: 300, f1: 900, dur: 0.5, wave: 'sine', gain: 0.18 }],
   },
+  // Combat: short and soft, since they repeat. A blaster is a quick falling chirp.
+  shot: {
+    tones: [{ f0: 900, f1: 320, dur: 0.09, wave: 'triangle', gain: 0.08 }],
+  },
+  missile: {
+    tones: [{ f0: 180, f1: 520, dur: 0.35, wave: 'triangle', gain: 0.07 }],
+    bursts: [{ dur: 0.4, c0: 900, c1: 2400, gain: 0.12 }],
+  },
+  shieldHit: {
+    tones: [{ f0: 1400, f1: 900, dur: 0.12, wave: 'sine', gain: 0.07 }],
+    bursts: [{ dur: 0.1, c0: 4000, c1: 2000, gain: 0.05 }],
+  },
+  armorHit: {
+    tones: [{ f0: 140, f1: 70, dur: 0.12, wave: 'square', gain: 0.05 }],
+    bursts: [{ dur: 0.14, c0: 1500, c1: 300, gain: 0.14 }],
+  },
+  explosion: {
+    tones: [{ f0: 90, f1: 35, dur: 0.8, wave: 'sine', gain: 0.3 }],
+    bursts: [{ dur: 0.9, c0: 2200, c1: 120, gain: 0.32 }],
+  },
+  disabled: {
+    tones: [
+      { f0: 440, f1: 110, dur: 0.6, wave: 'sawtooth', gain: 0.06 },
+      { f0: 220, f1: 55, dur: 0.6, wave: 'sine', gain: 0.12 },
+    ],
+  },
+  alarm: {
+    tones: [
+      { f0: 880, dur: 0.12, wave: 'square', gain: 0.05 },
+      { f0: 660, dur: 0.12, wave: 'square', gain: 0.05, at: 0.15 },
+      { f0: 880, dur: 0.12, wave: 'square', gain: 0.05, at: 0.3 },
+      { f0: 660, dur: 0.12, wave: 'square', gain: 0.05, at: 0.45 },
+    ],
+  },
 };
 
 function defaultContext(): AudioContext {
@@ -82,6 +170,9 @@ export class SoundBoard {
   private noise: AudioBuffer | null = null;
   private hum: { gain: GainNode } | null = null;
   private humLevel = 0;
+  private beamLoop: { gain: GainNode } | null = null;
+  /** Context time the beam hum falls silent (0 when it is not running). */
+  private beamUntil = 0;
 
   constructor(
     private getSettings: () => Settings,
@@ -128,6 +219,7 @@ export class SoundBoard {
     const vol = this.level();
     if (!ctx || vol <= 0) return;
     if (ctx.state !== 'running') return this.wake(ctx); // dropped, not queued
+    if (s === 'beam') return this.beam(ctx, vol);
     try {
       const r = RECIPES[s];
       for (const t of r.tones ?? []) this.tone(ctx, t, vol);
@@ -185,6 +277,50 @@ export class SoundBoard {
     f.connect(this.envelope(ctx, b.gain * vol, at, b.dur));
     src.start(start);
     src.stop(start + b.dur + 0.05);
+  }
+
+  /**
+   * The beam hum: a buzzing loop that plays for BEAM_HOLD_SEC after each pulse, then fades. Call it
+   * on every beam event (or every poll while a beam fires) to keep it going; it stops on its own.
+   */
+  private beam(ctx: AudioContext, vol: number): void {
+    try {
+      if (!this.beamLoop) {
+        const o = ctx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(110, ctx.currentTime);
+        const f = ctx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(900, ctx.currentTime);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        o.connect(f);
+        f.connect(gain);
+        gain.connect(ctx.destination);
+        o.start();
+        this.beamLoop = { gain };
+      }
+      const now = ctx.currentTime;
+      const level = BEAM_GAIN * vol;
+      const p = this.beamLoop.gain.gain;
+      const running = now < this.beamUntil;
+      p.cancelScheduledValues(now);
+      if (running) p.setValueAtTime(level, now);
+      else {
+        p.setValueAtTime(0, now);
+        p.linearRampToValueAtTime(level, now + 0.02);
+      }
+      this.beamUntil = now + BEAM_HOLD_SEC;
+      p.setValueAtTime(level, this.beamUntil);
+      p.linearRampToValueAtTime(0, this.beamUntil + BEAM_FADE_SEC);
+    } catch {
+      // ignore audio failures
+    }
+  }
+
+  /** When the beam hum stops (context seconds), for tests; 0 before it has played. */
+  beamStopsAt(): number {
+    return this.beamUntil;
   }
 
   /** Engine hum: low-passed looping noise whose gain ramps over 0.1 s. Silent when muted or not unlocked. */

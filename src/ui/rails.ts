@@ -5,7 +5,7 @@ import type { ActionId } from '../input/actions';
 import type { InputMode } from '../input/mode';
 import { getInsets } from '../input/insets';
 import { computeLayout, railMetrics, stickFromOffset, type Insets, type Layout, type Rect } from '../input/touch';
-import { hudInfo, routeBannerText } from '../render/hudInfo';
+import { hudInfo, routeBannerText, secondaryShort } from '../render/hudInfo';
 import { radarBlips } from '../render/sidebarInfo';
 import type { ContextAction } from '../sim/context';
 import { jumpDestination, pickLandTarget } from '../sim/rules';
@@ -17,6 +17,8 @@ import { isFinalStep, skipLabel } from '../guide/guide';
 
 /** Opacity of Fire, Missile and the stick while the autopilot flies. */
 export const AUTOPILOT_DIM = 0.2;
+/** Holding TGT this long (ms) targets the nearest hostile; a shorter tap steps to the next target. */
+export const TARGET_HOLD_MS = 500;
 /** World distance shown from the radar's center to its edge. */
 
 /** Text for the bottom-center context button, or null when it should be hidden. */
@@ -96,7 +98,7 @@ const square = (node: HTMLElement, size: number) => {
 
 /**
  * Phone controls: two side rails (stick rail: HUD, Pause, Stop, joystick; button rail: Map, radar
- * → map, Target, Missile, [Thrust], Fire) and a bottom-center context button. Shown only in
+ * → map, Target (hold: nearest hostile), Missile, the weapon label, [Thrust], Fire) and a bottom-center context button. Shown only in
  * touch mode during a session. Every control stays inside its rail; only the layer's rails and
  * the context button take pointer events, so taps on the view reach the game.
  */
@@ -136,12 +138,14 @@ export function mountRails(opts: RailsOptions): Rails {
   const objective = el('div', { class: 'sw-rail-line sw-rail-objective', attrs: { 'data-testid': 'rail-objective' } });
   objective.hidden = true;
   const pause = holdButton('pause', 'II', 'pause', 'Pause', 'sw-rail-pause');
-  const bar = (name: string, cls: string) =>
-    el('div', { class: 'sw-rail-bar' }, [el('span', { text: name }), el('i', { class: cls })]);
+  const shieldFill = el('b', { class: 'sw-bar-shield' });
+  const armorFill = el('b', { class: 'sw-bar-armor' });
+  const bar = (name: string, fill: HTMLElement) =>
+    el('div', { class: 'sw-rail-bar' }, [el('span', { text: name }), el('i', {}, [fill])]);
   const hud = el('div', { class: 'sw-rail-hud', attrs: { 'data-rail-control': '', 'data-control': 'hud' } }, [
     el('div', { class: 'sw-rail-hud-top' }, [sysName, pause]),
-    bar('Shields', 'sw-bar-shield'),
-    bar('Armor', 'sw-bar-armor'),
+    bar('Shields', shieldFill),
+    bar('Armor', armorFill),
     fuel,
     credits,
     cargo,
@@ -207,8 +211,47 @@ export function mountRails(opts: RailsOptions): Rails {
     touch.press('map');
     touch.release('map');
   });
-  const targetBtn = holdButton('target', 'TGT', 'nextTarget', 'Next target');
+  // TGT: a tap steps to the next target on release; holding it targets the nearest hostile.
+  const targetBtn = el('button', {
+    class: 'sw-rail-btn',
+    text: 'TGT',
+    attrs: { type: 'button', 'aria-label': 'Next target (hold: nearest hostile)', 'data-rail-control': '', 'data-control': 'target' },
+  });
+  let holdTimer: ReturnType<typeof setTimeout> | null = null;
+  let targetDown = false;
+  const tap = (a: ActionId) => {
+    touch.press(a);
+    touch.release(a);
+  };
+  const endTarget = (act: boolean) => {
+    if (holdTimer !== null) clearTimeout(holdTimer);
+    holdTimer = null;
+    if (targetDown && act) tap('nextTarget');
+    targetDown = false;
+  };
+  targetBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    capture(targetBtn, e);
+    endTarget(false);
+    targetDown = true;
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      targetDown = false;
+      tap('nearestHostile');
+    }, TARGET_HOLD_MS);
+  });
+  targetBtn.addEventListener('pointerup', () => endTarget(true));
+  for (const type of ['pointercancel', 'lostpointercapture'] as const) targetBtn.addEventListener(type, () => endTarget(false));
   const missile = holdButton('missile', 'MSL', 'fireSecondary', 'Fire missile');
+  // The selected launcher and its ammo, under MSL; tapping it picks the next launcher.
+  const secondary = el('button', {
+    class: 'sw-rail-secondary',
+    attrs: { type: 'button', 'aria-label': 'Next launcher', 'data-rail-control': '', 'data-control': 'secondary' },
+  });
+  secondary.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    tap('cycleSecondary');
+  });
   const thrust = holdButton('thrust', 'THR', 'thrust', 'Thrust');
   const fire = holdButton('fire', 'FIRE', 'firePrimary', 'Fire', 'sw-rail-fire');
   const buttonSpacer = el('div', { class: 'sw-rail-spacer' });
@@ -218,6 +261,7 @@ export function mountRails(opts: RailsOptions): Rails {
     buttonSpacer,
     targetBtn,
     missile,
+    secondary,
     thrust,
     fire,
   ]);
@@ -304,6 +348,9 @@ export function mountRails(opts: RailsOptions): Rails {
     for (const b of [targetBtn, missile, thrust]) square(b, m.button);
     square(fire, m.fire);
     square(stick, m.stick);
+    secondary.style.height = px(m.secondary);
+    secondary.style.width = px(m.fire);
+    secondary.style.marginTop = px(m.secondaryGap - m.gap); // tucked up under MSL
     mapBtn.style.height = px(m.map);
     mapBtn.style.width = px(m.fire); // as wide as Fire, which always fits the rail
     square(radar, m.radar);
@@ -358,15 +405,23 @@ export function mountRails(opts: RailsOptions): Rails {
 
     const { world, data } = controller;
     const autopilot = world.assist.kind === 'autopilot';
-    for (const node of [fire, missile, stick]) node.style.opacity = autopilot ? String(AUTOPILOT_DIM) : '';
+    for (const node of [fire, missile, secondary, stick]) node.style.opacity = autopilot ? String(AUTOPILOT_DIM) : '';
 
-    const info = hudInfo(world, data, controller.traffic, controller.targetedSite());
+    const battle = controller.battleView();
+    const info = hudInfo(world, data, controller.traffic, controller.targetedSite(), battle);
     sysName.textContent = info.system;
     fuel.textContent = info.fuel;
     fuel.style.color = info.fuelColor;
     credits.textContent = info.credits;
     cargo.textContent = info.cargo;
     target.textContent = info.target;
+    shieldFill.style.width = `${Math.round(info.hull.shields * 100)}%`;
+    armorFill.style.width = `${Math.round(info.hull.armor * 100)}%`;
+    const weapon = secondaryShort(world, data, battle.secondary);
+    if (secondary.textContent !== weapon) {
+      secondary.textContent = weapon;
+      secondary.setAttribute('aria-label', `Next launcher (now ${weapon === '—' ? 'none' : weapon})`);
+    }
     course.textContent = info.nextHop ?? '';
     course.hidden = info.nextHop === null || lastObjective !== null;
 
@@ -401,6 +456,7 @@ export function mountRails(opts: RailsOptions): Rails {
     update,
     dispose() {
       cancelAnimationFrame(raf);
+      endTarget(false);
       touch.releaseAll();
       layer.remove();
     },

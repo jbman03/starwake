@@ -7,7 +7,9 @@ import { isTargetable, npcLabel, targetedNpc, type Traffic } from '../sim/traffi
 import { worldStats } from '../sim/shipStats';
 import type { SiteTarget, WorldState } from '../sim/types';
 import { dist, type Vec2 } from '../sim/vec';
-import { fuelJumps, siteTargetText } from './hudInfo';
+import type { Battle } from '../sim/battle';
+import { hullBars } from './combatFx';
+import { fuelJumps, playerHull, secondaryAmmo, siteTargetText } from './hudInfo';
 
 /** World distance from the radar's centre to its edge (same as the touch rail radar). */
 export const RADAR_RANGE = 2500;
@@ -19,7 +21,12 @@ export interface SidebarInfo {
   fuelFrac: number;
   jumps: number;
   nav: string;
+  /** The selected launcher's ammo and count ("Seeker Missile ×6"), or "None". */
   secondary: string;
+  /** The player's shields and armor as 0–1 fractions. */
+  hull: { shields: number; armor: number };
+  /** The targeted ship's shields and armor (0–1) and whether it is disabled; null with no ship targeted. */
+  targetHull: { shields: number; armor: number; disabled: boolean } | null;
   target: string | null;
   targetDetail: string | null;
   /** "10/20 t" (free / hold size). */
@@ -28,20 +35,29 @@ export interface SidebarInfo {
   date: string;
 }
 
-export function sidebarInfo(world: WorldState, data: GameData, traffic: Traffic | null = null, site: SiteTarget | null = null): SidebarInfo {
+export function sidebarInfo(
+  world: WorldState,
+  data: GameData,
+  traffic: Traffic | null = null,
+  site: SiteTarget | null = null,
+  battle: Battle | null = null,
+): SidebarInfo {
   const stats = worldStats(world, data);
   const next = world.route[0];
   const n = world.route.length;
   const t = world.targetPlanetId ? data.planets[world.targetPlanetId] : undefined;
   const hasTarget = t !== undefined && t.systemId === world.systemId;
   const ship = targetedNpc(traffic);
+  const ammo = secondaryAmmo(world, data, battle?.secondary ?? null);
   return {
     shields: stats.shields,
     armor: stats.armor,
     fuelFrac: stats.fuelCapacity > 0 ? Math.max(0, Math.min(1, world.ship.fuel / stats.fuelCapacity)) : 0,
     jumps: fuelJumps(world, data),
     nav: next === undefined ? 'No course' : `${data.systems[next]?.name ?? next} · ${n} ${n === 1 ? 'jump' : 'jumps'}`,
-    secondary: 'None',
+    secondary: ammo ? `${ammo.name} ×${ammo.count}` : 'None',
+    hull: playerHull(world, data, battle),
+    targetHull: ship && !site ? { ...hullBars(ship.hull), disabled: ship.hull.disabled } : null,
     target: site ? siteTargetText(site, world.ship.pos) : ship ? npcLabel(ship, data) : hasTarget ? t.name : null,
     targetDetail: site
       ? 'Site'

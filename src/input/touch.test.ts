@@ -146,6 +146,20 @@ describe('railMetrics', () => {
   });
 });
 
+describe('railMetrics: weapon label under Missile', () => {
+  it('has room for a 20 px label on phones and counts it in the button rail', () => {
+    for (const [w, h] of [[844, 390], [932, 430], [780, 360], [667, 375]]) {
+      for (const steering of ['point', 'classic'] as const) {
+        const m = railMetrics(computeLayout(w, h, touch()), touch(), steering);
+        const plain = steering === 'classic' ? 3 : 2;
+        expect(m.secondary).toBe(20);
+        expect(m.rightStackHeight).toBe(m.map + m.radar + (plain + 2) * m.gap + plain * m.button + m.fire + m.secondaryGap + m.secondary);
+        expect(m.button).toBeGreaterThanOrEqual(44);
+      }
+    }
+  });
+});
+
 describe('railMetrics with a guide hint', () => {
   const phones = [[844, 390], [932, 430], [780, 360], [667, 375]] as const;
 

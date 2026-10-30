@@ -1,5 +1,5 @@
 import './ui/styles.css';
-import { SoundBoard } from './audio/sfx';
+import { battleSounds, SoundBoard } from './audio/sfx';
 import { Controller } from './app/controller';
 import { WakeLockManager, vibrateIfEnabled, type WakeLockApi } from './app/device';
 import { installTestHook, testFlags } from './app/testHook';
@@ -58,6 +58,11 @@ async function boot(): Promise<void> {
   controller.on('landed', () => sound.play('land'));
   controller.on('missionsCompleted', () => sound.play('paid'));
   controller.on('sfx', (e) => sound.play(e.sfx));
+  controller.on('battle', (e) => battleSounds(e.events).forEach((s) => sound.play(s)));
+  // A beam hums while it fires: each poll keeps it going, and it stops on its own 0.1 s after the last.
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && controller.isFlying && controller.battleView().beams.length > 0) sound.play('beam');
+  }, 50);
   // The hum follows the engine, and stops whenever flight is paused or the ship is not flying.
   setInterval(() => sound.setThrust(document.visibilityState === 'visible' && controller.isFlying && controller.view().thrusting), 50);
 

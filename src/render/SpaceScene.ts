@@ -11,6 +11,7 @@ import { JUMP_DURATION } from '../sim/world';
 import { skipLabel } from '../guide/guide';
 import { hotkeyFor } from '../ui/dom';
 import { formatMessage } from '../ui/messageText';
+import { CombatLayer, type PlayerDraw } from './combatLayer';
 import { Hud, type HudGuide } from './hud';
 import { Sidebar, SIDEBAR_W } from './sidebar';
 import { sidebarInfo } from './sidebarInfo';
@@ -60,6 +61,8 @@ export class SpaceScene extends Phaser.Scene {
   private siteMark!: Phaser.GameObjects.Graphics;
   private hud!: Hud;
   private sidebar!: Sidebar;
+  /** Shots, beams, hits, explosions, sparks and the target's hull gauge. */
+  private combat!: CombatLayer;
   private builtSystemId: string | null = null;
   private unsubs: (() => void)[] = [];
   /** Seconds of arrival effect left (0 when none). */
@@ -108,10 +111,17 @@ export class SpaceScene extends Phaser.Scene {
     this.cameras.main.ignore(sb);
     this.sidebar.cam.ignore(this.children.list.filter((o) => !sb.includes(o)));
 
+    this.combat = new CombatLayer(this, (o) => this.addWorldObject(o), settings.quality);
+
     this.buildSystem(world.systemId);
 
     this.unsubs.push(
-      this.controller.on('jumped', (e) => this.buildSystem(e.toSystemId)),
+      this.controller.on('jumped', (e) => {
+        this.combat.clear();
+        this.buildSystem(e.toSystemId);
+      }),
+      this.controller.on('landed', () => this.combat.clear()),
+      this.controller.on('battle', (e) => this.combat.onEvents(e.events, this.playerDraw())),
       this.controller.on('arrived', () => (this.arrivalLeft = ARRIVAL_FX_SEC)),
       this.controller.on('message', (e) =>
         this.hud.showMessage(
@@ -168,7 +178,7 @@ export class SpaceScene extends Phaser.Scene {
     };
     hook.sidebar = () => ({
       visible: this.sidebar.isVisible(),
-      info: sidebarInfo(this.controller.world, this.controller.data, this.controller.traffic, this.controller.targetedSite()),
+      info: sidebarInfo(this.controller.world, this.controller.data, this.controller.traffic, this.controller.targetedSite(), this.controller.battleView()),
     });
     hook.traffic = () => {
       const c = this.cameras.main;
@@ -184,6 +194,8 @@ export class SpaceScene extends Phaser.Scene {
       });
     };
     hook.flightSpriteTexture = () => this.ship.texture.key;
+    hook.projectiles = () => this.combat.projectileCount();
+    hook.targetBars = () => this.combat.targetBars();
     hook.hudBanner = () => this.hud.bannerText();
     hook.hudHail = () => this.hud.hailText();
     hook.hudObjective = () => this.hud.objectiveText();
@@ -253,12 +265,13 @@ export class SpaceScene extends Phaser.Scene {
     if (this.ship.texture.key !== shipKey) this.ship.setTexture(shipKey);
     // Landing shrinks and fades the ship (take-off runs it backwards); on the planet screen it is hidden.
     const shrink = landingT ?? 0;
+    const battle = this.controller.battleView();
     this.ship
       .setPosition(x, y)
       .setFrame(shipFrame(world.ship.heading))
       .setScale(1 - (1 - LANDED_SCALE) * shrink)
       .setAlpha(1 - shrink)
-      .setVisible(this.controller.landedPlanetId === null);
+      .setVisible(this.controller.landedPlanetId === null && !battle.playerDestroyed);
     const cam = this.cameras.main;
     cam.centerOn(x, y);
 
@@ -273,10 +286,11 @@ export class SpaceScene extends Phaser.Scene {
     this.drawBracket(world.targetPlanetId);
     this.fx.clear();
     this.arrivalLeft = Math.max(0, this.arrivalLeft - dt);
-    if (thrusting && landingT === null) this.drawFlame(x, y, world.ship.heading, data.ships[world.shipId]?.radius ?? 14);
+    if (thrusting && landingT === null && !battle.playerDestroyed) this.drawFlame(x, y, world.ship.heading, data.ships[world.shipId]?.radius ?? 14);
     this.drawNpcFx();
     this.drawJumpFx(x, y);
     this.drawSite();
+    this.combat.update(this.controller.isFlying ? dt : 0, this.time.now / 1000, battle, this.controller.traffic, data, alpha, this.playerDraw());
     this.hud.update(
       world,
       data,
@@ -288,8 +302,19 @@ export class SpaceScene extends Phaser.Scene {
         ? formatMessage(this.controller.objectiveText() ?? '', (a) => hotkeyFor(this.controller.settings.bindings, a) ?? null, false) || null
         : null,
       this.controller.targetedSite(),
+      battle,
     );
-    this.sidebar.update(world, data, dt, this.controller.traffic, this.controller.sitePositions(), this.controller.targetedSite());
+    this.sidebar.update(world, data, dt, this.controller.traffic, this.controller.sitePositions(), this.controller.targetedSite(), battle);
+  }
+
+  /** Where the player's ship is drawn this frame (the sprite), and how far that is from the sim position. */
+  private playerDraw(): PlayerDraw {
+    const { world, data } = this.controller.view();
+    return {
+      pos: { x: this.ship.x, y: this.ship.y },
+      offset: { x: this.ship.x - world.ship.pos.x, y: this.ship.y - world.ship.pos.y },
+      radius: data.ships[world.shipId]?.radius ?? 14,
+    };
   }
 
   /** "Incoming hail — Name (Y to answer)" while a hail is open, else null. */

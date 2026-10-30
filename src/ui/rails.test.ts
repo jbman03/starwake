@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Controller } from '../app/controller';
 import { loadGameData } from '../data/load';
 import { Guide } from '../guide/guide';
@@ -7,6 +7,7 @@ import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import type { WorldState } from '../sim/types';
 import { newWorld } from '../sim/world';
+import { rectsIntersect, type Rect } from '../input/touch';
 import { contextLabel, mountRails } from './rails';
 
 async function setup(mode: 'touch' | 'keyboard' = 'touch') {
@@ -313,5 +314,83 @@ describe('rails: story site on a phone', () => {
     expect(c.world.story.done).toEqual(['sc']);
     rails.update();
     expect(obj.hidden).toBe(true);
+  });
+});
+
+describe('rails: combat controls', () => {
+  afterEach(() => vi.useRealTimers());
+
+  const presses = (c: Controller) => {
+    const out: string[] = [];
+    const press = c.touch.press.bind(c.touch);
+    c.touch.press = ((a: Parameters<typeof press>[0]) => (out.push(a), press(a))) as typeof c.touch.press;
+    return out;
+  };
+
+  it('rails: long-press TGT presses nearestHostile; tap presses nextTarget', async () => {
+    vi.useFakeTimers();
+    const { c, rails, parent } = await setup();
+    c.startFlight();
+    rails.update();
+    const out = presses(c);
+    const tgt = parent.querySelector<HTMLElement>('[data-control="target"]')!;
+    tgt.dispatchEvent(new Event('pointerdown'));
+    expect(out).toEqual([]); // nothing yet: a tap acts on release
+    vi.advanceTimersByTime(200);
+    tgt.dispatchEvent(new Event('pointerup'));
+    expect(out).toEqual(['nextTarget']);
+    out.length = 0;
+    tgt.dispatchEvent(new Event('pointerdown'));
+    vi.advanceTimersByTime(499);
+    expect(out).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(out).toEqual(['nearestHostile']); // fires while still held
+    tgt.dispatchEvent(new Event('pointerup'));
+    expect(out).toEqual(['nearestHostile']); // and the release adds nothing
+    out.length = 0;
+    // A cancelled touch does nothing.
+    tgt.dispatchEvent(new Event('pointerdown'));
+    tgt.dispatchEvent(new Event('pointercancel'));
+    vi.advanceTimersByTime(1000);
+    expect(out).toEqual([]);
+  });
+
+  it('rails: secondary label cycles and sits outside the clear view', async () => {
+    const { c, rails, parent } = await setup();
+    c.world = { ...c.world, outfits: { ...c.world.outfits, 'seeker-launcher': 1, seeker: 6 } };
+    c.combat.reset(c.world);
+    c.startFlight();
+    rails.update();
+    const label = parent.querySelector<HTMLElement>('[data-control="secondary"]')!;
+    expect(label.textContent).toBe('Seeker 6');
+    const out = presses(c);
+    label.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    expect(out).toEqual(['cycleSecondary']);
+    // Under MSL, inside the button rail, which lies outside the clear view.
+    const rail = parent.querySelector<HTMLElement>('[data-rail="buttons"]')!;
+    expect(label.closest('[data-rail]')).toBe(rail);
+    const kids = [...rail.children];
+    const missile = parent.querySelector<HTMLElement>('[data-control="missile"]')!;
+    expect(kids.indexOf(label)).toBe(kids.indexOf(missile) + 1);
+    const layer = parent.querySelector<HTMLElement>('[data-testid="touch-rails"]')!;
+    const clear = JSON.parse(layer.dataset.clear!) as Rect;
+    const r: Rect = { x: parseFloat(rail.style.left), y: parseFloat(rail.style.top), w: parseFloat(rail.style.width), h: parseFloat(rail.style.height) };
+    expect(rectsIntersect(r, clear)).toBe(false);
+    expect(label.hasAttribute('data-rail-control')).toBe(true); // the e2e no-overlap check covers it too
+    // No launcher: a dash.
+    c.world = { ...c.world, outfits: { ...c.data.config.startOutfits } };
+    c.combat.reset(c.world);
+    rails.update();
+    expect(label.textContent).toBe('—');
+  });
+
+  it('the rail HUD bars follow the hull', async () => {
+    const { c, rails, parent } = await setup();
+    c.startFlight();
+    const b = c.combat.battle;
+    c.combat.battle = { ...b, player: { ...b.player, shields: b.player.maxShields / 2, armor: 0 } };
+    rails.update();
+    expect(parent.querySelector<HTMLElement>('.sw-bar-shield')!.style.width).toBe('50%');
+    expect(parent.querySelector<HTMLElement>('.sw-bar-armor')!.style.width).toBe('0%');
   });
 });

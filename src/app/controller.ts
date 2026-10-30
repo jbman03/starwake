@@ -6,7 +6,7 @@ import { TouchSource } from '../input/touch';
 import { pilotFromWorld, worldFromPilot, type PilotSave } from '../save/pilot';
 import { hasPod, podRescue } from '../sim/death';
 import { saveSettings, type Settings } from '../save/settings';
-import { nearestHostile, type BattleEvent } from '../sim/battle';
+import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
 import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordKill } from '../sim/combatMissions';
 import { governmentShortName } from '../sim/standing';
 import { CombatControl, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
@@ -375,6 +375,11 @@ export class Controller {
     const fx = this.fx;
     const landingT = !fx ? null : fx.kind === 'land' ? Math.min(1, fx.t / LANDING_FX_SEC) : Math.max(0, 1 - fx.t / LANDING_FX_SEC);
     return { world: this.world, prevShip: this.prevShip, alpha: this.alpha, data: this.data, landingT, thrusting: this.thrusting };
+  }
+
+  /** The fight as it stands, read-only, for drawing and the HUD: hull, shots in flight, this tick's beams, the launcher. */
+  battleView(): Readonly<Battle> {
+    return this.combat.battle;
   }
 
   currentContext(): ContextAction {

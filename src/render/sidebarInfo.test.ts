@@ -3,6 +3,7 @@ import { testData } from '../data/testData';
 import { worldStats } from '../sim/shipStats';
 import type { WorldState } from '../sim/types';
 import { fullHull } from '../sim/combat';
+import { newBattle } from '../sim/battle';
 import { npcLabel, type Npc, type Traffic } from '../sim/traffic';
 import { newWorld } from '../sim/world';
 import { fitText, radarBlips, radarHeadingTip, RADAR_RANGE, sidebarInfo } from './sidebarInfo';
@@ -155,5 +156,26 @@ describe('sidebarInfo: site target', () => {
     const info = sidebarInfo(w, data, null, { id: 'story', pos: { x: 640, y: 0 }, label: 'Dead lantern' });
     expect(info.target).toBe('Dead lantern — 640 px');
     expect(info.targetDetail).toBe('Site');
+  });
+});
+
+describe('sidebarInfo: combat', () => {
+  it('sidebarInfo shows hull, secondary with ammo, target hull', () => {
+    const w: WorldState = { ...base(), outfits: { ...base().outfits, 'seeker-launcher': 1, seeker: 6 } };
+    const b = newBattle(w, data);
+    const hurt = { ...b, player: { ...b.player, shields: b.player.maxShields / 2, armor: b.player.maxArmor / 4 } };
+    const enemy = { ...npcAt('n1', 300, 0), hull: { ...fullHull(10, 40), shields: 0, armor: 10, disabled: true } };
+    const info = sidebarInfo(w, data, trafficOf([enemy], 'n1'), null, hurt);
+    expect(info.hull).toEqual({ shields: 0.5, armor: 0.25 });
+    expect(info.secondary).toBe('Seeker Missile ×6');
+    expect(info.targetHull).toEqual({ shields: 0, armor: 0.25, disabled: true });
+  });
+
+  it('no launcher reads None; no ship targeted has no target hull; no battle shows a full hull', () => {
+    const w = base();
+    const info = sidebarInfo(w, data, trafficOf([npcAt('n1', 300, 0)]), null, newBattle(w, data));
+    expect(info.secondary).toBe('None');
+    expect(info.targetHull).toBeNull();
+    expect(sidebarInfo(w, data).hull).toEqual({ shields: worldStats(w, data).shields > 0 ? 1 : 0, armor: 1 });
   });
 });
