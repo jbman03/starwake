@@ -100,6 +100,18 @@ describe('Controller', () => {
     expect(seen).toEqual([['howToPlay']]);
   });
 
+  it('announces a settings change on toggleSound and settingsChanged', async () => {
+    const { c } = await setup();
+    let n = 0;
+    c.on('settings', () => n++);
+    const before = c.settings.muted;
+    c.toggleSound();
+    expect(c.settings.muted).toBe(!before);
+    expect(n).toBe(1);
+    c.settingsChanged();
+    expect(n).toBe(2);
+  });
+
   it('announces effects that have no event of their own', async () => {
     const { c } = await setup();
     const sfx: string[] = [];
@@ -114,6 +126,54 @@ describe('Controller', () => {
     expect(sfx).toEqual(['trade', 'takeoff']);
     c.forceEncounter(Object.keys(c.data.encounters)[0]);
     expect(sfx).toContain(c.pending!.kind);
+  });
+
+  it('a jump emits jumpCharge, jumpWhoosh, jumpArrive once each, in order, and no jump sfx', async () => {
+    const data = await loadGameData();
+    const target = new EventTarget();
+    const c = new Controller({ ...data, encounters: {} }, { ...DEFAULT_SETTINGS }, target); // no arrival hail sound
+    const sfx: string[] = [];
+    c.on('sfx', (e) => sfx.push(e.sfx));
+    c.startFlight();
+    c.world = { ...c.world, route: ['vesk'], ship: { ...c.world.ship, pos: { x: 2100, y: 0 }, vel: { x: 0, y: 0 } } };
+    target.dispatchEvent(keyEvent('keydown', 'KeyJ'));
+    c.update(1 / 60);
+    target.dispatchEvent(keyEvent('keyup', 'KeyJ'));
+    expect(c.world.jump).not.toBeNull();
+    for (let i = 0; i < 600 && c.world.jump; i++) c.update(1 / 60);
+    expect(c.world.jump).toBeNull();
+    expect(c.world.systemId).toBe('vesk');
+    expect(sfx).toEqual(['jumpCharge', 'jumpWhoosh', 'jumpArrive']);
+  });
+
+  it('a skipped jump has no charge sound if skipped in the align, and still whooshes and arrives', async () => {
+    const data = await loadGameData();
+    const c = new Controller({ ...data, encounters: {} }, { ...DEFAULT_SETTINGS }, new EventTarget()); // no arrival hail sound
+    const sfx: string[] = [];
+    c.on('sfx', (e) => sfx.push(e.sfx));
+    c.startFlight();
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', phase: 'align', t: 0 } };
+    c.doContextAction(); // skipJump, applied on the next tick before the align can end
+    for (let i = 0; i < 600 && c.world.jump; i++) c.update(1 / 60);
+    expect(sfx).toEqual(['jumpWhoosh', 'jumpArrive']);
+  });
+
+  it('the skipJump context action shows during align, charge and burn and skips to the flash', async () => {
+    const { c, events } = await setup();
+    c.startFlight();
+    for (const phase of ['align', 'charge', 'burn'] as const) {
+      c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', phase, t: 0 } };
+      expect(c.currentContext()).toBe('skipJump');
+    }
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', phase: 'charge', t: 0.1 } };
+    c.update(1 / 60);
+    expect(events.at(-1)).toEqual({ type: 'contextChanged', action: 'skipJump' });
+    expect(contextLabel('skipJump', c.world, c.data)).toBe('⏩ SKIP');
+    c.doContextAction();
+    c.update(1 / 60);
+    expect(c.world.jump?.phase).toBe('flash');
+    expect(c.currentContext()).toBeNull();
+    expect(events.at(-1)).toEqual({ type: 'contextChanged', action: null });
   });
 
   it('the autopilotOut context action engages the autopilot to the jump point', async () => {
@@ -142,12 +202,21 @@ describe('Controller', () => {
   it('the map key is ignored during a jump', async () => {
     const { c, target, events } = await setup();
     c.startFlight();
-    c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 0 } };
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', phase: 'align', t: 0 } };
     target.dispatchEvent(keyEvent('keydown', 'KeyM'));
     c.update(1 / 60);
     expect(c.isFlying).toBe(true);
     expect(events.some((e) => e.type === 'menu')).toBe(false);
     expect(c.world.jump).not.toBeNull();
+  });
+
+  it('the jump key during the charge skips to the flash', async () => {
+    const { c, target } = await setup();
+    c.startFlight();
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', phase: 'charge', t: 0.1 } };
+    target.dispatchEvent(keyEvent('keydown', 'KeyJ'));
+    c.update(1 / 60);
+    expect(c.world.jump?.phase).toBe('flash');
   });
 
   it('Tab moves focus in menus but is kept by the game while flying', async () => {
@@ -338,7 +407,7 @@ describe('Controller', () => {
     const w = newWorld(data, 1);
     c.beginSession({ ...w, missions: [dueToday('a', 'Job A'), dueToday('b', 'Job B')] }, { id: 'p1', name: 'Ava' }, 'halcyon');
     c.leavePlanet();
-    c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 0.99 } };
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', phase: 'flash', t: 0.99 } };
     c.update(0.1);
     expect(events.filter((e) => e.type === 'jumped')).toHaveLength(1);
     expect(events.filter((e) => e.type === 'message')).toEqual([
@@ -729,7 +798,7 @@ describe('Controller trade, missions and routes', () => {
       const c = new Controller({ ...data, encounters: {} }, { ...DEFAULT_SETTINGS }, new EventTarget());
       c.startFlight();
       c.pending = { def: data.encounters['cargo-drift'], npcName: 'X', kind: 'site', pos: { x: 0, y: 0 } };
-      c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', t: 99 } };
+      c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', phase: 'flash', t: 99 } };
       c.update(0.1);
       expect(c.world.systemId).toBe('vesk');
       expect(c.pending).toBeNull();
@@ -780,7 +849,7 @@ describe('Controller trade, missions and routes', () => {
       const { c } = await setup();
       c.startFlight();
       c.forceEncounter('stranded-passenger');
-      c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 0.1 } };
+      c.world = { ...c.world, jump: { toSystemId: 'vesk', phase: 'charge', t: 0.1 } };
       expect(c.openEncounter()).toBe(false);
       expect(c.isFlying).toBe(true);
     });
@@ -806,7 +875,7 @@ describe('Controller trade, missions and routes', () => {
       for (let day = 1; day < 200 && !found; day++) {
         const c = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget());
         c.startFlight();
-        c.world = { ...c.world, day, route: ['vesk'], jump: { toSystemId: 'vesk', t: 99 } };
+        c.world = { ...c.world, day, route: ['vesk'], jump: { toSystemId: 'vesk', phase: 'flash', t: 99 } };
         c.update(0.1);
         if (c.pending) {
           found = true;
@@ -879,9 +948,11 @@ describe('Controller story steps in flight', () => {
     run(c, LANDING_FX_SEC + 0.1);
     return { c, data, target };
   }
+  /** Jump from the end of the flash and fly the arrive phase out, so the ship is in flight in `systemId` again. */
   const jumpTo = (c: Controller, systemId: string) => {
-    c.world = { ...c.world, route: [systemId], jump: { toSystemId: systemId, t: 99 } };
+    c.world = { ...c.world, route: [systemId], jump: { toSystemId: systemId, phase: 'flash', t: 99 } };
     c.update(0.1);
+    for (let i = 0; i < 120 && c.world.jump; i++) c.update(1 / 60);
   };
   const gap = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
   const press = (c: Controller, target: EventTarget, code: string) => {
@@ -1381,7 +1452,7 @@ describe('combat in flight', () => {
     target.dispatchEvent(keyEvent('keyup', 'Space'));
     expect(c.combat.battle.projectiles.length).toBeGreaterThan(0);
     c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, shields: 0, armor: 30 } };
-    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', t: 99 } };
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', phase: 'flash', t: 99 } };
     c.update(1 / 60);
     expect(events.some((e) => e.type === 'jumped')).toBe(true);
     expect(c.combat.battle.systemId).toBe('vesk');
@@ -1389,6 +1460,8 @@ describe('combat in flight', () => {
     // Jumping out keeps the damage (spec §7).
     expect(c.combat.battle.player.armor).toBe(30);
     expect(c.combat.battle.player.shields).toBeLessThan(c.combat.battle.player.maxShields);
+    for (let i = 0; i < 120 && c.world.jump; i++) c.update(1 / 60); // fly the arrive phase out
+    expect(c.world.jump).toBeNull();
     // Landing clears shots and repairs the ship.
     target.dispatchEvent(keyEvent('keydown', 'Space'));
     c.update(1 / 60);
@@ -1468,7 +1541,7 @@ describe('combat in flight', () => {
       projectiles: [{ id: 98, ownerId: id, targetId: null, kind: 'bolt', pos, vel: { x: 0, y: 0 }, damage: 50, ttl: 5, turnRate: 0 }],
     };
     const before = { ...c.combat.battle.player };
-    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', t: 0 } };
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', phase: 'align', t: 0 } };
     c.update(1 / 60);
     expect(c.world.jump).not.toBeNull();
     expect(c.combat.battle.player).toEqual(before);
@@ -1496,7 +1569,7 @@ describe('combat in flight', () => {
     expect(c.world.jump).toBeNull();
     expect(c.world.systemId).not.toBe('vesk');
     // Disabled while a jump is already under way (hyperspace runs no fight): the damage arrives too.
-    c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 99 } };
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', phase: 'flash', t: 99 } };
     c.update(1 / 60);
     expect(c.world.systemId).toBe('vesk');
     expect(c.combat.playerDisabled()).toBe(true);
@@ -1622,9 +1695,11 @@ describe('combat jobs in flight', () => {
     s.c.update(1 / 60);
     return s;
   }
+  /** Jump from the end of the flash and fly the arrive phase out, so the ship is in flight in `systemId` again. */
   const jumpTo = (c: Controller, systemId: string) => {
-    c.world = { ...c.world, route: [systemId], jump: { toSystemId: systemId, t: 99 } };
+    c.world = { ...c.world, route: [systemId], jump: { toSystemId: systemId, phase: 'flash', t: 99 } };
     c.update(0.1);
+    for (let i = 0; i < 120 && c.world.jump; i++) c.update(1 / 60);
   };
 
   it('a bounty target spawns 700-1200 px away on arrival, holds there and is not swept as stale', async () => {
@@ -1698,5 +1773,82 @@ describe('combat jobs in flight', () => {
     expect(opts().noRaiders).toBe(false);
     c.calm = true;
     expect(opts().noRaiders).toBe(true);
+  });
+});
+
+describe('Controller.musicInput', () => {
+  /** A controller in a session, flying. */
+  async function inFlight() {
+    const s = await setup();
+    s.c.beginSession(s.c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    s.c.startFlight();
+    return s;
+  }
+
+  it('reports no combat in a quiet system', async () => {
+    const { c } = await setup();
+    c.traffic = { ...c.traffic, npcs: [] };
+    expect(c.musicInput()).toMatchObject({ inCombat: false, jumpPhase: null, screen: 'menu' });
+  });
+
+  it('reports inCombat with an engaged raider, but not once it has fled', async () => {
+    const { c } = await inFlight();
+    const r = hostileAhead(c.world, c.traffic, c.data);
+    c.traffic = r.traffic;
+    expect(c.musicInput().inCombat).toBe(true);
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === r.id ? { ...n, fled: true } : n)) };
+    expect(c.musicInput().inCombat).toBe(false);
+  });
+
+  it('reports inCombat while the player is disabled', async () => {
+    const { c } = await inFlight();
+    c.traffic = { ...c.traffic, npcs: [] };
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, disabled: true } };
+    expect(c.musicInput().inCombat).toBe(true);
+  });
+
+  it('does not count a demanding raider as combat', async () => {
+    const { c } = await inFlight();
+    const r = hostileAhead(c.world, c.traffic, c.data);
+    c.traffic = { ...r.traffic, npcs: r.traffic.npcs.map((n) => (n.id === r.id ? { ...n, demand: true, engaged: true } : n)) };
+    expect(c.musicInput()).toMatchObject({ screen: 'flying', inCombat: false });
+  });
+
+  it('is not in combat once landed, even with an engaged hostile left in traffic', async () => {
+    const { c } = await inFlight();
+    const r = hostileAhead(c.world, c.traffic, c.data);
+    c.traffic = r.traffic;
+    expect(c.musicInput()).toMatchObject({ screen: 'flying', inCombat: true });
+    (c as unknown as { landAt(id: string): void }).landAt('halcyon');
+    expect(c.traffic.npcs.some((n) => n.engaged && !n.fled)).toBe(true);
+    expect(c.musicInput()).toMatchObject({ screen: 'docked', inCombat: false });
+  });
+
+  it('maps the screen from the session and landing', async () => {
+    const { c } = await setup();
+    expect(c.musicInput().screen).toBe('menu');
+    c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
+    expect(c.musicInput().screen).toBe('docked');
+    c.startFlight();
+    expect(c.musicInput().screen).toBe('flying');
+  });
+
+  it('reports fringe from the government alone, with every port tier 3', async () => {
+    const real = await loadGameData();
+    const planets = Object.fromEntries(Object.entries(real.planets).map(([id, p]) => [id, { ...p, techTier: 3 as const }]));
+    const c = new Controller({ ...real, planets }, { ...DEFAULT_SETTINGS }, new EventTarget());
+    const at = (systemId: string) => {
+      c.world = { ...c.world, systemId };
+      return c.musicInput().fringe;
+    };
+    expect(at('brannock')).toBe(false);
+    expect(at('gloam')).toBe(true);
+    expect(at('vesk')).toBe(true);
+  });
+
+  it('reports the jump phase', async () => {
+    const { c } = await setup();
+    c.world = { ...c.world, jump: { toSystemId: 'brannock', phase: 'burn', t: 0 } };
+    expect(c.musicInput().jumpPhase).toBe('burn');
   });
 });

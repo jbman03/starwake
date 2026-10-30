@@ -25,13 +25,32 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-/** A menu button (≥44px tall via CSS). `hotkey` shows a key chip after the label. */
+let uiClickSound: (() => void) | null = null;
+
+/** Set (or clear with null) what every button() plays when clicked. main.ts wires it, so the UI never imports audio. */
+export function setUiClickSound(fn: (() => void) | null): void {
+  uiClickSound = fn;
+}
+
+function playUiClick(): void {
+  try {
+    uiClickSound?.();
+  } catch {
+    // a failing sound never stops a button working
+  }
+}
+
+/** A menu button (≥44px tall via CSS). `hotkey` shows a key chip after the label. It plays the UI click when one is set. */
 export function button(
   label: string,
   onClick: () => void,
   opts: { class?: string; hotkey?: string; disabled?: boolean } = {},
 ): HTMLButtonElement {
-  const b = el('button', { class: `sw-btn ${opts.class ?? ''}`.trim(), attrs: { type: 'button' }, onClick }, [
+  const click = () => {
+    playUiClick();
+    onClick();
+  };
+  const b = el('button', { class: `sw-btn ${opts.class ?? ''}`.trim(), attrs: { type: 'button' }, onClick: click }, [
     el('span', { class: 'sw-btn-label', text: label }),
     opts.hotkey ? el('span', { class: 'sw-key', text: opts.hotkey, attrs: { 'aria-hidden': 'true' } }) : null,
   ]);

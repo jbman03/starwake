@@ -1,4 +1,7 @@
 import './ui/styles.css';
+import { Mixer } from './audio/mixer';
+import { moodFor } from './audio/moods';
+import { Music } from './audio/music';
 import { battleSounds, SoundBoard } from './audio/sfx';
 import { Controller } from './app/controller';
 import { WakeLockManager, vibrateIfEnabled, type WakeLockApi } from './app/device';
@@ -11,6 +14,7 @@ import { createGame, planetImages, whenGameReady } from './render/game';
 import { loadSettings } from './save/settings';
 import { PilotStore } from './save/store';
 import { createUi } from './ui/context';
+import { setUiClickSound } from './ui/dom';
 import { hideUpdatePrompt, showCrash, showDataError, showUpdatePrompt } from './ui/overlays';
 import { mountRails } from './ui/rails';
 
@@ -46,26 +50,57 @@ async function boot(): Promise<void> {
   const inputMode = new InputMode(window, () => settings.bindings);
 
   // Sound: the audio context wakes on the first key or tap; events play their effects.
-  const sound = new SoundBoard(() => settings);
+  const mixer = new Mixer(() => settings);
+  const sound = new SoundBoard(() => settings, data.audio, mixer);
+  // Volume sliders, the mute toggle and the V key all end in controller.settingsChanged().
+  controller.on('settings', () => mixer.apply());
   // Touch pointerdown and Escape are not activating gestures, so keep listening until the context runs.
   const unlockEvents = ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown', 'keyup'];
   const unlockSound = () => {
-    sound.unlock();
-    if (!sound.running()) return;
+    mixer.unlock();
+    if (!mixer.running()) return;
     for (const t of unlockEvents) window.removeEventListener(t, unlockSound);
   };
   for (const t of unlockEvents) window.addEventListener(t, unlockSound);
-  controller.on('arrived', () => sound.play('arrive'));
+  setUiClickSound(() => sound.play('uiClick'));
   controller.on('landed', () => sound.play('land'));
   controller.on('missionsCompleted', () => sound.play('paid'));
   controller.on('sfx', (e) => sound.play(e.sfx));
-  controller.on('battle', (e) => battleSounds(e.events).forEach((s) => sound.play(s)));
+  controller.on('battle', (e) => battleSounds(e.events, data.audio.gunVoices).forEach((s) => sound.play(s)));
   // A beam hums while it fires: each poll keeps it going, and it stops on its own 0.1 s after the last.
   setInterval(() => {
     if (document.visibilityState === 'visible' && controller.isFlying && controller.battleView().beams.length > 0) sound.play('beam');
   }, 50);
   // The hum follows the engine, and stops whenever flight is paused or the ship is not flying.
   setInterval(() => sound.setThrust(document.visibilityState === 'visible' && controller.isFlying && controller.view().thrusting), 50);
+
+  // Music follows the mood of the moment, scheduled a little ahead on the audio clock. It fades out
+  // with the pause menu and back in when flight resumes (or the menu leads to a planet or the main
+  // menu); the star map, cards and planet screens keep it playing.
+  const music = new Music(mixer, data.audio.moods);
+  if (window.__starwake) window.__starwake.musicMood = () => music.mood();
+  let menuPaused = false;
+  const resumeMusic = () => {
+    if (!menuPaused) return;
+    menuPaused = false;
+    music.resume();
+  };
+  controller.on('menu', (e) => {
+    if (e.action !== 'pause') return;
+    menuPaused = true;
+    music.pause();
+  });
+  controller.on('flying', (e) => e.flying && resumeMusic());
+  setInterval(() => {
+    try {
+      const input = controller.musicInput();
+      music.setMood(moodFor(input));
+      if (input.screen !== 'flying') resumeMusic(); // a tow or Quit left the pause menu
+      music.tick();
+    } catch {
+      // music never breaks the game
+    }
+  }, 250);
 
   // Nothing stays held when the app is backgrounded.
   const releaseInputs = () => controller.releaseInputs();
@@ -79,6 +114,7 @@ async function boot(): Promise<void> {
   controller.on('flying', (e) => wakeLock.setFlying(e.flying));
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') releaseInputs();
+    mixer.setHidden(document.visibilityState === 'hidden');
     wakeLock.visibilityChanged();
   });
 

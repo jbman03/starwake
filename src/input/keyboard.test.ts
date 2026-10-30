@@ -111,6 +111,30 @@ describe('KeyboardSource', () => {
     expect(src.poll('flight').pressed.size).toBe(0);
   });
 
+  it('a focused slider or checkbox is not a text field: its keys are reported and keep their defaults', () => {
+    const target = document.createElement('div');
+    const src = new KeyboardSource(target, () => DEFAULT_BINDINGS, () => ({ flying: false, groups: ['menus'] }));
+    for (const type of ['range', 'checkbox']) {
+      const input = document.createElement('input');
+      input.type = type;
+      target.appendChild(input);
+      const v = new KeyboardEvent('keydown', { code: 'KeyV', cancelable: true, bubbles: true });
+      input.dispatchEvent(v);
+      expect(v.defaultPrevented).toBe(false);
+      expect(src.poll('menus').pressed.has('toggleSound')).toBe(true);
+      input.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyV', cancelable: true, bubbles: true }));
+      const left = new KeyboardEvent('keydown', { code: 'ArrowLeft', cancelable: true, bubbles: true });
+      input.dispatchEvent(left);
+      expect(left.defaultPrevented).toBe(false); // the slider still moves
+    }
+    // A text input still swallows the key.
+    const text = document.createElement('input');
+    text.type = 'text';
+    target.appendChild(text);
+    text.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', cancelable: true, bubbles: true }));
+    expect(src.poll('menus').pressed.size).toBe(0);
+  });
+
   it('does not block keys on focused buttons but still reports them', () => {
     const target = document.createElement('div');
     const button = document.createElement('button');

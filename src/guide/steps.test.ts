@@ -64,7 +64,7 @@ describe('step completion predicates', () => {
   it('8 arrived in the target system', () => {
     expect(done(8, st({ w: { systemId: 'tessaly' } }))).toBe(true);
     expect(done(8, st({ w: { systemId: 'aurelle' } }))).toBe(false);
-    expect(done(8, st({ w: { systemId: 'tessaly', jump: { toSystemId: 'calder', t: 0.1 } } }))).toBe(false);
+    expect(done(8, st({ w: { systemId: 'tessaly', jump: { toSystemId: 'calder', phase: 'charge', t: 0.1 } } }))).toBe(false);
   });
   it('9 landed at the port', () => {
     expect(done(9, st({ landedPlanetId: 'vanterre' }))).toBe(true);

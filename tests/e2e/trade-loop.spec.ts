@@ -85,7 +85,7 @@ test.describe('desktop', () => {
       await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'none', null, { timeout: 30_000 });
       const day = await page.evaluate(() => window.__starwake!.world().day);
       await page.keyboard.press('KeyJ');
-      await page.waitForFunction((d) => window.__starwake!.world().day > d, day, { timeout: 10_000 });
+      await page.waitForFunction((d) => window.__starwake!.world().day > d && window.__starwake!.world().jump === null, day, { timeout: 10_000 });
     }
     expect(await page.evaluate(() => window.__starwake!.world().systemId)).toBe(systemId);
 

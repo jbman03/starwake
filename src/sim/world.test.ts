@@ -15,7 +15,7 @@ import {
   departFrom,
   interruptAutopilot,
   JUMP_ARRIVAL_INSET,
-  JUMP_DURATION,
+  jumpFixedSec,
   jumpHeading,
   MSG_NO_DESTINATION,
   MSG_TOO_CLOSE,
@@ -308,10 +308,13 @@ describe('stepWorld: jumping', () => {
   it('arrives inside the jump boundary on the side toward the origin, facing the center at 100 px/s', () => {
     let w = at(toVesk(), { x: 2100, y: 0 });
     let arrival: WorldState | null = null;
-    for (let i = 0; i < 90 && !arrival; i++) {
+    let jumped = false;
+    // Arrival is the end of the arrive phase, when the jump is over.
+    for (let i = 0; i < 300 && !arrival; i++) {
       const r = stepWorld(w, data, i === 0 ? frame(['jump']) : frame(), DT, OPTS);
       w = r.world;
-      if (r.events.some((e) => e.type === 'jumped')) arrival = w;
+      if (r.events.some((e) => e.type === 'jumped')) jumped = true;
+      if (jumped && !w.jump) arrival = w;
     }
     expect(arrival).not.toBeNull();
     const a = arrival!;
@@ -329,13 +332,15 @@ describe('stepWorld: jumping', () => {
     expect(next.world.ship.fuel).toBe(200);
   });
 
-  it('jump takes 1 second', () => {
+  it('a jump already facing the destination takes jumpFixedSec', () => {
     let w = at(toVesk(), { x: 2100, y: 0 });
+    w = { ...w, ship: { ...w.ship, heading: jumpHeading(w, data, 'vesk') } };
     w = stepWorld(w, data, frame(['jump']), DT, OPTS).world;
-    expect(w.jump).toEqual({ toSystemId: 'vesk', t: 0 });
+    expect(w.jump).toEqual({ toSystemId: 'vesk', phase: 'align', t: 0 });
     expect(w.ship.fuel).toBe(200);
-    const done = run(w, 2, OPTS, (_x, ev) => ev.length > 0);
-    expect(done.world.timeSec - w.timeSec).toBeCloseTo(1, 6);
+    const done = run(w, 4, OPTS, (x) => x.jump === null);
+    expect(done.world.jump).toBeNull();
+    expect(Math.abs(done.world.timeSec - w.timeSec - jumpFixedSec(data))).toBeLessThanOrEqual(DT + 1e-9);
   });
 
   it('while jumping the ship turns to face the destination at its turn rate', () => {
@@ -357,8 +362,8 @@ describe('stepWorld: jumping', () => {
       prev = w.ship.heading;
       if (Math.abs(Math.atan2(Math.sin(w.ship.heading - want), Math.cos(w.ship.heading - want))) < 1e-6) faced = true;
     }
-    // 90° at the shuttle's turn rate fits inside the 1 s jump.
-    expect(90 / data.ships[w.shipId].turnRate).toBeLessThan(JUMP_DURATION);
+    // 90° at the shuttle's turn rate fits inside the align phase.
+    expect(90 / data.ships[w.shipId].turnRate).toBeLessThan(data.config.jump.alignMaxSec);
     expect(faced).toBe(true);
   });
 
@@ -467,16 +472,16 @@ describe('newWorld: world state v2', () => {
   });
 });
 
-/** Fly a jump from just outside the current system's jump distance; returns the arrival world and events. */
+/** Fly a jump from just outside the current system's jump distance; returns the world once the jump is over, and the events. */
 function jumpOnce(w: WorldState, d: GameData = data) {
   const sys = d.systems[w.systemId];
   w = { ...w, ship: { ...w.ship, pos: { x: sys.jumpDistance + 100, y: 0 }, vel: { x: 0, y: 0 } } };
   const events: SimEvent[] = [];
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 300; i++) {
     const r = stepWorld(w, d, i === 0 ? frame(['jump']) : frame(), DT, OPTS);
     w = r.world;
     events.push(...r.events);
-    if (r.events.some((e) => e.type === 'jumped')) break;
+    if (events.some((e) => e.type === 'jumped') && !w.jump) break;
   }
   return { world: w, events };
 }

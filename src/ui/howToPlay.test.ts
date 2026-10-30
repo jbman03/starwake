@@ -125,6 +125,20 @@ describe('How to Play', () => {
     expect(all).toContain(`You can hold up to ${MAX_MISSIONS} jobs`);
   });
 
+  it('explains the jump sequence and its skip, the volume sliders and V muting everything, with your own keys', async () => {
+    const real = await loadGameData();
+    const data = { ...real, config: { ...real.config, jump: { ...real.config.jump, chargeSec: 2, burnSec: 1, flashSec: 0.5, arriveSec: 0.5 } } } as GameData;
+    const b = rebind(rebind(DEFAULT_SETTINGS.bindings, 'jump', 0, 'KeyU'), 'toggleSound', 0, 'KeyO');
+    const travel = tabText('travel', b, data).map((x) => x.text).join(' ');
+    expect(travel).toContain('A jump takes about 4 seconds');
+    expect(travel).toContain('the engines charge, it burns hard as the stars stretch, a flash');
+    expect(travel).toContain('Press U again while turning, charging or burning to skip straight to the flash; on a phone, tap the SKIP button.');
+    const flying = tabText('flying', b, data).map((x) => x.text).join(' ');
+    expect(flying).toContain('Settings → General has separate Music and Effects sliders.');
+    expect(flying).toContain('O mutes everything, music included');
+    expect(PHONE_CONTROLS.jump).toContain('SKIP');
+  });
+
   it("text tabs use the pilot's own keys", async () => {
     const { ctx, root } = await setup({ bindings: rebind(DEFAULT_SETTINGS.bindings, 'land', 0, 'KeyP') });
     showHowToPlay(ctx, { onClose: () => {} });
@@ -230,7 +244,7 @@ describe('phone column matches the real touch controls', () => {
     const rail = new Set([...parent.querySelectorAll('[data-control]')].map((e) => e.textContent ?? ''));
     for (const t of ['STOP', 'FIRE', 'MSL', 'TGT', 'THR', 'II']) expect(rail, t).toContain(t);
     const w = newWorld(data);
-    const labels = (['land', 'plotCourse', 'autopilotOut', 'jump', 'takeControl', 'tow'] as ContextAction[])
+    const labels = (['land', 'plotCourse', 'autopilotOut', 'jump', 'skipJump', 'takeControl', 'tow'] as ContextAction[])
       .map((a) => contextLabel(a, { ...w, route: ['vesk'] }, data) ?? '')
       .join(' | ');
     for (const text of Object.values(PHONE_CONTROLS)) {

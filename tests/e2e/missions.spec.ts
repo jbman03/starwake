@@ -111,7 +111,7 @@ test.describe('desktop', () => {
     await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'autopilot');
     await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'none', null, { timeout: 30_000 });
     await page.keyboard.press('KeyJ');
-    await page.waitForFunction((s) => window.__starwake!.world().systemId === s, offer.destSystem, { timeout: 10_000 });
+    await page.waitForFunction((s) => window.__starwake!.world().systemId === s && window.__starwake!.world().jump === null, offer.destSystem, { timeout: 10_000 });
 
     // Land at the destination port (tap-style: autopilots there and lands).
     await page.evaluate((id) => window.__starwake!.controller.tapPlanet(id, 'touch'), offer.destId);

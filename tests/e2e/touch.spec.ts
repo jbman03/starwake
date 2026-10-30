@@ -155,6 +155,32 @@ test.describe('phone (touch, landscape)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('the context button jumps, then skips the jump to the flash, and the ship arrives', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Skip');
+    await page.getByRole('button', { name: /^Leave/ }).tap();
+    await waitForFlight(page);
+    await page.touchscreen.tap(422, 30);
+    await expect(page.getByTestId('touch-rails')).toBeVisible();
+    await page.evaluate(() => {
+      const c = window.__starwake!.controller;
+      // A very long charge, so only the skip can get the ship to the flash in time.
+      c.data.config.jump.chargeSec = 600;
+      c.world = { ...c.world, ship: { ...c.world.ship, pos: { x: 2100, y: 0 }, vel: { x: 0, y: 0 } } };
+      c.plotRoute('vesk');
+    });
+    const ctxBtn = page.getByTestId('context-button');
+    await expect(ctxBtn).toHaveText('JUMP TO VESK');
+    await ctxBtn.tap();
+    await expect(ctxBtn).toHaveText('⏩ SKIP');
+    expect(await page.evaluate(() => window.__starwake!.world().jump?.phase)).toMatch(/^(align|charge)$/);
+    await ctxBtn.tap();
+    await page.waitForFunction(() => window.__starwake!.world().jump === null, null, { timeout: 10_000 });
+    expect(await page.evaluate(() => window.__starwake!.world().systemId)).toBe('vesk');
+    await waitForFlight(page);
+    expect(errors).toEqual([]);
+  });
+
   test('no destination after leaving Halcyon: the context button plots a course on the star map', async ({ page }) => {
     const errors = trackErrors(page);
     await newPilot(page, 'Plot');

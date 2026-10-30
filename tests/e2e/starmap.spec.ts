@@ -85,7 +85,7 @@ test.describe('desktop', () => {
       .toBe('Autopilot → Tessaly · fuel after: 2 jumps');
     await page.waitForFunction(() => window.__starwake!.world().assist.kind === 'none', null, { timeout: 30_000 });
     await page.keyboard.press('KeyJ');
-    await page.waitForFunction(() => window.__starwake!.world().systemId === 'tessaly', null, { timeout: 10_000 });
+    await page.waitForFunction(() => window.__starwake!.world().systemId === 'tessaly' && window.__starwake!.world().jump === null, null, { timeout: 10_000 });
     const w = await page.evaluate(() => window.__starwake!.world());
     expect(w.route).toEqual([]);
     expect(w.day).toBe(1);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { MoodId } from '../audio/moods';
 
 const vec2 = z.object({ x: z.number(), y: z.number() });
 const id = z.string().min(1);
@@ -304,6 +305,21 @@ export const StoryMissionSchema = z.object({
   combatLater: z.string().optional(), // the note for the combat cycle
 });
 
+/** Jump timings (seconds unless named): the align, charge, burn, flash and arrive phases of a hyperspace jump. */
+export const JumpConfigSchema = z
+  .object({
+    alignMaxSec: z.number().positive(),
+    alignToleranceDeg: z.number().positive(),
+    chargeSec: z.number().positive(),
+    burnSec: z.number().positive(),
+    burnThrustMul: z.number().positive(),
+    flashSec: z.number().positive(),
+    arriveSec: z.number().positive(),
+    arriveSpeedMul: z.number().positive(),
+  })
+  .strict();
+export type JumpConfig = z.infer<typeof JumpConfigSchema>;
+
 export const ConfigSchema = z.object({
   startSystemId: id,
   startPlanetId: id,
@@ -319,6 +335,7 @@ export const ConfigSchema = z.object({
   startMonth: z.number().int().min(1).max(12),
   startDay: z.number().int().min(1).max(31),
   startOutfits: z.record(id, z.number().int().positive()), // outfit id -> count a new pilot starts with
+  jump: JumpConfigSchema,
 });
 
 export type ShipDef = z.infer<typeof ShipSchema>;
@@ -423,6 +440,168 @@ export const CombatSchema = z
 export type CombatDef = z.infer<typeof CombatSchema>;
 export type AiProfile = z.infer<typeof AiProfileSchema>;
 
+/**
+ * Every sound effect id. `thrust` and `beam` are voices, not recipes. The guns' bolts play `shot`
+ * (blaster chirp) or `cannon` (cannon thud), as `gunVoices` says; rockets play `missile` and seekers `seeker`.
+ */
+export const SFX_IDS = [
+  'thrust', 'land', 'takeoff', 'trade', 'paid', 'hail', 'site', 'shot', 'cannon', 'missile', 'seeker',
+  'beam', 'shieldHit', 'armorHit', 'explosion', 'disabled', 'alarm',
+  'jumpCharge', 'jumpWhoosh', 'jumpArrive', 'uiClick',
+] as const;
+export type SfxId = (typeof SFX_IDS)[number];
+export type RecipeId = Exclude<SfxId, 'thrust' | 'beam'>;
+/** The voices a gun's bolts can play. */
+export const GUN_VOICES = ['shot', 'cannon'] as const;
+export type GunVoice = (typeof GUN_VOICES)[number];
+
+const layerCommon = {
+  dur: z.number().positive(),
+  gain: z.number().nonnegative(),
+  at: z.number().nonnegative().optional(),
+  /** Seconds to swell to `gain` (default: a quick 20 ms or a quarter of `dur`); it then decays by `dur`. */
+  attack: z.number().positive().optional(),
+};
+/**
+ * One layer of a sound: a pitched tone sliding f0 to f1, or lowpass/highpass/bandpass noise sweeping c0
+ * to c1 (with an optional filter Q). Each rises to `gain` over `attack`, then decays to silence at `dur`.
+ */
+export const SoundLayerSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('tone'),
+      wave: z.enum(['sine', 'square', 'sawtooth', 'triangle']),
+      f0: z.number().positive(),
+      f1: z.number().positive().optional(),
+      ...layerCommon,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('noise'),
+      filter: z.enum(['lowpass', 'highpass', 'bandpass']),
+      c0: z.number().positive(),
+      c1: z.number().positive().optional(),
+      q: z.number().positive().optional(),
+      ...layerCommon,
+    })
+    .strict(),
+]);
+export type SoundLayer = z.infer<typeof SoundLayerSchema>;
+
+const recipe = z
+  .object({
+    layers: z
+      .array(SoundLayerSchema)
+      .min(1)
+      .superRefine((layers, ctx) =>
+        layers.forEach((l, i) => {
+          if (l.attack !== undefined && l.attack >= l.dur) ctx.addIssue({ code: 'custom', path: [i, 'attack'], message: 'attack must be shorter than dur' });
+        }),
+      ),
+  })
+  .strict();
+
+const chordLen = z.number().min(8).max(20);
+/** One music mood: a root and scale, a filtered pad, a drone, an optional melody and (combat only) a pulse. */
+export const MoodSchema = z
+  .object({
+    /** Hz of the drone; the pad sits an octave up and the melody two. */
+    root: z.number().positive(),
+    /** Semitone offsets from the root, ascending; chords stack every other degree. */
+    scale: z
+      .array(z.number().int().min(0).max(11))
+      .min(5)
+      .refine((s) => s[0] === 0 && s.every((v, i) => i === 0 || v > s[i - 1]), 'scale must start at 0 and ascend'),
+    /** Seconds per chord: [min, max], within 8–20. */
+    chordSec: z.tuple([chordLen, chordLen]).refine(([lo, hi]) => lo <= hi, 'chordSec min must not exceed max'),
+    pad: z
+      .object({
+        waves: z.array(z.enum(['sine', 'triangle', 'sawtooth'])).min(1).max(3),
+        cutoff: z.number().positive(),
+        gain: z.number().nonnegative(),
+      })
+      .strict(),
+    drone: z.object({ gain: z.number().nonnegative() }).strict(),
+    melody: z.object({ chance: z.number().min(0).max(1), gain: z.number().nonnegative() }).strict().nullable(),
+    pulse: z.object({ bpm: z.number().min(30).max(240), gain: z.number().nonnegative() }).strict().nullable(),
+    level: z.number().min(0).max(1),
+  })
+  .strict();
+export type MoodDef = z.infer<typeof MoodSchema>;
+const calmMood = MoodSchema.refine((m) => m.pulse === null, 'only combat has a pulse');
+
+export const AudioSchema = z
+  .object({
+    sfx: z
+      .object({
+        land: recipe,
+        takeoff: recipe,
+        trade: recipe,
+        paid: recipe,
+        hail: recipe,
+        site: recipe,
+        shot: recipe,
+        cannon: recipe,
+        missile: recipe,
+        seeker: recipe,
+        shieldHit: recipe,
+        armorHit: recipe,
+        explosion: recipe,
+        disabled: recipe,
+        alarm: recipe,
+        jumpCharge: recipe,
+        jumpWhoosh: recipe,
+        jumpArrive: recipe,
+        uiClick: recipe,
+      })
+      .strict(),
+    voices: z
+      .object({
+        /** The engine hum: noise low-passed at `f` (the rumble) under a filtered tone, both at `gain` overall. */
+        hum: z
+          .object({
+            gain: z.number().nonnegative(),
+            rampSec: z.number().positive(),
+            f: z.number().positive(),
+            /** The tone: `wave` at `f` Hz, low-passed at `cutoff`, mixed at `gain` against the rumble's 1. */
+            tone: z
+              .object({
+                wave: z.enum(['sine', 'square', 'sawtooth', 'triangle']),
+                f: z.number().positive(),
+                cutoff: z.number().positive(),
+                gain: z.number().nonnegative(),
+              })
+              .strict(),
+          })
+          .strict(),
+        beam: z
+          .object({
+            gain: z.number().nonnegative(),
+            holdSec: z.number().positive(),
+            fadeSec: z.number().positive(),
+            /** The buzz: `wave` at `f` Hz, low-passed at `cutoff`. */
+            wave: z.enum(['sine', 'square', 'sawtooth', 'triangle']),
+            f: z.number().positive(),
+            cutoff: z.number().positive(),
+          })
+          .strict(),
+      })
+      .strict(),
+    /** Gun or turret outfit id → the voice its bolts play; a gun not named plays `shot`. */
+    gunVoices: z.record(z.string(), z.enum(GUN_VOICES)),
+    moods: z
+      .object({ core: calmMood, fringe: calmMood, docked: calmMood, hyperspace: calmMood, combat: MoodSchema })
+      .strict(),
+  })
+  .strict();
+export type AudioDef = z.infer<typeof AudioSchema>;
+/** Compile-time check: audio.json has a recipe for exactly the ids in RecipeId. */
+export type AudioRecipesMatch = AudioDef['sfx'] extends Record<RecipeId, unknown> ? (keyof AudioDef['sfx'] extends RecipeId ? true : never) : never;
+/** Compile-time check: audio.json has a mood for exactly the ids in MoodId. */
+const audioMoodsMatch: [keyof AudioDef['moods']] extends [MoodId] ? ([MoodId] extends [keyof AudioDef['moods']] ? true : never) : never = true;
+void audioMoodsMatch;
+
 export interface GameData {
   ships: Record<string, ShipDef>;
   outfits: Record<string, OutfitDef>;
@@ -437,4 +616,5 @@ export interface GameData {
   story: Record<string, StoryMissionDef>;
   config: GameConfig;
   combat: CombatDef;
+  audio: AudioDef;
 }

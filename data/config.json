@@ -12,5 +12,6 @@
   "startYear": 3207,
   "startMonth": 3,
   "startDay": 1,
-  "startOutfits": {"light-blaster": 1}
+  "startOutfits": {"light-blaster": 1},
+  "jump": {"alignMaxSec": 0.6, "alignToleranceDeg": 3, "chargeSec": 0.7, "burnSec": 0.5, "burnThrustMul": 3, "flashSec": 0.15, "arriveSec": 0.6, "arriveSpeedMul": 3}
 }

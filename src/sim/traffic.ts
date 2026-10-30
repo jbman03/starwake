@@ -105,7 +105,7 @@ export function trafficLevel(data: GameData, systemId: string): [number, number]
   return sys.government === 'concord' ? [3, 5] : [2, 3];
 }
 
-const isFringe = (data: GameData, systemId: string): boolean => portsOf(data, systemId).every((p) => p.techTier <= 1);
+export const isFringe = (data: GameData, systemId: string): boolean => portsOf(data, systemId).every((p) => p.techTier <= 1);
 
 /** Chance that a spawn in this system is a raider. */
 export function raiderChance(data: GameData, systemId: string, opts: TrafficOpts): number {

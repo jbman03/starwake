@@ -10,7 +10,8 @@ export interface Settings {
     steering: 'point' | 'classic';
     vibration: boolean;
   };
-  volume: number; // 0-1
+  musicVolume: number; // 0-1
+  sfxVolume: number; // 0-1
   muted: boolean;
   quality: 'low' | 'high';
   autoLandOnArrival: boolean;
@@ -21,7 +22,8 @@ const KEY = 'starwake.settings';
 export const DEFAULT_SETTINGS: Settings = {
   bindings: resetBindings(),
   touch: { mirror: false, buttonSize: 'M', opacity: 0.85, steering: 'point', vibration: true },
-  volume: 0.8,
+  musicVolume: 0.6,
+  sfxVolume: 0.8,
   muted: false,
   quality: 'high',
   autoLandOnArrival: true,
@@ -70,7 +72,9 @@ function merge(raw: unknown): Settings {
       steering: oneOf(t.steering, ['point', 'classic'] as const, d.touch.steering),
       vibration: bool(t.vibration, d.touch.vibration),
     },
-    volume: num(raw.volume, d.volume, 0, 1),
+    musicVolume: num(raw.musicVolume, d.musicVolume, 0, 1),
+    // `volume` is the pre-split single slider; it becomes the effects level.
+    sfxVolume: num(raw.sfxVolume ?? raw.volume, d.sfxVolume, 0, 1),
     muted: bool(raw.muted, d.muted),
     quality: oneOf(raw.quality, ['low', 'high'] as const, d.quality),
     autoLandOnArrival: bool(raw.autoLandOnArrival, d.autoLandOnArrival),

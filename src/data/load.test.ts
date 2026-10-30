@@ -12,11 +12,14 @@ import names from '../../data/names.json';
 import encounters from '../../data/encounters.json';
 import story from '../../data/story.json';
 import combat from '../../data/combat.json';
+import audio from '../../data/audio.json';
 import { parseGameData, DataError, loadGameData } from './load';
+import { SFX_IDS } from './schemas';
+import { MOOD_IDS } from '../audio/moods';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
-  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat }) as {
+  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio }) as {
   ships: any[];
   systems: any[];
   planets: any[];
@@ -30,6 +33,7 @@ const raw = () =>
   encounters: any[];
   story: { missions: any[] };
   combat: any;
+  audio: any;
 };
 
 const port = (r: ReturnType<typeof raw>, id: string) => r.planets.find((p) => p.id === id);
@@ -920,5 +924,122 @@ describe('combat.json', () => {
       mutate(r.combat);
       expect(failure(r).file).toBe('combat.json');
     }
+  });
+});
+
+describe('audio.json and config.jump', () => {
+  const has = (e: DataError, s: string) => expect(e.issues.some((i) => i.includes(s)), e.issues.join(', ')).toBe(true);
+  it('the shipped audio data parses and has a recipe for every sound but the two voices', () => {
+    const d = parseGameData(raw());
+    for (const id of SFX_IDS.filter((x) => x !== 'thrust' && x !== 'beam')) expect(d.audio.sfx[id].layers.length, id).toBeGreaterThan(0);
+    expect(Object.keys(d.audio.sfx).sort()).toEqual(SFX_IDS.filter((x) => x !== 'thrust' && x !== 'beam').sort());
+    expect(d.audio.voices.beam.holdSec).toBe(0.1);
+    expect(d.audio.sfx.uiClick.layers).toEqual([
+      { kind: 'tone', wave: 'sine', f0: 2400, f1: 1800, dur: 0.025, gain: 0.03 },
+      { kind: 'noise', filter: 'highpass', c0: 4000, dur: 0.015, gain: 0.015 },
+    ]);
+  });
+  it('rejects a noise layer with no filter, naming audio.json', () => {
+    const r = raw();
+    r.audio.sfx.land.layers[1] = { kind: 'noise', c0: 300, dur: 0.9, gain: 0.25 };
+    const e = failure(r);
+    expect(e.file).toBe('audio.json');
+    has(e, 'audio.json');
+  });
+  it('rejects a sound id outside SfxId', () => {
+    const r = raw();
+    r.audio.sfx.bogus = { layers: [{ kind: 'tone', wave: 'sine', f0: 440, dur: 0.1, gain: 0.1 }] };
+    has(failure(r), 'audio.json');
+  });
+  it('rejects a missing recipe', () => {
+    const r = raw();
+    delete r.audio.sfx.uiClick;
+    has(failure(r), 'audio.json');
+  });
+  it('no longer carries the retired jump and arrive recipes', () => {
+    for (const id of ['jump', 'arrive']) {
+      expect(SFX_IDS as readonly string[], id).not.toContain(id);
+      const r = raw();
+      r.audio.sfx[id] = { layers: [{ kind: 'tone', wave: 'sine', f0: 440, dur: 0.1, gain: 0.1 }] };
+      has(failure(r), 'audio.json');
+    }
+  });
+  it('maps gun outfits to a weapon voice, and rejects an unknown outfit, a non-gun or an unknown voice', () => {
+    expect(parseGameData(raw()).audio.gunVoices).toEqual({ 'rapid-cannon': 'cannon' });
+    const bad: [(a: any) => void, string][] = [
+      [(a) => (a.gunVoices['no-such-gun'] = 'cannon'), 'gunVoices.no-such-gun'],
+      [(a) => (a.gunVoices['rocket-rack'] = 'cannon'), 'gunVoices.rocket-rack'],
+      [(a) => (a.gunVoices['light-blaster'] = 'missile'), 'audio.json'],
+    ];
+    for (const [mutate, where] of bad) {
+      const r = raw();
+      mutate(r.audio);
+      const e = failure(r);
+      expect(e.file).toContain('audio.json');
+      has(e, where);
+    }
+  });
+  it('gives the engine hum a tone under its noise rumble, and rejects a hum without one', () => {
+    const { hum } = parseGameData(raw()).audio.voices;
+    expect(hum.tone.f).toBeLessThan(hum.f);
+    const r = raw();
+    delete r.audio.voices.hum.tone;
+    has(failure(r), 'audio.json');
+  });
+  it('keeps the beam timbre in data, and rejects a bad beam wave', () => {
+    const { beam } = parseGameData(raw()).audio.voices;
+    expect([beam.wave, beam.f, beam.cutoff]).toEqual(['sawtooth', 110, 900]);
+    const r = raw();
+    r.audio.voices.beam.wave = 'noise';
+    has(failure(r), 'audio.json');
+  });
+  it('lets a layer swell with an attack shorter than its length, and rejects one that is not', () => {
+    const ok = raw();
+    ok.audio.sfx.land.layers[0].attack = 0.2;
+    expect(parseGameData(ok).audio.sfx.land.layers[0].attack).toBe(0.2);
+    for (const attack of [0, -0.1, 5]) {
+      const r = raw();
+      r.audio.sfx.land.layers[0].attack = attack;
+      has(failure(r), 'audio.json');
+    }
+  });
+  it('has a music mood record for every MoodId, chords of 8–20 s, and a pulse only in combat', () => {
+    const { moods } = parseGameData(raw()).audio;
+    expect(Object.keys(moods).sort()).toEqual([...MOOD_IDS].sort());
+    for (const id of MOOD_IDS) {
+      const [lo, hi] = moods[id].chordSec;
+      expect(lo, id).toBeGreaterThanOrEqual(8);
+      expect(hi, id).toBeLessThanOrEqual(20);
+      expect(lo, id).toBeLessThanOrEqual(hi);
+      expect(moods[id].pulse !== null, id).toBe(id === 'combat');
+    }
+  });
+  it('rejects a mood with chords outside 8–20 s, a pulse outside combat, an unordered scale, or a missing mood', () => {
+    const bad: ((a: any) => void)[] = [
+      (a) => (a.moods.core.chordSec = [4, 12]),
+      (a) => (a.moods.fringe.chordSec = [12, 30]),
+      (a) => (a.moods.docked.chordSec = [16, 10]),
+      (a) => (a.moods.core.pulse = { bpm: 90, gain: 0.1 }),
+      (a) => (a.moods.core.scale = [0, 4, 2, 7, 9]),
+      (a) => delete a.moods.hyperspace,
+      (a) => (a.moods.calm = a.moods.core),
+    ];
+    for (const mutate of bad) {
+      const r = raw();
+      mutate(r.audio);
+      has(failure(r), 'audio.json');
+    }
+  });
+  it('holds the jump timings in config', () => {
+    expect(parseGameData(raw()).config.jump).toEqual({
+      alignMaxSec: 0.6, alignToleranceDeg: 3, chargeSec: 0.7, burnSec: 0.5, burnThrustMul: 3, flashSec: 0.15, arriveSec: 0.6, arriveSpeedMul: 3,
+    });
+  });
+  it('rejects a negative jump timing, naming config.json', () => {
+    const r = raw();
+    r.config.jump.chargeSec = -1;
+    const e = failure(r);
+    expect(e.file).toBe('config.json');
+    has(e, 'chargeSec');
   });
 });

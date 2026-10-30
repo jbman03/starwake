@@ -34,6 +34,7 @@ describe('contextLabel', () => {
     expect(contextLabel('autopilotOut', w, data)).toBe('⇱ AUTOPILOT TO JUMP POINT');
     expect(contextLabel('plotCourse', w, data)).toBe('🗺 PLOT COURSE');
     expect(contextLabel('takeControl', w, data)).toBe('✋ TAKE CONTROL');
+    expect(contextLabel('skipJump', { ...w, jump: { toSystemId: 'vesk', phase: 'charge', t: 0 } }, data)).toBe('⏩ SKIP');
     expect(contextLabel('tow', w, data)).toBe(`CALL TOW (${data.config.towFee} cr)`);
     expect(contextLabel(null, w, data)).toBeNull();
     expect(contextLabel('openSite', w, data, 'Scan Dead lantern')).toBe('Scan Dead lantern');

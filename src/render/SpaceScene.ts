@@ -7,7 +7,7 @@ import { pointerTypeOf, resolveShipPress } from '../input/pointer';
 import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { npcLabel, targetedNpc } from '../sim/traffic';
-import { JUMP_DURATION } from '../sim/world';
+import { jumpProgress } from '../sim/world';
 import { skipLabel } from '../guide/guide';
 import { hotkeyFor } from '../ui/dom';
 import { formatMessage } from '../ui/messageText';
@@ -32,8 +32,6 @@ const MIN_TAP_RADIUS = 22;
 /** Narrowest window that gets the sidebar (keyboard mode). */
 const SIDEBAR_MIN_WINDOW = 700;
 
-/** How long the arrival streaks and flash last after coming out of a jump (seconds). */
-const ARRIVAL_FX_SEC = 0.5;
 /** NPC jump streaks are the player's, scaled down. */
 const NPC_STREAK_SCALE = 0.4;
 /** NPC jumpIn / jumpOut take this long (matches the sim's JUMP_SEC in traffic.ts). */
@@ -65,8 +63,6 @@ export class SpaceScene extends Phaser.Scene {
   private combat!: CombatLayer;
   private builtSystemId: string | null = null;
   private unsubs: (() => void)[] = [];
-  /** Seconds of arrival effect left (0 when none). */
-  private arrivalLeft = 0;
   private viewport: Rect = { x: 0, y: 0, w: 0, h: 0 };
 
   constructor(
@@ -122,7 +118,6 @@ export class SpaceScene extends Phaser.Scene {
       }),
       this.controller.on('landed', () => this.combat.clear()),
       this.controller.on('battle', (e) => this.combat.onEvents(e.events, this.playerDraw())),
-      this.controller.on('arrived', () => (this.arrivalLeft = ARRIVAL_FX_SEC)),
       this.controller.on('message', (e) =>
         this.hud.showMessage(
           formatMessage(
@@ -286,8 +281,9 @@ export class SpaceScene extends Phaser.Scene {
     this.updateNpcs();
     this.drawBracket(world.targetPlanetId);
     this.fx.clear();
-    this.arrivalLeft = Math.max(0, this.arrivalLeft - dt);
-    if (thrusting && landingT === null && !battle.playerDestroyed) this.drawFlame(x, y, world.ship.heading, data.ships[world.shipId]?.radius ?? 14);
+    // The jump never sets `thrusting`: its burn (and the flash it ends in) light the engine instead.
+    const jumpBurn = world.jump?.phase === 'burn' || world.jump?.phase === 'flash';
+    if ((thrusting || jumpBurn) && landingT === null && !battle.playerDestroyed) this.drawFlame(x, y, world.ship.heading, data.ships[world.shipId]?.radius ?? 14);
     this.drawNpcFx();
     this.drawJumpFx(x, y);
     this.drawSite();
@@ -495,20 +491,50 @@ export class SpaceScene extends Phaser.Scene {
     this.fx.fillRect(cam.scrollX, cam.scrollY, cam.width, cam.height);
   }
 
+  /** The engine winding up before a jump: a blue-white glow behind the ship, brightening and growing with `p` (0–1). */
+  private drawEngineGlow(x: number, y: number, heading: number, radius: number, p: number): void {
+    const g = this.fx;
+    const bx = x - Math.cos(heading) * radius * 0.9, by = y - Math.sin(heading) * radius * 0.9;
+    const pulse = 0.9 + 0.1 * Math.sin(this.time.now * 0.04);
+    const layers: [number, number, number][] = [
+      [0x5fa8ff, 1, 0.35],
+      [0xbfe0ff, 0.6, 0.6],
+      [0xffffff, 0.3, 0.9],
+    ];
+    for (const [color, size, alpha] of layers) {
+      g.fillStyle(color, alpha * (0.2 + 0.8 * p) * pulse);
+      g.fillCircle(bx, by, radius * (0.3 + 0.7 * p) * size);
+    }
+  }
+
   /**
-   * Hyperspace effect around the player: star streaks behind the ship, then a white flash. On
-   * arrival the same effect plays backwards (streaks shorten, the flash fades) for ARRIVAL_FX_SEC.
+   * Hyperspace effect around the player, phase by phase (spec §4.1), each driven by how far through its
+   * phase the jump is: nothing extra while aligning; the engine glow brightens through the charge; star
+   * streaks grow through the burn; the flash rises to white over full streaks; on arrival the streaks
+   * shorten and the flash fades.
    */
   private drawJumpFx(x: number, y: number): void {
-    const { jump, ship } = this.controller.world;
-    if (jump) {
-      const t = Math.min(1, jump.t / JUMP_DURATION);
-      this.drawStreaks(x, y, ship.heading, t, 1, 28);
-      this.drawFlash(t > 0.75 ? (t - 0.75) / 0.25 : 0);
-    } else if (this.arrivalLeft > 0) {
-      const t = this.arrivalLeft / ARRIVAL_FX_SEC;
-      this.drawStreaks(x, y, ship.heading, t, 1, 28);
-      this.drawFlash(t);
+    const { world, data } = this.controller;
+    const { jump, ship } = world;
+    if (!jump) return;
+    const p = jumpProgress(jump, data);
+    switch (jump.phase) {
+      case 'align':
+        return;
+      case 'charge':
+        this.drawEngineGlow(x, y, ship.heading, data.ships[world.shipId]?.radius ?? 14, p);
+        return;
+      case 'burn':
+        this.drawStreaks(x, y, ship.heading, p, 1, 28);
+        return;
+      case 'flash':
+        this.drawStreaks(x, y, ship.heading, 1, 1, 28);
+        this.drawFlash(p);
+        return;
+      case 'arrive':
+        this.drawStreaks(x, y, ship.heading, 1 - p, 1, 28);
+        this.drawFlash(1 - p);
+        return;
     }
   }
 }

@@ -127,7 +127,7 @@ describe('fuel scoop in stepWorld', () => {
 
   it('adds nothing while jumping', () => {
     const w0 = base({ outfits: { 'fuel-scoop': 1 } });
-    const w = { ...withFuel(w0, 100), jump: { toSystemId: 'tessaly', t: 0 } };
+    const w = { ...withFuel(w0, 100), jump: { toSystemId: 'tessaly', phase: 'align' as const, t: 0 } };
     expect(stepWorld(w, data, idle, 0.5, { autoLandOnArrival: false }).world.ship.fuel).toBe(100);
   });
 });

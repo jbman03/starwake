@@ -1,4 +1,4 @@
-import { saveSettings, type Settings } from '../save/settings';
+import type { Settings } from '../save/settings';
 import type { UiContext } from './context';
 import { button, el } from './dom';
 import { createHotkeyEditor } from './hotkeyEditor';
@@ -30,11 +30,13 @@ function segmented<T extends string>(
   return el('div', { class: 'sw-field' }, [el('div', { class: 'sw-field-label', text: label }), group]);
 }
 
-function toggle(label: string, get: () => boolean, set: (v: boolean) => void): HTMLElement {
+/** A checkbox. Pass `syncs` to have it re-read its value when the setting changes elsewhere (the V key). */
+function toggle(label: string, get: () => boolean, set: (v: boolean) => void, syncs?: (() => void)[]): HTMLElement {
   const id = `sw-toggle-${++uid}`;
   const input = el('input', { class: 'sw-check', attrs: { type: 'checkbox', id } });
   input.checked = get();
   input.addEventListener('change', () => set(input.checked));
+  syncs?.push(() => (input.checked = get()));
   return el('label', { class: 'sw-field sw-toggle', attrs: { for: id } }, [input, el('span', { text: label })]);
 }
 
@@ -77,7 +79,10 @@ function replayField(ctx: UiContext): HTMLElement {
 export function showSettings(ctx: UiContext, opts: { mode: SettingsMode; onClose?: () => void }): void {
   const { controller } = ctx;
   const s: Settings = controller.settings;
-  const persist = () => saveSettings(s);
+  const persist = () => controller.settingsChanged();
+  // The V key mutes on every screen, this one included: the mute box follows it while open.
+  const syncs: (() => void)[] = [];
+  const offSettings = controller.on('settings', () => syncs.forEach((f) => f()));
   const close = opts.onClose ?? (() => ctx.unmount());
 
   const editor = opts.mode === 'keyboard' ? createHotkeyEditor(ctx) : null;
@@ -102,8 +107,9 @@ export function showSettings(ctx: UiContext, opts: { mode: SettingsMode; onClose
           ])
         : null,
     general: el('div', { class: 'sw-tab-body' }, [
-      slider('Volume', 0, 100, () => s.volume, (v) => ((s.volume = v), persist())),
-      toggle('Mute sound (V)', () => s.muted, (v) => ((s.muted = v), persist())),
+      slider('Music', 0, 100, () => s.musicVolume, (v) => ((s.musicVolume = v), persist())),
+      slider('Effects', 0, 100, () => s.sfxVolume, (v) => ((s.sfxVolume = v), persist())),
+      toggle('Mute sound (V)', () => s.muted, (v) => ((s.muted = v), persist()), syncs),
       segmented('Graphics quality (applies after restart)', [
         { value: 'low', text: 'Low' },
         { value: 'high', text: 'High' },
@@ -155,6 +161,9 @@ export function showSettings(ctx: UiContext, opts: { mode: SettingsMode; onClose
     onPress: (pressed) => {
       if (pressed.has('back')) close();
     },
-    cleanup: () => editor?.dispose(),
+    cleanup: () => {
+      editor?.dispose();
+      offSettings();
+    },
   });
 }

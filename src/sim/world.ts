@@ -1,6 +1,6 @@
 import type { GameData, PlanetDef } from '../data/schemas';
 import { autopilotInput, autoStopInput, faceInput, reverseInput } from './assists';
-import { stepShip } from './flight';
+import { stepShip, wrap } from './flight';
 import { economyDay } from './economy';
 import { hopDistance, lanesOf, revealOnArrival, revealWithin, routeBetween } from './galaxy';
 import { missionSystem } from './combatMissions';
@@ -21,13 +21,11 @@ import {
   type RefuelQuote,
 } from './rules';
 import { worldStats } from './shipStats';
-import type { Assist, FlightInput, FrameInput, ShipState, SimEvent, SiteTarget, WorldState } from './types';
+import type { Assist, FlightInput, FrameInput, JumpPhase, ShipState, SimEvent, SiteTarget, WorldState } from './types';
 import { add, angleOf, fromAngle, len, norm, scale, sub, type Vec2 } from './vec';
 
 /** Autopilot considers itself arrived below this speed (px/s). */
 export const AUTOPILOT_ARRIVE_SPEED = 20;
-/** Seconds spent in hyperspace. */
-export const JUMP_DURATION = 1.0;
 /** Speed on arrival in the destination system (px/s). */
 export const JUMP_ARRIVAL_SPEED = 100;
 /** Arrive this far inside the jump boundary so an immediate re-jump is refused. */
@@ -223,23 +221,158 @@ export function jumpHeading(world: WorldState, data: GameData, toSystemId: strin
   return len(dir) === 0 ? world.ship.heading : angleOf(dir);
 }
 
+type Jump = NonNullable<WorldState['jump']>;
+type JumpConfig = GameData['config']['jump'];
+
+const NEXT_PHASE: Record<Exclude<JumpPhase, 'arrive'>, JumpPhase> = { align: 'charge', charge: 'burn', burn: 'flash', flash: 'arrive' };
+
+/** The phase's length in seconds; `align` is its longest (it ends early once the ship faces the destination). */
+function phaseSec(phase: JumpPhase, j: JumpConfig): number {
+  switch (phase) {
+    case 'align':
+      return j.alignMaxSec;
+    case 'charge':
+      return j.chargeSec;
+    case 'burn':
+      return j.burnSec;
+    case 'flash':
+      return j.flashSec;
+    case 'arrive':
+      return j.arriveSec;
+  }
+}
+
+/** Seconds of the jump that don't depend on the ship: charge, burn, flash and arrive (align comes on top, up to `alignMaxSec`). */
+export function jumpFixedSec(data: GameData): number {
+  const j = data.config.jump;
+  return j.chargeSec + j.burnSec + j.flashSec + j.arriveSec;
+}
+
+/** How far through its current phase the jump is, 0–1 (`align` is measured against `alignMaxSec`). */
+export function jumpProgress(jump: Jump, data: GameData): number {
+  const sec = phaseSec(jump.phase, data.config.jump);
+  return sec > 0 ? Math.min(1, Math.max(0, jump.t / sec)) : 1;
+}
+
+/** The arrive phase's start and end speeds (px/s): fast in along the jump line, slowing to the arrival speed. */
+function arriveSpeeds(def: GameData['ships'][string], j: JumpConfig): { v0: number; v1: number } {
+  return { v0: j.arriveSpeedMul * def.maxSpeed, v1: JUMP_ARRIVAL_SPEED };
+}
+
+/** Distance covered `t` seconds into the arrive phase (speed falls linearly from v0 to v1 over arriveSec). */
+function arriveDistance(t: number, v0: number, v1: number, sec: number): number {
+  return v0 * t + ((v1 - v0) * t * t) / (2 * sec);
+}
+
+/** Where the ship will be when the jump is over: the arrive phase's end point while arriving, else where it is now. */
+export function jumpEndPos(world: WorldState, data: GameData): Vec2 {
+  const jump = world.jump;
+  if (!jump || jump.phase !== 'arrive') return world.ship.pos;
+  const j = data.config.jump;
+  const { v0, v1 } = arriveSpeeds(data.ships[world.shipId], j);
+  const rest = arriveDistance(j.arriveSec, v0, v1, j.arriveSec) - arriveDistance(Math.min(jump.t, j.arriveSec), v0, v1, j.arriveSec);
+  return add(world.ship.pos, scale(fromAngle(world.ship.heading), rest));
+}
+
+/**
+ * The flash is over: the ship enters the destination system at the start of the arrive phase. EV-style it
+ * arrives from the direction it came, on the side toward the origin's map position, and the arrive phase
+ * ends just inside the jump boundary so the player must fly out again before the next jump. The phase
+ * starts back along that line by the distance it covers, at high speed, heading for the centre.
+ */
 function arriveFromJump(world: WorldState, data: GameData, toSystemId: string): WorldState {
   const from = data.systems[world.systemId];
   const to = data.systems[toSystemId];
-  // EV-style: arrive from the direction we came, on the side toward the origin's map position,
-  // just inside the jump boundary so the player must fly out again before the next jump.
+  const j = data.config.jump;
   let dir = norm(sub(from.mapPos, to.mapPos));
   if (len(dir) === 0) dir = { x: 1, y: 0 };
-  const pos = add(SYSTEM_CENTER, scale(dir, to.jumpDistance - JUMP_ARRIVAL_INSET));
-  const heading = angleOf(sub(SYSTEM_CENTER, pos));
+  const end = add(SYSTEM_CENTER, scale(dir, to.jumpDistance - JUMP_ARRIVAL_INSET));
+  const heading = angleOf(sub(SYSTEM_CENTER, end));
+  const { v0, v1 } = arriveSpeeds(data.ships[world.shipId], j);
+  const pos = add(end, scale(dir, arriveDistance(j.arriveSec, v0, v1, j.arriveSec)));
   return {
     ...world,
     systemId: toSystemId,
-    ship: { ...world.ship, pos, heading, vel: scale(fromAngle(heading), JUMP_ARRIVAL_SPEED) },
-    jump: null,
+    ship: { ...world.ship, pos, heading, vel: scale(fromAngle(heading), v0) },
+    jump: { toSystemId, phase: 'arrive', t: 0 },
     assist: NONE,
     targetPlanetId: null,
   };
+}
+
+/** The system change at the end of the flash: jumped, the day's events, arrived, then the arrive phase. */
+function enterFromJump(world: WorldState, data: GameData, toSystemId: string): { world: WorldState; events: SimEvent[] } {
+  let arrived = arriveFromJump(world, data, toSystemId);
+  if (arrived.route[0] === toSystemId) arrived = { ...arrived, route: arrived.route.slice(1) };
+  arrived = enterSystem(arrived, data, toSystemId);
+  const after = advanceDays(arrived, data, 1);
+  return {
+    world: after.world,
+    events: [
+      { type: 'jumped', toSystemId },
+      ...after.events,
+      { type: 'arrived', systemId: toSystemId, day: after.world.day },
+      { type: 'jumpPhase', phase: 'arrive' },
+    ],
+  };
+}
+
+/**
+ * One tick in hyperspace (spec §4). Leftover time carries across phase boundaries, so one long step runs
+ * several phases. Every action is ignored except a jump press during align, charge or burn, which skips
+ * to the flash. Align, charge and burn turn the ship toward the destination at its turn rate; only the
+ * burn thrusts (harder, uncapped). The arrive phase flies a fixed line toward the centre, slowing evenly.
+ */
+function stepJump(world: WorldState, data: GameData, input: FrameInput, dt: number): { world: WorldState; events: SimEvent[] } {
+  const def = data.ships[world.shipId];
+  const j = data.config.jump;
+  const events: SimEvent[] = [];
+  let w = world;
+  let jump = w.jump!;
+  if (input.pressed.has('jump') && (jump.phase === 'align' || jump.phase === 'charge' || jump.phase === 'burn')) {
+    jump = { ...jump, phase: 'flash', t: 0 };
+    events.push({ type: 'jumpPhase', phase: 'flash' });
+  }
+  let left = dt;
+  for (;;) {
+    if (jump.phase === 'arrive') {
+      const { v0, v1 } = arriveSpeeds(def, j);
+      const t = jump.t + left;
+      const dir = fromAngle(w.ship.heading);
+      if (t >= j.arriveSec - 1e-9) {
+        // Over: today's arrival point and speed.
+        return { world: { ...w, ship: { ...w.ship, pos: jumpEndPos(w, data), vel: scale(dir, v1) }, jump: null }, events };
+      }
+      const pos = add(w.ship.pos, scale(dir, arriveDistance(t, v0, v1, j.arriveSec) - arriveDistance(jump.t, v0, v1, j.arriveSec)));
+      const v = v0 + ((v1 - v0) * t) / j.arriveSec;
+      return { world: { ...w, ship: { ...w.ship, pos, vel: scale(dir, v) }, jump: { ...jump, t } }, events };
+    }
+    const target = jumpHeading(w, data, jump.toSystemId);
+    let need = Math.max(0, phaseSec(jump.phase, j) - jump.t);
+    if (jump.phase === 'align') {
+      const off = Math.abs(wrap(target - w.ship.heading));
+      const tolerance = (j.alignToleranceDeg * Math.PI) / 180;
+      need = Math.min(need, Math.max(0, off - tolerance) / ((def.turnRate * Math.PI) / 180));
+    }
+    const ends = left >= need - 1e-9;
+    const h = ends ? need : left;
+    if (h > 0) {
+      const burn = jump.phase === 'burn';
+      const flight: FlightInput = { thrust: burn, turn: 0, targetHeading: target };
+      w = { ...w, ship: stepShip(w.ship, def, flight, h, burn ? { thrustMul: j.burnThrustMul, maxSpeed: Infinity } : {}) };
+    }
+    left = Math.max(0, left - h);
+    if (!ends) return { world: { ...w, jump: { ...jump, t: jump.t + h } }, events };
+    if (jump.phase === 'flash') {
+      const r = enterFromJump(w, data, jump.toSystemId);
+      w = r.world;
+      events.push(...r.events);
+      jump = w.jump!;
+    } else {
+      jump = { ...jump, phase: NEXT_PHASE[jump.phase], t: 0 };
+      events.push({ type: 'jumpPhase', phase: jump.phase });
+    }
+  }
 }
 
 function nextTargetId(world: WorldState, data: GameData): string | null {
@@ -299,24 +432,8 @@ export function stepWorld(
   const events: SimEvent[] = [];
   let w: WorldState = { ...world, timeSec: world.timeSec + dt };
 
-  // In hyperspace: coast while turning to face the destination at the ship's turn rate;
-  // ignore every action.
-  if (w.jump) {
-    const t = w.jump.t + dt;
-    const face: FlightInput = { thrust: false, turn: 0, targetHeading: jumpHeading(w, data, w.jump.toSystemId) };
-    const coasted = { ...w, ship: stepShip(w.ship, def, face, dt) };
-    if (t >= JUMP_DURATION - 1e-9) {
-      const toSystemId = w.jump.toSystemId;
-      events.push({ type: 'jumped', toSystemId });
-      let arrived = arriveFromJump(coasted, data, toSystemId);
-      if (arrived.route[0] === toSystemId) arrived = { ...arrived, route: arrived.route.slice(1) };
-      arrived = enterSystem(arrived, data, toSystemId);
-      const after = advanceDays(arrived, data, 1);
-      events.push(...after.events, { type: 'arrived', systemId: toSystemId, day: after.world.day });
-      return { world: after.world, events };
-    }
-    return { world: { ...coasted, jump: { ...w.jump, t } }, events };
-  }
+  // In hyperspace: the phases run; every action but a skip is ignored.
+  if (w.jump) return stepJump(w, data, input, dt);
 
   const pressed = input.pressed;
 
@@ -364,9 +481,10 @@ export function stepWorld(
       w = {
         ...w,
         assist: NONE,
-        jump: { toSystemId, t: 0 },
+        jump: { toSystemId, phase: 'align', t: 0 },
         ship: { ...w.ship, fuel: w.ship.fuel - data.config.fuelPerJump },
       };
+      events.push({ type: 'jumpPhase', phase: 'align' });
     } else if (!check.ok && check.reason === 'tooClose') {
       events.push({ type: 'message', text: MSG_TOO_CLOSE });
     } else if (!check.ok && check.reason === 'noFuel') {
@@ -409,7 +527,7 @@ export function stepWorld(
     }
   }
 
-  // A jump started this tick: no thrust, the ship coasts and starts turning toward the destination.
+  // A jump started this tick (align, t = 0): no thrust, the ship coasts and starts turning toward the destination.
   const jumpFlight: FlightInput | null = w.jump
     ? { thrust: false, turn: 0, targetHeading: jumpHeading(w, data, w.jump.toSystemId) }
     : null;

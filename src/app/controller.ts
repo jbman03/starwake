@@ -9,6 +9,7 @@ import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
 import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordKill } from '../sim/combatMissions';
 import { governmentShortName } from '../sim/standing';
+import type { MoodInput } from '../audio/moods';
 import { CombatControl, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
 import type { DemandTerms } from '../sim/raiders';
 import { contextAction, siteReachable, type ContextAction, type PendingHint } from '../sim/context';
@@ -50,9 +51,9 @@ import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
-import { addBountyNpc, addStoryNpc, cycleTarget, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
+import { addBountyNpc, addStoryNpc, cycleTarget, isFringe, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
-import type { FrameInput, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
+import type { FrameInput, JumpPhase, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
   applyRefuel,
   applyTow,
@@ -60,6 +61,7 @@ import {
   autopilotToSite,
   departFrom,
   interruptAutopilot,
+  jumpEndPos,
   newWorld,
   setRoute,
   stepWorld,
@@ -72,6 +74,13 @@ const SITE_MIN_DIST = 500;
 const SITE_SPREAD = 400;
 /** The landing shrink-and-fade before the planet screen opens (also the take-off, reversed). */
 export const LANDING_FX_SEC = 0.4;
+
+/** The sound on entering each jump phase (spec §4.1): the wind-up whine, the deep whoosh, the softer arrival whoosh. */
+const JUMP_PHASE_SFX: Partial<Record<JumpPhase, 'jumpCharge' | 'jumpWhoosh' | 'jumpArrive'>> = {
+  charge: 'jumpCharge',
+  flash: 'jumpWhoosh',
+  arrive: 'jumpArrive',
+};
 
 /** The encounter waiting in this system: a hail that lapses, or a site to fly to. */
 export type PendingEncounter =
@@ -121,8 +130,10 @@ export type ControllerEvent =
   | { type: 'session'; active: boolean }
   /** The flight HUD or rail asked to skip the First Flight guide (the UI confirms). */
   | { type: 'guideSkip' }
-  /** Something happened that has a sound but no event of its own (arrival, landing and pay have theirs). */
-  | { type: 'sfx'; sfx: 'jump' | 'takeoff' | 'trade' | 'hail' | 'site' }
+  /** Something happened that has a sound but no event of its own (landing and pay have theirs; the jump's phases sound here). */
+  | { type: 'sfx'; sfx: 'jumpCharge' | 'jumpWhoosh' | 'jumpArrive' | 'takeoff' | 'trade' | 'hail' | 'site' }
+  /** Settings were changed and saved (volume, mute): the mixer re-reads them. */
+  | { type: 'settings' }
   /** This tick's fight events (shots, hits, kills), once per tick when there are any. */
   | { type: 'battle'; events: BattleEvent[] }
   /** The pilot asked to board `npcId` (a disabled ship in reach); flight is already paused. */
@@ -292,6 +303,22 @@ export class Controller {
 
   get isFlying(): boolean {
     return this.flying;
+  }
+
+  /** What the music needs to pick a mood: the screen, the jump phase, whether a fight is on, and whether this is a fringe system. */
+  musicInput(): MoodInput {
+    const sysId = this.world.systemId;
+    const gov = this.data.systems[sysId]?.government;
+    const screen = !this.pilot ? 'menu' : this.landedPlanetId ? 'docked' : 'flying';
+    // Flight is paused while docked and traffic is frozen, so a raider left engaged must not keep the planet screen in combat.
+    const inCombat =
+      screen === 'flying' && (this.combat.playerDisabled() || this.traffic.npcs.some((n) => n.engaged && !n.fled && this.combat.isHostile(n, this.world)));
+    return {
+      screen,
+      jumpPhase: this.world.jump?.phase ?? null,
+      inCombat,
+      fringe: isFringe(this.data, sysId) || gov === 'independent' || gov === 'unlit',
+    };
   }
 
   // ---- session -------------------------------------------------------------
@@ -494,7 +521,7 @@ export class Controller {
     else if (action === 'tow' || action === 'callTow') this.callTow();
     else if (action === 'land') this.queued.add('land');
     else if (action === 'autopilotOut') this.world = autopilotToJumpPoint(this.world);
-    else if (action === 'jump') this.queued.add('jump');
+    else if (action === 'jump' || action === 'skipJump') this.queued.add('jump'); // a second jump press skips to the flash
     this.checkContext();
   }
 
@@ -703,13 +730,13 @@ export class Controller {
     }
   }
 
-  /** A new system's traffic, with the target of each active bounty there waiting 700-1,200 px from the ship. */
+  /** A new system's traffic, with the target of each active bounty there waiting 700-1,200 px from the ship (where it ends the jump). */
   private freshTraffic(world: WorldState): Traffic {
     let t = seedTraffic(world, this.data, this.trafficOpts());
     for (const m of bountyToSpawn(world, world.systemId)) {
       const id = bountyNpcId(m);
       if (t.npcs.some((n) => n.id === id)) continue;
-      t = addBountyNpc(t, { id, name: m.combat!.targetName ?? 'Wanted ship', shipId: m.combat!.shipId!, missionId: m.id, pos: bountySpawnPos(world, this.data, m, world.ship.pos) }, this.data);
+      t = addBountyNpc(t, { id, name: m.combat!.targetName ?? 'Wanted ship', shipId: m.combat!.shipId!, missionId: m.id, pos: bountySpawnPos(world, this.data, m, jumpEndPos(world, this.data)) }, this.data);
     }
     return t;
   }
@@ -810,13 +837,11 @@ export class Controller {
       const f = this.combat.flightInput(this.world, raw, dt);
       const input = f.input;
       this.world = f.world;
-      const wasJumping = this.world.jump !== null;
       const r = stepWorld(this.world, this.data, input, dt, {
         autoLandOnArrival: this.settings.autoLandOnArrival,
       });
       this.world = r.world;
       this.thrusting = r.thrusting ?? false;
-      if (!wasJumping && this.world.jump) this.emit({ type: 'sfx', sfx: 'jump' });
       if (this.fx?.kind === 'takeoff') {
         this.fx.t += dt;
         if (this.fx.t >= LANDING_FX_SEC - 1e-9) this.fx = null;
@@ -932,7 +957,7 @@ export class Controller {
     if (def.kind === 'hail') return { def, npcName, kind: 'hail', expiresSec: HAIL_SECONDS };
     const angle = r() * Math.PI * 2;
     const d = SITE_MIN_DIST + r() * SITE_SPREAD;
-    const ship = this.world.ship.pos;
+    const ship = jumpEndPos(this.world, this.data); // where the arrive phase leaves the ship
     return { def, npcName, kind: 'site', pos: { x: ship.x + Math.cos(angle) * d, y: ship.y + Math.sin(angle) * d } };
   }
 
@@ -1298,10 +1323,16 @@ export class Controller {
     return { messages: r.messages };
   }
 
+  /** Save the settings and tell listeners (the mixer) that they changed. */
+  settingsChanged(): void {
+    saveSettings(this.settings);
+    this.emit({ type: 'settings' });
+  }
+
   /** Flip mute, save it and say so (the HUD shows the message in flight, the planet screen while landed). */
   toggleSound(): void {
     this.settings.muted = !this.settings.muted;
-    saveSettings(this.settings);
+    this.settingsChanged();
     this.emit({ type: 'message', text: this.settings.muted ? 'Sound off' : 'Sound on' });
   }
 
@@ -1358,6 +1389,10 @@ export class Controller {
         this.storyHailQuiet = null;
         this.prevShip = this.world.ship; // no interpolation across systems
         this.traffic = this.freshTraffic(this.world);
+      }
+      if (e.type === 'jumpPhase') {
+        const sfx = JUMP_PHASE_SFX[e.phase];
+        if (sfx) this.emit({ type: 'sfx', sfx });
       }
       if (e.type === 'arrived') {
         this.combat.reset(this.world, { keepHull: true }); // shots in flight stay behind in the old system; the damage comes along

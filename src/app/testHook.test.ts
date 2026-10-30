@@ -42,6 +42,9 @@ describe('combat test hooks', () => {
     expect(hook.combatState().npcs.find((n) => n.id === id)!.hull).toMatchObject({ armor: 1, disabled: true });
     expect(hook.combatState().player.disabled).toBe(false);
     expect(hook.combatState().secondary).toBeNull();
+    expect(hook.jumpPhase()).toBeNull();
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', phase: 'charge', t: 0 } };
+    expect(hook.jumpPhase()).toBe('charge');
     c.dispose();
   });
 });

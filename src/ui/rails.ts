@@ -36,6 +36,8 @@ export function contextLabel(action: ContextAction, world: WorldState, data: Gam
       const id = jumpDestination(world, data);
       return id ? `JUMP TO ${(data.systems[id]?.name ?? id).toUpperCase()}` : null;
     }
+    case 'skipJump':
+      return '⏩ SKIP';
     case 'answerHail':
       return 'Answer hail';
     case 'openSite':
