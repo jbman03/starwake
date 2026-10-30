@@ -104,7 +104,7 @@
   },
   "voices": {
     "hum": {"gain": 0.12, "rampSec": 0.1, "f": 180, "tone": {"wave": "sawtooth", "f": 55, "cutoff": 220, "gain": 0.6}},
-    "beam": {"gain": 0.07, "holdSec": 0.1, "fadeSec": 0.04}
+    "beam": {"gain": 0.07, "holdSec": 0.1, "fadeSec": 0.04, "wave": "sawtooth", "f": 110, "cutoff": 900}
   },
   "gunVoices": {"rapid-cannon": "cannon"},
   "moods": {

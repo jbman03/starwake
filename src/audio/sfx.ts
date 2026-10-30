@@ -41,9 +41,6 @@ export function battleSounds(events: readonly BattleEvent[], gunVoices: Readonly
   return out;
 }
 
-/** How long the beam hum lasts after the last pulse (then a short fade). Read from audio.json. */
-export const BEAM_HOLD_SEC = 0.1;
-
 /**
  * Synthesised sound effects: oscillators, noise buffers and gain envelopes, no audio files.
  * Independent of Phaser. The Mixer owns the AudioContext (made on its `unlock`) and the effects bus,
@@ -144,18 +141,19 @@ export class SoundBoard {
   }
 
   /**
-   * The beam hum: a buzzing loop that plays for BEAM_HOLD_SEC after each pulse, then fades. Call it
+   * The beam hum: a buzzing loop that plays for `voices.beam.holdSec` after each pulse, then fades. Call it
    * on every beam event (or every poll while a beam fires) to keep it going; it stops on its own.
    */
   private beam(ctx: AudioContext, bus: GainNode): void {
     try {
       if (!this.beamLoop) {
         const o = ctx.createOscillator();
-        o.type = 'sawtooth';
-        o.frequency.setValueAtTime(110, ctx.currentTime);
+        const v = this.audio.voices.beam;
+        o.type = v.wave;
+        o.frequency.setValueAtTime(v.f, ctx.currentTime);
         const f = ctx.createBiquadFilter();
         f.type = 'lowpass';
-        f.frequency.setValueAtTime(900, ctx.currentTime);
+        f.frequency.setValueAtTime(v.cutoff, ctx.currentTime);
         const gain = ctx.createGain();
         gain.gain.setValueAtTime(0, ctx.currentTime);
         o.connect(f);

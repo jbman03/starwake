@@ -575,7 +575,17 @@ export const AudioSchema = z
               .strict(),
           })
           .strict(),
-        beam: z.object({ gain: z.number().nonnegative(), holdSec: z.number().positive(), fadeSec: z.number().positive() }).strict(),
+        beam: z
+          .object({
+            gain: z.number().nonnegative(),
+            holdSec: z.number().positive(),
+            fadeSec: z.number().positive(),
+            /** The buzz: `wave` at `f` Hz, low-passed at `cutoff`. */
+            wave: z.enum(['sine', 'square', 'sawtooth', 'triangle']),
+            f: z.number().positive(),
+            cutoff: z.number().positive(),
+          })
+          .strict(),
       })
       .strict(),
     /** Gun or turret outfit id → the voice its bolts play; a gun not named plays `shot`. */

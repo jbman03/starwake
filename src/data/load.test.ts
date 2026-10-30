@@ -986,6 +986,13 @@ describe('audio.json and config.jump', () => {
     delete r.audio.voices.hum.tone;
     has(failure(r), 'audio.json');
   });
+  it('keeps the beam timbre in data, and rejects a bad beam wave', () => {
+    const { beam } = parseGameData(raw()).audio.voices;
+    expect([beam.wave, beam.f, beam.cutoff]).toEqual(['sawtooth', 110, 900]);
+    const r = raw();
+    r.audio.voices.beam.wave = 'noise';
+    has(failure(r), 'audio.json');
+  });
   it('lets a layer swell with an attack shorter than its length, and rejects one that is not', () => {
     const ok = raw();
     ok.audio.sfx.land.layers[0].attack = 0.2;
