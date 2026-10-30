@@ -683,7 +683,8 @@ export class Controller {
       }
       const pressed = new Set([...polled.pressed, ...this.queued]);
       this.queued.clear();
-      if (pressed.delete('interact') && this.openEncounter()) return;
+      // A disabled ship can't answer a hail or open a site (the context button offers nothing either).
+      if (pressed.delete('interact') && !this.combat.playerDisabled() && this.openEncounter()) return;
       if (pressed.delete('nextTarget')) {
         // Tab walks sites, then ships, then planets (the sim's own planet-only cycle is not used from here).
         const pick = cycleTarget(this.world, this.data, this.traffic, this.targetSites(), this.targetedSite()?.id ?? null);
@@ -729,9 +730,12 @@ export class Controller {
     this.checkContext();
   }
 
-  /** One fight tick after the world step (not while landing, or once a tow or landing paused flight). */
+  /**
+   * One fight tick after the world step. None while landing, once a tow or landing paused flight, or in
+   * hyperspace: the arrival resets the battle, so a hit taken mid-jump would be undone (and the calm wait would run).
+   */
   private stepCombat(input: FrameInput, dt: number): void {
-    if (!this.flying || this.fx?.kind === 'land' || this.traffic.systemId !== this.world.systemId) return;
+    if (!this.flying || this.fx?.kind === 'land' || this.world.jump || this.traffic.systemId !== this.world.systemId) return;
     const r = this.combat.tick(this.world, this.traffic, input, dt);
     this.world = r.world;
     this.traffic = r.traffic;

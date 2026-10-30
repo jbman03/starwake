@@ -1451,5 +1451,43 @@ describe('combat in flight', () => {
     c.update(1 / 60);
     expect(messages).toContain(`The ${governmentShortName('concord', c.data)} will remember that.`);
   });
+
+  it('no fight in hyperspace: no hits and no calm-timer progress', async () => {
+    const { c } = await flying();
+    const id = spawnHostile(c);
+    // A raider's shot sits on the player as the jump starts.
+    const pos = { ...c.world.ship.pos };
+    c.combat.battle = {
+      ...c.combat.battle,
+      projectiles: [{ id: 98, ownerId: id, targetId: null, kind: 'bolt', pos, vel: { x: 0, y: 0 }, damage: 50, ttl: 5, turnRate: 0 }],
+    };
+    const before = { ...c.combat.battle.player };
+    c.world = { ...c.world, route: ['vesk'], jump: { toSystemId: 'vesk', t: 0 } };
+    c.update(1 / 60);
+    expect(c.world.jump).not.toBeNull();
+    expect(c.combat.battle.player).toEqual(before);
+    expect(c.combat.battle.projectiles.length).toBe(1);
+    // A disabled ship's calm wait does not run in hyperspace either.
+    c.combat.battle = { ...c.combat.battle, projectiles: [], player: { ...c.combat.battle.player, armor: 1, disabled: true } };
+    for (let i = 0; i < 30; i++) c.update(1 / 60);
+    expect(c.world.jump).not.toBeNull();
+    expect(c.combat.disabledCalmSec).toBe(0);
+  });
+
+  it('a disabled ship cannot answer a hail with Y', async () => {
+    const { c, target } = await flying();
+    const opened: string[] = [];
+    c.on('encounter', () => opened.push('card'));
+    const hail = Object.values(c.data.encounters).find((e) => e.kind === 'hail')!;
+    c.forceEncounter(hail.id);
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true } };
+    press(c, target, 'KeyY');
+    expect(opened).toEqual([]);
+    expect(c.isFlying).toBe(true);
+    // Healthy again, Y answers it.
+    c.combat.reset(c.world);
+    press(c, target, 'KeyY');
+    expect(opened).toEqual(['card']);
+  });
 });
 
