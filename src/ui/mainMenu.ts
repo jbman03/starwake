@@ -1,3 +1,4 @@
+import { MSG_USED_BACKUP } from '../app/controller';
 import { SaveError, worldFromPilot, type PilotSave } from '../save/pilot';
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
@@ -16,7 +17,7 @@ import { randomPilotName } from '../save/pilotNames';
 
 export const NAME_MAX = 24;
 export const DEFAULT_NAME = 'Pilot';
-export const MSG_USED_BACKUP = 'Your last save was damaged; loaded the previous one.';
+export { MSG_USED_BACKUP };
 
 /** Trim to 1–24 characters; empty becomes "Pilot". */
 export function cleanPilotName(raw: string): string {

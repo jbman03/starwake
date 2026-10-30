@@ -3,11 +3,12 @@ import type { Guide } from '../guide/guide';
 import { ACTION_GROUP, type ActionGroup, type ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
-import { pilotFromWorld, type PilotSave } from '../save/pilot';
+import { pilotFromWorld, worldFromPilot, type PilotSave } from '../save/pilot';
+import { hasPod, podRescue } from '../sim/death';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type BattleEvent } from '../sim/battle';
 import { governmentShortName } from '../sim/standing';
-import { CombatControl, type DemandOffer } from './combatControl';
+import { CombatControl, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
 import type { DemandTerms } from '../sim/raiders';
 import { contextAction, siteReachable, type ContextAction, type PendingHint } from '../sim/context';
 import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, hubName, rollEncounter } from '../sim/encounters';
@@ -123,8 +124,12 @@ export type ControllerEvent =
   | { type: 'sfx'; sfx: 'jump' | 'takeoff' | 'trade' | 'hail' | 'site' }
   /** This tick's fight events (shots, hits, kills), once per tick when there are any. */
   | { type: 'battle'; events: BattleEvent[] }
-  /** The pilot asked to board `npcId` (a disabled ship in reach). */
-  | { type: 'board'; npcId: string };
+  /** The pilot asked to board `npcId` (a disabled ship in reach); flight is already paused. */
+  | { type: 'board'; npcId: string }
+  /** The player's ship was destroyed 2 s ago; flight is paused and the Destroyed card is asked for. */
+  | { type: 'destroyed' };
+
+export type { BoardingChoice, BoardingView };
 
 export type ControllerEventType = ControllerEvent['type'];
 type EventOf<T extends ControllerEventType> = Extract<ControllerEvent, { type: T }>;
@@ -150,9 +155,13 @@ export interface PilotMeta {
   name: string;
 }
 
+export const MSG_USED_BACKUP = 'Your last save was damaged; loaded the previous one.';
+
 /** Where pilots are written. PilotStore satisfies this. */
 export interface SaveSink {
   save(p: PilotSave): Promise<void>;
+  /** Present on the real store; the no-pod Destroyed card reloads through it. */
+  load?(id: string): Promise<{ pilot: PilotSave; usedBackup: boolean }>;
 }
 
 type UiInput = { groups: readonly ActionGroup[]; handler: (pressed: Set<ActionId>) => void };
@@ -380,8 +389,69 @@ export class Controller {
   board(): boolean {
     const npc = this.combat.boardable(this.world, this.traffic);
     if (!npc) return false;
+    this.combat.startBoarding(this.world, this.traffic);
+    this.pauseFlight();
     this.emit({ type: 'board', npcId: npc.id });
     return true;
+  }
+
+  /** The open boarding as the card shows it, or null. */
+  boardingView(): BoardingView | null {
+    return this.combat.boardingView(this.world, this.traffic);
+  }
+
+  /** Take a row, try the capture, take command or sell the prize; the outcome lines, or null if it can't be done. Leave closes the boarding. */
+  boardChoose(choice: BoardingChoice): string[] | null {
+    if (choice === 'leave') {
+      this.leaveBoarding();
+      return [];
+    }
+    const r = this.combat.boardChoose(this.world, this.traffic, choice);
+    if (!r) return null;
+    this.world = r.world;
+    this.traffic = r.traffic;
+    return r.messages;
+  }
+
+  /** Close the boarding card (the UI resumes flight). */
+  leaveBoarding(): void {
+    this.combat.leaveBoarding();
+    this.checkContext();
+  }
+
+  /** The Destroyed card's text: whether an escape pod got the pilot clear; null while the ship is whole. */
+  deathView(): { pod: boolean } | null {
+    return this.combat.battle.playerDestroyed ? { pod: hasPod(this.world) } : null;
+  }
+
+  /**
+   * After the Destroyed card. With a pod: wake at the rescue port in the starting ship and autosave there.
+   * Without: reload the last save of this pilot; with none (or an unreadable one) the session ends and the UI shows the main menu.
+   */
+  async continueAfterDeath(): Promise<void> {
+    if (!this.combat.battle.playerDestroyed) return;
+    this.pending = null;
+    this.card = null;
+    if (hasPod(this.world)) {
+      const r = podRescue(this.world, this.data);
+      this.world = r.world;
+      this.traffic = seedTraffic(this.world, this.data, this.trafficOpts());
+      this.notices.push(...r.messages);
+      this.landAt(r.planetId);
+      this.emit({ type: 'landed', planetId: r.planetId });
+      return;
+    }
+    const id = this.pilot?.id;
+    try {
+      if (!id || !this.store?.load) throw new Error('no save');
+      const { pilot, usedBackup } = await this.store.load(id);
+      this.beginSession(worldFromPilot(pilot, this.data), { id: pilot.id, name: pilot.name }, pilot.planetId);
+      if (usedBackup) this.notices.push(MSG_USED_BACKUP);
+      this.emit({ type: 'landed', planetId: pilot.planetId });
+    } catch (err) {
+      console.warn(err);
+      this.endSession();
+    }
   }
 
   /** Target the nearest hostile ship, dropping any planet or site target; false (no change) when there is none. */
@@ -743,6 +813,10 @@ export class Controller {
     this.world = r.world;
     this.traffic = r.traffic;
     this.checkDemands();
+    if (r.lost) {
+      this.pauseFlight();
+      this.emit({ type: 'destroyed' });
+    }
     if (r.events.length === 0) return;
     this.emit({ type: 'battle', events: r.events });
     const angered = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));

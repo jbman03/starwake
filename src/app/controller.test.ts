@@ -1433,6 +1433,9 @@ describe('combat in flight', () => {
     };
     press(c, target, 'KeyB');
     expect(boards).toEqual([id]);
+    expect(c.isFlying).toBe(false); // the card pauses flight
+    c.leaveBoarding();
+    c.startFlight();
     expect(c.currentContext()).toBe('board');
     c.doContextAction();
     expect(boards).toEqual([id, id]);

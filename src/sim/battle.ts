@@ -95,7 +95,7 @@ export function cycleSecondary(b: Battle, world: WorldState, data: GameData): Ba
 
 export const playerTargetId = (traffic: Traffic): string | null => traffic.targetId;
 
-const isRaider = (n: Npc): boolean => n.role === 'raider' || n.government === RAIDERS;
+export const isRaider = (n: Npc): boolean => n.role === 'raider' || n.government === RAIDERS;
 
 function combatantOf(n: Npc, data: GameData): Combatant {
   return { id: n.id, government: n.government, ship: n.ship, radius: data.ships[n.shipId].radius, hull: n.hull, outfits: n.outfits };
@@ -146,6 +146,38 @@ export function nearestHostile(world: WorldState, traffic: Traffic, b: Battle): 
     }
   }
   return best;
+}
+
+/**
+ * The player harmed a trader or patrol (§9). The first time per visit its government turns hostile
+ * and standing drops a level; a patrol put out of action (disabled, destroyed or captured) sets it
+ * to cool. Raiders change nothing. Returns the new standing and whether `angry` should gain the government.
+ */
+export function angerOnHit(
+  standing: Record<string, StandingLevel>,
+  angry: readonly string[],
+  n: Npc,
+  outOfAction: boolean,
+): { standing: Record<string, StandingLevel>; angered: boolean } {
+  if (isRaider(n)) return { standing, angered: false };
+  let next = standing;
+  const angered = !angry.includes(n.government);
+  if (angered) {
+    const rank = STANDING_RANK[standingOf({ standing: next }, n.government)];
+    next = { ...next, [n.government]: STANDING_BY_RANK[Math.max(0, rank - 1)] };
+  }
+  if (n.role === 'patrol' && outOfAction) next = { ...next, [n.government]: 'cool' };
+  return { standing: next, angered };
+}
+
+/** `angerOnHit` applied to a world and battle (the caller says so in a message when `angered`). */
+export function angerGovernment(world: WorldState, battle: Battle, n: Npc, outOfAction: boolean): { world: WorldState; battle: Battle; angered: boolean } {
+  const a = angerOnHit(world.standing, battle.angry, n, outOfAction);
+  return {
+    world: a.standing === world.standing ? world : { ...world, standing: a.standing },
+    battle: a.angered ? { ...battle, angry: [...battle.angry, n.government] } : battle,
+    angered: a.angered,
+  };
 }
 
 /** A hit queued this tick: damage from `ownerId` on `targetId` at `pos`. */
@@ -389,13 +421,12 @@ export function stepBattle(
     let updated: Npc = { ...n, hull: r.hull, aggro: n.aggro.includes(h.ownerId) ? n.aggro : [...n.aggro, h.ownerId] };
     events.push({ type: 'hit', targetId: n.id, shield: r.shieldHit, pos: h.pos });
     if (byPlayer && !isRaider(n)) {
-      if (!angry.includes(n.government)) {
+      const a = angerOnHit(standing, angry, n, r.disabledNow || r.destroyed);
+      standing = a.standing;
+      if (a.angered) {
         angry.push(n.government);
-        const rank = STANDING_RANK[standingOf({ standing }, n.government)];
-        standing = { ...standing, [n.government]: STANDING_BY_RANK[Math.max(0, rank - 1)] };
         events.push({ type: 'angered', government: n.government });
       }
-      if (n.role === 'patrol' && (r.disabledNow || r.destroyed)) standing = { ...standing, [n.government]: 'cool' };
     }
     if (r.disabledNow) events.push({ type: 'disabled', id: n.id, byPlayer });
     if (r.destroyed) {
