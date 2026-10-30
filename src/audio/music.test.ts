@@ -93,6 +93,15 @@ describe('Music', () => {
     expect(r.outs()).toHaveLength(1);
   });
 
+  it('mood() is the mood last asked for, null before the first, even with no audio', () => {
+    const r = rig(false);
+    expect(r.music.mood()).toBeNull();
+    r.music.setMood('core');
+    expect(r.music.mood()).toBe('core');
+    r.music.setMood('combat');
+    expect(r.music.mood()).toBe('combat');
+  });
+
   it('hide during crossfade resumes on the latest mood', () => {
     const r = rig();
     r.music.setMood('core');

@@ -78,6 +78,7 @@ async function boot(): Promise<void> {
   // with the pause menu and back in when flight resumes (or the menu leads to a planet or the main
   // menu); the star map, cards and planet screens keep it playing.
   const music = new Music(mixer, data.audio.moods);
+  if (window.__starwake) window.__starwake.musicMood = () => music.mood();
   let menuPaused = false;
   const resumeMusic = () => {
     if (!menuPaused) return;

@@ -1,22 +1,27 @@
 import { ACTION_GROUP, ACTION_IDS, type ActionGroup, type ActionId } from './actions';
 import type { Bindings } from './bindings';
 
-type TargetLike = { tagName?: string; isContentEditable?: boolean };
+type TargetLike = { tagName?: string; type?: string; isContentEditable?: boolean };
+
+/** Input types nobody types into: a focused slider or checkbox still lets the game's keys through (V after a volume drag). */
+const NON_TEXT_INPUTS: ReadonlySet<string> = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color']);
 
 /** Text-entry targets: keys typed there belong to the field, not the game. */
 function isTextEntry(t: EventTarget | null): boolean {
   const el = t as TargetLike | null;
   if (!el || typeof el.tagName !== 'string') return false;
-  return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable === true;
+  if (el.tagName === 'INPUT') return !NON_TEXT_INPUTS.has(String(el.type ?? 'text').toLowerCase());
+  return el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable === true;
 }
 
 /** Focused buttons keep their default key behaviour (Space/Enter activate them). */
 const isButton = (t: EventTarget | null) => (t as TargetLike | null)?.tagName === 'BUTTON';
 
-/** Controls with their own keyboard behaviour: buttons, form fields and links. */
+/** Controls with their own keyboard behaviour: buttons, form fields (sliders and checkboxes too) and links. */
 function isInteractive(t: EventTarget | null): boolean {
   if (isTextEntry(t) || isButton(t)) return true;
   const el = t as (TargetLike & { hasAttribute?: (n: string) => boolean }) | null;
+  if (el?.tagName === 'INPUT') return true; // sliders and checkboxes keep their own keys (arrows, Space)
   return el?.tagName === 'A' && typeof el.hasAttribute === 'function' && el.hasAttribute('href');
 }
 

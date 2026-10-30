@@ -1,7 +1,8 @@
 import type { GameData, StoryMissionDef } from '../data/schemas';
 import type { StoryAccept } from '../sim/storyMissions';
 import type { PilotStore } from '../save/store';
-import type { WorldState } from '../sim/types';
+import type { JumpPhase, WorldState } from '../sim/types';
+import type { MoodId } from '../audio/moods';
 import type { SidebarInfo } from '../render/sidebarInfo';
 import type { Hull } from '../sim/combat';
 import { hostileAhead } from './combatControl';
@@ -14,6 +15,10 @@ export interface StarwakeTestHook {
   store: PilotStore;
   /** The story missions the bar here offers today. */
   storyOffers: () => StoryMissionDef[];
+  /** The player's jump phase, or null when not jumping. */
+  jumpPhase: () => JumpPhase | null;
+  /** Set by main: the music mood last chosen (it follows the game every 250 ms), or null before the first. */
+  musicMood?: () => MoodId | null;
   /** The story progress held in the world. */
   story: () => WorldState['story'];
   /** The scan or find site of a story step in this system (even a find site not yet in view), or null. */
@@ -143,6 +148,7 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     teleport,
     storyOffers: () => controller.storyOffers(),
     story: () => controller.world.story,
+    jumpPhase: () => controller.world.jump?.phase ?? null,
     storySite: () => controller.storySite,
     storyMeet: () => controller.storyMeet,
     acceptStoryNow: (id) => controller.acceptStory(id),

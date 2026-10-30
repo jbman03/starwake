@@ -81,6 +81,11 @@ export class Music {
     this.guard(() => this.sync());
   }
 
+  /** The mood last asked for with `setMood`, or null before the first. */
+  mood(): MoodId | null {
+    return this.want;
+  }
+
   /** Fade out and schedule nothing until `resume` (the pause menu). */
   pause(): void {
     if (this.paused) return;
