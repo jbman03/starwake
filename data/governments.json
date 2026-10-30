@@ -2,5 +2,6 @@
   { "id": "concord", "name": "Concord of Lanterns", "color": "#4fa3d9", "description": "A loose league of lantern-lit worlds that keeps the lanes safe and the paperwork light." },
   { "id": "independent", "name": "Independent Settlements", "color": "#c9b458", "description": "Frontier holdings that answer to no one and share what they have with any pilot who comes in peace." },
   { "id": "free-reach", "name": "Free Reach Compact", "color": "#d9774f", "description": "A compact of traders and prospectors on the far rim, bound by handshake contracts." },
-  { "id": "unlit", "name": "Unlit Holdings", "color": "#8c7fb0", "description": "Settlers of the Dimming who keep their own lamps low and their own counsel. They owe the old charts nothing and the Concord less." }
+  { "id": "unlit", "name": "Unlit Holdings", "color": "#8c7fb0", "description": "Settlers of the Dimming who keep their own lamps low and their own counsel. They owe the old charts nothing and the Concord less." },
+  { "id": "raiders", "name": "Rimward Raiders", "color": "#d94f4f", "description": "Hard-up crews who work the lonely lanes and take what they can from the ships that pass." }
 ]

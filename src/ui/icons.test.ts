@@ -5,7 +5,7 @@ import type { OutfitDef, ShipDef } from '../data/schemas';
 import { HULL_PROFILES } from '../render/sprites';
 import { outfitIcon, shipIcon } from './icons';
 
-const CATEGORIES: OutfitDef['category'][] = ['cargo', 'fuel', 'armor', 'shields', 'map', 'scoop'];
+const CATEGORIES: OutfitDef['category'][] = ['cargo', 'fuel', 'armor', 'shields', 'map', 'scoop', 'gun', 'turret', 'launcher', 'ammo', 'beam', 'pod'];
 const HULLS: ShipDef['hull'][] = ['pod', 'dart', 'wedge', 'hauler', 'liner', 'carrier'];
 
 describe('outfitIcon', () => {

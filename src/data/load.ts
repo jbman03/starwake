@@ -229,7 +229,8 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
 
   const shopIssues: string[] = [];
   const hubsByGov: Record<string, string[]> = {};
-  for (const gid of Object.keys(governments)) hubsByGov[gid] = [];
+  // Only governments that hold a system need a hub (the raiders hold none).
+  for (const gid of Object.keys(governments)) if (Object.values(systems).some((sy) => sy.government === gid)) hubsByGov[gid] = [];
   for (const p of Object.values(planets)) {
     if (!p.hub) continue;
     if (!p.services.includes('shipyard') || !p.services.includes('outfitter'))
@@ -376,6 +377,18 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   for (const o of Object.values(outfits))
     if (o.requiresFlag && !settable.has(o.requiresFlag)) gearIssues.push(fmt('outfits.json', `${o.id}.requiresFlag`, `flag "${o.requiresFlag}" is never set by any outcome or system`));
   if (gearIssues.length) throw new DataError('ships.json / outfits.json', gearIssues);
+
+  const combatIssues: string[] = [];
+  for (const o of Object.values(outfits)) {
+    if (o.category === 'launcher' && outfits[o.effect.ammo]?.category !== 'ammo')
+      combatIssues.push(fmt('outfits.json', `${o.id}.effect.ammo`, `"${o.effect.ammo}" is not an ammo outfit`));
+  }
+  for (const sh of Object.values(ships))
+    for (const oid of Object.keys(sh.loadout ?? {}))
+      if (!(oid in outfits)) combatIssues.push(fmt('ships.json', `${sh.id}.loadout.${oid}`, `unknown outfit "${oid}"`));
+  for (const oid of Object.keys(config.startOutfits))
+    if (!(oid in outfits)) combatIssues.push(fmt('config.json', `startOutfits.${oid}`, `unknown outfit "${oid}"`));
+  if (combatIssues.length) throw new DataError('outfits.json / ships.json / config.json', combatIssues);
 
   const missionIssues: string[] = [];
   const anyDump = Object.values(planets).some((p) => p.dumpSite);

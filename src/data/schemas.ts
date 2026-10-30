@@ -45,6 +45,8 @@ export const ShipSchema = z.object({
   hiddenByFlag: z.string().min(1).optional(), // once this flag is set the yard no longer lists the hull
   teaser: z.string().min(1).optional(), // caption on the locked silhouette tile; absent = a neutral default
   chartJumps: z.number().int().positive().optional(), // built-in chart: reveals this many jumps on arrival
+  crew: z.number().int().positive(), // NPC crew: sizes the fallback loadout and the boarding prize
+  loadout: z.record(id, z.number().int().positive()).optional(), // NPC-only fit: outfit id -> count
 });
 
 const outfitBase = {
@@ -64,6 +66,9 @@ const outfitBase = {
 
 const effect = <K extends string>(key: K) => z.object({ [key]: z.number().positive() } as Record<K, z.ZodNumber>).strict();
 
+const pos = z.number().positive();
+const nonneg = z.number().nonnegative();
+
 export const OutfitSchema = z.discriminatedUnion('category', [
   z.object({ ...outfitBase, category: z.literal('cargo'), effect: effect('cargo') }),
   z.object({ ...outfitBase, category: z.literal('fuel'), effect: effect('fuel') }),
@@ -71,6 +76,25 @@ export const OutfitSchema = z.discriminatedUnion('category', [
   z.object({ ...outfitBase, category: z.literal('shields'), effect: effect('shields') }),
   z.object({ ...outfitBase, category: z.literal('map'), effect: effect('mapJumps') }),
   z.object({ ...outfitBase, category: z.literal('scoop'), effect: effect('fuelPerMin') }),
+  // Weapons. Spread and assist are degrees, rate is shots per second, turnRate is degrees per second (0 = unguided).
+  z.object({
+    ...outfitBase,
+    category: z.literal('gun'),
+    effect: z.object({ damage: pos, rate: pos, speed: pos, range: pos, spread: nonneg, assist: nonneg }).strict(),
+  }),
+  z.object({
+    ...outfitBase,
+    category: z.literal('turret'),
+    effect: z.object({ damage: pos, rate: pos, speed: pos, range: pos }).strict(),
+  }),
+  z.object({ ...outfitBase, category: z.literal('launcher'), effect: z.object({ ammo: id, rate: pos }).strict() }),
+  z.object({
+    ...outfitBase,
+    category: z.literal('ammo'),
+    effect: z.object({ damage: pos, speed: pos, range: pos, turnRate: nonneg }).strict(),
+  }),
+  z.object({ ...outfitBase, category: z.literal('beam'), effect: z.object({ dps: pos, range: pos }).strict() }),
+  z.object({ ...outfitBase, category: z.literal('pod'), effect: z.object({ pods: z.literal(1) }).strict() }),
 ]);
 
 export const SystemSchema = z.object({
@@ -151,6 +175,7 @@ export const MissionTypeSchema = z.object({
   toDumpSite: z.boolean(),
   titleTemplate: z.string(),
   textTemplate: z.string(),
+  combat: z.object({ kind: z.enum(['bounty', 'clear']), count: range.optional() }).optional(),
 });
 
 export const NamesSchema = z.object({
@@ -285,6 +310,7 @@ export const ConfigSchema = z.object({
   startYear: z.number().int(),
   startMonth: z.number().int().min(1).max(12),
   startDay: z.number().int().min(1).max(31),
+  startOutfits: z.record(id, z.number().int().positive()), // outfit id -> count a new pilot starts with
 });
 
 export type ShipDef = z.infer<typeof ShipSchema>;

@@ -32,7 +32,7 @@ export function shipStats(shipId: string, outfits: Record<string, number>, data:
     const def = data.outfits[id];
     if (!def || !(count > 0)) continue;
     s.spaceUsed += def.space * count;
-    const e = def.effect;
+    const e = def.effect; // weapons, ammo and pods add space only
     if ('cargo' in e) s.cargo += e.cargo * count;
     else if ('fuel' in e) s.fuelCapacity += e.fuel * count;
     else if ('armor' in e) s.armor += e.armor * count;

@@ -1,4 +1,4 @@
-import type { OutfitDef } from '../data/schemas';
+import type { GameData, OutfitDef } from '../data/schemas';
 import { OUTFIT_BLOCK_TEXT, outfitSellCheck, type OutfitBlock } from '../sim/outfitter';
 import { worldStats } from '../sim/shipStats';
 import { standingBlockText } from '../sim/standing';
@@ -9,7 +9,7 @@ import { outfitIcon } from './icons';
 import { infoBlock, showShop, type ShopItem } from './shop';
 
 /** One-line effect of an outfit, e.g. "+5 t cargo". */
-function effectText(def: OutfitDef, fuelPerJump: number): string {
+function effectText(def: OutfitDef, fuelPerJump: number, data: GameData): string {
   switch (def.category) {
     case 'cargo':
       return `+${def.effect.cargo} t cargo`;
@@ -25,6 +25,17 @@ function effectText(def: OutfitDef, fuelPerJump: number): string {
       return `Charts systems within ${def.effect.mapJumps} jumps`;
     case 'scoop':
       return `Gathers ${def.effect.fuelPerMin} fuel per minute while drifting`;
+    case 'gun':
+    case 'turret':
+      return `${def.effect.damage} dmg · ${def.effect.rate}/s · range ${def.effect.range}`;
+    case 'launcher':
+      return `Fires ${data.outfits[def.effect.ammo]?.name ?? def.effect.ammo} · ${def.effect.rate}/s`;
+    case 'ammo':
+      return `${def.effect.damage} dmg · ${def.effect.turnRate > 0 ? 'homing' : 'unguided'} · range ${def.effect.range}`;
+    case 'beam':
+      return `${def.effect.dps} dmg/s · range ${def.effect.range}`;
+    case 'pod':
+      return 'Saves the pilot once if the ship is lost';
   }
 }
 
@@ -58,7 +69,7 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
       }
       const isMap = def.category === 'map';
       const rows: [string, string][] = [
-        ['Effect', effectText(def, data.config.fuelPerJump)],
+        ['Effect', effectText(def, data.config.fuelPerJump, data)],
         ['Space', `${def.space} t`],
         ['Max', isMap ? 'One-time' : String(def.max)],
         ['Fitted', isMap ? '-' : String(owned)],

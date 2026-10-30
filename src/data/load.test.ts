@@ -800,3 +800,76 @@ describe('gear flag validation', () => {
     has(failure(c), 'house-rack.requiresFlag');
   });
 });
+
+describe('combat data', () => {
+  const has = (e: DataError, s: string) => expect(e.issues.some((i) => i.includes(s)), e.issues.join(', ')).toBe(true);
+  const base = { description: '', price: 1, techTier: 1, space: 1, max: 1 };
+  const withOutfit = (o: any) => {
+    const r = raw();
+    r.outfits.push({ ...base, name: 'T', ...o });
+    return r;
+  };
+
+  it('parses every new outfit category', () => {
+    const good = [
+      { id: 't-gun', category: 'gun', effect: { damage: 6, rate: 4, speed: 700, range: 450, spread: 0, assist: 0 } },
+      { id: 't-turret', category: 'turret', effect: { damage: 8, rate: 3, speed: 650, range: 400 } },
+      { id: 't-launcher', category: 'launcher', effect: { ammo: 'rocket', rate: 1 } },
+      { id: 't-ammo', category: 'ammo', space: 0, effect: { damage: 40, speed: 500, range: 700, turnRate: 0 } },
+      { id: 't-beam', category: 'beam', effect: { dps: 30, range: 350 } },
+      { id: 't-pod', category: 'pod', effect: { pods: 1 } },
+    ];
+    for (const o of good) expect(() => parseGameData(withOutfit(o)), o.id).not.toThrow();
+    const bad = [
+      { id: 'b-gun', category: 'gun', effect: { damage: 0, rate: 4, speed: 700, range: 450, spread: 0, assist: 0 } },
+      { id: 'b-gun2', category: 'gun', effect: { damage: 6, rate: 4, speed: 700, range: 450, spread: -1, assist: 0 } },
+      { id: 'b-turret', category: 'turret', effect: { damage: 8, rate: 0, speed: 650, range: 400 } },
+      { id: 'b-launcher', category: 'launcher', effect: { ammo: 'rocket', rate: 0 } },
+      { id: 'b-ammo', category: 'ammo', effect: { damage: 40, speed: 500, range: 700, turnRate: -1 } },
+      { id: 'b-beam', category: 'beam', effect: { dps: 0, range: 350 } },
+      { id: 'b-pod', category: 'pod', effect: { pods: 2 } },
+      { id: 'b-extra', category: 'beam', effect: { dps: 3, range: 350, extra: 1 } },
+    ];
+    for (const o of bad) expect(() => parseGameData(withOutfit(o)), o.id).toThrow(DataError);
+  });
+
+  it('rejects a launcher whose ammo id is missing or not ammo', () => {
+    has(failure(withOutfit({ id: 't-l', category: 'launcher', effect: { ammo: 'no-such', rate: 1 } })), 't-l.effect.ammo');
+    has(failure(withOutfit({ id: 't-l', category: 'launcher', effect: { ammo: 'fuel-tank', rate: 1 } })), 't-l.effect.ammo');
+  });
+
+  it('rejects a ship loadout naming an unknown outfit', () => {
+    const r = raw();
+    r.ships.find((s) => s.id === 'kestrel')!.loadout = { 'no-such': 1 };
+    has(failure(r), 'kestrel.loadout.no-such');
+  });
+
+  it('rejects startOutfits naming an unknown outfit', () => {
+    const r = raw();
+    r.config.startOutfits = { 'no-such': 1 };
+    has(failure(r), 'startOutfits.no-such');
+  });
+
+  it('every ship has crew', () => {
+    const d = parseGameData(raw());
+    for (const s of Object.values(d.ships)) expect(s.crew, s.id).toBeGreaterThan(0);
+    const r = raw();
+    delete r.ships[0].crew;
+    expect(() => parseGameData(r)).toThrow(DataError);
+  });
+
+  it('every loadout fits its hull\'s outfit space', () => {
+    const d = parseGameData(raw());
+    for (const s of Object.values(d.ships)) {
+      const used = Object.entries(s.loadout ?? {}).reduce((n, [id, c]) => n + d.outfits[id].space * c, 0);
+      expect(used, s.id).toBeLessThanOrEqual(s.outfitSpace);
+    }
+  });
+
+  it('ships the raiders government, starter gun and tier-5 lance', () => {
+    const d = parseGameData(raw());
+    expect(d.governments.raiders.name).toBe('Rimward Raiders');
+    expect(d.config.startOutfits).toEqual({ 'light-blaster': 1 });
+    expect(d.outfits['lance-beam'].soldAt).toEqual(['vanterre', 'corvana-works']);
+  });
+});
