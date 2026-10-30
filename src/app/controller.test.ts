@@ -1374,7 +1374,7 @@ describe('combat in flight', () => {
     expect(battles.length).toBeGreaterThan(0);
   });
 
-  it('a jump and a landing clear the fight', async () => {
+  it('a jump and a landing clear the fight; the jump keeps the damage, the landing repairs it', async () => {
     const { c, target, events } = await flying();
     target.dispatchEvent(keyEvent('keydown', 'Space'));
     c.update(1 / 60);
@@ -1386,8 +1386,10 @@ describe('combat in flight', () => {
     expect(events.some((e) => e.type === 'jumped')).toBe(true);
     expect(c.combat.battle.systemId).toBe('vesk');
     expect(c.combat.battle.projectiles).toEqual([]);
-    expect(c.combat.battle.player.armor).toBe(c.combat.battle.player.maxArmor);
-    // Landing too.
+    // Jumping out keeps the damage (spec §7).
+    expect(c.combat.battle.player.armor).toBe(30);
+    expect(c.combat.battle.player.shields).toBeLessThan(c.combat.battle.player.maxShields);
+    // Landing clears shots and repairs the ship.
     target.dispatchEvent(keyEvent('keydown', 'Space'));
     c.update(1 / 60);
     target.dispatchEvent(keyEvent('keyup', 'Space'));
@@ -1398,7 +1400,7 @@ describe('combat in flight', () => {
     run(c, LANDING_FX_SEC + 0.05);
     expect(c.landedPlanetId).toBe('tallow-rock');
     expect(c.combat.battle.projectiles).toEqual([]);
-    expect(c.combat.battle.player.shields).toBe(c.combat.battle.player.maxShields);
+    expect(c.combat.battle.player.shields).toBe(c.combat.battle.player.maxShields);    expect(c.combat.battle.player.armor).toBe(c.combat.battle.player.maxArmor);
   });
 
   it('a disabled ship does not thrust or jump; it can call a tow once it is calm', async () => {
@@ -1475,6 +1477,29 @@ describe('combat in flight', () => {
     for (let i = 0; i < 30; i++) c.update(1 / 60);
     expect(c.world.jump).not.toBeNull();
     expect(c.combat.disabledCalmSec).toBe(0);
+  });
+
+  it('a disabled ship cannot jump; one disabled as its jump began arrives still disabled', async () => {
+    // A sound ship at the same spot, past the jump boundary, jumps (the control case).
+    const ok = await flying();
+    const out = { x: -(ok.c.data.systems[ok.c.world.systemId].jumpDistance + 100), y: 0 };
+    ok.c.world = { ...ok.c.world, route: ['vesk'], ship: { ...ok.c.world.ship, pos: out, vel: { x: 0, y: 0 } } };
+    press(ok.c, ok.target, 'KeyJ');
+    run(ok.c, 1);
+    expect(ok.c.world.jump !== null || ok.c.world.systemId === 'vesk').toBe(true);
+    const { c, target } = await flying();
+    c.world = { ...c.world, route: ['vesk'], ship: { ...c.world.ship, pos: out, vel: { x: 0, y: 0 } } };
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true } };
+    press(c, target, 'KeyJ');
+    run(c, 1);
+    expect(c.world.jump).toBeNull();
+    expect(c.world.systemId).not.toBe('vesk');
+    // Disabled while a jump is already under way (hyperspace runs no fight): the damage arrives too.
+    c.world = { ...c.world, jump: { toSystemId: 'vesk', t: 99 } };
+    c.update(1 / 60);
+    expect(c.world.systemId).toBe('vesk');
+    expect(c.combat.playerDisabled()).toBe(true);
+    expect(c.combat.battle.player.armor).toBe(1);
   });
 
   it('a disabled ship cannot answer a hail with Y', async () => {

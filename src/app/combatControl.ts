@@ -92,6 +92,7 @@ export interface DemandOffer {
 /**
  * The fight in the current system, beside the controller's traffic. It is transient: reset on
  * arrival, landing, take-off and load (a landed ship is repaired and saves happen only landed).
+ * An arrival keeps the player's hull: jumping out keeps the damage (spec §7).
  */
 export class CombatControl {
   battle: Battle;
@@ -114,9 +115,15 @@ export class CombatControl {
     this.battle = newBattle(world, data);
   }
 
-  /** A fresh fight for `world`'s system: full hull, no shots in flight, nobody angry. */
-  reset(world: WorldState): void {
-    this.battle = newBattle(world, this.data);
+  /**
+   * A fresh fight for `world`'s system: no shots in flight, nobody angry, no demand or boarding
+   * under way. The hull is repaired (landing, take-off, load) unless `keepHull` (a jump's arrival),
+   * which carries the player's shields, armor and disabled state across as they are.
+   */
+  reset(world: WorldState, opts: { keepHull?: boolean } = {}): void {
+    const hull = this.battle.player;
+    const fresh = newBattle(world, this.data);
+    this.battle = opts.keepHull && !this.battle.playerDestroyed ? { ...fresh, player: hull } : fresh;
     this.disabledCalmSec = 0;
     this.offered.clear();
     this.sessions.clear();
@@ -149,7 +156,8 @@ export class CombatControl {
 
   /** One fight tick, after stepWorld. Returns the new world and traffic and this tick's events. */
   tick(world: WorldState, traffic: Traffic, input: FrameInput, dt: number): { world: WorldState; traffic: Traffic; events: BattleEvent[]; lost: boolean } {
-    if (this.battle.systemId !== world.systemId) this.reset(world);
+    // Only a jump changes the system in flight, and a jump keeps the damage.
+    if (this.battle.systemId !== world.systemId) this.reset(world, { keepHull: true });
     const r = stepBattle(this.battle, world, traffic, input, this.data, dt);
     this.battle = r.battle;
     if (!this.playerDisabled()) this.disabledCalmSec = 0;

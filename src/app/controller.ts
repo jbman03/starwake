@@ -1341,7 +1341,7 @@ export class Controller {
         this.traffic = this.freshTraffic(this.world);
       }
       if (e.type === 'arrived') {
-        this.combat.reset(this.world); // shots in flight stay behind in the old system
+        this.combat.reset(this.world, { keepHull: true }); // shots in flight stay behind in the old system; the damage comes along
         this.refreshStory();
         this.pending = this.rollPending();
         if (this.pending) this.world = { ...this.world, lastEncounterDay: this.world.day };

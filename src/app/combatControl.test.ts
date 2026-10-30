@@ -58,7 +58,7 @@ describe('CombatControl', () => {
     expect(r.events.some((e) => e.type === 'shot' && e.ownerId === 'player')).toBe(true);
   });
 
-  it('clears battle on jump and landing', () => {
+  it('a jump clears the fight but keeps the hull; a landing repairs it', () => {
     const w = mkWorld();
     const c = new CombatControl(data, w);
     c.tick(w, mkTraffic([]), FIRE, DT);
@@ -71,17 +71,27 @@ describe('CombatControl', () => {
       angry: ['concord'],
     };
     c.disabledCalmSec = 3;
-    // Arriving in another system (or landing) starts a fresh battle with a full hull.
+    const hurt = c.battle.player;
+    // Arriving in another system starts a fresh battle, but jumping out keeps the damage (spec §7).
     const there = { ...w, systemId: 'vesk' };
-    c.reset(there);
-    const st = worldStats(there, data);
+    c.reset(there, { keepHull: true });
     expect(c.battle.projectiles).toEqual([]);
     expect(c.battle.beams).toEqual([]);
     expect(c.battle.angry).toEqual([]);
     expect(c.battle.systemId).toBe('vesk');
+    expect(c.battle.player).toEqual(hurt);
+    expect(c.playerDisabled()).toBe(true);
+    expect(c.disabledCalmSec).toBe(0);
+    // A tick in a new system without the controller's reset keeps the hull too.
+    const third = { ...w, systemId: 'calder' };
+    c.tick(third, mkTraffic([]), IDLE, DT);
+    expect(c.battle.systemId).toBe('calder');
+    expect(c.battle.player.armor).toBe(2);
+    // Landing repairs the ship: a full hull.
+    c.reset(there);
+    const st = worldStats(there, data);
     expect(c.battle.player).toEqual(fullHull(st.shields, st.armor));
     expect(c.playerDisabled()).toBe(false);
-    expect(c.disabledCalmSec).toBe(0);
   });
 
   it('disabled player input is ignored', () => {
