@@ -45,7 +45,7 @@ section(s), named in the task.
 | File | Responsibility |
 |---|---|
 | `src/data/schemas.ts`, `data/*.json`, `src/data/load.ts` | weapon, ammo and pod outfits, `crew`, `loadout`, `raiders` government, `startOutfits`, the combat mission field (T1) |
-| `src/sim/weapons.ts` (new) | `weaponsOf`, `launchersOf`, `ammoCap` — what a set of outfits can fire (T1) |
+| `src/sim/weapons.ts` (new) | `weaponsOf`, `ammoCap`, `hasWeapon`, `npcLoadout` — what a set of outfits can fire (T1) |
 | `src/save/pilot.ts`, `src/sim/types.ts`, `src/sim/world.ts` | save v6, kills and captures, `Mission.combat`, start outfits, combat rating (T2) |
 | `src/sim/combat.ts` (new) | hull state, damage, recharge, shots, projectiles, beams, aim (T3) |
 | `src/sim/ai.ts` (new) | NPC decisions (T4) |
