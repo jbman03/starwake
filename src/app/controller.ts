@@ -965,10 +965,12 @@ export class Controller {
     const p = this.pending;
     if (p?.kind !== 'hail' && p?.kind !== 'demand') return;
     const left = p.expiresSec - dt;
-    if (left > 1e-9 && !(p.kind === 'demand' && !this.traffic.npcs.some((n) => n.id === p.npcId))) {
+    const gone = p.kind === 'demand' && !this.traffic.npcs.some((n) => n.id === p.npcId && !n.hull.disabled && n.phase !== 'gone');
+    if (left > 1e-9 && !gone) {
       this.pending = { ...p, expiresSec: left };
     } else if (p.kind === 'demand') {
-      this.answerDemand('refuse'); // unanswered (or the raider is gone): it attacks
+      const msgs = this.answerDemand('refuse'); // unanswered: it attacks (or its hail goes quiet)
+      if (msgs) this.emit({ type: 'message', text: msgs.join(' ') });
     } else {
       this.pending = null;
     }
@@ -1102,13 +1104,15 @@ export class Controller {
   private demandView(p: Extract<PendingEncounter, { kind: 'demand' }>): EncounterView {
     const { credits, cargo } = p.terms;
     const good = cargo ? (this.data.commodities[cargo.good]?.name ?? cargo.good) : '';
+    const spans = cargo ? Object.keys(cargo.take).length > 1 : false;
+    const tons = cargo?.tons ?? this.data.combat.demand.cargoTons;
     return {
       kind: 'hail',
       title: `${p.npcName} demands a toll`,
-      text: `${p.npcName}, a raider, has you in its sights. "Pay ${credits} cr or dump ${this.data.combat.demand.cargoTons} t of cargo, or we attack."`,
+      text: `${p.npcName}, a raider, has you in its sights. "Pay ${credits} cr or dump ${tons} t of cargo, or we attack."`,
       choices: [
         { label: `Pay ${credits} cr`, blocked: this.world.credits >= credits ? null : 'Not enough credits' },
-        { label: cargo ? `Dump ${cargo.tons} t of ${good}` : `Dump ${this.data.combat.demand.cargoTons} t of cargo`, blocked: cargo ? null : 'Hold is empty' },
+        { label: cargo ? `Dump ${cargo.tons} t of ${spans ? `${good} and more` : good}` : `Dump ${tons} t of cargo`, blocked: cargo ? null : 'Hold is empty' },
         { label: 'Refuse', blocked: null },
       ],
     };

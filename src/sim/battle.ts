@@ -21,6 +21,7 @@ import {
   type Projectile,
   type ShotKind,
 } from './combat';
+import { faceInput } from './assists';
 import { stepShip } from './flight';
 import { hashString, mulberry32 } from './random';
 import { JUMP_POINT_MARGIN, SYSTEM_CENTER } from './rules';
@@ -299,6 +300,15 @@ export function stepBattle(
       continue;
     }
     const def = data.ships[n.shipId];
+    if (n.demand) {
+      // A raider awaiting its answer closes to keep range and holds there, silent, until it is resolved.
+      const keep = data.combat.ai[n.role].keepRange;
+      const d = dist(n.ship.pos, world.ship.pos);
+      const face = faceInput(n.ship, world.ship.pos);
+      const ship = stepShip(n.ship, def, { ...face, thrust: d > keep }, dt);
+      next.push({ ...n, ship, thrusting: d > keep, engaged: true });
+      continue;
+    }
     const me = combatantOf(n, data);
     const others = all.filter((c) => c.id !== n.id);
     const d = decide(aiSelfOf(n, me, data), others, battle.angry, fleePoint(n.ship, sys.jumpDistance), data);

@@ -139,6 +139,13 @@ export class CombatControl {
    * (short of credits, no cargo). Refuse: it attacks at once. A raider no longer there just ends.
    */
   resolveDemand(world: WorldState, traffic: Traffic, offer: DemandOffer, answer: 'pay' | 'dump' | 'refuse'): { world: WorldState; traffic: Traffic; messages: string[] } | null {
+    const raider = traffic.npcs.find((n) => n.id === offer.npcId);
+    if (answer !== 'refuse' && (!raider || raider.hull.disabled || raider.phase === 'gone')) {
+      return { world, traffic, messages: [`${offer.npcName}'s hail goes quiet.`] };
+    }
+    if (answer === 'refuse' && (!raider || raider.hull.disabled)) {
+      return { world, traffic, messages: [`${offer.npcName}'s hail goes quiet.`] };
+    }
     let next: WorldState | null = world;
     if (answer === 'pay') next = payCredits(world, offer.terms);
     else if (answer === 'dump') next = dumpCargo(world, offer.terms);

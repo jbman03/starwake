@@ -227,4 +227,31 @@ describe('raider demands', () => {
     expect(find(b.traffic, 'a').demand).toBe(true);
     expect(find(b.traffic, 'b')).toMatchObject({ demand: false, engaged: true });
   });
+
+  it('a disabled raider is not paid', () => {
+    const w = mkWorld({ credits: 2000 });
+    const c = new CombatControl(data, w);
+    const r = c.checkDemands(w, mkTraffic([demander()]), false);
+    const hurt = { ...r.traffic, npcs: r.traffic.npcs.map((n) => ({ ...n, hull: { ...n.hull, disabled: true } })) };
+    const x = c.resolveDemand(w, hurt, r.offer!, 'pay')!;
+    expect(x.world.credits).toBe(2000);
+    expect(x.messages[0]).toContain('goes quiet');
+  });
+
+  it('a waiting raider closes to keep range without firing or leaving', () => {
+    const w = mkWorld();
+    const c = new CombatControl(data, w);
+    let t = c.checkDemands(w, mkTraffic([demander()]), false).traffic;
+    let world = w;
+    for (let i = 0; i < 60 * 20; i++) {
+      const r = c.tick(world, t, IDLE, DT);
+      world = r.world;
+      t = r.traffic;
+      expect(r.events.some((e) => e.type === 'shot')).toBe(false);
+    }
+    const n = t.npcs.find((x) => x.id === 'd1')!;
+    expect(n.engaged).toBe(true);
+    expect(Math.hypot(n.ship.pos.x, n.ship.pos.y)).toBeLessThan(data.combat.ai.raider.keepRange * 1.5);
+    expect(world.credits).toBe(w.credits);
+  });
 });

@@ -1528,17 +1528,13 @@ describe('raider demands in flight', () => {
     expect(a.c.pending).toBeNull();
     expect(npc(a.c, a.id)).toMatchObject({ engaged: true, demand: false, peaceful: false });
     const b = await demanding();
-    const hold = (sec: number) => {
-      for (let i = 0; i < Math.round(sec * 60); i++) {
-        b.c.traffic = { ...b.c.traffic, npcs: b.c.traffic.npcs.map((n) => (n.id === b.id ? { ...n, phaseT: 0, ship: { ...n.ship, vel: { x: 0, y: 0 } } } : n)) };
-        b.c.update(1 / 60);
-      }
-    };
-    hold(14);
+    run(b.c, 14);
     expect(b.c.pending?.kind).toBe('demand');
-    hold(2);
+    expect(npc(b.c, b.id)).toBeDefined(); // it did not leave while waiting
+    run(b.c, 2);
     expect(b.c.pending).toBeNull();
-    expect(npc(b.c, b.id).demand).toBe(false);
+    expect(npc(b.c, b.id)).toMatchObject({ demand: false, engaged: true });
+    expect(b.c.traffic.systemId).toBe(b.c.world.systemId);
     expect(b.c.combat.isHostile(npc(b.c, b.id), b.c.world)).toBe(true);
   });
 });
