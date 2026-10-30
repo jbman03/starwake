@@ -60,7 +60,7 @@ describe('contextAction', () => {
     expect(contextAction(at(newWorld(data), { x: h.pos.x, y: h.pos.y - 600 }), data)).toBe('land');
     expect(contextAction({ ...w, assist: { kind: 'autoStop' } }, data)).toBeNull();
     expect(contextAction({ ...w, assist: { kind: 'face' } }, data)).toBeNull();
-    expect(contextAction({ ...w, jump: { toSystemId: 'vesk', t: 0.2 } }, data)).toBeNull();
+    expect(contextAction({ ...w, jump: { toSystemId: 'vesk', phase: 'charge', t: 0.2 } }, data)).toBeNull();
   });
 
   it('land beats autopilotOut when a planet is in range', () => {
@@ -143,7 +143,7 @@ describe('contextAction', () => {
   });
 
   it('null while jumping', () => {
-    const w = { ...at(newWorld(data), { x: 2100, y: 0 }), jump: { toSystemId: 'vesk', t: 0.5 } };
+    const w = { ...at(newWorld(data), { x: 2100, y: 0 }), jump: { toSystemId: 'vesk', phase: 'charge' as const, t: 0.5 } };
     expect(contextAction(w, data)).toBeNull();
   });
 

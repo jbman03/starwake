@@ -139,7 +139,7 @@ describe('canJump / jumpPoint', () => {
     });
   });
   it('jumping while a jump is in progress', () => {
-    const w = mkWorld({ jump: { toSystemId: 'vesk', t: 0.2 } }, { pos: { x: 2100, y: 0 } });
+    const w = mkWorld({ jump: { toSystemId: 'vesk', phase: 'charge', t: 0.2 } }, { pos: { x: 2100, y: 0 } });
     expect(canJump(w, data)).toEqual({ ok: false, reason: 'jumping' });
   });
   it('jump point lies at jumpDistance+50 toward the destination', () => {

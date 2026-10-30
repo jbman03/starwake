@@ -6,7 +6,7 @@ import { HIDDEN_LANE_FLAG, lanesOf, routeBetween } from './galaxy';
 import { buyShip, shipQuote } from './shipyard';
 import { addNote, hasFlag, setFlag } from './story';
 import type { WorldState } from './types';
-import { JUMP_DURATION, newWorld, stepWorld } from './world';
+import { jumpFixedSec, newWorld, stepWorld } from './world';
 
 const w0 = newWorld(testData(), 1);
 
@@ -93,11 +93,14 @@ describe('the survey-ship thread', () => {
   });
 
   it('charts two jumps on every arrival once she is flown', () => {
-    const w0 = rich({ systemId: 'oxbow', shipId: 'patience', known: ['oxbow'], seen: [], jump: { toSystemId: 'redwater', t: 0 } });
-    const w = stepWorld(w0, data, { pressed: new Set(), held: new Set() } as never, JUMP_DURATION, { autoLandOnArrival: false }).world;
+    const w0 = rich({ systemId: 'oxbow', shipId: 'patience', known: ['oxbow'], seen: [], jump: { toSystemId: 'redwater', phase: 'align', t: 0 } });
+    // One step long enough for every phase, align at its longest included.
+    const whole = jumpFixedSec(data) + data.config.jump.alignMaxSec;
+    const w = stepWorld(w0, data, { pressed: new Set(), held: new Set() } as never, whole, { autoLandOnArrival: false }).world;
     expect(w.systemId).toBe('redwater');
+    expect(w.jump).toBeNull();
     for (const id of ['redwater', 'skerry', 'saltmarsh', 'oxbow', 'cinderfall', 'brackwater', 'dunmore']) expect(w.known).toContain(id);
-    const plain = stepWorld({ ...w0, shipId: 'shuttle' }, data, { pressed: new Set(), held: new Set() } as never, JUMP_DURATION, { autoLandOnArrival: false }).world;
+    const plain = stepWorld({ ...w0, shipId: 'shuttle' }, data, { pressed: new Set(), held: new Set() } as never, whole, { autoLandOnArrival: false }).world;
     expect(plain.known).not.toContain('brackwater');
   });
 });

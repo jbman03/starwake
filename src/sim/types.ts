@@ -52,6 +52,9 @@ export interface Mission {
   combat?: { kind: 'bounty' | 'clear'; systemId: string; shipId?: string; targetName?: string; needed: number; done: number };
 }
 
+/** The stages of a hyperspace jump, in order (spec §4.1). */
+export type JumpPhase = 'align' | 'charge' | 'burn' | 'flash' | 'arrive';
+
 export interface WorldState {
   systemId: string;
   ship: ShipState;
@@ -59,7 +62,11 @@ export interface WorldState {
   credits: number;
   targetPlanetId: string | null;
   assist: Assist;
-  jump: { toSystemId: string; t: number } | null;
+  /**
+   * A jump under way: `t` is seconds into `phase`. Set from the press until the end of `arrive`; during
+   * `arrive` the ship is already in `toSystemId` (`systemId === toSystemId`).
+   */
+  jump: { toSystemId: string; phase: JumpPhase; t: number } | null;
   timeSec: number;
   /** In-game day; day 0 is 1 Mar 3207. Advances only on jumps and tows. */
   day: number;
@@ -108,7 +115,9 @@ export type SimEvent =
   | { type: 'jumped'; toSystemId: string }
   | { type: 'message'; text: string }
   | { type: 'towed'; planetId: string }
-  | { type: 'arrived'; systemId: string; day: number };
+  | { type: 'arrived'; systemId: string; day: number }
+  /** Emitted once on entering each jump phase, `align` (the press) included. */
+  | { type: 'jumpPhase'; phase: JumpPhase };
 
 export interface FrameInput {
   /** Actions currently held. */

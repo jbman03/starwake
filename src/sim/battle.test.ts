@@ -122,7 +122,7 @@ describe('player fire', () => {
     const s0 = begin(w, mkTraffic([]));
     const dis = tick({ ...s0, b: { ...s0.b, player: { ...s0.b.player, disabled: true, armor: 1 } } }, FIRE, 5);
     expect(dis.b.projectiles).toHaveLength(0);
-    const jumping = tick(begin({ ...w, jump: { toSystemId: 'x', t: 0 } }, mkTraffic([])), FIRE, 5);
+    const jumping = tick(begin({ ...w, jump: { toSystemId: 'x', phase: 'align', t: 0 } }, mkTraffic([])), FIRE, 5);
     expect(jumping.b.projectiles).toHaveLength(0);
   });
   it('a lance beam traces instantly and hurts what it hits', () => {

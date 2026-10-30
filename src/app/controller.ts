@@ -60,6 +60,7 @@ import {
   autopilotToSite,
   departFrom,
   interruptAutopilot,
+  jumpEndPos,
   newWorld,
   setRoute,
   stepWorld,
@@ -703,13 +704,13 @@ export class Controller {
     }
   }
 
-  /** A new system's traffic, with the target of each active bounty there waiting 700-1,200 px from the ship. */
+  /** A new system's traffic, with the target of each active bounty there waiting 700-1,200 px from the ship (where it ends the jump). */
   private freshTraffic(world: WorldState): Traffic {
     let t = seedTraffic(world, this.data, this.trafficOpts());
     for (const m of bountyToSpawn(world, world.systemId)) {
       const id = bountyNpcId(m);
       if (t.npcs.some((n) => n.id === id)) continue;
-      t = addBountyNpc(t, { id, name: m.combat!.targetName ?? 'Wanted ship', shipId: m.combat!.shipId!, missionId: m.id, pos: bountySpawnPos(world, this.data, m, world.ship.pos) }, this.data);
+      t = addBountyNpc(t, { id, name: m.combat!.targetName ?? 'Wanted ship', shipId: m.combat!.shipId!, missionId: m.id, pos: bountySpawnPos(world, this.data, m, jumpEndPos(world, this.data)) }, this.data);
     }
     return t;
   }
@@ -932,7 +933,7 @@ export class Controller {
     if (def.kind === 'hail') return { def, npcName, kind: 'hail', expiresSec: HAIL_SECONDS };
     const angle = r() * Math.PI * 2;
     const d = SITE_MIN_DIST + r() * SITE_SPREAD;
-    const ship = this.world.ship.pos;
+    const ship = jumpEndPos(this.world, this.data); // where the arrive phase leaves the ship
     return { def, npcName, kind: 'site', pos: { x: ship.x + Math.cos(angle) * d, y: ship.y + Math.sin(angle) * d } };
   }
 

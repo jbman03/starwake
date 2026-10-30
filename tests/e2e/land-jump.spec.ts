@@ -51,7 +51,9 @@ test('new pilot, land with autosave, leave, autopilot out, jump, pause', async (
 
   const fuel0 = await page.evaluate(() => window.__starwake!.world().ship.fuel);
   await page.keyboard.press('KeyJ');
-  await page.waitForTimeout(1500);
+  await page.waitForFunction(() => window.__starwake!.world().jump !== null);
+  // The jump runs its phases (about 2 s); wait for the arrive phase to end.
+  await page.waitForFunction(() => window.__starwake!.world().jump === null, null, { timeout: 10_000 });
   const w = await page.evaluate(() => window.__starwake!.world());
   expect(w.systemId).toBe('vesk');
   expect(w.ship.fuel).toBe(fuel0 - 100);

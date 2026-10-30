@@ -7,7 +7,7 @@ import { pointerTypeOf, resolveShipPress } from '../input/pointer';
 import { computeLayout, type Rect } from '../input/touch';
 import { SYSTEM_CENTER } from '../sim/rules';
 import { npcLabel, targetedNpc } from '../sim/traffic';
-import { JUMP_DURATION } from '../sim/world';
+import { jumpProgress } from '../sim/world';
 import { skipLabel } from '../guide/guide';
 import { hotkeyFor } from '../ui/dom';
 import { formatMessage } from '../ui/messageText';
@@ -501,8 +501,10 @@ export class SpaceScene extends Phaser.Scene {
    */
   private drawJumpFx(x: number, y: number): void {
     const { jump, ship } = this.controller.world;
-    if (jump) {
-      const t = Math.min(1, jump.t / JUMP_DURATION);
+    if (jump && jump.phase !== 'arrive') {
+      // Streaks grow through charge and burn; the flash fills the last quarter (the arrive phase plays the arrival below).
+      const p = jumpProgress(jump, this.controller.data);
+      const t = jump.phase === 'align' ? 0 : jump.phase === 'charge' ? 0.25 * p : jump.phase === 'burn' ? 0.25 + 0.5 * p : 0.75 + 0.25 * p;
       this.drawStreaks(x, y, ship.heading, t, 1, 28);
       this.drawFlash(t > 0.75 ? (t - 0.75) / 0.25 : 0);
     } else if (this.arrivalLeft > 0) {

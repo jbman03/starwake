@@ -36,6 +36,12 @@ describe('stepShip', () => {
     const s = run(rest(), { thrust: false, turn: -1, targetHeading: 1 }, 2);
     expect(s.heading).toBeCloseTo(1, 9);
   });
+  it('thrustMul scales the push and maxSpeed overrides the cap', () => {
+    expect(stepShip(rest(), def, { thrust: true, turn: 0 }, 1, { thrustMul: 3 }).vel.x).toBeCloseTo(300, 9);
+    const fast = { ...rest(), vel: { x: 300, y: 0 } };
+    expect(stepShip(fast, def, { thrust: true, turn: 0 }, 1, { thrustMul: 3, maxSpeed: Infinity }).vel.x).toBeCloseTo(750, 9);
+    expect(stepShip(fast, def, { thrust: true, turn: 0 }, 1, { thrustMul: 3 }).vel.x).toBeCloseTo(300, 9);
+  });
   it('does not mutate input', () => {
     const s = rest();
     stepShip(s, def, { thrust: true, turn: 1 }, 0.1);

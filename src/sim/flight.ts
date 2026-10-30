@@ -19,7 +19,17 @@ export function turnToward(heading: number, target: number, maxDelta: number): n
   return wrap(heading + Math.sign(diff) * maxDelta);
 }
 
-export function stepShip(ship: ShipState, def: ShipDef, input: FlightInput, dt: number): ShipState {
+/**
+ * One flight step. `opts.thrustMul` scales the ship's acceleration and `opts.maxSpeed` replaces its
+ * speed cap (the jump's burn uses both: a harder push with no cap).
+ */
+export function stepShip(
+  ship: ShipState,
+  def: ShipDef,
+  input: FlightInput,
+  dt: number,
+  opts: { thrustMul?: number; maxSpeed?: number } = {},
+): ShipState {
   const maxTurn = (def.turnRate * Math.PI / 180) * dt;
   const heading =
     input.targetHeading !== undefined
@@ -28,9 +38,10 @@ export function stepShip(ship: ShipState, def: ShipDef, input: FlightInput, dt: 
 
   let vel = ship.vel;
   if (input.thrust) {
-    vel = add(vel, scale(fromAngle(heading), def.acceleration * dt));
+    vel = add(vel, scale(fromAngle(heading), def.acceleration * (opts.thrustMul ?? 1) * dt));
+    const cap = opts.maxSpeed ?? def.maxSpeed;
     const speed = len(vel);
-    if (speed > def.maxSpeed) vel = scale(vel, def.maxSpeed / speed);
+    if (speed > cap) vel = scale(vel, cap / speed);
   }
   return { pos: add(ship.pos, scale(vel, dt)), vel: { ...vel }, heading, fuel: ship.fuel };
 }
