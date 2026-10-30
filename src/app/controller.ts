@@ -1092,7 +1092,8 @@ export class Controller {
     const p = this.pending;
     if (p?.kind !== 'hail' && p?.kind !== 'demand') return;
     const left = p.expiresSec - dt;
-    const gone = p.kind === 'demand' && !this.traffic.npcs.some((n) => n.id === p.npcId && !n.hull.disabled && n.phase !== 'gone');
+    // A demand ends early when its raider is gone, disabled, or no longer waiting (it was shot, and fights).
+    const gone = p.kind === 'demand' && !this.traffic.npcs.some((n) => n.id === p.npcId && !n.hull.disabled && n.phase !== 'gone' && n.demand);
     if (left > 1e-9 && !gone) {
       this.pending = { ...p, expiresSec: left };
     } else if (p.kind === 'demand') {

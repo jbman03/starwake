@@ -217,6 +217,16 @@ describe('npc fire and the player hull', () => {
     const s = tick(begin(mkWorld(), mkTraffic([])), FIRE, 600);
     expect(s.events.filter((e) => e.type === 'shot')).toHaveLength(40);
   });
+  it('a hit on a raider waiting on its demand ends the demand, and it fights back', () => {
+    const waiting = raider({ demand: true, ship: { pos: { x: 120, y: 0 }, vel: { x: 0, y: 0 }, heading: Math.PI, fuel: 0 } });
+    let s = tick(begin(mkWorld(), mkTraffic([waiting], 'r1')), IDLE, 30);
+    expect(s.events.some((e) => e.type === 'shot' && e.ownerId === 'r1')).toBe(false); // silent while it waits
+    s = tick(s, FIRE, 20);
+    expect(count(s, 'hit')).toBeGreaterThan(0);
+    expect(npc(s, 'r1')).toMatchObject({ demand: false, engaged: true });
+    s = tick(s, IDLE, 60);
+    expect(s.events.some((e) => e.type === 'shot' && e.ownerId === 'r1')).toBe(true);
+  });
   it('a demanding raider is not picked by nearestHostile', () => {
     const w = mkWorld();
     const t = mkTraffic([mkNpc('r1', 'raiders', 100, 0, { peaceful: false, demand: true })]);

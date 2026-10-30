@@ -1584,6 +1584,24 @@ describe('raider demands in flight', () => {
     expect(b.c.traffic.systemId).toBe(b.c.world.systemId);
     expect(b.c.combat.isHostile(npc(b.c, b.id), b.c.world)).toBe(true);
   });
+
+  it('shooting the raider while it waits ends the demand: it attacks, and the hail closes', async () => {
+    const { c, id } = await demanding();
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    expect(c.pending?.kind).toBe('demand');
+    // A bolt from the player lands on it.
+    const at = { ...npc(c, id).ship.pos };
+    c.combat.battle = {
+      ...c.combat.battle,
+      projectiles: [{ id: 97, ownerId: 'player', targetId: id, kind: 'bolt', pos: at, vel: { x: 0, y: 0 }, damage: 1, ttl: 1, turnRate: 0 }],
+    };
+    c.update(1 / 60);
+    expect(npc(c, id)).toMatchObject({ demand: false, engaged: true, peaceful: false });
+    expect(c.pending).toBeNull();
+    expect(said.some((t) => t.includes(`${npc(c, id).name} attacks.`))).toBe(true);
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(true);
+  });
 });
 
 describe('combat jobs in flight', () => {

@@ -419,6 +419,8 @@ export function stepBattle(
     if (!n || dead.has(n.id)) continue;
     const r = applyDamage(n.hull, h.damage, now);
     let updated: Npc = { ...n, hull: r.hull, aggro: n.aggro.includes(h.ownerId) ? n.aggro : [...n.aggro, h.ownerId] };
+    // A raider shot while it waits on its demand stops waiting and fights (the controller closes its hail as refused).
+    if (updated.demand) updated = { ...updated, demand: false, engaged: true };
     events.push({ type: 'hit', targetId: n.id, shield: r.shieldHit, pos: h.pos });
     if (byPlayer && !isRaider(n)) {
       const a = angerOnHit(standing, angry, n, r.disabledNow || r.destroyed);
