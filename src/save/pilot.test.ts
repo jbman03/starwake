@@ -243,6 +243,26 @@ describe('save v6', () => {
     expect(worldFromPilot(up, data).outfits['light-blaster']).toBe(1);
   });
 
+  it('v5 shuttle pilot with any pre-v6 outfit gets the gun when it fits', () => {
+    expect(upgradeSave(v5Of({ shipId: 'shuttle', outfits: { 'armor-plate': 1 } })).outfits).toEqual({ 'armor-plate': 1, 'light-blaster': 1 });
+    expect(upgradeSave(v5Of({ shipId: 'shuttle', outfits: { 'shield-booster': 1, 'fuel-tank': 1 } })).outfits).toEqual({ 'shield-booster': 1, 'fuel-tank': 1, 'light-blaster': 1 });
+    expect(upgradeSave(v5Of({ shipId: 'shuttle', outfits: { 'fuel-scoop': 1, 'surveyors-folio': 1, 'keepers-lens': 1 } })).outfits).toEqual({
+      'fuel-scoop': 1, 'surveyors-folio': 1, 'keepers-lens': 1, 'light-blaster': 1,
+    });
+    // No room: 5 + 4 t leaves 1 t.
+    expect(upgradeSave(v5Of({ shipId: 'shuttle', outfits: { 'armor-plate': 1, 'shield-booster': 1 } })).outfits).toEqual({ 'armor-plate': 1, 'shield-booster': 1 });
+  });
+
+  it('the migration knows the space of every outfit that existed before v6', () => {
+    const pre = ['cargo-pod', 'fuel-tank', 'local-chart', 'armor-plate', 'shield-booster', 'fuel-scoop', 'cargo-bay', 'extended-tank', 'salvage-tank',
+      'frontier-rack', 'reinforced-plating', 'heavy-armor', 'shield-array', 'surveyors-folio', 'house-rack', 'cold-hold', 'keepers-lens'];
+    for (const id of pre) {
+      const space = data.outfits[id].space;
+      const gets = space + 3 <= 10;
+      expect(upgradeSave(v5Of({ shipId: 'shuttle', outfits: { [id]: 1 } })).outfits['light-blaster'] ?? 0, id).toBe(gets ? 1 : 0);
+    }
+  });
+
   it('migration skips the gun when space is full', () => {
     const up = upgradeSave(v5Of({ shipId: 'shuttle', outfits: { 'cargo-pod': 2 } }));
     expect(up.outfits).toEqual({ 'cargo-pod': 2 });

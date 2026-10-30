@@ -104,7 +104,26 @@ export type PilotSave = z.infer<typeof PilotSaveSchema>;
 /** Fixed facts for the v5 -> v6 migration, which must not read game data. */
 const SHUTTLE_SPACE = 10;
 const STARTER_GUN_SPACE = 3;
-const STARTER_ERA_SPACE: Record<string, number> = { 'cargo-pod': 5, 'fuel-tank': 3, 'salvage-tank': 6, 'frontier-rack': 5, 'local-chart': 0 };
+/** The space (t) of every outfit that existed before v6. An id not listed here skips the gift. */
+const STARTER_ERA_SPACE: Record<string, number> = {
+  'cargo-pod': 5,
+  'fuel-tank': 3,
+  'local-chart': 0,
+  'armor-plate': 5,
+  'shield-booster': 4,
+  'fuel-scoop': 6,
+  'cargo-bay': 15,
+  'extended-tank': 8,
+  'salvage-tank': 6,
+  'frontier-rack': 5,
+  'reinforced-plating': 6,
+  'heavy-armor': 10,
+  'shield-array': 8,
+  'surveyors-folio': 0,
+  'house-rack': 5,
+  'cold-hold': 8,
+  'keepers-lens': 0,
+};
 
 /** Keyed by the version being upgraded FROM; each returns the next version's shape. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
