@@ -15,7 +15,7 @@ import { showBoardingCard } from './boardingCard';
 const DT = 1 / 60;
 
 /** A controller flying beside a disabled raider `shipId` 30 px away, whose capture attempt `succeeds` (or not). */
-async function setup(opts: { shipId?: string; capture?: boolean; mine?: Record<string, number> } = {}) {
+async function setup(opts: { shipId?: string; capture?: boolean; mine?: Record<string, number>; trader?: boolean } = {}) {
   const data = await loadGameData();
   const shipId = opts.shipId ?? 'shuttle';
   let world = newWorld(data, 1);
@@ -34,7 +34,7 @@ async function setup(opts: { shipId?: string; capture?: boolean; mine?: Record<s
   c.traffic = {
     ...r.traffic,
     npcs: r.traffic.npcs.map((n) =>
-      n.id === r.id ? { ...n, engaged: false, hull: { ...n.hull, armor: 1, disabled: true }, ship: { ...n.ship, pos: { x: c.world.ship.pos.x + 30, y: c.world.ship.pos.y }, vel: { ...c.world.ship.vel } } } : n,
+      n.id === r.id ? { ...n, role: opts.trader ? ('trader' as const) : n.role, engaged: false, hull: { ...n.hull, armor: 1, disabled: true }, ship: { ...n.ship, pos: { x: c.world.ship.pos.x + 30, y: c.world.ship.pos.y }, vel: { ...c.world.ship.vel } } } : n,
     ),
   };
   const root = document.createElement('div');
@@ -79,34 +79,49 @@ describe('boarding card', () => {
     expect(btn(/Take cargo \(\d+ t\)/)).toBeTruthy();
     expect(btn(/Take ammo \(\d+\)/)).toBeTruthy();
     expect(btn(/Attempt capture \(\d+%\)/)).toBeTruthy();
-    expect(btn(/Leave/)).toBeTruthy();
-    expect(root.textContent).toMatch(/\b1\b/);
+    const keys = [...root.querySelectorAll('[data-testid="boarding-choice"] .sw-key')].map((k) => k.textContent);
+    expect(keys).toEqual(['1', '2', '3', '4', '5']);
+    expect(btn(/Leave/).querySelector('.sw-key')?.textContent).toBe('5');
   });
 
-  it('take cargo then leave resumes flight', async () => {
-    const { c, root, open, press, btn } = await setup();
-    const before = c.world.credits;
+  it('take cargo with hotkey 2, then leave resumes flight', async () => {
+    const { c, root, open, press, btn } = await setup({ shipId: 'mule', trader: true });
     open();
-    const row = btn(/Take credits/);
-    row.click();
-    expect(c.world.credits).toBeGreaterThan(before);
-    expect(btn(/Take credits/).disabled).toBe(true);
+    const held = () => Object.values(c.world.cargo).reduce((a, b) => a + b, 0);
+    expect(held()).toBe(0);
+    press('encounterChoice2');
+    expect(held()).toBeGreaterThan(0);
+    expect(btn(/Take cargo/).disabled).toBe(true);
+    const gained = held();
+    press('encounterChoice2');
+    expect(held()).toBe(gained);
     expect(root.querySelector('[data-testid="boarding-card"]')).not.toBeNull();
     press('encounterChoice5'); // Leave
     expect(c.isFlying).toBe(true);
     expect(root.querySelector('[data-testid="boarding-card"]')).toBeNull();
   });
 
-  it('hotkey 2 takes cargo; a used row cannot be taken twice', async () => {
+  it('take credits with hotkey 1 once; Esc leaves', async () => {
     const { c, open, press } = await setup({ shipId: 'mule' });
     open();
-    const view = c.boardingView()!;
-    expect(view.rows.map((r) => r.id)).toEqual(['credits', 'cargo', 'ammo', 'capture']);
+    const before = c.world.credits;
     press('encounterChoice1');
     const credits = c.world.credits;
+    expect(credits).toBeGreaterThan(before);
     press('encounterChoice1');
     expect(c.world.credits).toBe(credits);
-    expect(c.boardingView()!.rows[0].used).toBe(true);
+    expect(c.boardingView()!.rows.map((r) => r.id)).toEqual(['credits', 'cargo', 'ammo', 'capture']);
+    press('back');
+    expect(c.isFlying).toBe(true);
+  });
+
+  it('take ammo with hotkey 3 fills a launcher', async () => {
+    const { c, open, press } = await setup({ shipId: 'kestrel', mine: { 'rocket-rack': 1 } });
+    open();
+    expect(c.world.outfits.rocket ?? 0).toBe(0);
+    press('encounterChoice3');
+    expect(c.world.outfits.rocket).toBeGreaterThan(0);
+    expect(c.boardingView()!.rows[2].used).toBe(true);
   });
 
   it('capture success shows command and prize', async () => {
@@ -172,6 +187,8 @@ describe('boarding card', () => {
     press('encounterChoice4');
     expect(root.textContent).toContain('The crew drives your party off.');
     expect(btn(/Attempt capture/).disabled).toBe(true);
+    for (const re of [/Take credits/, /Take cargo/, /Take ammo/]) expect(btn(re).disabled).toBe(true);
+    expect(btn(/Leave/).disabled).toBe(false);
     press('back');
     expect(c.isFlying).toBe(true);
     run(2.5);

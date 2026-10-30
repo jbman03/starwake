@@ -131,7 +131,7 @@ export class CombatControl {
 
   /** Disabled long enough with no hostile near to call a tow. */
   disabledCalm(): boolean {
-    return this.playerDisabled() && this.disabledCalmSec >= CALM_SEC - 1e-9;
+    return this.playerDisabled() && !this.battle.playerDestroyed && this.disabledCalmSec >= CALM_SEC - 1e-9;
   }
 
   /**
@@ -202,9 +202,9 @@ export class CombatControl {
       shipLabel: `${npc.name} (${this.data.ships[npc.shipId].name})`,
       stage: s.stage,
       rows: [
-        { id: 'credits', label: `Take credits (${s.loot.credits} cr)`, blocked: s.loot.credits <= 0 ? 'Nothing aboard' : null, used: s.used.has('credits') },
-        { id: 'cargo', label: `Take cargo (${cargoT} t)`, blocked: cargoT <= 0 ? 'No cargo aboard' : null, used: s.used.has('cargo') },
-        { id: 'ammo', label: `Take ammo (${ammoN})`, blocked: ammoN <= 0 ? 'No ammo aboard' : null, used: s.used.has('ammo') },
+        { id: 'credits', label: `Take credits (${s.loot.credits} cr)`, blocked: s.loot.credits <= 0 ? 'Nothing aboard' : null, used: s.used.has('credits') || s.tried },
+        { id: 'cargo', label: `Take cargo (${cargoT} t)`, blocked: cargoT <= 0 ? 'No cargo aboard' : null, used: s.used.has('cargo') || s.tried },
+        { id: 'ammo', label: `Take ammo (${ammoN})`, blocked: ammoN <= 0 ? 'No ammo aboard' : null, used: s.used.has('ammo') || s.tried },
         { id: 'capture', label: `Attempt capture (${Math.round(captureOdds(world, this.data, npc) * 100)}%)`, blocked: null, used: done },
       ],
       commandBlocked: check.ok ? null : COMMAND_BLOCK_TEXT[check.reason],
@@ -275,11 +275,6 @@ export class CombatControl {
   private endBoarding(id: string): void {
     this.sessions.delete(id);
     this.boardingId = null;
-  }
-
-  /** The player was destroyed and the 2 s are up (the Destroyed card is showing or about to). */
-  isLost(): boolean {
-    return this.battle.playerDestroyed;
   }
 
   /** The ship Board would board: the target if it can be boarded, else the nearest that can; null when disabled. */

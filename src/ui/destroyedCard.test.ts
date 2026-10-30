@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto';
 import { createStore } from 'idb-keyval';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Controller } from '../app/controller';
+import { Controller, MSG_USED_BACKUP } from '../app/controller';
 import { loadGameData } from '../data/load';
 import type { ActionId } from '../input/actions';
 import { InputMode } from '../input/mode';
@@ -67,6 +67,28 @@ describe('destroyed event', () => {
     const ticks = destroy();
     expect(ticks).toBeGreaterThanOrEqual(119);
     expect(ticks).toBeLessThanOrEqual(122);
+  });
+});
+
+describe('after destruction', () => {
+  it('no tow can be called in the 2 s window', async () => {
+    const { c } = await setup();
+    c.update(DT);
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 0, disabled: true }, playerDestroyed: true };
+    for (let i = 0; i < 100; i++) c.update(DT);
+    c.combat.disabledCalmSec = 99;
+    expect(c.towDestination()).toBeNull();
+    expect(c.callTow()).toBe(false);
+    expect(c.deathView()).not.toBeNull();
+  });
+
+  it('the used-backup notice reaches the planet screen', async () => {
+    const { c, store, destroy } = await setup({ pod: false });
+    const real = store.load.bind(store);
+    c.store = { save: (p) => store.save(p), load: async (id) => ({ ...(await real(id)), usedBackup: true }) };
+    destroy();
+    await c.continueAfterDeath();
+    expect(c.takeNotices()).toContain(MSG_USED_BACKUP);
   });
 });
 
