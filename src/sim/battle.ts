@@ -44,6 +44,8 @@ export interface Battle {
   /** Governments hostile to the player this visit. */
   angry: string[];
   nextShotId: number;
+  /** The player's hull has been destroyed (set once, with the playerDestroyed event). */
+  playerDestroyed: boolean;
 }
 
 export type BattleEvent =
@@ -79,6 +81,7 @@ export function newBattle(world: WorldState, data: GameData): Battle {
     secondary: loadedLaunchers(world.outfits, data)[0] ?? null,
     angry: [],
     nextShotId: 1,
+    playerDestroyed: false,
   };
 }
 
@@ -131,7 +134,7 @@ export function nearestHostile(world: WorldState, traffic: Traffic, b: Battle): 
   for (const n of traffic.npcs) {
     if (!isTargetable(n) || n.hull.disabled) continue;
     const me: Combatant = { id: n.id, government: n.government, ship: n.ship, radius: 0, hull: n.hull, outfits: n.outfits };
-    const self: AiSelf = { role: n.role, me, peaceful: n.peaceful, aggro: n.aggro, maxSpeed: 0, fireRange: 0 };
+    const self: AiSelf = { role: n.role, me, peaceful: n.peaceful || n.demand, aggro: n.aggro, maxSpeed: 0, fireRange: 0 };
     if (!isHostileTo(self, player, b.angry)) continue;
     const d = dist(world.ship.pos, n.ship.pos);
     if (d < bestD) {
@@ -188,7 +191,7 @@ function firePrimary(
       const origin = add(c.ship.pos, scale(fromAngle(c.ship.heading + Math.PI / 2), across * (c.radius / 2)));
       t.projectiles.push(spawnBolt(id, c.id, target?.id ?? null, { ...c.ship, pos: origin }, heading, def));
     }
-    t.cooldowns[key] = 1 / def.effect.rate;
+    t.cooldowns[key] = (t.cooldowns[key] ?? 0) + 1 / def.effect.rate;
     t.events.push({ type: 'shot', ownerId: c.id, kind: 'bolt' });
   }
   if (!on.beams) return;
@@ -211,7 +214,7 @@ function fireLauncher(t: Tick, c: Combatant, launcherId: string, target: Combata
   if (!ammo || ammo.category !== 'ammo' || !hasAmmo(outfits, ammoId) || !ready(t, key)) return outfits;
   const kind = ammo.effect.turnRate > 0 ? 'seeker' : 'rocket';
   t.projectiles.push(spawnAmmo(t.nextShotId++, c.id, target?.id ?? null, c.ship, kind, ammo));
-  t.cooldowns[key] = 1 / def.effect.rate;
+  t.cooldowns[key] = (t.cooldowns[key] ?? 0) + 1 / def.effect.rate;
   t.events.push({ type: 'shot', ownerId: c.id, kind });
   const left = { ...outfits, [ammoId]: outfits[ammoId] - 1 };
   if (left[ammoId] <= 0) delete left[ammoId];
@@ -246,7 +249,7 @@ export function stepBattle(
     seed: world.seed,
     dt,
   };
-  for (const [k, v] of Object.entries(b.cooldowns)) if (v - dt > 0) t.cooldowns[k] = v - dt;
+  for (const [k, v] of Object.entries(b.cooldowns)) if (v > 0) t.cooldowns[k] = v - dt; // a small negative remainder carries into the next shot, so the fire rate is exact
 
   // 1. Recharge every hull.
   let playerHull = rechargeHull(b.player, dt, now);
@@ -254,19 +257,20 @@ export function stepBattle(
   let npcs: Npc[] = traffic.npcs.map((n) => (isTargetable(n) ? { ...n, hull: rechargeHull(n.hull, dt, now) } : n));
   let outfits = world.outfits;
 
-  /** A destroyed player hull is marked with armor -1 (applyDamage alone would report `destroyed` again on every later hit). */
-  const alive = (h: Hull) => h.armor >= 0;
+  let playerDead = b.playerDestroyed;
+  const alive = (h: Hull) => h.armor > 0 || h.disabled; // a disabled hull can still be shot to pieces
   const playerC = (): Combatant => playerCombatant({ ...battle, player: playerHull }, world, data);
   /** Who can be hit right now: the player and every targetable NPC that is not already wrecked. */
   const combatants = (): Combatant[] => [
-    ...(alive(playerHull) ? [playerC()] : []),
+    ...(!playerDead ? [playerC()] : []),
     ...npcs.filter((n) => isTargetable(n) && alive(n.hull)).map((n) => combatantOf(n, data)),
   ];
   const targetNpc = npcs.find((n) => n.id === traffic.targetId && isTargetable(n) && alive(n.hull));
 
   // 2. Player fire.
+  // TODO(task 9): drop this cast once the cycleSecondary action exists in ActionId.
   if ((input.pressed as ReadonlySet<string>).has(CYCLE_SECONDARY)) battle = cycleSecondary(battle, world, data);
-  if (!world.jump && !playerHull.disabled && alive(playerHull)) {
+  if (!world.jump && !playerHull.disabled && !playerDead) {
     const me = playerC();
     const victims = combatants().filter((c) => c.id !== PLAYER_ID);
     const target = targetNpc ? combatantOf(targetNpc, data) : null;
@@ -282,7 +286,8 @@ export function stepBattle(
   const sys = data.systems[world.systemId];
   const flee: string[] = [];
   const next: Npc[] = [];
-  const all = combatants();
+  // Hostiles keep shooting a disabled player, so decide() sees the player's hull as not disabled.
+  const all = combatants().map((c) => (c.id === PLAYER_ID ? { ...c, hull: { ...c.hull, disabled: false } } : c));
   for (const n of npcs) {
     if (!isTargetable(n)) {
       next.push(n);
@@ -354,7 +359,7 @@ export function stepBattle(
   for (const h of t.hits) {
     const byPlayer = h.ownerId === PLAYER_ID;
     if (h.targetId === PLAYER_ID) {
-      if (!alive(playerHull)) continue;
+      if (playerDead) continue;
       const before = playerHull;
       const r = applyDamage(before, h.damage, now);
       playerHull = r.hull;
@@ -362,7 +367,7 @@ export function stepBattle(
       if (before.maxArmor > 0 && before.armor / before.maxArmor >= LOW_ARMOR_FRACTION && r.hull.armor / r.hull.maxArmor < LOW_ARMOR_FRACTION) events.push({ type: 'lowArmor' });
       if (r.disabledNow) events.push({ type: 'playerDisabled' });
       if (r.destroyed) {
-        playerHull = { ...playerHull, armor: -1 };
+        playerDead = true;
         events.push({ type: 'playerDestroyed', pos: h.pos });
       }
       continue;
@@ -396,7 +401,7 @@ export function stepBattle(
   const finalNpcs = npcs.filter((n) => !dead.has(n.id)).map((n) => byId.get(n.id) ?? n);
   const nextWorld: WorldState = { ...world, outfits, stats, standing };
   return {
-    battle: { ...battle, player: playerHull, projectiles: survivors, beams: t.beams, cooldowns: t.cooldowns, angry, nextShotId: t.nextShotId },
+    battle: { ...battle, player: playerHull, playerDestroyed: playerDead, projectiles: survivors, beams: t.beams, cooldowns: t.cooldowns, angry, nextShotId: t.nextShotId },
     traffic: { ...traffic, npcs: finalNpcs, targetId: traffic.targetId && dead.has(traffic.targetId) ? null : traffic.targetId },
     world: nextWorld,
     events,

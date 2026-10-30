@@ -202,19 +202,25 @@ describe('npc fire and the player hull', () => {
     expect(count(s, 'playerDisabled')).toBe(1);
     expect(s.b.player.disabled).toBe(true);
     expect(count(s, 'lowArmor')).toBe(1);
-    // Another round into the dead hull destroys it, once.
-    s = { ...s, b: { ...s.b, projectiles: [bolt({ ownerId: 'r1', damage: 50 })] } };
-    s = { ...s, w: { ...s.w, ship: { ...s.w.ship, pos: { x: 0, y: 0 } } } };
-    s = tick(s, IDLE);
+    // The raider keeps shooting the disabled hull until it is destroyed, and that is announced once.
+    s = tick(s, IDLE, 600);
     expect(count(s, 'playerDestroyed')).toBe(1);
-    s = { ...s, b: { ...s.b, projectiles: [bolt({ ownerId: 'r1', damage: 50 })] } };
-    s = tick(s, IDLE);
-    expect(count(s, 'playerDestroyed')).toBe(1);
+    expect(s.b.playerDestroyed).toBe(true);
+    expect(s.b.player.armor).toBe(0);
   });
   it('a hostile NPC engages and fires', () => {
     const s = tick(begin(mkWorld(), mkTraffic([raider()])), IDLE, 30);
     expect(npc(s, 'r1').engaged).toBe(true);
     expect(s.events.some((e) => e.type === 'shot' && e.ownerId === 'r1')).toBe(true);
+  });
+  it('a 4/s gun fires exactly 40 shots in 10 s', () => {
+    const s = tick(begin(mkWorld(), mkTraffic([])), FIRE, 600);
+    expect(s.events.filter((e) => e.type === 'shot')).toHaveLength(40);
+  });
+  it('a demanding raider is not picked by nearestHostile', () => {
+    const w = mkWorld();
+    const t = mkTraffic([mkNpc('r1', 'raiders', 100, 0, { peaceful: false, demand: true })]);
+    expect(nearestHostile(w, t, newBattle(w, data))).toBeNull();
   });
   it('an NPC does not hit itself and projectiles never hit their owner', () => {
     const s = tick(begin(mkWorld(), mkTraffic([mkNpc('t1', 'concord', 500, 500)])), IDLE);
