@@ -11,5 +11,15 @@
     "maxHostileRaiders": 3,
     "raiderHulls": { "shuttle": 3, "courier": 3, "scout": 2, "kestrel": 3, "warden": 1 },
     "patrolHulls": ["kestrel", "warden"]
+  },
+  "boarding": {
+    "range": 60,
+    "maxSpeed": 40,
+    "creditsFraction": [0.02, 0.08],
+    "cargoFraction": [0.3, 1],
+    "captureBase": 0.5,
+    "captureMin": 0.05,
+    "captureMax": 0.85,
+    "prizeFraction": 0.3
   }
 }

@@ -351,10 +351,30 @@ const SpawnSchema = z
   })
   .strict();
 
+const fractionRange = z
+  .tuple([chance, chance])
+  .refine(([lo, hi]) => lo <= hi, 'expected min <= max');
+
+/** Boarding and capture tunables. */
+const BoardingSchema = z
+  .object({
+    range: z.number().positive(),
+    maxSpeed: z.number().positive(), // relative speed
+    creditsFraction: fractionRange, // of the hull price
+    cargoFraction: fractionRange, // of the hull's cargo tons (traders)
+    captureBase: chance,
+    captureMin: chance,
+    captureMax: chance,
+    prizeFraction: chance, // of the hull price
+  })
+  .strict()
+  .refine((b) => b.captureMin <= b.captureMax, { message: 'expected captureMin <= captureMax', path: ['captureMin'] });
+
 export const CombatSchema = z
   .object({
     ai: z.object({ trader: AiProfileSchema, patrol: AiProfileSchema, raider: AiProfileSchema }).strict(),
     spawn: SpawnSchema,
+    boarding: BoardingSchema,
   })
   .strict();
 export type CombatDef = z.infer<typeof CombatSchema>;
