@@ -307,7 +307,9 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    that faction toward you, at most once per visit. Boarding a disabled ship (B, or the BOARD
    context button): take credits, cargo or ammo, or try a capture (odds from crew against crew;
    a failed try gets her scuttled), then take command (old ship traded in, flown patched up until
-   you land) or sell her as a prize. Disabled with no enemy near, CALL TOW; destroyed, the escape
+   you land) or sell her as a prize. Jumping out keeps the damage; landing repairs it. Disabled
+   with no enemy near (or after a quiet spell with no hit), call a tow (pause menu, or CALL TOW on
+   a phone; the HUD says when); destroyed, the escape
    pod wakes you at a nearby port in a starter ship, else the last save loads. Bounty and
    clear-the-lanes jobs from Concord and Free Reach ports, for an armed pilot. Controls: Space
    fires the guns, Shift the selected launcher, Q cycles it, R targets the nearest hostile; on a

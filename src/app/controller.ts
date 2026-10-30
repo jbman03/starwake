@@ -157,6 +157,10 @@ export interface PilotMeta {
 }
 
 export const MSG_USED_BACKUP = 'Your last save was damaged; loaded the previous one.';
+/** Said once when the player's ship is disabled; `{callTow}` names the pause key, or CALL TOW on a phone. */
+export const MSG_DISABLED = 'Your ship is disabled. When no enemy is near, you can call a tow: {callTow}.';
+/** Said once when the disabled ship's wait is over and a tow can be called. */
+export const MSG_TOW_READY = 'No enemy near. You can call a tow now: {callTow}.';
 
 /** Where pilots are written. PilotStore satisfies this. */
 export interface SaveSink {
@@ -227,6 +231,9 @@ export class Controller {
    * hidden behind the planet screen by then, so that screen collects them with takeNotices().
    */
   private notices: string[] = [];
+  /** The disabled and tow-ready messages have been said for the current spell (see stepCombat). */
+  private saidDisabled = false;
+  private saidTowReady = false;
   /** Settles when the most recent autosave finishes (never rejects). */
   lastSave: Promise<void> = Promise.resolve();
 
@@ -838,10 +845,21 @@ export class Controller {
       this.pauseFlight();
       this.emit({ type: 'destroyed' });
     }
-    if (r.events.length === 0) return;
-    this.emit({ type: 'battle', events: r.events });
-    const angered = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
-    if (angered.length > 0) this.emit({ type: 'message', text: angered.join(' ') });
+    const said = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
+    // Disabled, then calm: say so once each, with how to call the tow.
+    const disabled = this.combat.playerDisabled() && !this.combat.battle.playerDestroyed;
+    const calm = this.combat.disabledCalm();
+    if (disabled && !this.saidDisabled) said.push(MSG_DISABLED);
+    if (calm && !this.saidTowReady) said.push(MSG_TOW_READY);
+    this.saidDisabled = disabled;
+    this.saidTowReady = calm;
+    if (r.events.length > 0) this.emit({ type: 'battle', events: r.events });
+    if (said.length > 0) this.emit({ type: 'message', text: said.join(' ') });
+  }
+
+  /** The ship is disabled and an enemy is still near, so no tow can be called yet. */
+  towWaiting(): boolean {
+    return this.combat.playerDisabled() && !this.combat.battle.playerDestroyed && !this.combat.disabledCalm();
   }
 
   /** Count the player's kills this tick toward combat jobs, once per ship: only those `before` this tick had not already been credited. */

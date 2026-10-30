@@ -120,6 +120,8 @@ describe('How to Play', () => {
     expect(all).toContain('Each jump uses 75 fuel');
     expect(all).toContain("holds 4 jumps' worth");
     expect(all).toContain('It costs 650 cr');
+    expect(all).toContain('press Esc and choose Call for tow in the pause menu');
+    expect(all).toContain('The tow takes you to a port for 650 cr.');
     expect(all).toContain(`You can hold up to ${MAX_MISSIONS} jobs`);
   });
 

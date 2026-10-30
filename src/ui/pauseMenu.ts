@@ -52,7 +52,11 @@ export function showPauseMenu(ctx: UiContext): void {
 
   const openHowToPlay = () => showHowToPlay(ctx, { onClose: () => showPauseMenu(ctx) });
 
+  // Built when the menu opens; flight is paused while it is open, so the tow can't change under it.
   const towTo = controller.towDestination();
+  const towNote = controller.towWaiting()
+    ? el('p', { class: 'sw-status', text: 'Your ship is disabled. You can call a tow once no enemy is near.', attrs: { 'data-testid': 'pause-tow-note' } })
+    : null;
   const buttons = el('div', { class: 'sw-actions' }, [
     button('Resume', resume, { class: 'sw-btn-primary', hotkey: hotkeyFor(controller.settings.bindings, 'back') }),
     button('Save (at last planet)', () => void save()),
@@ -70,7 +74,7 @@ export function showPauseMenu(ctx: UiContext): void {
   ]);
 
   const screen = el('div', { class: 'sw-screen sw-overlay', attrs: { 'data-testid': 'pause-menu' } }, [
-    el('div', { class: 'sw-panel sw-menu' }, [el('h1', { class: 'sw-title', text: 'Paused' }), buttons, status]),
+    el('div', { class: 'sw-panel sw-menu' }, [el('h1', { class: 'sw-title', text: 'Paused' }), towNote, buttons, status]),
   ]);
 
   ctx.mount(screen, {

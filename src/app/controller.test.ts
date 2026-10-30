@@ -13,8 +13,8 @@ import { canAccept } from '../sim/missions';
 import { newWorld } from '../sim/world';
 import { contextLabel } from '../ui/rails';
 import { governmentShortName } from '../sim/standing';
-import { hostileAhead } from './combatControl';
-import { Controller, LANDING_FX_SEC, type ControllerEvent } from './controller';
+import { CALM_SEC, hostileAhead } from './combatControl';
+import { Controller, LANDING_FX_SEC, MSG_DISABLED, MSG_TOW_READY, type ControllerEvent } from './controller';
 
 /** Run `sec` of frames at 60 fps (the landing and take-off effects take time). */
 function run(c: Controller, sec: number): void {
@@ -1501,6 +1501,24 @@ describe('combat in flight', () => {
     expect(c.world.systemId).toBe('vesk');
     expect(c.combat.playerDisabled()).toBe(true);
     expect(c.combat.battle.player.armor).toBe(1);
+  });
+
+  it('says when the ship is disabled and when a tow can be called', async () => {
+    const { c } = await flying();
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    const id = spawnHostile(c);
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true, lastHitSec: c.world.timeSec } };
+    c.update(1 / 60);
+    expect(said).toEqual([MSG_DISABLED]);
+    // Once the raider is gone, the calm wait runs and a tow is offered, once.
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.filter((n) => n.id !== id), nextSpawnSec: 1e9 };
+    c.combat.battle = { ...c.combat.battle, projectiles: [] };
+    run(c, CALM_SEC + 0.1);
+    expect(said).toEqual([MSG_DISABLED, MSG_TOW_READY]);
+    expect(c.towDestination()).not.toBeNull();
+    run(c, 1);
+    expect(said).toEqual([MSG_DISABLED, MSG_TOW_READY]);
   });
 
   it('a disabled ship cannot answer a hail with Y', async () => {

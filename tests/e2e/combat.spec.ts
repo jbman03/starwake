@@ -256,6 +256,39 @@ test.describe('desktop', () => {
     expect(errors).toEqual([]);
   });
 
+  test('disabled: the HUD says how to get a tow; Esc, then Call for tow, lands the ship', async ({ page }) => {
+    test.setTimeout(90_000);
+    const errors = trackErrors(page);
+    await newPilot(page, 'Towed');
+    await leavePlanet(page);
+    await quietSky(page);
+    // Test-only: disabled by a hit just now, with nobody about.
+    await page.evaluate(() => {
+      const c = window.__starwake!.controller;
+      const b = c.combat.battle;
+      c.combat.battle = { ...b, player: { ...b.player, shields: 0, armor: 1, disabled: true, lastHitSec: c.world.timeSec } };
+    });
+    const hud = () => page.evaluate(() => window.__starwake!.hudMessage!() ?? '');
+    await expect.poll(hud, { intervals: [100] }).toContain('Your ship is disabled. When no enemy is near, you can call a tow: press Esc, then Call for tow.');
+    // Too soon: the pause menu says to wait and offers no tow.
+    await page.keyboard.press('Escape');
+    const menu = page.getByTestId('pause-menu');
+    await expect(menu).toBeVisible();
+    await expect(page.getByTestId('pause-tow-note')).toHaveText('Your ship is disabled. You can call a tow once no enemy is near.');
+    await expect(menu.getByRole('button', { name: /Call for tow/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    // The calm wait runs in flight; then the HUD says so and the menu offers the tow.
+    await expect.poll(hud, { timeout: 45_000, intervals: [100] }).toContain('You can call a tow now: press Esc, then Call for tow.');
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeVisible();
+    await expect(page.getByTestId('pause-tow-note')).toHaveCount(0);
+    await menu.getByRole('button', { name: /Call for tow/ }).click();
+    await expect(page.getByTestId('planet-screen')).toBeVisible();
+    expect(await page.evaluate(() => window.__starwake!.controller.combat.playerDisabled())).toBe(false);
+    expect(errors).toEqual([]);
+  });
+
   test('bounty: accept, fly, disable, return, paid', async ({ page }) => {
     test.setTimeout(120_000);
     const errors = trackErrors(page);
