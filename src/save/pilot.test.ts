@@ -273,12 +273,30 @@ describe('save v6', () => {
     const mission = {
       id: 'c1', typeId: 'bounty', originId: start, destId: start, tons: 0, passengers: 0, pay: 100, paidUpfront: false,
       deadlineDay: null, title: 'Bounty', description: 'd', cargoName: '',
-      combat: { kind: 'bounty' as const, systemId: 'vesk', shipId: 'raider', targetName: 'Rook', needed: 1, done: 0 },
+      combat: { kind: 'bounty' as const, systemId: 'vesk', shipId: 'kestrel', targetName: 'Rook', needed: 1, done: 0 },
     };
     const clear = { ...mission, id: 'c2', combat: { kind: 'clear' as const, systemId: 'vesk', needed: 3, done: 1 } };
     const w = { ...base, missions: [mission, clear], stats: { jobsDone: 1, kills: 4, captures: 2 } };
     const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
     expect(back.missions).toEqual([mission, clear]);
     expect(back.stats).toEqual({ jobsDone: 1, kills: 4, captures: 2 });
+  });
+
+  it('a combat job naming an unknown ship or system is dropped, and the save still loads', () => {
+    const base = newWorld(data, 5);
+    const job = {
+      id: 'ok', typeId: 'bounty', originId: start, destId: start, tons: 0, passengers: 0, pay: 100, paidUpfront: false,
+      deadlineDay: null, title: 'Bounty', description: 'd', cargoName: '',
+      combat: { kind: 'bounty' as const, systemId: 'vesk', shipId: 'kestrel', targetName: 'Rook', needed: 1, done: 0 },
+    };
+    const badShip = { ...job, id: 'bad-ship', combat: { ...job.combat, shipId: 'no-such-hull' } };
+    const badSystem = { ...job, id: 'bad-system', combat: { kind: 'clear' as const, systemId: 'no-such-system', needed: 3, done: 0 } };
+    const { shipId: _gone, ...noShip } = job.combat;
+    const bountyNoShip = { ...job, id: 'no-ship', combat: noShip };
+    const plain = { ...job, id: 'plain', combat: undefined };
+    delete (plain as { combat?: unknown }).combat;
+    const w = { ...base, missions: [job, badShip, badSystem, bountyNoShip, plain] };
+    const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
+    expect(back.missions.map((m) => m.id)).toEqual(['ok', 'plain']);
   });
 });

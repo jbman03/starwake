@@ -227,6 +227,10 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
   for (const id of Object.keys(p.cargo)) if (!data.commodities[id]) throw new SaveError('unknownContent', `unknown commodity "${id}"`);
   for (const id of Object.keys(p.outfits)) if (!data.outfits[id]) throw new SaveError('unknownContent', `unknown outfit "${id}"`);
   for (const m of p.missions) if (!data.planets[m.destId]) throw new SaveError('unknownContent', `unknown mission port "${m.destId}"`);
+  // A combat job whose system, or a bounty whose target hull, is not in the data (a hand-edited save,
+  // or a hull since removed) could not spawn its target, so it is dropped and the rest of the save loads.
+  const combatOk = ({ combat }: PilotSave['missions'][number]): boolean =>
+    !combat || (!!data.systems[combat.systemId] && (combat.kind !== 'bounty' || !!data.ships[combat.shipId ?? '']));
   // A v1 upgrade has no chart: start from the opening chart plus where the pilot is. Either way
   // `seen` is recomputed so it is exactly the unvisited neighbours of `known`.
   let known = p.known;
@@ -245,7 +249,7 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     day: p.day,
     seed: p.seed,
     cargo: { ...p.cargo },
-    missions: p.missions.map((m) => ({ ...m, ...(m.combat ? { combat: { ...m.combat } } : {}) })),
+    missions: p.missions.filter(combatOk).map((m) => ({ ...m, ...(m.combat ? { combat: { ...m.combat } } : {}) })),
     route: [...p.route],
     known: map.known,
     seen: map.seen,
