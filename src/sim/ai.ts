@@ -26,6 +26,8 @@ export interface AiDecision { mode: AiMode; targetId: string | null; input: Flig
 
 export const RAIDERS = 'raiders';
 const DEG = Math.PI / 180;
+/** Closer than this fraction of keepRange, the NPC turns away and thrusts. */
+const BACK_OFF_FRACTION = 0.5;
 /** Turn off the line to the target when closer than keepRange. */
 const ORBIT_ANGLE = 60 * DEG;
 /** Fallback shot speed for lead aiming when the ship carries no gun. */
@@ -78,13 +80,16 @@ export function decide(self: AiSelf, others: readonly Combatant[], angry: readon
   let input: FlightInput;
   if (best > profile.keepRange) {
     input = { ...faceInput(me.ship, aim), thrust: true };
+  } else if (best > profile.keepRange * BACK_OFF_FRACTION) {
+    // Holding range: keep the nose on the lead point so the guns can fire, and coast.
+    input = { ...faceInput(me.ship, aim), thrust: false };
   } else {
-    // Too close: hold off and swing round the target instead of ramming it.
+    // Much too close: swing round the target and burn to open the range.
     const side = hashString(me.id) % 2 === 0 ? 1 : -1;
     const bearing = angleOf(sub(target.ship.pos, me.ship.pos));
-    input = { thrust: false, turn: 0, targetHeading: wrap(bearing + side * ORBIT_ANGLE) };
+    input = { thrust: true, turn: 0, targetHeading: wrap(bearing + side * ORBIT_ANGLE) };
   }
   const offAim = Math.abs(wrap(aimHeading - me.ship.heading));
-  const fire = best <= self.fireRange && offAim <= profile.fireCone * DEG;
+  const fire = hasWeapon(me.outfits, data) && best <= self.fireRange && offAim <= profile.fireCone * DEG;
   return { mode: 'attack', targetId: target.id, input, fire, fleeTo: null };
 }

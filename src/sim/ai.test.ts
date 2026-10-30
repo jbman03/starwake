@@ -71,11 +71,21 @@ describe('npc ai', () => {
     expect(run(me(deg(30)), [player(400, 0)]).fire).toBe(false);
     expect(run(me(0), [player(600, 0)]).fire).toBe(false);
   });
-  it('holds range instead of ramming', () => {
-    const d = run(selfOf('raider', comb('r1', 'raiders', 0, 0, 0, GUN)), [player(100, 0)]);
+  it('fires while holding inside keepRange', () => {
+    const d = run(selfOf('raider', comb('r1', 'raiders', 0, 0, 0, GUN)), [player(150, 0)]);
     expect(d.mode).toBe('attack');
+    expect(d.fire).toBe(true);
     expect(d.input.thrust).toBe(false);
+  });
+  it('turns away and thrusts when closer than half keepRange', () => {
+    const d = run(selfOf('raider', comb('r1', 'raiders', 0, 0, 0, GUN)), [player(80, 0)]);
+    expect(d.input.thrust).toBe(true);
     expect(Math.abs(Math.abs(d.input.targetHeading!) - deg(60))).toBeLessThan(1e-9);
+  });
+  it('an unarmed raider never fires', () => {
+    const d = run(selfOf('raider', comb('r1', 'raiders', 0, 0, 0)), [player(400, 0)]);
+    expect(d.mode).toBe('attack');
+    expect(d.fire).toBe(false);
   });
   it('skips disabled ships and picks the nearest foe', () => {
     const dead = { ...player(100, 0), hull: { ...fullHull(0, 100), disabled: true } };
