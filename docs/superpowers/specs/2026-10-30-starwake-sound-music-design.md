@@ -30,7 +30,7 @@ never break the live game.
   - `music.ts`: a generative engine that plays a mood and crossfades between moods.
   - `moods.ts`: a pure function from game state to a mood id; no audio objects.
 - **Data (`data/audio.json`)**, validated by a Zod `AudioSchema` and loaded into
-  `GameData.audio`, holds the effect recipes, the mood definitions and the jump timings, all with
+  `GameData.audio`, holds the effect recipes and the mood definitions, all with
   stable ids (Ruling 5 from cycle 4: tunables live in JSON for the future editor and plug-ins).
 - **Render (`src/render`)** draws the jump from `world.jump.phase` and its progress.
 - **UI (`src/ui`)** gets the sliders in Settings → General.
@@ -49,8 +49,8 @@ never break the live game.
 | `flash` | 0.15 s | White flash; the deep whoosh; the system change happens at the end of this phase. |
 | `arrive` | 0.6 s | In the new system: the ship enters at high speed along the jump line and slows to its normal maximum; streaks shorten; a softer whoosh. |
 
-The total is about 2 s. All lengths and the burn multiplier live in `data/audio.json` →
-`jump`. The existing rules stay: input is ignored during the jump (except skip, §4.2), combat
+The total is about 2 s. All lengths, the burn multiplier and the arrival speed are gameplay, so
+they live in `data/config.json` → `jump` (the sim reads them; sound and render follow). The existing rules stay: input is ignored during the jump (except skip, §4.2), combat
 does not run during it, fuel and the day advance as now, and NPC jumps keep their 1 s look
 (re-using the same visuals, scaled down).
 
@@ -113,7 +113,8 @@ data. Volume caps and "at most once per tick" rules from cycle 4 stay.
   0.6. Corrupt values fall back to defaults, as now.
 - Settings → General gets Music and Effects sliders and the existing mute checkbox; changes apply
   at once.
-- A new bindable action `toggleMute`, default key U (free today), and listed in How to Play.
+- The existing bindable `toggleSound` action (default key V, "Sound on / off") stays the mute
+  toggle; it now silences music too. How to Play mentions it alongside the sliders.
 - Phones: no new buttons; the sliders are in Settings.
 
 ## 8. Error handling
@@ -130,7 +131,7 @@ data. Volume caps and "at most once per tick" rules from cycle 4 stay.
   shipped data and rejects bad records, settings migration, and the mixer and music engine against
   a fake AudioContext (gains follow the sliders, crossfade timing, mute, failure is silent).
 - **E2E:** a full jump on PC and on phone, which arrives and allows play to continue; a skipped
-  jump; the sliders save and reload; U toggles mute. Existing specs that time a jump are updated
+  jump; the sliders save and reload; V toggles all sound, music included. Existing specs that time a jump are updated
   to wait for arrival.
 - **Process:** the typecheck, Vitest and the full Playwright suite pass locally and in CI before
   I ask the owner to approve the merge and deploy. The owner is asked to listen on PC and on
