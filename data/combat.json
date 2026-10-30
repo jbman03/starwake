@@ -21,5 +21,12 @@
     "captureMin": 0.05,
     "captureMax": 0.85,
     "prizeFraction": 0.3
+  },
+  "demand": {
+    "creditsFraction": 0.05,
+    "minCredits": 300,
+    "cargoTons": 10,
+    "lapseSec": 15,
+    "chance": 0.5
   }
 }

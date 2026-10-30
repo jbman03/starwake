@@ -370,11 +370,23 @@ const BoardingSchema = z
   .strict()
   .refine((b) => b.captureMin <= b.captureMax, { message: 'expected captureMin <= captureMax', path: ['captureMin'] });
 
+/** A raider's demand: pay credits or dump cargo, or it attacks. */
+const DemandSchema = z
+  .object({
+    creditsFraction: chance, // of the pilot's credits
+    minCredits: z.number().int().nonnegative(),
+    cargoTons: z.number().positive(),
+    lapseSec: z.number().positive(), // flight seconds before an unanswered demand turns into an attack
+    chance, // of a new raider hailing first
+  })
+  .strict();
+
 export const CombatSchema = z
   .object({
     ai: z.object({ trader: AiProfileSchema, patrol: AiProfileSchema, raider: AiProfileSchema }).strict(),
     spawn: SpawnSchema,
     boarding: BoardingSchema,
+    demand: DemandSchema,
   })
   .strict();
 export type CombatDef = z.infer<typeof CombatSchema>;

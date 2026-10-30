@@ -207,7 +207,7 @@ function spawnNpc(t: Traffic, world: WorldState, data: GameData, opts: TrafficOp
   if (role === 'raider') {
     def = pickFrom(data, data.combat.spawn.raiderHulls, bestTier, r);
     government = 'raiders';
-    demand = r() < 0.5;
+    demand = r() < data.combat.demand.chance;
   } else if (role === 'patrol') {
     def = pickFrom(data, Object.fromEntries(data.combat.spawn.patrolHulls.map((h) => [h, 1])), bestTier, r);
     government = data.systems[t.systemId].government;

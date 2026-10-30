@@ -7,6 +7,7 @@ import { shipStats } from '../sim/shipStats';
 import { isTargetable, targetedNpc, type Npc, type Traffic } from '../sim/traffic';
 import type { FrameInput, WorldState } from '../sim/types';
 import { add, dist, fromAngle, scale } from '../sim/vec';
+import { demandTerms, dumpCargo, payCredits, type DemandTerms } from '../sim/raiders';
 import { npcLoadout } from '../sim/weapons';
 import { newWorld } from '../sim/world';
 
@@ -34,6 +35,13 @@ const DISABLED_BLOCKED: ReadonlySet<ActionId> = new Set<ActionId>([
 
 const allowed = (s: ReadonlySet<ActionId>): Set<ActionId> => new Set([...s].filter((a) => !DISABLED_BLOCKED.has(a)));
 
+/** A raider's open demand. */
+export interface DemandOffer {
+  npcId: string;
+  npcName: string;
+  terms: DemandTerms;
+}
+
 /**
  * The fight in the current system, beside the controller's traffic. It is transient: reset on
  * arrival, landing, take-off and load (a landed ship is repaired and saves happen only landed).
@@ -42,6 +50,8 @@ export class CombatControl {
   battle: Battle;
   /** Seconds the player has been disabled with no hostile within CALM_RANGE; 0 otherwise. */
   disabledCalmSec = 0;
+  /** Raiders whose demand has been put to the player (once each). */
+  private readonly offered = new Set<string>();
 
   constructor(
     private readonly data: GameData,
@@ -54,6 +64,7 @@ export class CombatControl {
   reset(world: WorldState): void {
     this.battle = newBattle(world, this.data);
     this.disabledCalmSec = 0;
+    this.offered.clear();
   }
 
   playerDisabled(): boolean {
@@ -100,6 +111,48 @@ export class CombatControl {
       if (ok(n) && (!best || dist(n.ship.pos, world.ship.pos) < dist(best.ship.pos, world.ship.pos))) best = n;
     }
     return best;
+  }
+
+  /**
+   * Put a new demand to the player: the first raider with `demand` not yet offered makes it. When
+   * `busy` (an encounter, story hail or another demand is pending) it, and any other new demander,
+   * drops the demand and attacks instead, so nothing pending is overwritten.
+   */
+  checkDemands(world: WorldState, traffic: Traffic, busy: boolean): { traffic: Traffic; offer: DemandOffer | null } {
+    let offer: DemandOffer | null = null;
+    let changed = false;
+    const npcs = traffic.npcs.map((n) => {
+      if (!n.demand || this.offered.has(n.id) || n.hull.disabled) return n;
+      this.offered.add(n.id);
+      if (busy || offer) {
+        changed = true;
+        return { ...n, demand: false, engaged: true };
+      }
+      offer = { npcId: n.id, npcName: n.name, terms: demandTerms(world, this.data) };
+      return n;
+    });
+    return { traffic: changed ? { ...traffic, npcs } : traffic, offer };
+  }
+
+  /**
+   * The player's answer. Pay or dump: the raider stands down and leaves; null if that can't be done
+   * (short of credits, no cargo). Refuse: it attacks at once. A raider no longer there just ends.
+   */
+  resolveDemand(world: WorldState, traffic: Traffic, offer: DemandOffer, answer: 'pay' | 'dump' | 'refuse'): { world: WorldState; traffic: Traffic; messages: string[] } | null {
+    let next: WorldState | null = world;
+    if (answer === 'pay') next = payCredits(world, offer.terms);
+    else if (answer === 'dump') next = dumpCargo(world, offer.terms);
+    if (!next) return null;
+    const npcs = traffic.npcs.map((n) =>
+      n.id !== offer.npcId
+        ? n
+        : answer === 'refuse'
+          ? { ...n, demand: false, engaged: true, peaceful: false }
+          : { ...n, demand: false, peaceful: true, engaged: false, errand: 'pass' as const, portId: null },
+    );
+    const messages =
+      answer === 'pay' ? [`You pay ${offer.terms.credits} cr. ${offer.npcName} leaves.`] : answer === 'dump' ? [`You dump the cargo. ${offer.npcName} leaves.`] : [`${offer.npcName} attacks.`];
+    return { world: next, traffic: { ...traffic, npcs }, messages };
   }
 
   /** Whether `n` would fight the player in this battle. */

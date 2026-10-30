@@ -7,7 +7,8 @@ import { pilotFromWorld, type PilotSave } from '../save/pilot';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type BattleEvent } from '../sim/battle';
 import { governmentShortName } from '../sim/standing';
-import { CombatControl } from './combatControl';
+import { CombatControl, type DemandOffer } from './combatControl';
+import type { DemandTerms } from '../sim/raiders';
 import { contextAction, siteReachable, type ContextAction, type PendingHint } from '../sim/context';
 import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, hubName, rollEncounter } from '../sim/encounters';
 import { hashString, mulberry32 } from '../sim/random';
@@ -73,7 +74,9 @@ export const LANDING_FX_SEC = 0.4;
 /** The encounter waiting in this system: a hail that lapses, or a site to fly to. */
 export type PendingEncounter =
   | { def: EncounterDef; npcName: string; kind: 'hail'; expiresSec: number }
-  | { def: EncounterDef; npcName: string; kind: 'site'; pos: Vec2 };
+  | { def: EncounterDef; npcName: string; kind: 'site'; pos: Vec2 }
+  /** A raider's demand: pay, dump cargo or refuse before `expiresSec` runs out. */
+  | { kind: 'demand'; npcId: string; npcName: string; terms: DemandTerms; expiresSec: number };
 
 /** A scan or find site placed in space for a story step. A find site is unseen until the ship is near. */
 export interface StorySite {
@@ -739,10 +742,41 @@ export class Controller {
     const r = this.combat.tick(this.world, this.traffic, input, dt);
     this.world = r.world;
     this.traffic = r.traffic;
+    this.checkDemands();
     if (r.events.length === 0) return;
     this.emit({ type: 'battle', events: r.events });
     const angered = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
     if (angered.length > 0) this.emit({ type: 'message', text: angered.join(' ') });
+  }
+
+  /** A raider that arrived wanting a payment hails; it attacks instead when anything else is pending. */
+  private checkDemands(): void {
+    const busy = this.pending !== null || this.card !== null || this.hailName() !== null;
+    const d = this.combat.checkDemands(this.world, this.traffic, busy);
+    this.traffic = d.traffic;
+    if (!d.offer) return;
+    this.pending = { kind: 'demand', ...d.offer, expiresSec: this.data.combat.demand.lapseSec };
+    this.emit({ type: 'sfx', sfx: 'hail' });
+    this.checkContext();
+  }
+
+  /** The open demand as the combat module knows it, or null. */
+  private demandOffer(): DemandOffer | null {
+    const p = this.pending;
+    return p?.kind === 'demand' ? { npcId: p.npcId, npcName: p.npcName, terms: p.terms } : null;
+  }
+
+  /** Answer the open demand; null if it can't be done (the choice shows why). */
+  private answerDemand(answer: 'pay' | 'dump' | 'refuse'): string[] | null {
+    const offer = this.demandOffer();
+    if (!offer) return null;
+    const r = this.combat.resolveDemand(this.world, this.traffic, offer, answer);
+    if (!r) return null;
+    this.world = r.world;
+    this.traffic = r.traffic;
+    this.pending = null;
+    this.checkContext();
+    return r.messages;
   }
 
   /** Advance the NPCs one tick; reseed on a new system and drop a target that is no longer there. */
@@ -848,7 +882,7 @@ export class Controller {
 
   /** The name on the incoming hail (an encounter's or a story meet's), or null with no hail. */
   hailName(forButton = false): string | null {
-    if (this.pending?.kind === 'hail') return this.pending.npcName;
+    if (this.pending?.kind === 'hail' || this.pending?.kind === 'demand') return this.pending.npcName;
     if (this.storyHail && !(forButton && this.storyHail === this.storyHailQuiet)) return this.data.story[this.storyHail]?.giver.name ?? null;
     const step = this.storyMeet ? currentStep(this.world, this.data, this.storyMeet.missionId) : null;
     return step?.kind === 'meet' ? step.ship.name : null;
@@ -929,9 +963,15 @@ export class Controller {
 
   private lapseHail(dt: number): void {
     const p = this.pending;
-    if (p?.kind !== 'hail') return;
+    if (p?.kind !== 'hail' && p?.kind !== 'demand') return;
     const left = p.expiresSec - dt;
-    this.pending = left <= 1e-9 ? null : { ...p, expiresSec: left };
+    if (left > 1e-9 && !(p.kind === 'demand' && !this.traffic.npcs.some((n) => n.id === p.npcId))) {
+      this.pending = { ...p, expiresSec: left };
+    } else if (p.kind === 'demand') {
+      this.answerDemand('refuse'); // unanswered (or the raider is gone): it attacks
+    } else {
+      this.pending = null;
+    }
   }
 
   /** Test aid: make `id` the pending encounter (a hail now, or a site 200 px ahead). */
@@ -944,7 +984,7 @@ export class Controller {
       def.kind === 'hail'
         ? { def, npcName, kind: 'hail', expiresSec: HAIL_SECONDS }
         : { def, npcName, kind: 'site', pos: { x: pos.x + Math.cos(heading) * 200, y: pos.y + Math.sin(heading) * 200 } };
-    this.emit({ type: 'sfx', sfx: this.pending.kind });
+    this.emit({ type: 'sfx', sfx: this.pending.kind === 'site' ? 'site' : 'hail' });
     this.checkContext();
   }
 
@@ -963,7 +1003,7 @@ export class Controller {
       this.checkContext();
       return true;
     }
-    if (p?.kind === 'hail') return this.openCard('encounter');
+    if (p?.kind === 'hail' || p?.kind === 'demand') return this.openCard('encounter');
     if (this.storyHail) {
       const id = this.storyHail;
       const def = this.data.story[id];
@@ -1010,6 +1050,10 @@ export class Controller {
       this.checkContext();
       return;
     }
+    if (this.pending?.kind === 'demand') {
+      this.answerDemand('refuse'); // Not now is Refuse
+      return;
+    }
     if (this.pending?.kind === 'hail') {
       this.pending = null;
       this.checkContext();
@@ -1042,6 +1086,7 @@ export class Controller {
     }
     const p = this.pending;
     if (!p) return null;
+    if (p.kind === 'demand') return this.demandView(p);
     const ctx = this.cardContext(p.npcName);
     return {
       kind: p.kind,
@@ -1051,6 +1096,21 @@ export class Controller {
         const block = choiceBlock(this.world, this.data, c, p.def.id);
         return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null };
       }),
+    };
+  }
+
+  private demandView(p: Extract<PendingEncounter, { kind: 'demand' }>): EncounterView {
+    const { credits, cargo } = p.terms;
+    const good = cargo ? (this.data.commodities[cargo.good]?.name ?? cargo.good) : '';
+    return {
+      kind: 'hail',
+      title: `${p.npcName} demands a toll`,
+      text: `${p.npcName}, a raider, has you in its sights. "Pay ${credits} cr or dump ${this.data.combat.demand.cargoTons} t of cargo, or we attack."`,
+      choices: [
+        { label: `Pay ${credits} cr`, blocked: this.world.credits >= credits ? null : 'Not enough credits' },
+        { label: cargo ? `Dump ${cargo.tons} t of ${good}` : `Dump ${this.data.combat.demand.cargoTons} t of cargo`, blocked: cargo ? null : 'Hold is empty' },
+        { label: 'Refuse', blocked: null },
+      ],
     };
   }
 
@@ -1079,6 +1139,10 @@ export class Controller {
     }
     if (this.card === 'story') return this.chooseStory(idx);
     const p = this.pending;
+    if (p?.kind === 'demand') {
+      const msgs = idx === 0 ? this.answerDemand('pay') : idx === 1 ? this.answerDemand('dump') : idx === 2 ? this.answerDemand('refuse') : null;
+      return msgs ? { messages: msgs } : null;
+    }
     const choice = p?.def.choices[idx];
     if (!p || !choice || choiceBlock(this.world, this.data, choice, p.def.id)) return null;
     const r = applyChoice(this.world, this.data, p.def, idx, { npcName: p.npcName });
@@ -1169,7 +1233,7 @@ export class Controller {
         this.pending = this.rollPending();
         if (this.pending) this.world = { ...this.world, lastEncounterDay: this.world.day };
         this.emit(e);
-        if (this.pending) this.emit({ type: 'sfx', sfx: this.pending.kind });
+        if (this.pending) this.emit({ type: 'sfx', sfx: this.pending.kind === 'site' ? 'site' : 'hail' });
         continue;
       }
       this.emit(e);

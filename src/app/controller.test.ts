@@ -1491,3 +1491,54 @@ describe('combat in flight', () => {
   });
 });
 
+
+describe('raider demands in flight', () => {
+  async function demanding() {
+    const s = await setup();
+    s.c.startFlight();
+    s.c.update(1 / 60);
+    s.c.traffic = { ...s.c.traffic, npcs: [] };
+    const r = hostileAhead(s.c.world, s.c.traffic, s.c.data);
+    s.c.traffic = { ...r.traffic, npcs: r.traffic.npcs.map((n) => ({ ...n, engaged: false, demand: true })) };
+    s.c.world = { ...s.c.world, credits: 2000 };
+    s.c.update(1 / 60);
+    return { ...s, id: r.id };
+  }
+  const npc = (c: Controller, id: string) => c.traffic.npcs.find((n) => n.id === id)!;
+
+  it('hails, and Pay sends the raider off peaceful', async () => {
+    const { c, id } = await demanding();
+    expect(c.pending).toMatchObject({ kind: 'demand', npcId: id });
+    expect(c.hailName()).toBe(npc(c, id).name);
+    expect(c.openEncounter()).toBe(true);
+    const v = c.encounterView()!;
+    expect(v.choices.map((x) => x.label)).toEqual(['Pay 300 cr', 'Dump 10 t of cargo', 'Refuse']);
+    expect(v.choices[1].blocked).toBe('Hold is empty');
+    expect(c.chooseEncounter(1)).toBeNull();
+    expect(c.chooseEncounter(0)).not.toBeNull();
+    expect(c.world.credits).toBe(1700);
+    expect(c.pending).toBeNull();
+    expect(npc(c, id)).toMatchObject({ peaceful: true, demand: false });
+  });
+
+  it('Not now refuses, and an unanswered demand lapses into an attack', async () => {
+    const a = await demanding();
+    a.c.openEncounter();
+    a.c.declineEncounter();
+    expect(a.c.pending).toBeNull();
+    expect(npc(a.c, a.id)).toMatchObject({ engaged: true, demand: false, peaceful: false });
+    const b = await demanding();
+    const hold = (sec: number) => {
+      for (let i = 0; i < Math.round(sec * 60); i++) {
+        b.c.traffic = { ...b.c.traffic, npcs: b.c.traffic.npcs.map((n) => (n.id === b.id ? { ...n, phaseT: 0, ship: { ...n.ship, vel: { x: 0, y: 0 } } } : n)) };
+        b.c.update(1 / 60);
+      }
+    };
+    hold(14);
+    expect(b.c.pending?.kind).toBe('demand');
+    hold(2);
+    expect(b.c.pending).toBeNull();
+    expect(npc(b.c, b.id).demand).toBe(false);
+    expect(b.c.combat.isHostile(npc(b.c, b.id), b.c.world)).toBe(true);
+  });
+});

@@ -162,3 +162,69 @@ describe('CombatControl', () => {
     expect(hostileAhead(w, r.traffic, data).id).not.toBe(r.id);
   });
 });
+
+describe('raider demands', () => {
+  const demander = (id = 'd1') => mkNpc(id, 500, 0, { government: 'raiders', role: 'raider', peaceful: false, demand: true });
+  const find = (t: Traffic, id: string) => t.npcs.find((n) => n.id === id)!;
+
+  it('a newly arrived demanding raider makes an offer and stays peaceful for the AI', () => {
+    const c = new CombatControl(data, mkWorld({ credits: 2000 }));
+    const w = mkWorld({ credits: 2000 });
+    const r = c.checkDemands(w, mkTraffic([demander()]), false);
+    expect(r.offer).toMatchObject({ npcId: 'd1', terms: { credits: 300 } });
+    expect(find(r.traffic, 'd1').demand).toBe(true);
+    // Not offered twice.
+    expect(c.checkDemands(w, r.traffic, true).offer).toBeNull();
+    expect(find(c.checkDemands(w, r.traffic, true).traffic, 'd1').demand).toBe(true);
+  });
+
+  it('demand hail resolves to peace on pay', () => {
+    const w = mkWorld({ credits: 2000 });
+    const c = new CombatControl(data, w);
+    const r = c.checkDemands(w, mkTraffic([demander()]), false);
+    const p = c.resolveDemand(w, r.traffic, r.offer!, 'pay')!;
+    expect(p.world.credits).toBe(2000 - r.offer!.terms.credits);
+    expect(find(p.traffic, 'd1')).toMatchObject({ peaceful: true, demand: false, engaged: false, errand: 'pass', portId: null });
+    expect(c.isHostile(find(p.traffic, 'd1'), p.world)).toBe(false);
+  });
+
+  it('dump takes cargo and refuses without any; pay refuses when short', () => {
+    const empty = mkWorld({ credits: 100 });
+    const c = new CombatControl(data, empty);
+    const r = c.checkDemands(empty, mkTraffic([demander()]), false);
+    expect(c.resolveDemand(empty, r.traffic, r.offer!, 'pay')).toBeNull();
+    expect(c.resolveDemand(empty, r.traffic, r.offer!, 'dump')).toBeNull();
+    const good = Object.keys(data.commodities)[0];
+    const full = mkWorld({ cargo: { [good]: 12 } });
+    const c2 = new CombatControl(data, full);
+    const r2 = c2.checkDemands(full, mkTraffic([demander()]), false);
+    const d = c2.resolveDemand(full, r2.traffic, r2.offer!, 'dump')!;
+    expect(d.world.cargo[good]).toBe(2);
+    expect(find(d.traffic, 'd1').peaceful).toBe(true);
+  });
+
+  it('refuse or 15 s lapse -> attack', () => {
+    const w = mkWorld({ credits: 2000 });
+    const c = new CombatControl(data, w);
+    const r = c.checkDemands(w, mkTraffic([demander()]), false);
+    const x = c.resolveDemand(w, r.traffic, r.offer!, 'refuse')!;
+    expect(find(x.traffic, 'd1')).toMatchObject({ demand: false, engaged: true, peaceful: false });
+    expect(x.world).toBe(w);
+    expect(c.isHostile(find(x.traffic, 'd1'), w)).toBe(true);
+    expect(data.combat.demand.lapseSec).toBe(15);
+  });
+
+  it('raider skips demand when a hail is pending', () => {
+    const w = mkWorld();
+    const c = new CombatControl(data, w);
+    const r = c.checkDemands(w, mkTraffic([demander()]), true);
+    expect(r.offer).toBeNull();
+    expect(find(r.traffic, 'd1')).toMatchObject({ demand: false, engaged: true });
+    // A second demander while one offer is open also just attacks.
+    const c2 = new CombatControl(data, w);
+    const a = c2.checkDemands(w, mkTraffic([demander('a')]), false);
+    const b = c2.checkDemands(w, { ...a.traffic, npcs: [...a.traffic.npcs, demander('b')] }, true);
+    expect(find(b.traffic, 'a').demand).toBe(true);
+    expect(find(b.traffic, 'b')).toMatchObject({ demand: false, engaged: true });
+  });
+});

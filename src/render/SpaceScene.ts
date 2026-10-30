@@ -297,6 +297,7 @@ export class SpaceScene extends Phaser.Scene {
     const name = this.controller.hailName();
     if (name === null || !this.controller.isFlying) return null;
     const key = hotkeyFor(this.controller.settings.bindings, 'interact') ?? 'unbound';
+    if (this.controller.pending?.kind === 'demand') return `${name} (raider) hails you (${key} to answer)`;
     return `Incoming hail — ${name} (${key} to answer)`;
   }
 
