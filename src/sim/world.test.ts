@@ -4,6 +4,7 @@ import type { ActionId } from '../input/actions';
 import type { FrameInput, SimEvent, WorldState } from './types';
 import type { GameData } from '../data/schemas';
 import { SITE_MAX_SPEED, SITE_RANGE, siteReachable } from './context';
+import { worldStats } from './shipStats';
 import { hopDistance } from './galaxy';
 import { accept, offersAt } from './missions';
 import {
@@ -701,7 +702,7 @@ describe('setRoute to a mission destination', () => {
 
   it('newWorld starts with empty story fields and the start ship name', () => {
     const w = newWorld(data, 1);
-    expect(w).toMatchObject({ flags: [], notes: [], stats: { jobsDone: 0 }, lastEncounterDay: null });
+    expect(w).toMatchObject({ flags: [], notes: [], stats: { jobsDone: 0, kills: 0, captures: 0 }, lastEncounterDay: null });
     expect(w.shipName).toBe(data.ships[data.config.startShipId].name);
   });
 });
@@ -725,5 +726,14 @@ describe('autopilot to a site', () => {
     let w = autopilotToSite(newWorld(data), site);
     w = stepWorld(w, data, frame(['autopilot']), DT, OPTS).world;
     expect(w.assist).toEqual({ kind: 'none' });
+  });
+});
+
+describe('newWorld start outfits', () => {
+  it('newWorld fits config.startOutfits', () => {
+    const w = newWorld(data);
+    expect(w.outfits).toEqual(data.config.startOutfits);
+    expect(w.stats).toEqual({ jobsDone: 0, kills: 0, captures: 0 });
+    expect(worldStats(w, data).spaceFree).toBeGreaterThanOrEqual(0);
   });
 });

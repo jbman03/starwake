@@ -5,7 +5,7 @@ import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 5;
+export const CURRENT_SAVE_VERSION = 6;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -27,6 +27,17 @@ const MissionSchema = z.object({
   title: z.string(),
   description: z.string(),
   cargoName: z.string(),
+  // v6: combat jobs.
+  combat: z
+    .object({
+      kind: z.enum(['bounty', 'clear']),
+      systemId: z.string().min(1),
+      shipId: z.string().min(1).optional(),
+      targetName: z.string().optional(),
+      needed: z.number().int().positive(),
+      done: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 const MarketEventSchema = z.object({
@@ -39,7 +50,7 @@ const MarketEventSchema = z.object({
 });
 
 export const PilotSaveSchema = z.object({
-  version: z.literal(5),
+  version: z.literal(6),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -68,7 +79,12 @@ export const PilotSaveSchema = z.object({
   flags: z.array(z.string()),
   notes: z.array(z.object({ day: z.number().finite(), text: z.string() })).max(20),
   shipName: z.string(),
-  stats: z.object({ jobsDone: z.number().int().nonnegative() }),
+  // v6 adds kills and captures to stats.
+  stats: z.object({
+    jobsDone: z.number().int().nonnegative(),
+    kills: z.number().int().nonnegative(),
+    captures: z.number().int().nonnegative(),
+  }),
   lastEncounterDay: z.number().finite().nullable(),
   // v5: story missions and government standing.
   story: z.object({
@@ -84,6 +100,11 @@ export const PilotSaveSchema = z.object({
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
+
+/** Fixed facts for the v5 -> v6 migration, which must not read game data. */
+const SHUTTLE_SPACE = 10;
+const STARTER_GUN_SPACE = 3;
+const STARTER_ERA_SPACE: Record<string, number> = { 'cargo-pod': 5, 'fuel-tank': 3, 'salvage-tank': 6, 'frontier-rack': 5, 'local-chart': 0 };
 
 /** Keyed by the version being upgraded FROM; each returns the next version's shape. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,6 +143,22 @@ export const migrations: Record<number, (s: any) => any> = {
     story: { active: [], done: [], failed: [], declined: [] },
     standing: {},
   }),
+  // v5 -> v6. Data-free: the shuttle's 10 t and the starter-era outfit spaces are hard-coded here.
+  // A shuttle pilot gets the starter gun only if the space is known and has 3 t free.
+  5: (s) => {
+    const outfits: Record<string, number> = { ...(s.outfits ?? {}) };
+    if (s.shipId === 'shuttle') {
+      let used = 0;
+      let known = true;
+      for (const [id, n] of Object.entries(outfits)) {
+        const space = STARTER_ERA_SPACE[id];
+        if (space === undefined) known = false;
+        else used += space * Number(n);
+      }
+      if (known && used + STARTER_GUN_SPACE <= SHUTTLE_SPACE) outfits['light-blaster'] = 1;
+    }
+    return { ...s, version: 6, outfits, stats: { ...s.stats, kills: 0, captures: 0 } };
+  },
 };
 
 export function upgradeSave(raw: unknown): PilotSave {
@@ -160,7 +197,7 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
     day: world.day,
     seed: world.seed,
     cargo: { ...world.cargo },
-    missions: world.missions.map((m) => ({ ...m })),
+    missions: world.missions.map((m) => ({ ...m, ...(m.combat ? { combat: { ...m.combat } } : {}) })),
     route: [...world.route],
     known: [...world.known],
     seen: [...world.seen],
@@ -208,7 +245,7 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     day: p.day,
     seed: p.seed,
     cargo: { ...p.cargo },
-    missions: p.missions.map((m) => ({ ...m })),
+    missions: p.missions.map((m) => ({ ...m, ...(m.combat ? { combat: { ...m.combat } } : {}) })),
     route: [...p.route],
     known: map.known,
     seen: map.seen,

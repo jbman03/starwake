@@ -2,6 +2,7 @@ import { SaveError, worldFromPilot, type PilotSave } from '../save/pilot';
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
 import { visibleSystems } from '../sim/galaxy';
+import { combatRating } from '../sim/rating';
 import { governmentShortName, standingOf } from '../sim/standing';
 import { netWorth, shipDisplayName } from '../sim/shipyard';
 import { importPilot } from '../save/transfer';
@@ -41,6 +42,8 @@ export interface PilotCard {
   jobs: string;
   /** "Concord: friend · Free Reach: cool", or "Standing: neutral everywhere". */
   standing: string;
+  /** "Green", "Ace" and so on, from kills and captures. */
+  rating: string;
 }
 
 function standingLine(save: PilotSave, data: GameData): string {
@@ -66,6 +69,7 @@ export function pilotCard(save: PilotSave, data: GameData): PilotCard {
     explored: `${seen.size}/${visible.size} systems`,
     jobs: `${save.stats.jobsDone} ${save.stats.jobsDone === 1 ? 'job' : 'jobs'}`,
     standing: standingLine(save, data),
+    rating: combatRating(save.stats),
   };
 }
 
@@ -107,6 +111,7 @@ export function showMainMenu(ctx: UiContext): void {
             el('div', { class: 'sw-pilot-ship', text: c.shipLine }),
             el('div', { class: 'sw-pilot-saved', text: `${c.credits} · net worth ${c.netWorth}` }),
             el('div', { class: 'sw-pilot-saved', text: `${c.date} · ${c.explored} · ${c.jobs} done` }),
+            el('div', { class: 'sw-pilot-saved', text: `Rating: ${c.rating}` }),
             el('div', { class: 'sw-pilot-saved', text: c.standing }),
           ]),
           el('div', { class: 'sw-pilot-actions' }, [

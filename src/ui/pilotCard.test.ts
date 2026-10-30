@@ -15,10 +15,15 @@ const save = (over: Record<string, unknown> = {}) => ({
 });
 
 describe('pilotCard', () => {
+  it('shows combat rating', () => {
+    expect(pilotCard(save(), data).rating).toBe('Harmless');
+    expect(pilotCard(save({ stats: { jobsDone: 0, kills: 4, captures: 3 } }), data).rating).toBe('Steady');
+  });
+
   it('formats each line', () => {
     const w = newWorld(data, 5);
     const hull = data.ships[w.shipId].name;
-    const s = save({ shipName: 'Dawn Kettle', stats: { jobsDone: 3 } });
+    const s = save({ shipName: 'Dawn Kettle', stats: { jobsDone: 3, kills: 0, captures: 0 } });
     const c = pilotCard(s, data);
     expect(c.name).toBe('Ann');
     expect(c.shipLine).toBe(`Dawn Kettle — ${hull}`);

@@ -9,7 +9,7 @@ import { newWorld, stepWorld } from './world';
 
 const data = testData();
 const PORT = 'halcyon'; // Calder, tier 3, outfitter
-const base = (over: Partial<WorldState> = {}): WorldState => ({ ...newWorld(data, 1), ...over });
+const base = (over: Partial<WorldState> = {}): WorldState => ({ ...newWorld(data, 1), outfits: {}, ...over });
 
 describe('outfitBuyCheck / buyOutfit', () => {
   it('buys a cargo pod for 2000', () => {

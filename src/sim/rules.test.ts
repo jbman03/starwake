@@ -37,7 +37,7 @@ const mkWorld = (p: Partial<WorldState> = {}, ship: Partial<WorldState['ship']> 
   flags: [],
   notes: [],
   shipName: 'Shuttle',
-  stats: { jobsDone: 0 },
+  stats: { jobsDone: 0, kills: 0, captures: 0 },
   lastEncounterDay: null,
   story: { active: [], done: [], failed: [], declined: [] },
   standing: {},
