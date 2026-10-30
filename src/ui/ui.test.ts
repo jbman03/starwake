@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BINDINGS } from '../input/bindings';
-import { confirmDialog, dialogOpen, formatCredits, hotkeyFor, keyLabel, promptDialog } from './dom';
+import { button, confirmDialog, dialogOpen, formatCredits, hotkeyFor, keyLabel, promptDialog, setUiClickSound } from './dom';
 import { SaveError } from '../save/pilot';
 import { cleanPilotName, saveErrorText } from './mainMenu';
 import { fuelText } from '../sim/fuel';
@@ -106,3 +106,32 @@ describe('dialogs', () => {
     expect([...root.querySelectorAll('button')].some((b) => b.textContent?.includes('Random'))).toBe(false);
   });
 });
+
+describe('button click sound', () => {
+  it('plays the UI click through the hook once it is set, and not after it is cleared', () => {
+    let clicks = 0;
+    let ran = 0;
+    const b = button('Go', () => ran++);
+    b.click();
+    expect(clicks).toBe(0);
+    setUiClickSound(() => clicks++);
+    b.click();
+    expect(clicks).toBe(1);
+    expect(ran).toBe(2);
+    setUiClickSound(null);
+    b.click();
+    expect(clicks).toBe(1);
+  });
+
+  it('a failing sound never stops the button working', () => {
+    let ran = 0;
+    setUiClickSound(() => {
+      throw new Error('no audio');
+    });
+    const b = button('Go', () => ran++);
+    b.click();
+    expect(ran).toBe(1);
+    setUiClickSound(null);
+  });
+});
+

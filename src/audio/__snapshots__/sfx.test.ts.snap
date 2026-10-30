@@ -2,89 +2,78 @@
 
 exports[`SoundBoard recipes from data > alarm makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
-osc0 type square
-osc0.freq set 880 @0
+osc0 type triangle
+osc0.freq set 988 @0
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.05 @0.02
+gain1.gain lin 0.07 @0.02
 gain1.gain exp 0.0001 @0.12
 osc0 start 0
 osc0 stop 0.16999999999999998
 create osc2
-osc2 type square
-osc2.freq set 660 @0.15
+osc2 type triangle
+osc2.freq set 740 @0.15
 create gain3
 gain3.gain set 0.0001 @0.15
-gain3.gain lin 0.05 @0.16999999999999998
+gain3.gain lin 0.07 @0.16999999999999998
 gain3.gain exp 0.0001 @0.27
 osc2 start 0.15
 osc2 stop 0.32
 create osc4
-osc4 type square
-osc4.freq set 880 @0.3
+osc4 type triangle
+osc4.freq set 988 @0.3
 create gain5
 gain5.gain set 0.0001 @0.3
-gain5.gain lin 0.05 @0.32
+gain5.gain lin 0.07 @0.32
 gain5.gain exp 0.0001 @0.42
 osc4 start 0.3
 osc4 stop 0.47
 create osc6
-osc6 type square
-osc6.freq set 660 @0.45
+osc6 type triangle
+osc6.freq set 740 @0.45
 create gain7
 gain7.gain set 0.0001 @0.45
-gain7.gain lin 0.05 @0.47000000000000003
+gain7.gain lin 0.07 @0.47000000000000003
 gain7.gain exp 0.0001 @0.5700000000000001
 osc6 start 0.45
 osc6 stop 0.6200000000000001"
 `;
 
 exports[`SoundBoard recipes from data > armorHit makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
-"create osc0
-osc0 type square
-osc0.freq set 140 @0
-osc0.freq exp 70 @0.12
-create gain1
-gain1.gain set 0.0001 @0
-gain1.gain lin 0.05 @0.02
-gain1.gain exp 0.0001 @0.12
-osc0 start 0
-osc0 stop 0.16999999999999998
-create src2
-create filter3
-filter3 type lowpass
-filter3.freq set 1500 @0
-filter3.freq exp 300 @0.14
+"create src0
+create filter1
+filter1 type lowpass
+filter1.Q set 2 @0
+filter1.freq set 1800 @0
+filter1.freq exp 250 @0.13
+create gain2
+gain2.gain set 0.0001 @0
+gain2.gain lin 0.11 @0.02
+gain2.gain exp 0.0001 @0.13
+src0 start 0
+src0 stop 0.18
+create osc3
+osc3 type square
+osc3.freq set 110 @0
+osc3.freq exp 55 @0.1
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.14 @0.02
-gain4.gain exp 0.0001 @0.14
-src2 start 0
-src2 stop 0.19"
-`;
-
-exports[`SoundBoard recipes from data > arrive makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
-"create osc0
-osc0 type sawtooth
-osc0.freq set 1200 @0
-osc0.freq exp 180 @0.7
-create gain1
-gain1.gain set 0.0001 @0
-gain1.gain lin 0.15 @0.02
-gain1.gain exp 0.0001 @0.7
-osc0 start 0
-osc0 stop 0.75
-create src2
-create filter3
-filter3 type lowpass
-filter3.freq set 3500 @0
-filter3.freq exp 300 @0.5
-create gain4
-gain4.gain set 0.0001 @0
-gain4.gain lin 0.25 @0.02
-gain4.gain exp 0.0001 @0.5
-src2 start 0
-src2 stop 0.55"
+gain4.gain lin 0.03 @0.02
+gain4.gain exp 0.0001 @0.1
+osc3 start 0
+osc3 stop 0.15000000000000002
+create src5
+create filter6
+filter6 type bandpass
+filter6.Q set 1.5 @0
+filter6.freq set 700 @0
+filter6.freq exp 300 @0.06
+create gain7
+gain7.gain set 0.0001 @0
+gain7.gain lin 0.05 @0.015
+gain7.gain exp 0.0001 @0.06
+src5 start 0
+src5 stop 0.11"
 `;
 
 exports[`SoundBoard recipes from data > beam makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
@@ -103,51 +92,131 @@ gain2.gain set 0.07 @0.1
 gain2.gain lin 0 @0.14"
 `;
 
+exports[`SoundBoard recipes from data > cannon makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
+"create osc0
+osc0 type sine
+osc0.freq set 150 @0
+osc0.freq exp 55 @0.14
+create gain1
+gain1.gain set 0.0001 @0
+gain1.gain lin 0.11 @0.02
+gain1.gain exp 0.0001 @0.14
+osc0 start 0
+osc0 stop 0.19
+create osc2
+osc2 type square
+osc2.freq set 90 @0
+osc2.freq exp 45 @0.08
+create gain3
+gain3.gain set 0.0001 @0
+gain3.gain lin 0.03 @0.02
+gain3.gain exp 0.0001 @0.08
+osc2 start 0
+osc2 stop 0.13
+create src4
+create filter5
+filter5 type lowpass
+filter5.Q set 1 @0
+filter5.freq set 1200 @0
+filter5.freq exp 200 @0.09
+create gain6
+gain6.gain set 0.0001 @0
+gain6.gain lin 0.05 @0.02
+gain6.gain exp 0.0001 @0.09
+src4 start 0
+src4 stop 0.14"
+`;
+
 exports[`SoundBoard recipes from data > disabled makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sawtooth
-osc0.freq set 440 @0
-osc0.freq exp 110 @0.6
+osc0.freq set 520 @0
+osc0.freq exp 90 @0.7
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.06 @0.02
-gain1.gain exp 0.0001 @0.6
+gain1.gain lin 0.05 @0.02
+gain1.gain exp 0.0001 @0.7
 osc0 start 0
-osc0 stop 0.65
+osc0 stop 0.75
 create osc2
 osc2 type sine
-osc2.freq set 220 @0
-osc2.freq exp 55 @0.6
+osc2.freq set 260 @0
+osc2.freq exp 50 @0.8
 create gain3
 gain3.gain set 0.0001 @0
 gain3.gain lin 0.12 @0.02
-gain3.gain exp 0.0001 @0.6
+gain3.gain exp 0.0001 @0.8
 osc2 start 0
-osc2 stop 0.65"
+osc2 stop 0.8500000000000001
+create src4
+create filter5
+filter5 type lowpass
+filter5.freq set 1500 @0
+filter5.freq exp 100 @0.5
+create gain6
+gain6.gain set 0.0001 @0
+gain6.gain lin 0.06 @0.02
+gain6.gain exp 0.0001 @0.5
+src4 start 0
+src4 stop 0.55"
 `;
 
 exports[`SoundBoard recipes from data > explosion makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sine
-osc0.freq set 90 @0
-osc0.freq exp 35 @0.8
+osc0.freq set 70 @0
+osc0.freq exp 28 @1.1
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.3 @0.02
-gain1.gain exp 0.0001 @0.8
+gain1.gain lin 0.22 @0.02
+gain1.gain exp 0.0001 @1.1
 osc0 start 0
-osc0 stop 0.8500000000000001
-create src2
-create filter3
-filter3 type lowpass
-filter3.freq set 2200 @0
-filter3.freq exp 120 @0.9
-create gain4
-gain4.gain set 0.0001 @0
-gain4.gain lin 0.32 @0.02
-gain4.gain exp 0.0001 @0.9
-src2 start 0
-src2 stop 0.9500000000000001"
+osc0 stop 1.1500000000000001
+create osc2
+osc2 type triangle
+osc2.freq set 140 @0
+osc2.freq exp 45 @0.5
+create gain3
+gain3.gain set 0.0001 @0
+gain3.gain lin 0.08 @0.02
+gain3.gain exp 0.0001 @0.5
+osc2 start 0
+osc2 stop 0.55
+create src4
+create filter5
+filter5 type lowpass
+filter5.Q set 0.8 @0
+filter5.freq set 2500 @0
+filter5.freq exp 90 @1.2
+create gain6
+gain6.gain set 0.0001 @0
+gain6.gain lin 0.2 @0.02
+gain6.gain exp 0.0001 @1.2
+src4 start 0
+src4 stop 1.25
+create src7
+create filter8
+filter8 type bandpass
+filter8.Q set 1 @0
+filter8.freq set 1800 @0
+filter8.freq exp 400 @0.25
+create gain9
+gain9.gain set 0.0001 @0
+gain9.gain lin 0.08 @0.02
+gain9.gain exp 0.0001 @0.25
+src7 start 0
+src7 stop 0.3
+create src10
+create filter11
+filter11 type lowpass
+filter11.freq set 600 @0.3
+filter11.freq exp 80 @1.2
+create gain12
+gain12.gain set 0.0001 @0.3
+gain12.gain lin 0.08 @0.32
+gain12.gain exp 0.0001 @1.2
+src10 start 0.3
+src10 stop 1.25"
 `;
 
 exports[`SoundBoard recipes from data > hail makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
@@ -156,91 +225,213 @@ osc0 type sine
 osc0.freq set 700 @0
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.2 @0.02
+gain1.gain lin 0.12 @0.02
 gain1.gain exp 0.0001 @0.15
 osc0 start 0
 osc0 stop 0.2
 create osc2
 osc2 type sine
-osc2.freq set 700 @0.25
+osc2.freq set 1400 @0
 create gain3
-gain3.gain set 0.0001 @0.25
-gain3.gain lin 0.2 @0.27
-gain3.gain exp 0.0001 @0.4
-osc2 start 0.25
-osc2 stop 0.45"
+gain3.gain set 0.0001 @0
+gain3.gain lin 0.04 @0.02
+gain3.gain exp 0.0001 @0.12
+osc2 start 0
+osc2 stop 0.16999999999999998
+create osc4
+osc4 type sine
+osc4.freq set 700 @0.25
+create gain5
+gain5.gain set 0.0001 @0.25
+gain5.gain lin 0.12 @0.27
+gain5.gain exp 0.0001 @0.4
+osc4 start 0.25
+osc4 stop 0.45
+create osc6
+osc6 type sine
+osc6.freq set 1400 @0.25
+create gain7
+gain7.gain set 0.0001 @0.25
+gain7.gain lin 0.04 @0.27
+gain7.gain exp 0.0001 @0.37
+osc6 start 0.25
+osc6 stop 0.42"
 `;
 
-exports[`SoundBoard recipes from data > jump makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
+exports[`SoundBoard recipes from data > jumpArrive makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sawtooth
-osc0.freq set 120 @0
-osc0.freq exp 1400 @0.9
+osc0.freq set 900 @0
+osc0.freq exp 140 @0.6
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.18 @0.02
-gain1.gain exp 0.0001 @0.9
+gain1.gain lin 0.05 @0.02
+gain1.gain exp 0.0001 @0.6
 osc0 start 0
-osc0 stop 0.9500000000000001
-create src2
-create filter3
-filter3 type lowpass
-filter3.freq set 300 @0
-filter3.freq exp 4000 @0.9
-create gain4
-gain4.gain set 0.0001 @0
-gain4.gain lin 0.25 @0.02
-gain4.gain exp 0.0001 @0.9
-src2 start 0
-src2 stop 0.9500000000000001"
+osc0 stop 0.65
+create osc2
+osc2 type sine
+osc2.freq set 600 @0
+osc2.freq exp 110 @0.6
+create gain3
+gain3.gain set 0.0001 @0
+gain3.gain lin 0.12 @0.02
+gain3.gain exp 0.0001 @0.6
+osc2 start 0
+osc2 stop 0.65
+create src4
+create filter5
+filter5 type lowpass
+filter5.freq set 3000 @0
+filter5.freq exp 200 @0.5
+create gain6
+gain6.gain set 0.0001 @0
+gain6.gain lin 0.15 @0.02
+gain6.gain exp 0.0001 @0.5
+src4 start 0
+src4 stop 0.55"
+`;
+
+exports[`SoundBoard recipes from data > jumpCharge makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
+"create osc0
+osc0 type sawtooth
+osc0.freq set 90 @0
+osc0.freq exp 720 @0.7
+create gain1
+gain1.gain set 0.0001 @0
+gain1.gain lin 0.08 @0.55
+gain1.gain exp 0.0001 @0.7
+osc0 start 0
+osc0 stop 0.75
+create osc2
+osc2 type sine
+osc2.freq set 180 @0
+osc2.freq exp 1440 @0.7
+create gain3
+gain3.gain set 0.0001 @0
+gain3.gain lin 0.12 @0.55
+gain3.gain exp 0.0001 @0.7
+osc2 start 0
+osc2 stop 0.75
+create src4
+create filter5
+filter5 type bandpass
+filter5.Q set 3 @0
+filter5.freq set 400 @0
+filter5.freq exp 3200 @0.7
+create gain6
+gain6.gain set 0.0001 @0
+gain6.gain lin 0.1 @0.6
+gain6.gain exp 0.0001 @0.7
+src4 start 0
+src4 stop 0.75"
+`;
+
+exports[`SoundBoard recipes from data > jumpWhoosh makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
+"create src0
+create filter1
+filter1 type bandpass
+filter1.Q set 1.2 @0
+filter1.freq set 6000 @0
+filter1.freq exp 300 @0.6
+create gain2
+gain2.gain set 0.0001 @0
+gain2.gain lin 0.3 @0.03
+gain2.gain exp 0.0001 @0.6
+src0 start 0
+src0 stop 0.65
+create src3
+create filter4
+filter4 type lowpass
+filter4.freq set 1500 @0
+filter4.freq exp 80 @0.8
+create gain5
+gain5.gain set 0.0001 @0
+gain5.gain lin 0.15 @0.02
+gain5.gain exp 0.0001 @0.8
+src3 start 0
+src3 stop 0.8500000000000001
+create osc6
+osc6 type sine
+osc6.freq set 220 @0
+osc6.freq exp 40 @0.6
+create gain7
+gain7.gain set 0.0001 @0
+gain7.gain lin 0.12 @0.02
+gain7.gain exp 0.0001 @0.6
+osc6 start 0
+osc6 stop 0.65"
 `;
 
 exports[`SoundBoard recipes from data > land makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type sine
-osc0.freq set 160 @0
-osc0.freq exp 60 @0.5
+osc0.freq set 150 @0
+osc0.freq exp 55 @0.45
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.35 @0.02
-gain1.gain exp 0.0001 @0.5
+gain1.gain lin 0.25 @0.02
+gain1.gain exp 0.0001 @0.45
 osc0 start 0
-osc0 stop 0.55
+osc0 stop 0.5
 create src2
 create filter3
 filter3 type lowpass
-filter3.freq set 500 @0
-filter3.freq exp 150 @0.35
+filter3.freq set 700 @0
+filter3.freq exp 120 @0.4
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.3 @0.02
-gain4.gain exp 0.0001 @0.35
+gain4.gain lin 0.18 @0.02
+gain4.gain exp 0.0001 @0.4
 src2 start 0
-src2 stop 0.39999999999999997"
+src2 stop 0.45
+create src5
+create filter6
+filter6 type highpass
+filter6.freq set 2500 @0.05
+filter6.freq exp 800 @0.39999999999999997
+create gain7
+gain7.gain set 0.0001 @0.05
+gain7.gain lin 0.04 @0.13
+gain7.gain exp 0.0001 @0.39999999999999997
+src5 start 0.05
+src5 stop 0.44999999999999996"
 `;
 
 exports[`SoundBoard recipes from data > missile makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
-"create osc0
-osc0 type triangle
-osc0.freq set 180 @0
-osc0.freq exp 520 @0.35
-create gain1
-gain1.gain set 0.0001 @0
-gain1.gain lin 0.07 @0.02
-gain1.gain exp 0.0001 @0.35
-osc0 start 0
-osc0 stop 0.39999999999999997
-create src2
-create filter3
-filter3 type lowpass
-filter3.freq set 900 @0
-filter3.freq exp 2400 @0.4
-create gain4
-gain4.gain set 0.0001 @0
-gain4.gain lin 0.12 @0.02
-gain4.gain exp 0.0001 @0.4
-src2 start 0
-src2 stop 0.45"
+"create src0
+create filter1
+filter1 type highpass
+filter1.Q set 0.7 @0
+filter1.freq set 1500 @0
+filter1.freq exp 5000 @0.45
+create gain2
+gain2.gain set 0.0001 @0
+gain2.gain lin 0.08 @0.05
+gain2.gain exp 0.0001 @0.45
+src0 start 0
+src0 stop 0.5
+create src3
+create filter4
+filter4 type lowpass
+filter4.freq set 600 @0
+filter4.freq exp 1800 @0.3
+create gain5
+gain5.gain set 0.0001 @0
+gain5.gain lin 0.07 @0.02
+gain5.gain exp 0.0001 @0.3
+src3 start 0
+src3 stop 0.35
+create osc6
+osc6 type triangle
+osc6.freq set 120 @0
+osc6.freq exp 70 @0.15
+create gain7
+gain7.gain set 0.0001 @0
+gain7.gain lin 0.06 @0.02
+gain7.gain exp 0.0001 @0.15
+osc6 start 0
+osc6 stop 0.2"
 `;
 
 exports[`SoundBoard recipes from data > paid makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
@@ -249,7 +440,7 @@ osc0 type triangle
 osc0.freq set 523 @0
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.18 @0.02
+gain1.gain lin 0.1 @0.02
 gain1.gain exp 0.0001 @0.12
 osc0 start 0
 osc0 stop 0.16999999999999998
@@ -258,7 +449,7 @@ osc2 type triangle
 osc2.freq set 659 @0.1
 create gain3
 gain3.gain set 0.0001 @0.1
-gain3.gain lin 0.18 @0.12000000000000001
+gain3.gain lin 0.1 @0.12000000000000001
 gain3.gain exp 0.0001 @0.22
 osc2 start 0.1
 osc2 stop 0.27
@@ -267,7 +458,7 @@ osc4 type triangle
 osc4.freq set 784 @0.2
 create gain5
 gain5.gain set 0.0001 @0.2
-gain5.gain lin 0.18 @0.22
+gain5.gain lin 0.1 @0.22
 gain5.gain exp 0.0001 @0.32
 osc4 start 0.2
 osc4 stop 0.37
@@ -276,47 +467,143 @@ osc6 type triangle
 osc6.freq set 1047 @0.3
 create gain7
 gain7.gain set 0.0001 @0.3
-gain7.gain lin 0.18 @0.32
+gain7.gain lin 0.1 @0.32
 gain7.gain exp 0.0001 @0.6
 osc6 start 0.3
-osc6 stop 0.65"
+osc6 stop 0.65
+create osc8
+osc8 type sine
+osc8.freq set 2093 @0.3
+create gain9
+gain9.gain set 0.0001 @0.3
+gain9.gain lin 0.04 @0.32
+gain9.gain exp 0.0001 @0.7
+osc8 start 0.3
+osc8 stop 0.75"
+`;
+
+exports[`SoundBoard recipes from data > seeker makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
+"create osc0
+osc0 type sine
+osc0.freq set 1200 @0
+osc0.freq exp 1500 @0.06
+create gain1
+gain1.gain set 0.0001 @0
+gain1.gain lin 0.05 @0.015
+gain1.gain exp 0.0001 @0.06
+osc0 start 0
+osc0 stop 0.11
+create osc2
+osc2 type sine
+osc2.freq set 1500 @0.06
+osc2.freq exp 1800 @0.12
+create gain3
+gain3.gain set 0.0001 @0.06
+gain3.gain lin 0.05 @0.075
+gain3.gain exp 0.0001 @0.12
+osc2 start 0.06
+osc2 stop 0.16999999999999998
+create osc4
+osc4 type sine
+osc4.freq set 1350 @0.12
+osc4.freq exp 1700 @0.18
+create gain5
+gain5.gain set 0.0001 @0.12
+gain5.gain lin 0.05 @0.135
+gain5.gain exp 0.0001 @0.18
+osc4 start 0.12
+osc4 stop 0.22999999999999998
+create osc6
+osc6 type sine
+osc6.freq set 1800 @0.18
+osc6.freq exp 2200 @0.26
+create gain7
+gain7.gain set 0.0001 @0.18
+gain7.gain lin 0.05 @0.19999999999999998
+gain7.gain exp 0.0001 @0.26
+osc6 start 0.18
+osc6 stop 0.31
+create src8
+create filter9
+filter9 type highpass
+filter9.freq set 2000 @0
+filter9.freq exp 4000 @0.35
+create gain10
+gain10.gain set 0.0001 @0
+gain10.gain lin 0.05 @0.05
+gain10.gain exp 0.0001 @0.35
+src8 start 0
+src8 stop 0.39999999999999997"
 `;
 
 exports[`SoundBoard recipes from data > shieldHit makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
-"create osc0
-osc0 type sine
-osc0.freq set 1400 @0
-osc0.freq exp 900 @0.12
-create gain1
-gain1.gain set 0.0001 @0
-gain1.gain lin 0.07 @0.02
-gain1.gain exp 0.0001 @0.12
-osc0 start 0
-osc0 stop 0.16999999999999998
-create src2
-create filter3
-filter3 type lowpass
-filter3.freq set 4000 @0
-filter3.freq exp 2000 @0.1
+"create src0
+create filter1
+filter1 type bandpass
+filter1.Q set 4 @0
+filter1.freq set 3500 @0
+filter1.freq exp 6000 @0.09
+create gain2
+gain2.gain set 0.0001 @0
+gain2.gain lin 0.08 @0.02
+gain2.gain exp 0.0001 @0.09
+src0 start 0
+src0 stop 0.14
+create osc3
+osc3 type sawtooth
+osc3.freq set 2200 @0
+osc3.freq exp 900 @0.07
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.05 @0.02
-gain4.gain exp 0.0001 @0.1
-src2 start 0
-src2 stop 0.15000000000000002"
+gain4.gain lin 0.025 @0.0175
+gain4.gain exp 0.0001 @0.07
+osc3 start 0
+osc3 stop 0.12000000000000001
+create osc5
+osc5 type sine
+osc5.freq set 1600 @0
+osc5.freq exp 1200 @0.1
+create gain6
+gain6.gain set 0.0001 @0
+gain6.gain lin 0.03 @0.02
+gain6.gain exp 0.0001 @0.1
+osc5 start 0
+osc5 stop 0.15000000000000002"
 `;
 
 exports[`SoundBoard recipes from data > shot makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
-osc0 type triangle
-osc0.freq set 900 @0
-osc0.freq exp 320 @0.09
+osc0 type square
+osc0.freq set 1700 @0
+osc0.freq exp 420 @0.07
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.08 @0.02
-gain1.gain exp 0.0001 @0.09
+gain1.gain lin 0.05 @0.0175
+gain1.gain exp 0.0001 @0.07
 osc0 start 0
-osc0 stop 0.14"
+osc0 stop 0.12000000000000001
+create osc2
+osc2 type triangle
+osc2.freq set 900 @0
+osc2.freq exp 260 @0.09
+create gain3
+gain3.gain set 0.0001 @0
+gain3.gain lin 0.06 @0.02
+gain3.gain exp 0.0001 @0.09
+osc2 start 0
+osc2 stop 0.14
+create src4
+create filter5
+filter5 type bandpass
+filter5.Q set 3 @0
+filter5.freq set 4000 @0
+filter5.freq exp 1500 @0.04
+create gain6
+gain6.gain set 0.0001 @0
+gain6.gain lin 0.04 @0.01
+gain6.gain exp 0.0001 @0.04
+src4 start 0
+src4 stop 0.09"
 `;
 
 exports[`SoundBoard recipes from data > site makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
@@ -326,67 +613,132 @@ osc0.freq set 300 @0
 osc0.freq exp 900 @0.5
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.18 @0.02
+gain1.gain lin 0.14 @0.02
 gain1.gain exp 0.0001 @0.5
 osc0 start 0
-osc0 stop 0.55"
+osc0 stop 0.55
+create src2
+create filter3
+filter3 type bandpass
+filter3.Q set 6 @0
+filter3.freq set 600 @0
+filter3.freq exp 2400 @0.5
+create gain4
+gain4.gain set 0.0001 @0
+gain4.gain lin 0.05 @0.15
+gain4.gain exp 0.0001 @0.5
+src2 start 0
+src2 stop 0.55"
 `;
 
 exports[`SoundBoard recipes from data > takeoff makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
 osc0 type triangle
-osc0.freq set 70 @0
-osc0.freq exp 220 @0.6
+osc0.freq set 60 @0
+osc0.freq exp 200 @0.8
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.25 @0.02
-gain1.gain exp 0.0001 @0.6
+gain1.gain lin 0.2 @0.35
+gain1.gain exp 0.0001 @0.8
 osc0 start 0
-osc0 stop 0.65
+osc0 stop 0.8500000000000001
 create src2
 create filter3
 filter3 type lowpass
+filter3.Q set 1 @0
 filter3.freq set 200 @0
-filter3.freq exp 1500 @0.6
+filter3.freq exp 2200 @0.85
 create gain4
 gain4.gain set 0.0001 @0
-gain4.gain lin 0.25 @0.02
-gain4.gain exp 0.0001 @0.6
+gain4.gain lin 0.22 @0.4
+gain4.gain exp 0.0001 @0.85
 src2 start 0
-src2 stop 0.65"
+src2 stop 0.9
+create osc5
+osc5 type sawtooth
+osc5.freq set 120 @0
+osc5.freq exp 400 @0.8
+create gain6
+gain6.gain set 0.0001 @0
+gain6.gain lin 0.03 @0.4
+gain6.gain exp 0.0001 @0.8
+osc5 start 0
+osc5 stop 0.8500000000000001"
 `;
 
-exports[`SoundBoard recipes from data > the engine hum is unchanged 1`] = `
+exports[`SoundBoard recipes from data > the engine hum: a filtered tone over a low-passed noise rumble 1`] = `
 "create src0
 create filter1
 filter1 type lowpass
-filter1.freq set 240 @0
-create gain2
-gain2.gain set 0 @0
+filter1.freq set 180 @0
+create osc2
+osc2 type sawtooth
+osc2.freq set 55 @0
+create filter3
+filter3 type lowpass
+filter3.freq set 220 @0
+create gain4
+gain4.gain set 0.6 @0
+create gain5
+gain5.gain set 0 @0
 src0 start 
-gain2.gain set 0 @0
-gain2.gain lin 0.12 @0.1
-gain2.gain set 0.12 @0
-gain2.gain lin 0 @0.1"
+osc2 start 
+gain5.gain set 0 @0
+gain5.gain lin 0.12 @0.1
+gain5.gain set 0.12 @0
+gain5.gain lin 0 @0.1"
 `;
 
 exports[`SoundBoard recipes from data > trade makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
 "create osc0
-osc0 type square
+osc0 type triangle
 osc0.freq set 880 @0
 create gain1
 gain1.gain set 0.0001 @0
-gain1.gain lin 0.08 @0.02
-gain1.gain exp 0.0001 @0.08
+gain1.gain lin 0.07 @0.0175
+gain1.gain exp 0.0001 @0.07
 osc0 start 0
-osc0 stop 0.13
+osc0 stop 0.12000000000000001
 create osc2
-osc2 type square
+osc2 type triangle
 osc2.freq set 1320 @0.07
 create gain3
 gain3.gain set 0.0001 @0.07
-gain3.gain lin 0.08 @0.09000000000000001
-gain3.gain exp 0.0001 @0.19
+gain3.gain lin 0.07 @0.09000000000000001
+gain3.gain exp 0.0001 @0.17
 osc2 start 0.07
-osc2 stop 0.24"
+osc2 stop 0.22000000000000003
+create src4
+create filter5
+filter5 type highpass
+filter5.freq set 5000 @0
+create gain6
+gain6.gain set 0.0001 @0
+gain6.gain lin 0.02 @0.0075
+gain6.gain exp 0.0001 @0.03
+src4 start 0
+src4 stop 0.08"
+`;
+
+exports[`SoundBoard recipes from data > uiClick makes the recipe's nodes, frequencies and per-sound peak gains (the level is on the bus) 1`] = `
+"create osc0
+osc0 type sine
+osc0.freq set 2400 @0
+osc0.freq exp 1800 @0.025
+create gain1
+gain1.gain set 0.0001 @0
+gain1.gain lin 0.03 @0.00625
+gain1.gain exp 0.0001 @0.025
+osc0 start 0
+osc0 stop 0.07500000000000001
+create src2
+create filter3
+filter3 type highpass
+filter3.freq set 4000 @0
+create gain4
+gain4.gain set 0.0001 @0
+gain4.gain lin 0.015 @0.00375
+gain4.gain exp 0.0001 @0.015
+src2 start 0
+src2 stop 0.065"
 `;

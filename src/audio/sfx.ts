@@ -1,12 +1,16 @@
 import type { Settings } from '../save/settings';
-import type { AudioDef, SfxId, SoundLayer } from '../data/schemas';
+import type { AudioDef, GunVoice, SfxId, SoundLayer } from '../data/schemas';
 import type { BattleEvent } from '../sim/battle';
 import type { Mixer } from './mixer';
 
 export type Sfx = SfxId;
 
-/** The sounds for one tick of fight events, each at most once (a volley of bolts is one shot). */
-export function battleSounds(events: readonly BattleEvent[]): Sfx[] {
+/**
+ * The sounds for one tick of fight events, each at most once (a volley of bolts is one shot). A gun's
+ * bolts play the voice `gunVoices` gives its outfit (blaster chirp `shot` when unnamed); rockets hiss
+ * (`missile`) and seekers trill (`seeker`).
+ */
+export function battleSounds(events: readonly BattleEvent[], gunVoices: Readonly<Record<string, GunVoice>>): Sfx[] {
   const out: Sfx[] = [];
   const add = (s: Sfx) => {
     if (!out.includes(s)) out.push(s);
@@ -14,7 +18,7 @@ export function battleSounds(events: readonly BattleEvent[]): Sfx[] {
   for (const e of events) {
     switch (e.type) {
       case 'shot':
-        add(e.kind === 'bolt' ? 'shot' : e.kind === 'beam' ? 'beam' : 'missile');
+        add(e.kind === 'bolt' ? (gunVoices[e.outfitId] ?? 'shot') : e.kind === 'beam' ? 'beam' : e.kind === 'seeker' ? 'seeker' : 'missile');
         break;
       case 'hit':
         add(e.shield ? 'shieldHit' : 'armorHit');
@@ -85,11 +89,13 @@ export class SoundBoard {
     }
   }
 
-  private envelope(ctx: AudioContext, bus: GainNode, peak: number, at: number, dur: number): GainNode {
+  /** A layer's gain: up to its peak over `attack` (default a quick click-free 20 ms), then down to silence at `dur`. */
+  private envelope(ctx: AudioContext, bus: GainNode, l: SoundLayer): GainNode {
     const g = ctx.createGain();
-    const t = ctx.currentTime + at;
+    const t = ctx.currentTime + (l.at ?? 0);
+    const { gain: peak, dur } = l;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(peak, t + Math.min(0.02, dur / 4));
+    g.gain.linearRampToValueAtTime(peak, t + (l.attack ?? Math.min(0.02, dur / 4)));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     g.connect(bus);
     return g;
@@ -102,7 +108,7 @@ export class SoundBoard {
     const start = ctx.currentTime + at;
     o.frequency.setValueAtTime(t.f0, start);
     if (t.f1 !== undefined) o.frequency.exponentialRampToValueAtTime(t.f1, start + t.dur);
-    o.connect(this.envelope(ctx, bus, t.gain, at, t.dur));
+    o.connect(this.envelope(ctx, bus, t));
     o.start(start);
     o.stop(start + t.dur + 0.05);
   }
@@ -124,6 +130,7 @@ export class SoundBoard {
     const at = b.at ?? 0;
     const src = ctx.createBufferSource();
     src.buffer = this.noiseBuffer(ctx);
+    src.loop = true; // the buffer is one second; a longer layer keeps hissing
     const f = ctx.createBiquadFilter();
     f.type = b.filter;
     if (b.q !== undefined) f.Q.setValueAtTime(b.q, ctx.currentTime);
@@ -131,7 +138,7 @@ export class SoundBoard {
     f.frequency.setValueAtTime(b.c0, start);
     if (b.c1 !== undefined) f.frequency.exponentialRampToValueAtTime(b.c1, start + b.dur);
     src.connect(f);
-    f.connect(this.envelope(ctx, bus, b.gain, at, b.dur));
+    f.connect(this.envelope(ctx, bus, b));
     src.start(start);
     src.stop(start + b.dur + 0.05);
   }
@@ -180,7 +187,10 @@ export class SoundBoard {
     return this.beamUntil;
   }
 
-  /** Engine hum: low-passed looping noise whose gain ramps over 0.1 s. Silent when muted or not unlocked. */
+  /**
+   * Engine hum: a low-passed looping noise rumble under a filtered tone, sharing one gain that ramps
+   * over `rampSec`. Silent when muted or not unlocked.
+   */
   setThrust(on: boolean): void {
     const ctx = this.mixer.context();
     const bus = this.mixer.sfxBus();
@@ -189,23 +199,37 @@ export class SoundBoard {
       if (on) this.mixer.wakeContext();
       return;
     }
-    const target = on && this.audible() ? this.audio.voices.hum.gain : 0;
+    const hum = this.audio.voices.hum;
+    const target = on && this.audible() ? hum.gain : 0;
     if (target === this.humLevel) return;
     try {
       if (!this.hum) {
         if (target === 0) return;
+        const now = ctx.currentTime;
         const src = ctx.createBufferSource();
         src.buffer = this.noiseBuffer(ctx);
         src.loop = true;
         const f = ctx.createBiquadFilter();
         f.type = 'lowpass';
-        f.frequency.setValueAtTime(this.audio.voices.hum.f, ctx.currentTime);
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0, ctx.currentTime);
+        f.frequency.setValueAtTime(hum.f, now);
+        const o = ctx.createOscillator();
+        o.type = hum.tone.wave;
+        o.frequency.setValueAtTime(hum.tone.f, now);
+        const tf = ctx.createBiquadFilter();
+        tf.type = 'lowpass';
+        tf.frequency.setValueAtTime(hum.tone.cutoff, now);
+        const mix = ctx.createGain();
+        mix.gain.setValueAtTime(hum.tone.gain, now);
+        const gain = ctx.createGain(); // made last: the one gain the level ramps on
+        gain.gain.setValueAtTime(0, now);
         src.connect(f);
         f.connect(gain);
+        o.connect(tf);
+        tf.connect(mix);
+        mix.connect(gain);
         gain.connect(bus);
         src.start();
+        o.start();
         this.hum = { gain };
       }
       const now = ctx.currentTime;

@@ -81,6 +81,8 @@ describe('player fire', () => {
     let s = tick(begin(w, mkTraffic([])), FIRE);
     expect(s.b.projectiles).toHaveLength(3);
     expect(s.events.filter((e) => e.type === 'shot')).toHaveLength(2);
+    // Each shot names the gun that fired, so the guns can sound different.
+    expect(s.events.flatMap((e) => (e.type === 'shot' ? [e.outfitId] : [])).sort()).toEqual(['light-blaster', 'rapid-cannon']);
     // The two blasters leave from points either side of the nose.
     const ys = s.b.projectiles.filter((p) => p.damage === 6).map((p) => p.pos.y);
     expect(Math.abs(ys[0] - ys[1])).toBeGreaterThan(1);
@@ -97,7 +99,7 @@ describe('player fire', () => {
     expect(s.w.outfits.rocket).toBeUndefined();
     expect('rocket' in s.w.outfits).toBe(false);
     expect(s.b.projectiles.filter((p) => p.kind === 'rocket').length).toBeLessThanOrEqual(2);
-    expect(s.events.filter((e) => e.type === 'shot' && e.kind === 'rocket')).toHaveLength(2);
+    expect(s.events.filter((e) => e.type === 'shot' && e.kind === 'rocket' && e.outfitId === 'rocket-rack')).toHaveLength(2);
     s = tick(s, frame(['fireSecondary']), 130);
     expect(s.events.filter((e) => e.type === 'shot' && e.kind === 'rocket')).toHaveLength(2);
   });

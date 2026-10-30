@@ -14,6 +14,7 @@ import { createGame, planetImages, whenGameReady } from './render/game';
 import { loadSettings } from './save/settings';
 import { PilotStore } from './save/store';
 import { createUi } from './ui/context';
+import { setUiClickSound } from './ui/dom';
 import { hideUpdatePrompt, showCrash, showDataError, showUpdatePrompt } from './ui/overlays';
 import { mountRails } from './ui/rails';
 
@@ -61,10 +62,11 @@ async function boot(): Promise<void> {
     for (const t of unlockEvents) window.removeEventListener(t, unlockSound);
   };
   for (const t of unlockEvents) window.addEventListener(t, unlockSound);
+  setUiClickSound(() => sound.play('uiClick'));
   controller.on('landed', () => sound.play('land'));
   controller.on('missionsCompleted', () => sound.play('paid'));
   controller.on('sfx', (e) => sound.play(e.sfx));
-  controller.on('battle', (e) => battleSounds(e.events).forEach((s) => sound.play(s)));
+  controller.on('battle', (e) => battleSounds(e.events, data.audio.gunVoices).forEach((s) => sound.play(s)));
   // A beam hums while it fires: each poll keeps it going, and it stops on its own 0.1 s after the last.
   setInterval(() => {
     if (document.visibilityState === 'visible' && controller.isFlying && controller.battleView().beams.length > 0) sound.play('beam');

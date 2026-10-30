@@ -50,7 +50,8 @@ export interface Battle {
 }
 
 export type BattleEvent =
-  | { type: 'shot'; ownerId: string; kind: ShotKind | 'beam' }
+  /** `outfitId` is the gun, beam or launcher that fired, so each weapon can sound its own. */
+  | { type: 'shot'; ownerId: string; kind: ShotKind | 'beam'; outfitId: string }
   | { type: 'hit'; targetId: string; shield: boolean; pos: Vec2 }
   | { type: 'disabled'; id: string; byPlayer: boolean }
   | { type: 'destroyed'; id: string; byPlayer: boolean; pos: Vec2 }
@@ -227,14 +228,14 @@ function firePrimary(
       t.projectiles.push(spawnBolt(id, c.id, target?.id ?? null, { ...c.ship, pos: origin }, heading, def));
     }
     t.cooldowns[key] = (t.cooldowns[key] ?? 0) + 1 / def.effect.rate;
-    t.events.push({ type: 'shot', ownerId: c.id, kind: 'bolt' });
+    t.events.push({ type: 'shot', ownerId: c.id, kind: 'bolt', outfitId: def.id });
   }
   if (!on.beams) return;
   for (const { def, count } of w.beams) {
     const r = beamTrace(c.ship.pos, c.ship.heading, def.effect.range, victims);
     t.beams.push({ ownerId: c.id, from: { ...c.ship.pos }, to: r.to, hitId: r.hitId });
     if (r.hitId) t.hits.push({ ownerId: c.id, targetId: r.hitId, damage: def.effect.dps * count * t.dt, pos: r.to });
-    if (!t.prevBeamOwners.has(c.id)) t.events.push({ type: 'shot', ownerId: c.id, kind: 'beam' });
+    if (!t.prevBeamOwners.has(c.id)) t.events.push({ type: 'shot', ownerId: c.id, kind: 'beam', outfitId: def.id });
     t.prevBeamOwners.add(c.id);
   }
 }
@@ -250,7 +251,7 @@ function fireLauncher(t: Tick, c: Combatant, launcherId: string, target: Combata
   const kind = ammo.effect.turnRate > 0 ? 'seeker' : 'rocket';
   t.projectiles.push(spawnAmmo(t.nextShotId++, c.id, target?.id ?? null, c.ship, kind, ammo));
   t.cooldowns[key] = (t.cooldowns[key] ?? 0) + 1 / def.effect.rate;
-  t.events.push({ type: 'shot', ownerId: c.id, kind });
+  t.events.push({ type: 'shot', ownerId: c.id, kind, outfitId: launcherId });
   const left = { ...outfits, [ammoId]: outfits[ammoId] - 1 };
   if (left[ammoId] <= 0) delete left[ammoId];
   return left;

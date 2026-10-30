@@ -440,17 +440,32 @@ export const CombatSchema = z
 export type CombatDef = z.infer<typeof CombatSchema>;
 export type AiProfile = z.infer<typeof AiProfileSchema>;
 
-/** Every sound effect id. `thrust` and `beam` are voices, not recipes. */
+/**
+ * Every sound effect id. `thrust` and `beam` are voices, not recipes. The guns' bolts play `shot`
+ * (blaster chirp) or `cannon` (cannon thud), as `gunVoices` says; rockets play `missile` and seekers `seeker`.
+ */
 export const SFX_IDS = [
-  'thrust', 'jump', 'arrive', 'land', 'takeoff', 'trade', 'paid', 'hail', 'site', 'shot', 'missile',
+  'thrust', 'land', 'takeoff', 'trade', 'paid', 'hail', 'site', 'shot', 'cannon', 'missile', 'seeker',
   'beam', 'shieldHit', 'armorHit', 'explosion', 'disabled', 'alarm',
   'jumpCharge', 'jumpWhoosh', 'jumpArrive', 'uiClick',
 ] as const;
 export type SfxId = (typeof SFX_IDS)[number];
 export type RecipeId = Exclude<SfxId, 'thrust' | 'beam'>;
+/** The voices a gun's bolts can play. */
+export const GUN_VOICES = ['shot', 'cannon'] as const;
+export type GunVoice = (typeof GUN_VOICES)[number];
 
-const layerCommon = { dur: z.number().positive(), gain: z.number().nonnegative(), at: z.number().nonnegative().optional() };
-/** One layer of a sound: a pitched tone sliding f0 to f1, or lowpass/highpass/bandpass noise sweeping c0 to c1. */
+const layerCommon = {
+  dur: z.number().positive(),
+  gain: z.number().nonnegative(),
+  at: z.number().nonnegative().optional(),
+  /** Seconds to swell to `gain` (default: a quick 20 ms or a quarter of `dur`); it then decays by `dur`. */
+  attack: z.number().positive().optional(),
+};
+/**
+ * One layer of a sound: a pitched tone sliding f0 to f1, or lowpass/highpass/bandpass noise sweeping c0
+ * to c1 (with an optional filter Q). Each rises to `gain` over `attack`, then decays to silence at `dur`.
+ */
 export const SoundLayerSchema = z.discriminatedUnion('kind', [
   z
     .object({
@@ -474,7 +489,18 @@ export const SoundLayerSchema = z.discriminatedUnion('kind', [
 ]);
 export type SoundLayer = z.infer<typeof SoundLayerSchema>;
 
-const recipe = z.object({ layers: z.array(SoundLayerSchema).min(1) }).strict();
+const recipe = z
+  .object({
+    layers: z
+      .array(SoundLayerSchema)
+      .min(1)
+      .superRefine((layers, ctx) =>
+        layers.forEach((l, i) => {
+          if (l.attack !== undefined && l.attack >= l.dur) ctx.addIssue({ code: 'custom', path: [i, 'attack'], message: 'attack must be shorter than dur' });
+        }),
+      ),
+  })
+  .strict();
 
 const chordLen = z.number().min(8).max(20);
 /** One music mood: a root and scale, a filtered pad, a drone, an optional melody and (combat only) a pulse. */
@@ -509,8 +535,6 @@ export const AudioSchema = z
   .object({
     sfx: z
       .object({
-        jump: recipe,
-        arrive: recipe,
         land: recipe,
         takeoff: recipe,
         trade: recipe,
@@ -518,7 +542,9 @@ export const AudioSchema = z
         hail: recipe,
         site: recipe,
         shot: recipe,
+        cannon: recipe,
         missile: recipe,
+        seeker: recipe,
         shieldHit: recipe,
         armorHit: recipe,
         explosion: recipe,
@@ -532,10 +558,28 @@ export const AudioSchema = z
       .strict(),
     voices: z
       .object({
-        hum: z.object({ gain: z.number().nonnegative(), rampSec: z.number().positive(), f: z.number().positive() }).strict(),
+        /** The engine hum: noise low-passed at `f` (the rumble) under a filtered tone, both at `gain` overall. */
+        hum: z
+          .object({
+            gain: z.number().nonnegative(),
+            rampSec: z.number().positive(),
+            f: z.number().positive(),
+            /** The tone: `wave` at `f` Hz, low-passed at `cutoff`, mixed at `gain` against the rumble's 1. */
+            tone: z
+              .object({
+                wave: z.enum(['sine', 'square', 'sawtooth', 'triangle']),
+                f: z.number().positive(),
+                cutoff: z.number().positive(),
+                gain: z.number().nonnegative(),
+              })
+              .strict(),
+          })
+          .strict(),
         beam: z.object({ gain: z.number().nonnegative(), holdSec: z.number().positive(), fadeSec: z.number().positive() }).strict(),
       })
       .strict(),
+    /** Gun or turret outfit id → the voice its bolts play; a gun not named plays `shot`. */
+    gunVoices: z.record(z.string(), z.enum(GUN_VOICES)),
     moods: z
       .object({ core: calmMood, fringe: calmMood, docked: calmMood, hyperspace: calmMood, combat: MoodSchema })
       .strict(),

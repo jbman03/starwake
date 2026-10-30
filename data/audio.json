@@ -1,87 +1,112 @@
 {
   "sfx": {
-    "jump": {"layers": [
-      {"kind": "tone", "wave": "sawtooth", "f0": 120, "f1": 1400, "dur": 0.9, "gain": 0.18},
-      {"kind": "noise", "filter": "lowpass", "c0": 300, "c1": 4000, "dur": 0.9, "gain": 0.25}
-    ]},
-    "arrive": {"layers": [
-      {"kind": "tone", "wave": "sawtooth", "f0": 1200, "f1": 180, "dur": 0.7, "gain": 0.15},
-      {"kind": "noise", "filter": "lowpass", "c0": 3500, "c1": 300, "dur": 0.5, "gain": 0.25}
-    ]},
     "land": {"layers": [
-      {"kind": "tone", "wave": "sine", "f0": 160, "f1": 60, "dur": 0.5, "gain": 0.35},
-      {"kind": "noise", "filter": "lowpass", "c0": 500, "c1": 150, "dur": 0.35, "gain": 0.3}
+      {"kind": "tone", "wave": "sine", "f0": 150, "f1": 55, "dur": 0.45, "gain": 0.25},
+      {"kind": "noise", "filter": "lowpass", "c0": 700, "c1": 120, "dur": 0.4, "gain": 0.18},
+      {"kind": "noise", "filter": "highpass", "c0": 2500, "c1": 800, "dur": 0.35, "gain": 0.04, "at": 0.05, "attack": 0.08}
     ]},
     "takeoff": {"layers": [
-      {"kind": "tone", "wave": "triangle", "f0": 70, "f1": 220, "dur": 0.6, "gain": 0.25},
-      {"kind": "noise", "filter": "lowpass", "c0": 200, "c1": 1500, "dur": 0.6, "gain": 0.25}
+      {"kind": "tone", "wave": "triangle", "f0": 60, "f1": 200, "dur": 0.8, "gain": 0.2, "attack": 0.35},
+      {"kind": "noise", "filter": "lowpass", "c0": 200, "c1": 2200, "q": 1, "dur": 0.85, "gain": 0.22, "attack": 0.4},
+      {"kind": "tone", "wave": "sawtooth", "f0": 120, "f1": 400, "dur": 0.8, "gain": 0.03, "attack": 0.4}
     ]},
     "trade": {"layers": [
-      {"kind": "tone", "wave": "square", "f0": 880, "dur": 0.08, "gain": 0.08},
-      {"kind": "tone", "wave": "square", "f0": 1320, "dur": 0.12, "gain": 0.08, "at": 0.07}
+      {"kind": "tone", "wave": "triangle", "f0": 880, "dur": 0.07, "gain": 0.07},
+      {"kind": "tone", "wave": "triangle", "f0": 1320, "dur": 0.1, "gain": 0.07, "at": 0.07},
+      {"kind": "noise", "filter": "highpass", "c0": 5000, "dur": 0.03, "gain": 0.02}
     ]},
     "paid": {"layers": [
-      {"kind": "tone", "wave": "triangle", "f0": 523, "dur": 0.12, "gain": 0.18},
-      {"kind": "tone", "wave": "triangle", "f0": 659, "dur": 0.12, "gain": 0.18, "at": 0.1},
-      {"kind": "tone", "wave": "triangle", "f0": 784, "dur": 0.12, "gain": 0.18, "at": 0.2},
-      {"kind": "tone", "wave": "triangle", "f0": 1047, "dur": 0.3, "gain": 0.18, "at": 0.3}
+      {"kind": "tone", "wave": "triangle", "f0": 523, "dur": 0.12, "gain": 0.1},
+      {"kind": "tone", "wave": "triangle", "f0": 659, "dur": 0.12, "gain": 0.1, "at": 0.1},
+      {"kind": "tone", "wave": "triangle", "f0": 784, "dur": 0.12, "gain": 0.1, "at": 0.2},
+      {"kind": "tone", "wave": "triangle", "f0": 1047, "dur": 0.3, "gain": 0.1, "at": 0.3},
+      {"kind": "tone", "wave": "sine", "f0": 2093, "dur": 0.4, "gain": 0.04, "at": 0.3}
     ]},
     "hail": {"layers": [
-      {"kind": "tone", "wave": "sine", "f0": 700, "dur": 0.15, "gain": 0.2},
-      {"kind": "tone", "wave": "sine", "f0": 700, "dur": 0.15, "gain": 0.2, "at": 0.25}
+      {"kind": "tone", "wave": "sine", "f0": 700, "dur": 0.15, "gain": 0.12},
+      {"kind": "tone", "wave": "sine", "f0": 1400, "dur": 0.12, "gain": 0.04},
+      {"kind": "tone", "wave": "sine", "f0": 700, "dur": 0.15, "gain": 0.12, "at": 0.25},
+      {"kind": "tone", "wave": "sine", "f0": 1400, "dur": 0.12, "gain": 0.04, "at": 0.25}
     ]},
     "site": {"layers": [
-      {"kind": "tone", "wave": "sine", "f0": 300, "f1": 900, "dur": 0.5, "gain": 0.18}
+      {"kind": "tone", "wave": "sine", "f0": 300, "f1": 900, "dur": 0.5, "gain": 0.14},
+      {"kind": "noise", "filter": "bandpass", "c0": 600, "c1": 2400, "q": 6, "dur": 0.5, "gain": 0.05, "attack": 0.15}
     ]},
     "shot": {"layers": [
-      {"kind": "tone", "wave": "triangle", "f0": 900, "f1": 320, "dur": 0.09, "gain": 0.08}
+      {"kind": "tone", "wave": "square", "f0": 1700, "f1": 420, "dur": 0.07, "gain": 0.05},
+      {"kind": "tone", "wave": "triangle", "f0": 900, "f1": 260, "dur": 0.09, "gain": 0.06},
+      {"kind": "noise", "filter": "bandpass", "c0": 4000, "c1": 1500, "q": 3, "dur": 0.04, "gain": 0.04}
+    ]},
+    "cannon": {"layers": [
+      {"kind": "tone", "wave": "sine", "f0": 150, "f1": 55, "dur": 0.14, "gain": 0.11},
+      {"kind": "tone", "wave": "square", "f0": 90, "f1": 45, "dur": 0.08, "gain": 0.03},
+      {"kind": "noise", "filter": "lowpass", "c0": 1200, "c1": 200, "q": 1, "dur": 0.09, "gain": 0.05}
     ]},
     "missile": {"layers": [
-      {"kind": "tone", "wave": "triangle", "f0": 180, "f1": 520, "dur": 0.35, "gain": 0.07},
-      {"kind": "noise", "filter": "lowpass", "c0": 900, "c1": 2400, "dur": 0.4, "gain": 0.12}
+      {"kind": "noise", "filter": "highpass", "c0": 1500, "c1": 5000, "q": 0.7, "dur": 0.45, "gain": 0.08, "attack": 0.05},
+      {"kind": "noise", "filter": "lowpass", "c0": 600, "c1": 1800, "dur": 0.3, "gain": 0.07},
+      {"kind": "tone", "wave": "triangle", "f0": 120, "f1": 70, "dur": 0.15, "gain": 0.06}
+    ]},
+    "seeker": {"layers": [
+      {"kind": "tone", "wave": "sine", "f0": 1200, "f1": 1500, "dur": 0.06, "gain": 0.05},
+      {"kind": "tone", "wave": "sine", "f0": 1500, "f1": 1800, "dur": 0.06, "gain": 0.05, "at": 0.06},
+      {"kind": "tone", "wave": "sine", "f0": 1350, "f1": 1700, "dur": 0.06, "gain": 0.05, "at": 0.12},
+      {"kind": "tone", "wave": "sine", "f0": 1800, "f1": 2200, "dur": 0.08, "gain": 0.05, "at": 0.18},
+      {"kind": "noise", "filter": "highpass", "c0": 2000, "c1": 4000, "dur": 0.35, "gain": 0.05, "attack": 0.05}
     ]},
     "shieldHit": {"layers": [
-      {"kind": "tone", "wave": "sine", "f0": 1400, "f1": 900, "dur": 0.12, "gain": 0.07},
-      {"kind": "noise", "filter": "lowpass", "c0": 4000, "c1": 2000, "dur": 0.1, "gain": 0.05}
+      {"kind": "noise", "filter": "bandpass", "c0": 3500, "c1": 6000, "q": 4, "dur": 0.09, "gain": 0.08},
+      {"kind": "tone", "wave": "sawtooth", "f0": 2200, "f1": 900, "dur": 0.07, "gain": 0.025},
+      {"kind": "tone", "wave": "sine", "f0": 1600, "f1": 1200, "dur": 0.1, "gain": 0.03}
     ]},
     "armorHit": {"layers": [
-      {"kind": "tone", "wave": "square", "f0": 140, "f1": 70, "dur": 0.12, "gain": 0.05},
-      {"kind": "noise", "filter": "lowpass", "c0": 1500, "c1": 300, "dur": 0.14, "gain": 0.14}
+      {"kind": "noise", "filter": "lowpass", "c0": 1800, "c1": 250, "q": 2, "dur": 0.13, "gain": 0.11},
+      {"kind": "tone", "wave": "square", "f0": 110, "f1": 55, "dur": 0.1, "gain": 0.03},
+      {"kind": "noise", "filter": "bandpass", "c0": 700, "c1": 300, "q": 1.5, "dur": 0.06, "gain": 0.05}
     ]},
     "explosion": {"layers": [
-      {"kind": "tone", "wave": "sine", "f0": 90, "f1": 35, "dur": 0.8, "gain": 0.3},
-      {"kind": "noise", "filter": "lowpass", "c0": 2200, "c1": 120, "dur": 0.9, "gain": 0.32}
+      {"kind": "tone", "wave": "sine", "f0": 70, "f1": 28, "dur": 1.1, "gain": 0.22},
+      {"kind": "tone", "wave": "triangle", "f0": 140, "f1": 45, "dur": 0.5, "gain": 0.08},
+      {"kind": "noise", "filter": "lowpass", "c0": 2500, "c1": 90, "q": 0.8, "dur": 1.2, "gain": 0.2},
+      {"kind": "noise", "filter": "bandpass", "c0": 1800, "c1": 400, "q": 1, "dur": 0.25, "gain": 0.08},
+      {"kind": "noise", "filter": "lowpass", "c0": 600, "c1": 80, "dur": 0.9, "gain": 0.08, "at": 0.3}
     ]},
     "disabled": {"layers": [
-      {"kind": "tone", "wave": "sawtooth", "f0": 440, "f1": 110, "dur": 0.6, "gain": 0.06},
-      {"kind": "tone", "wave": "sine", "f0": 220, "f1": 55, "dur": 0.6, "gain": 0.12}
+      {"kind": "tone", "wave": "sawtooth", "f0": 520, "f1": 90, "dur": 0.7, "gain": 0.05},
+      {"kind": "tone", "wave": "sine", "f0": 260, "f1": 50, "dur": 0.8, "gain": 0.12},
+      {"kind": "noise", "filter": "lowpass", "c0": 1500, "c1": 100, "dur": 0.5, "gain": 0.06}
     ]},
     "alarm": {"layers": [
-      {"kind": "tone", "wave": "square", "f0": 880, "dur": 0.12, "gain": 0.05},
-      {"kind": "tone", "wave": "square", "f0": 660, "dur": 0.12, "gain": 0.05, "at": 0.15},
-      {"kind": "tone", "wave": "square", "f0": 880, "dur": 0.12, "gain": 0.05, "at": 0.3},
-      {"kind": "tone", "wave": "square", "f0": 660, "dur": 0.12, "gain": 0.05, "at": 0.45}
+      {"kind": "tone", "wave": "triangle", "f0": 988, "dur": 0.12, "gain": 0.07},
+      {"kind": "tone", "wave": "triangle", "f0": 740, "dur": 0.12, "gain": 0.07, "at": 0.15},
+      {"kind": "tone", "wave": "triangle", "f0": 988, "dur": 0.12, "gain": 0.07, "at": 0.3},
+      {"kind": "tone", "wave": "triangle", "f0": 740, "dur": 0.12, "gain": 0.07, "at": 0.45}
     ]},
     "jumpCharge": {"layers": [
-      {"kind": "tone", "wave": "sawtooth", "f0": 120, "f1": 1400, "dur": 0.9, "gain": 0.18},
-      {"kind": "noise", "filter": "lowpass", "c0": 300, "c1": 4000, "dur": 0.9, "gain": 0.25}
+      {"kind": "tone", "wave": "sawtooth", "f0": 90, "f1": 720, "dur": 0.7, "gain": 0.08, "attack": 0.55},
+      {"kind": "tone", "wave": "sine", "f0": 180, "f1": 1440, "dur": 0.7, "gain": 0.12, "attack": 0.55},
+      {"kind": "noise", "filter": "bandpass", "c0": 400, "c1": 3200, "q": 3, "dur": 0.7, "gain": 0.1, "attack": 0.6}
     ]},
     "jumpWhoosh": {"layers": [
-      {"kind": "tone", "wave": "sawtooth", "f0": 120, "f1": 1400, "dur": 0.9, "gain": 0.18},
-      {"kind": "noise", "filter": "lowpass", "c0": 300, "c1": 4000, "dur": 0.9, "gain": 0.25}
+      {"kind": "noise", "filter": "bandpass", "c0": 6000, "c1": 300, "q": 1.2, "dur": 0.6, "gain": 0.3, "attack": 0.03},
+      {"kind": "noise", "filter": "lowpass", "c0": 1500, "c1": 80, "dur": 0.8, "gain": 0.15},
+      {"kind": "tone", "wave": "sine", "f0": 220, "f1": 40, "dur": 0.6, "gain": 0.12}
     ]},
     "jumpArrive": {"layers": [
-      {"kind": "tone", "wave": "sawtooth", "f0": 1200, "f1": 180, "dur": 0.7, "gain": 0.15},
-      {"kind": "noise", "filter": "lowpass", "c0": 3500, "c1": 300, "dur": 0.5, "gain": 0.25}
+      {"kind": "tone", "wave": "sawtooth", "f0": 900, "f1": 140, "dur": 0.6, "gain": 0.05},
+      {"kind": "tone", "wave": "sine", "f0": 600, "f1": 110, "dur": 0.6, "gain": 0.12},
+      {"kind": "noise", "filter": "lowpass", "c0": 3000, "c1": 200, "dur": 0.5, "gain": 0.15}
     ]},
     "uiClick": {"layers": [
-      {"kind": "tone", "wave": "square", "f0": 1800, "dur": 0.03, "gain": 0.04}
+      {"kind": "tone", "wave": "sine", "f0": 2400, "f1": 1800, "dur": 0.025, "gain": 0.03},
+      {"kind": "noise", "filter": "highpass", "c0": 4000, "dur": 0.015, "gain": 0.015}
     ]}
   },
   "voices": {
-    "hum": {"gain": 0.12, "rampSec": 0.1, "f": 240},
+    "hum": {"gain": 0.12, "rampSec": 0.1, "f": 180, "tone": {"wave": "sawtooth", "f": 55, "cutoff": 220, "gain": 0.6}},
     "beam": {"gain": 0.07, "holdSec": 0.1, "fadeSec": 0.04}
   },
+  "gunVoices": {"rapid-cannon": "cannon"},
   "moods": {
     "core": {
       "root": 110, "scale": [0, 2, 4, 5, 7, 9, 11], "chordSec": [12, 18],

@@ -934,11 +934,14 @@ describe('audio.json and config.jump', () => {
     for (const id of SFX_IDS.filter((x) => x !== 'thrust' && x !== 'beam')) expect(d.audio.sfx[id].layers.length, id).toBeGreaterThan(0);
     expect(Object.keys(d.audio.sfx).sort()).toEqual(SFX_IDS.filter((x) => x !== 'thrust' && x !== 'beam').sort());
     expect(d.audio.voices.beam.holdSec).toBe(0.1);
-    expect(d.audio.sfx.uiClick.layers).toEqual([{ kind: 'tone', wave: 'square', f0: 1800, dur: 0.03, gain: 0.04 }]);
+    expect(d.audio.sfx.uiClick.layers).toEqual([
+      { kind: 'tone', wave: 'sine', f0: 2400, f1: 1800, dur: 0.025, gain: 0.03 },
+      { kind: 'noise', filter: 'highpass', c0: 4000, dur: 0.015, gain: 0.015 },
+    ]);
   });
   it('rejects a noise layer with no filter, naming audio.json', () => {
     const r = raw();
-    r.audio.sfx.jump.layers[1] = { kind: 'noise', c0: 300, dur: 0.9, gain: 0.25 };
+    r.audio.sfx.land.layers[1] = { kind: 'noise', c0: 300, dur: 0.9, gain: 0.25 };
     const e = failure(r);
     expect(e.file).toBe('audio.json');
     has(e, 'audio.json');
@@ -952,6 +955,46 @@ describe('audio.json and config.jump', () => {
     const r = raw();
     delete r.audio.sfx.uiClick;
     has(failure(r), 'audio.json');
+  });
+  it('no longer carries the retired jump and arrive recipes', () => {
+    for (const id of ['jump', 'arrive']) {
+      expect(SFX_IDS as readonly string[], id).not.toContain(id);
+      const r = raw();
+      r.audio.sfx[id] = { layers: [{ kind: 'tone', wave: 'sine', f0: 440, dur: 0.1, gain: 0.1 }] };
+      has(failure(r), 'audio.json');
+    }
+  });
+  it('maps gun outfits to a weapon voice, and rejects an unknown outfit, a non-gun or an unknown voice', () => {
+    expect(parseGameData(raw()).audio.gunVoices).toEqual({ 'rapid-cannon': 'cannon' });
+    const bad: [(a: any) => void, string][] = [
+      [(a) => (a.gunVoices['no-such-gun'] = 'cannon'), 'gunVoices.no-such-gun'],
+      [(a) => (a.gunVoices['rocket-rack'] = 'cannon'), 'gunVoices.rocket-rack'],
+      [(a) => (a.gunVoices['light-blaster'] = 'missile'), 'audio.json'],
+    ];
+    for (const [mutate, where] of bad) {
+      const r = raw();
+      mutate(r.audio);
+      const e = failure(r);
+      expect(e.file).toContain('audio.json');
+      has(e, where);
+    }
+  });
+  it('gives the engine hum a tone under its noise rumble, and rejects a hum without one', () => {
+    const { hum } = parseGameData(raw()).audio.voices;
+    expect(hum.tone.f).toBeLessThan(hum.f);
+    const r = raw();
+    delete r.audio.voices.hum.tone;
+    has(failure(r), 'audio.json');
+  });
+  it('lets a layer swell with an attack shorter than its length, and rejects one that is not', () => {
+    const ok = raw();
+    ok.audio.sfx.land.layers[0].attack = 0.2;
+    expect(parseGameData(ok).audio.sfx.land.layers[0].attack).toBe(0.2);
+    for (const attack of [0, -0.1, 5]) {
+      const r = raw();
+      r.audio.sfx.land.layers[0].attack = attack;
+      has(failure(r), 'audio.json');
+    }
   });
   it('has a music mood record for every MoodId, chords of 8–20 s, and a pulse only in combat', () => {
     const { moods } = parseGameData(raw()).audio;

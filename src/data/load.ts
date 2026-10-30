@@ -420,6 +420,13 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   }
   if (missionIssues.length) throw new DataError('missionTypes.json', missionIssues);
 
+  const audioIssues: string[] = [];
+  for (const oid of Object.keys(audio.gunVoices)) {
+    const cat = outfits[oid]?.category;
+    if (cat !== 'gun' && cat !== 'turret') audioIssues.push(fmt('audio.json', `gunVoices.${oid}`, `"${oid}" is not a gun or turret outfit`));
+  }
+  if (audioIssues.length) throw new DataError('audio.json', audioIssues);
+
   const cfgIssues: string[] = [];
   if (!(config.startSystemId in systems))
     cfgIssues.push(fmt('config.json', 'startSystemId', `unknown system "${config.startSystemId}"`));
