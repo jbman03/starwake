@@ -102,7 +102,8 @@ export function showSettings(ctx: UiContext, opts: { mode: SettingsMode; onClose
           ])
         : null,
     general: el('div', { class: 'sw-tab-body' }, [
-      slider('Volume', 0, 100, () => s.volume, (v) => ((s.volume = v), persist())),
+      slider('Music', 0, 100, () => s.musicVolume, (v) => ((s.musicVolume = v), persist())),
+      slider('Effects', 0, 100, () => s.sfxVolume, (v) => ((s.sfxVolume = v), persist())),
       toggle('Mute sound (V)', () => s.muted, (v) => ((s.muted = v), persist())),
       segmented('Graphics quality (applies after restart)', [
         { value: 'low', text: 'Low' },

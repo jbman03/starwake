@@ -9,6 +9,11 @@ afterEach(() => {
   localStorage.clear();
 });
 
+function loadFrom(raw: unknown) {
+  localStorage.setItem(KEY, JSON.stringify(raw));
+  return loadSettings();
+}
+
 describe('settings', () => {
   it('defaults', () => {
     expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
@@ -53,17 +58,17 @@ describe('settings', () => {
     expect(() => saveSettings(DEFAULT_SETTINGS)).not.toThrow();
   });
   it('round-trips', () => {
-    const s = { ...DEFAULT_SETTINGS, volume: 0.2, quality: 'low' as const, touch: { ...DEFAULT_SETTINGS.touch, mirror: true } };
+    const s = { ...DEFAULT_SETTINGS, sfxVolume: 0.2, quality: 'low' as const, touch: { ...DEFAULT_SETTINGS.touch, mirror: true } };
     saveSettings(s);
     expect(loadSettings()).toEqual(s);
   });
   it('merges missing keys and partial bindings', () => {
     localStorage.setItem(
       KEY,
-      JSON.stringify({ volume: 0.1, touch: { mirror: true }, bindings: { thrust: ['KeyW', null], map: 'bad' } }),
+      JSON.stringify({ sfxVolume: 0.1, touch: { mirror: true }, bindings: { thrust: ['KeyW', null], map: 'bad' } }),
     );
     const s = loadSettings();
-    expect(s.volume).toBe(0.1);
+    expect(s.sfxVolume).toBe(0.1);
     expect(s.quality).toBe('high');
     expect(s.touch).toEqual({ ...DEFAULT_SETTINGS.touch, mirror: true });
     expect(s.bindings.thrust).toEqual(['KeyW', null]);
@@ -82,14 +87,27 @@ describe('settings', () => {
   it('invalid values fall back, opacity clamped', () => {
     localStorage.setItem(
       KEY,
-      JSON.stringify({ volume: 'x', quality: 'ultra', touch: { opacity: 5, buttonSize: 'XL' }, bindings: 7 }),
+      JSON.stringify({ sfxVolume: 'x', quality: 'ultra', touch: { opacity: 5, buttonSize: 'XL' }, bindings: 7 }),
     );
     const s = loadSettings();
-    expect(s.volume).toBe(0.8);
+    expect(s.sfxVolume).toBe(0.8);
     expect(s.quality).toBe('high');
     expect(s.touch.opacity).toBe(1);
     expect(s.touch.buttonSize).toBe('M');
     expect(s.bindings).toEqual(resetBindings());
+  });
+  it('migrates the old volume to sfxVolume and defaults musicVolume', () => {
+    const s = loadFrom({ volume: 0.35, muted: true });
+    expect(s.sfxVolume).toBe(0.35);
+    expect(s.musicVolume).toBe(0.6);
+    expect(s.muted).toBe(true);
+    expect('volume' in s).toBe(false);
+  });
+  it('clamps and defaults the new volumes', () => {
+    expect(loadFrom({ musicVolume: 3, sfxVolume: 'x' })).toMatchObject({ musicVolume: 1, sfxVolume: 0.8 });
+  });
+  it('a new sfxVolume wins over a stale volume', () => {
+    expect(loadFrom({ volume: 0.2, sfxVolume: 0.9 }).sfxVolume).toBe(0.9);
   });
   it('restores Escape-bearing defaults for pause/back when stored bindings drop Escape', () => {
     localStorage.setItem(

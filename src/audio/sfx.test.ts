@@ -76,7 +76,7 @@ describe('SoundBoard', () => {
     a.sb.play('jump');
     expect(a.made.osc + a.made.noise).toBe(0);
     expect(a.sb.muted()).toBe(true);
-    const b = board({ volume: 0 });
+    const b = board({ sfxVolume: 0 });
     b.sb.unlock();
     b.sb.play('land');
     expect(b.made.osc + b.made.noise).toBe(0);

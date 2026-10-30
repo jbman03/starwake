@@ -210,7 +210,7 @@ export class SoundBoard {
 
   private level(): number {
     const s = this.getSettings();
-    return s.muted ? 0 : Math.min(1, Math.max(0, s.volume));
+    return s.muted ? 0 : Math.min(1, Math.max(0, s.sfxVolume));
   }
 
   play(s: Sfx): void {
