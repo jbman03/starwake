@@ -89,8 +89,12 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   };
   const payFine = (gov: string) => {
     const r = controller.payFines(gov);
+    status.classList.remove('sw-status-bad');
     if (r.ok) status.textContent = `Paid ${formatCredits(r.paid)} to ${governmentShortName(gov, data)}.`;
-    else if (r.error === 'short') status.textContent = 'Not enough credits.';
+    else if (r.error === 'short') {
+      status.textContent = 'Not enough credits.';
+      status.classList.add('sw-status-bad'); // a refusal is not the success green
+    }
     render();
   };
   // The map returns here (a fresh planet screen) when it closes.

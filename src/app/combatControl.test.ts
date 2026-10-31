@@ -366,3 +366,18 @@ describe('boarding crimes (cycle 5, spec §4.2)', () => {
     expect(r.world.law).toEqual({});
   });
 });
+
+describe('law hails (Ruling 11)', () => {
+  it('a scan and a fine hail from one government cannot both queue in one tick', () => {
+    const w = mkWorld({ cargo: { stims: 3 }, law: { concord: { heat: 40 } } });
+    // `far` (listed first) is in hail range only; `near` is in scan range and finds the stims. The loop sees `far`
+    // as the fine hailer before `near`'s scan claims the government.
+    const far = mkNpc('far', 800, 0, { role: 'patrol' });
+    const near = mkNpc('near', 300, 0, { role: 'patrol' });
+    const lawData = { ...data, law: { ...data.law, catchChance: 1 } };
+    const cc = new CombatControl(lawData, w);
+    const r = cc.checkLaw(w, mkTraffic([far, near]), false);
+    expect(r.open?.reason).toBe('scan');
+    expect(cc.queuedLawNpcs()).toEqual([]); // nothing else waits behind the scan
+  });
+});

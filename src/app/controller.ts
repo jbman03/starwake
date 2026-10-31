@@ -1163,7 +1163,7 @@ export class Controller {
     const sites = this.sitePositions();
     const near = sites.find((p) => siteReachable(this.world, p));
     if (near) return { kind: 'site', pos: near };
-    if (this.hailName(true) !== null) return { kind: 'hail' };
+    if (this.hailName(true) !== null) return this.pending?.kind === 'law' ? { kind: 'hail', urgent: true } : { kind: 'hail' };
     return sites[0] ? { kind: 'site', pos: sites[0] } : null;
   }
 
@@ -1348,10 +1348,7 @@ export class Controller {
       this.answerDemand('refuse'); // Not now is Refuse
       return;
     }
-    if (this.pending?.kind === 'law') {
-      this.answerLawHail('refuse'); // Not now is Refuse (or Run), as with a demand
-      return;
-    }
+    if (this.pending?.kind === 'law') return; // a law hail has no Not now (Ruling 14): it is answered or it lapses
     if (this.pending?.kind === 'hail') {
       this.pending = null;
       this.checkContext();

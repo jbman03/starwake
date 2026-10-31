@@ -57,7 +57,7 @@ describe('podRescue', () => {
     expect(r.planetId).toBe(real.config.startPlanetId);
     expect(r.messages).toContain('Taken into custody by the Concord. Fine paid: 4,000 cr.');
     expect(r.world.credits).toBe(6000);
-    expect(r.world.law.concord.heat).toBe(real.law.thresholds.wanted - 1);
+    expect(r.world.law.concord.heat).toBe(0); // paid in full
     expect(r.world.law['free-reach'].heat).toBe(100);
   });
   it('keeps credits and story, drops ship, cargo and outfits, uses the pod', () => {

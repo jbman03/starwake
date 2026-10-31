@@ -231,8 +231,8 @@ describe('tow when hunted', () => {
     expect(r.events[0]).toEqual({ type: 'towed', planetId: 'halcyon' });
     expect(r.events).toContainEqual({ type: 'message', text: `Taken into custody by the Concord. Fine paid: ${fine.toLocaleString('en-US')} cr.` });
     expect(r.world.credits).toBe(afterFee - fine);
-    expect(heatOf(r.world, 'concord')).toBe(data.law.thresholds.wanted - 1);
-    expect(legalStatus(r.world, data, 'concord')).toBe('suspect');
+    expect(heatOf(r.world, 'concord')).toBe(0); // paid in full
+    expect(legalStatus(r.world, data, 'concord')).toBe('clean');
     expect(landingRefused(r.world, data, 'halcyon')).toBe(false);
     expect(heatOf(r.world, 'independent')).toBe(98); // only the arrival port's government
   });
@@ -260,25 +260,33 @@ describe('tow when hunted', () => {
 });
 
 describe('custody', () => {
-  it('pays the fine in full when the credits cover it, and drops heat to just below Wanted', () => {
+  it('a fine paid in full clears the record', () => {
     const r = takeIntoCustody(withHeat({ concord: 80 }, { credits: 5000 }), data, 'concord');
     expect(r.paid).toBe(3200);
     expect(r.world.credits).toBe(1800);
-    expect(heatOf(r.world, 'concord')).toBe(29);
+    expect(heatOf(r.world, 'concord')).toBe(0);
+    // Exactly the fine counts as paid in full.
+    expect(heatOf(takeIntoCustody(withHeat({ concord: 80 }, { credits: 3200 }), data, 'concord').world, 'concord')).toBe(0);
   });
-  it('custody when credits are short takes all credits and still drops heat', () => {
-    const r = takeIntoCustody(withHeat({ concord: 80 }, { credits: 700 }), data, 'concord');
-    expect(r.paid).toBe(700);
-    expect(r.world.credits).toBe(0);
-    expect(heatOf(r.world, 'concord')).toBe(29);
-    // In debt (a tow fee can push credits below 0): nothing is paid, heat still drops.
+  it('a part-paid fine takes off the heat it covers, but no lower than just below Wanted', () => {
+    // 700 cr buys 17 heat off 80: 63, held to Wanted - 1.
+    const short = takeIntoCustody(withHeat({ concord: 80 }, { credits: 700 }), data, 'concord');
+    expect(short.paid).toBe(700);
+    expect(short.world.credits).toBe(0);
+    expect(heatOf(short.world, 'concord')).toBe(29);
+    // 3000 cr buys 75 heat: 5 left, below the cap.
+    expect(heatOf(takeIntoCustody(withHeat({ concord: 80 }, { credits: 3000 }), data, 'concord').world, 'concord')).toBe(5);
+    // A small record part-paid: 100 cr is 2 heat (floored).
+    expect(heatOf(takeIntoCustody(withHeat({ concord: 12 }, { credits: 100 }), data, 'concord').world, 'concord')).toBe(10);
+  });
+  it('in debt nothing is paid; heat still drops to just below Wanted', () => {
     const debt = takeIntoCustody(withHeat({ concord: 80 }, { credits: -50 }), data, 'concord');
     expect(debt.paid).toBe(0);
     expect(debt.world.credits).toBe(-50);
     expect(heatOf(debt.world, 'concord')).toBe(29);
   });
   it('never raises heat that is already lower', () => {
-    expect(heatOf(takeIntoCustody(withHeat({ concord: 12 }, { credits: 5000 }), data, 'concord').world, 'concord')).toBe(12);
+    expect(heatOf(takeIntoCustody(withHeat({ concord: 12 }, { credits: 0 }), data, 'concord').world, 'concord')).toBe(12);
   });
 });
 

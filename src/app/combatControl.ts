@@ -414,6 +414,7 @@ export class CombatControl {
         }
       }
       for (const [gov, { npc }] of hailers) {
+        if (this.lawHailed.has(gov)) continue; // a scan found this government after its hailer was picked (Ruling 11)
         this.lawHailed.add(gov);
         this.lawQueue.push({ npcId: npc.id, npcName: npc.name, gov, reason: 'fine' });
       }

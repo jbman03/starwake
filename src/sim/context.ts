@@ -13,7 +13,8 @@ export const SITE_RANGE = 60;
 export const SITE_MAX_SPEED = 40;
 
 /** What the controller holds for the context button: an open hail, or a site at `pos`. */
-export type PendingHint = { kind: 'hail' } | { kind: 'site'; pos: Vec2 } | null;
+/** `urgent`: a law hail (scan or fine), which must be answered and so outranks even takeControl and land. */
+export type PendingHint = { kind: 'hail'; urgent?: boolean } | { kind: 'site'; pos: Vec2 } | null;
 
 /** Is the ship close and slow enough to open the site at `pos`? */
 export function siteReachable(world: WorldState, pos: Vec2): boolean {
@@ -32,7 +33,7 @@ export interface CombatHint {
 
 /**
  * The one action a context button should offer right now, by priority:
- * skipJump (a jump in align, charge or burn; nothing else mid-jump) > (disabled: callTow once calm, else nothing) > takeControl > board > tow > openSite > land (a planet is targeted, at any range) > jump / autopilotOut (a course is
+ * skipJump (a jump in align, charge or burn; nothing else mid-jump) > (disabled: callTow once calm, else nothing) > answerHail for a law hail (`urgent`) > takeControl > board > tow > openSite > land (a planet is targeted, at any range) > jump / autopilotOut (a course is
  * set, nothing targeted, no assist) > answerHail > flyToSite (`flyToSite`: a story site is in view but out of reach)
  * > land (a planet is in range) > plotCourse. `plotCourse` (open the star map)
  * covers the phone dead end: no jump destination can be chosen (no usable course and more than
@@ -43,6 +44,8 @@ export function contextAction(world: WorldState, data: GameData, pending: Pendin
   if (world.jump) return world.jump.phase === 'align' || world.jump.phase === 'charge' || world.jump.phase === 'burn' ? 'skipJump' : null;
   // A disabled ship can do nothing but wait for a tow.
   if (combat?.disabled) return combat.disabledCalm ? 'callTow' : null;
+  // A law hail is answered before anything else: a scan or fine ends in heat or a fight if it is ignored (Ruling 15).
+  if (pending?.kind === 'hail' && pending.urgent) return 'answerHail';
   if (world.assist.kind === 'autopilot') return 'takeControl';
   if (combat?.board) return 'board';
   if (towDestination(world, data)) return 'tow';

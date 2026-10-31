@@ -110,9 +110,10 @@ export const PilotSaveSchema = z.object({
   }),
   standing: z.record(z.string(), StandingLevelSchema),
   // v7: law heat and rank records, per government. Corrupt values never fail the load: an entry that is
-  // not an object is dropped, a non-finite or non-number field becomes 0, and the range clamps.
-  law: tolerantRecord((e) => ({ heat: clamp(num(e.heat), 0, 100) })),
-  ranks: tolerantRecord((e) => ({ points: Math.max(0, num(e.points)), salaryDay: Math.max(0, num(e.salaryDay)) })),
+  // not an object is dropped, a non-finite or non-number field becomes 0, and the range clamps
+  // (salaryDay keeps its -1 "never paid" floor). A law or ranks that is missing or not a record loads as empty.
+  law: tolerantRecord((e) => ({ heat: clamp(num(e.heat), 0, 100) })).catch({}),
+  ranks: tolerantRecord((e) => ({ points: Math.max(0, num(e.points)), salaryDay: Math.max(-1, num(e.salaryDay)) })).catch({}),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;

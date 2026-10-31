@@ -14,6 +14,10 @@ describe('law card', () => {
       { label: 'Run', blocked: null },
     ]);
   });
+  it('both law cards are answered, never declined', () => {
+    expect(lawCardView({ ...base, reason: 'scan', goods: ['1 t of X'] }).noDecline).toBe(true);
+    expect(lawCardView({ ...base, reason: 'fine' }).noDecline).toBe(true);
+  });
   it('a fine hail warns when Wanted, and blocks what the credits cannot cover', () => {
     const suspect = lawCardView({ ...base, reason: 'fine' });
     expect(suspect.text).toBe('Grey Lance, a Concord patrol, has you on its records. "Pay your fine of 1,400 cr."');

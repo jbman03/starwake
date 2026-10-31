@@ -89,8 +89,9 @@ Raiders have no law, so attacking them is never a crime. Heat is capped at 100.
   port whose standing isn't cool (Wanted counts as cool), else the start planet.
 - **Custody:** the pilot can always recover. When a tow or pod rescue can only reach a port of a
   government that hunts the pilot, it goes there anyway and the pilot is taken into custody on
-  arrival: that government's fine is paid from the credits (as much as they cover) and its heat
-  drops to just below Wanted (`thresholds.wanted − 1`). A message explains what happened.
+  arrival: that government's fine is paid from the credits (as much as they cover). Paid in full, its
+  heat becomes 0; part-paid, the heat drops by the credits paid ÷ `fineRate` (rounded down) but to no
+  more than just below Wanted (`thresholds.wanted − 1`). A message explains what happened.
 
 ### 4.4 Patrol behaviour
 

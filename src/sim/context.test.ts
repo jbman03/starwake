@@ -182,6 +182,18 @@ describe('contextAction', () => {
       expect(contextAction(near(40, 0), data, site)).not.toBe('openSite');
     });
 
+    it('a law hail outranks takeControl and a targeted planet; other hails keep their order', () => {
+      const law = { kind: 'hail', urgent: true } as const;
+      const auto: WorldState = { ...newWorld(data), assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
+      expect(contextAction(auto, data, law)).toBe('answerHail');
+      const targeted: WorldState = { ...newWorld(data), targetPlanetId: Object.keys(data.planets)[0] };
+      expect(contextAction(targeted, data, { kind: 'hail' })).toBe('land');
+      expect(contextAction(targeted, data, law)).toBe('answerHail');
+      // A disabled ship and a jump in progress still come first.
+      expect(contextAction({ ...targeted, jump: { phase: 'charge' } as WorldState['jump'] }, data, law)).toBe('skipJump');
+      expect(contextAction(targeted, data, law, false, { board: false, disabledCalm: false, disabled: true })).toBeNull();
+    });
+
     it('takeControl and tow still win over an encounter', () => {
       const w: WorldState = { ...newWorld(data), assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false } };
       expect(contextAction(w, data, { kind: 'hail' })).toBe('takeControl');

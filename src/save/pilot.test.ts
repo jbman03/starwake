@@ -359,7 +359,7 @@ describe('save v7', () => {
     const nan = { ...v6Of(), version: 7, law: { n: { heat: NaN } }, ranks: { n: { points: NaN, salaryDay: Infinity } } };
     const up = upgradeSave({ ...v6Of(), version: 7, ...raw });
     expect(up.law).toEqual({ a: { heat: 0 }, b: { heat: 0 }, c: { heat: 0 }, d: { heat: 0 } });
-    expect(up.ranks).toEqual({ a: { points: 0, salaryDay: 0 }, b: { points: 0, salaryDay: 0 }, c: { points: 0, salaryDay: 0 } });
+    expect(up.ranks).toEqual({ a: { points: 0, salaryDay: 0 }, b: { points: 0, salaryDay: 0 }, c: { points: 0, salaryDay: -1 } });
     const w = worldFromPilot(upgradeSave(nan), data);
     expect(w.law).toEqual({ n: { heat: 0 } });
     expect(w.ranks).toEqual({ n: { points: 0, salaryDay: 0 } });
@@ -368,7 +368,21 @@ describe('save v7', () => {
   it('upgradeSave itself clamps heat, points and salaryDay', () => {
     const up = upgradeSave({ ...v6Of(), version: 7, law: { a: { heat: 250 } }, ranks: { a: { points: -3, salaryDay: -2 } } });
     expect(up.law).toEqual({ a: { heat: 100 } });
-    expect(up.ranks).toEqual({ a: { points: 0, salaryDay: 0 } });
+    expect(up.ranks).toEqual({ a: { points: 0, salaryDay: -1 } });
+  });
+
+  it('salaryDay keeps the -1 "never paid" sentinel and clamps anything lower to it', () => {
+    const up = upgradeSave({ ...v6Of(), version: 7, ranks: { a: { points: 1, salaryDay: -1 }, b: { points: 1, salaryDay: -40 }, c: { points: 1, salaryDay: 6 } } });
+    expect(up.ranks).toEqual({ a: { points: 1, salaryDay: -1 }, b: { points: 1, salaryDay: -1 }, c: { points: 1, salaryDay: 6 } });
+  });
+
+  it('a v7 save whose law or ranks is missing, null or an array still loads as empty', () => {
+    for (const bad of [undefined, null, [], [1, 2], 'x', 7]) {
+      const up = upgradeSave({ ...v6Of(), version: 7, law: bad, ranks: bad });
+      expect(up).toMatchObject({ version: 7, law: {}, ranks: {} });
+    }
+    const { law: _l, ranks: _r, ...rest } = { ...v6Of(), version: 7, law: 1, ranks: 1 };
+    expect(upgradeSave(rest)).toMatchObject({ law: {}, ranks: {} });
   });
 
   it('law and ranks round-trip', () => {

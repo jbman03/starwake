@@ -1651,7 +1651,7 @@ describe('combat in flight', () => {
     expect(to).not.toBeNull();
     expect(c.callTow()).toBe(true);
     expect(c.landedPlanetId).toBe(to);
-    expect(c.world.law.concord.heat).toBe(c.data.law.thresholds.wanted - 1);
+    expect(c.world.law.concord.heat).toBe(0); // 10,000 cr covers the fine in full
     const notices = c.takeNotices();
     expect(notices.some((n) => /^Taken into custody by the Concord\. Fine paid: [\d,]+ cr\.$/.test(n))).toBe(true);
   });
@@ -2004,14 +2004,16 @@ describe('law: scans and law hails in flight', () => {
     expect(c.combat.isHostile(npc(c, id), c.world)).toBe(true);
   });
 
-  it('Not now on a scan is Run, as on a demand', async () => {
+  it('a law card has no "Not now": declining leaves the hail open and heat unchanged', async () => {
     const { c, id } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
     c.update(1 / 60);
     c.openEncounter();
+    expect(c.encounterView()?.noDecline).toBe(true);
     c.declineEncounter();
-    expect(c.pending).toBeNull();
-    expect(heat(c)).toBe(20);
-    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(true);
+    expect(c.pending?.kind).toBe('law');
+    expect(c.encounterView()).not.toBeNull();
+    expect(heat(c)).toBe(0);
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(false);
   });
 
   it('an unanswered scan counts as Run', async () => {
