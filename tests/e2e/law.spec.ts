@@ -239,6 +239,11 @@ test.describe('phone', () => {
     await page.touchscreen.tap(422, 30); // touch mode: rails on
     await expect(page.getByTestId('touch-rails')).toBeVisible();
     await quietSky(page);
+    // A planet is targeted: a law hail still outranks Land on the button (Ruling 15).
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      h.controller.world = { ...h.controller.world, targetPlanetId: 'halcyon' };
+    });
     const id = await spawnPatrol(page);
 
     const ctxBtn = page.getByTestId('context-button');
