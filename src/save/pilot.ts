@@ -5,7 +5,7 @@ import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 6;
+export const CURRENT_SAVE_VERSION = 7;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -50,7 +50,7 @@ const MarketEventSchema = z.object({
 });
 
 export const PilotSaveSchema = z.object({
-  version: z.literal(6),
+  version: z.literal(7),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -97,6 +97,9 @@ export const PilotSaveSchema = z.object({
     declined: z.array(z.string()),
   }),
   standing: z.record(z.string(), StandingLevelSchema),
+  // v7: law heat and rank records, per government. Out-of-range values clamp in worldFromPilot.
+  law: z.record(z.string(), z.object({ heat: z.number().finite() })),
+  ranks: z.record(z.string(), z.object({ points: z.number().finite(), salaryDay: z.number().finite() })),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
@@ -178,6 +181,8 @@ export const migrations: Record<number, (s: any) => any> = {
     }
     return { ...s, version: 6, outfits, stats: { ...s.stats, kills: 0, captures: 0 } };
   },
+  // v6 -> v7. Data-free: no heat with any government, no rank points.
+  6: (s) => ({ ...s, version: 7, law: {}, ranks: {} }),
 };
 
 export function upgradeSave(raw: unknown): PilotSave {
@@ -237,6 +242,8 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
       declined: [...world.story.declined],
     },
     standing: { ...world.standing },
+    law: Object.fromEntries(Object.entries(world.law).map(([g, l]) => [g, { ...l }])),
+    ranks: Object.fromEntries(Object.entries(world.ranks).map(([g, r]) => [g, { ...r }])),
   };
 }
 
@@ -291,6 +298,9 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
       declined: [...p.story.declined],
     },
     standing: { ...p.standing },
+    // A corrupt value clamps rather than failing the load: heat to 0-100, points to 0 or more.
+    law: Object.fromEntries(Object.entries(p.law).map(([g, l]) => [g, { heat: Math.min(100, Math.max(0, l.heat)) }])),
+    ranks: Object.fromEntries(Object.entries(p.ranks).map(([g, r]) => [g, { ...r, points: Math.max(0, r.points) }])),
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
 }

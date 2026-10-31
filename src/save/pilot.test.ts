@@ -75,7 +75,7 @@ describe('pilot', () => {
       planetId: 'vesk-outpost', gameTimeSec: 40, savedAt: '2026-01-01T00:00:00.000Z',
     };
     const p = upgradeSave(JSON.parse(JSON.stringify(v1)));
-    expect(p.version).toBe(6);
+    expect(p.version).toBe(CURRENT_SAVE_VERSION);
     expect(p).toMatchObject({ day: 0, seed: hashString('old-pilot'), cargo: {}, missions: [], route: [], known: [], seen: [] });
     const w = worldFromPilot(p, data);
     expect(w.systemId).toBe('vesk');
@@ -103,7 +103,7 @@ describe('pilot', () => {
     const { outfits: _o, ...rest } = v3;
     const v2 = { ...rest, version: 2 };
     const up = upgradeSave(JSON.parse(JSON.stringify(v2)));
-    expect(up.version).toBe(6);
+    expect(up.version).toBe(CURRENT_SAVE_VERSION);
     expect(up.outfits).toEqual({ 'light-blaster': 1 }); // the v5 -> v6 step arms a bare shuttle
     expect(up).toEqual({ ...v3, shipName: '' }); // migration writes an empty name = use the hull name
     const w = worldFromPilot(up, data);
@@ -112,13 +112,13 @@ describe('pilot', () => {
     expect(w.missions).toEqual([mission]);
   });
 
-  it('upgrades a v1 save through to v6', () => {
+  it('upgrades a v1 save through to the current version', () => {
     const v1 = {
       version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
       planetId: 'vesk-outpost', gameTimeSec: 1, savedAt: '2026-01-01T00:00:00.000Z',
     };
     const p = upgradeSave(v1);
-    expect(p.version).toBe(6);
+    expect(p.version).toBe(CURRENT_SAVE_VERSION);
     expect(p.outfits).toEqual({ 'light-blaster': 1 });
   });
 
@@ -141,16 +141,16 @@ describe('pilot', () => {
     );
   });
 
-  it('a version-7 save -> futureVersion', () => {
+  it('a version-8 save -> futureVersion', () => {
     const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
-    expect(() => upgradeSave({ ...p, version: 7 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
+    expect(() => upgradeSave({ ...p, version: 8 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
   });
 
   it('migration 3 -> 4 fills the story fields; shipName starts empty', () => {
     const v4 = pilotFromWorld(newWorld(data, 5), start, { id: 'a', name: 'A' });
     const { flags: _f, notes: _n, shipName: _s, stats: _st, lastEncounterDay: _l, ...rest } = v4;
     const up = upgradeSave(JSON.parse(JSON.stringify({ ...rest, version: 3 })));
-    expect(up).toMatchObject({ version: 6, flags: [], notes: [], shipName: '', stats: { jobsDone: 0, kills: 0, captures: 0 }, lastEncounterDay: null });
+    expect(up).toMatchObject({ version: CURRENT_SAVE_VERSION, flags: [], notes: [], shipName: '', stats: { jobsDone: 0, kills: 0, captures: 0 }, lastEncounterDay: null });
     // The loader keeps '' as is; shipDisplayName resolves it to the hull's name.
     const w = worldFromPilot(up, data);
     expect(w.shipName).toBe('');
@@ -189,7 +189,7 @@ describe('save v5', () => {
     const v5 = pilotFromWorld(newWorld(data, 5), start, { id: 'a', name: 'A' });
     const { story: _s, standing: _st, ...rest } = v5;
     const up = upgradeSave(JSON.parse(JSON.stringify({ ...rest, version: 4 })));
-    expect(up).toMatchObject({ version: 6, story: emptyStory, standing: {} });
+    expect(up).toMatchObject({ version: CURRENT_SAVE_VERSION, story: emptyStory, standing: {} });
     const w = worldFromPilot(up, data);
     expect(w.story).toEqual(emptyStory);
     expect(w.standing).toEqual({});
@@ -233,7 +233,7 @@ describe('save v6', () => {
 
   it('v5 -> v6 fills kills and captures 0', () => {
     const up = upgradeSave(v5Of());
-    expect(up.version).toBe(6);
+    expect(up.version).toBe(CURRENT_SAVE_VERSION);
     expect(up.stats).toEqual({ jobsDone: 0, kills: 0, captures: 0 });
   });
 
@@ -278,12 +278,12 @@ describe('save v6', () => {
     expect(up.outfits).toEqual({ 'rapid-cannon': 1 });
   });
 
-  it('v1 save loads to v6', () => {
+  it('v1 save loads to the current version', () => {
     const p = upgradeSave({
       version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
       planetId: start, gameTimeSec: 0, savedAt: '2026-01-01T00:00:00.000Z',
     });
-    expect(p.version).toBe(6);
+    expect(p.version).toBe(CURRENT_SAVE_VERSION);
     expect(p.outfits).toEqual({ 'light-blaster': 1 });
     expect(p.stats).toEqual({ jobsDone: 0, kills: 0, captures: 0 });
   });
@@ -318,5 +318,43 @@ describe('save v6', () => {
     const w = { ...base, missions: [job, badShip, badSystem, bountyNoShip, plain] };
     const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
     expect(back.missions.map((m) => m.id)).toEqual(['ok', 'plain']);
+  });
+});
+
+describe('save v7', () => {
+  const v6Of = () => {
+    const { law: _l, ranks: _r, ...rest } = pilotFromWorld(newWorld(data, 5), start, { id: 'a', name: 'A' });
+    return JSON.parse(JSON.stringify({ ...rest, version: 6 }));
+  };
+
+  it('a v6 save migrates to v7 with empty law and ranks', () => {
+    const up = upgradeSave(v6Of());
+    expect(up).toMatchObject({ version: 7, law: {}, ranks: {} });
+    const w = worldFromPilot(up, data);
+    expect(w.law).toEqual({});
+    expect(w.ranks).toEqual({});
+  });
+
+  it('a v1 save still migrates all the way', () => {
+    const p = upgradeSave({
+      version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
+      planetId: start, gameTimeSec: 0, savedAt: '2026-01-01T00:00:00.000Z',
+    });
+    expect(p).toMatchObject({ version: 7, law: {}, ranks: {} });
+  });
+
+  it('corrupt heat clamps to 0–100 and negative points to 0 on load', () => {
+    const raw = { ...v6Of(), version: 7, law: { concord: { heat: 250 }, 'free-reach': { heat: -4 } }, ranks: { concord: { points: -9, salaryDay: 3 } } };
+    for (const w of [worldFromPilot(upgradeSave(raw), data), worldFromPilot(raw, data)]) {
+      expect(w.law).toEqual({ concord: { heat: 100 }, 'free-reach': { heat: 0 } });
+      expect(w.ranks).toEqual({ concord: { points: 0, salaryDay: 3 } });
+    }
+  });
+
+  it('law and ranks round-trip', () => {
+    const w = { ...newWorld(data, 5), law: { concord: { heat: 40 } }, ranks: { concord: { points: 12, salaryDay: 9 } } };
+    const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
+    expect(back.law).toEqual(w.law);
+    expect(back.ranks).toEqual(w.ranks);
   });
 });
