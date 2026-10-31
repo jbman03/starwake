@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { holdAhead, leavePlanet, newPilot, npcOf, playerShots, quietSky, shootUntilDisabled, trackErrors, waitForFlight, weaken } from './helpers';
+import { guardPlayer, holdAhead, leavePlanet, newPilot, npcOf, playerShots, quietSky, shootUntilDisabled, trackErrors, waitForFlight, weaken } from './helpers';
 
 // Combat pilots start at Halcyon in Calder, the start system, where no raiders spawn. Concord patrols do, so each
 // fight first clears the sky (quietSky); every fight here is one the test sets up with the test hooks.
@@ -242,6 +242,7 @@ test.describe('desktop', () => {
     // Fly there (the teleport skips the jumps), find the wanted ship, disable her.
     await page.evaluate((p) => window.__starwake!.teleport(p), target);
     await leavePlanet(page);
+    await guardPlayer(page); // the target fires back; keep her up until the test has shot
     const id = `bounty-${job.id}`;
     await expect.poll(() => npcOf(page, id)).not.toBeNull(); // calm does not stop the bounty target
     await quietSky(page);

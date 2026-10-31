@@ -110,15 +110,16 @@ export async function holdAhead(page: Page, id: string): Promise<void> {
 }
 
 /**
- * Test-only: put the player's shields and armor back to full (and clear disabled). The ship under fire is the
- * player's too: on a slow frame a target that fires back can disable her before the first shot, and a disabled
- * ship is towed to port, leaving nothing to shoot with.
+ * Test-only: make the player's ship all but unbreakable (huge shields, full armor, not disabled). The ship under fire
+ * is the player's too: a target that fires back can disable or destroy her before the test has shot, and then a
+ * tow or the escape pod lands her, leaving nothing to shoot with. Call it as soon as flight starts; shootUntilDisabled
+ * repeats it on every poll.
  */
 export async function guardPlayer(page: Page): Promise<void> {
   await page.evaluate(() => {
     const c = window.__starwake!.controller;
     const b = c.combat.battle;
-    c.combat.battle = { ...b, player: { ...b.player, shields: b.player.maxShields, armor: b.player.maxArmor, disabled: false } };
+    c.combat.battle = { ...b, player: { ...b.player, shields: 1e6, maxShields: 1e6, armor: b.player.maxArmor, disabled: false } };
   });
 }
 
