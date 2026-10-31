@@ -3,8 +3,10 @@ import { cargoFree } from './cargo';
 import { HIDDEN_LANE_FLAG, hopDistance, revealOnArrival, revealWithin } from './galaxy';
 import { accept, buildOffer } from './missions';
 import { hashString, mulberry32, pick } from './random';
+import { addPoints } from './ranks';
 import { worldStats } from './shipStats';
 import { shipDisplayName } from './shipyard';
+import { STANDING_RANK, standingOf } from './standing';
 import { addNote, hasFlag, setFlag } from './story';
 import type { Mission, WorldState } from './types';
 
@@ -223,9 +225,13 @@ export function applyOutcomes(
       case 'message':
         messages.push(fillText(o.text, text));
         break;
-      case 'standing':
+      case 'standing': {
+        // A step toward friend earns rank points with that government (spec §6.2); judged on the stored standing.
+        const warmer = STANDING_RANK[o.level] > STANDING_RANK[standingOf(w, o.government)];
         w = { ...w, standing: { ...w.standing, [o.government]: o.level } };
+        if (warmer) w = addPoints(w, data, o.government, data.law.rankPoints.story);
         break;
+      }
       case 'unlock':
         w = setFlag(w, o.flag);
         break;

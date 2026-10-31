@@ -1,13 +1,16 @@
 import type { GameData } from '../data/schemas';
 import { cargoUsed } from './cargo';
-import { standingMet } from './standing';
+import { discountedPrice, rankMet, standingGateMet } from './ranks';
 import { hasFlag, setFlag } from './story';
 import { shipStock } from './stock';
 import type { WorldState } from './types';
 
-export type ShipBlock = 'credits' | 'cargo' | 'passengers' | 'owned' | 'gone' | 'notSold' | 'locked' | 'standing';
+export type ShipBlock = 'credits' | 'cargo' | 'passengers' | 'owned' | 'gone' | 'notSold' | 'locked' | 'standing' | 'rank';
 
 export interface ShipQuote {
+  /** The hull's list price. */
+  listPrice: number;
+  /** What the hull costs here: the list price less the port's rank discount, never below 0. */
   price: number;
   tradeIn: number;
   net: number;
@@ -23,6 +26,7 @@ export const SHIP_BLOCK_TEXT: Record<ShipBlock, string> = {
   notSold: 'This yard does not build that hull.',
   locked: 'Not offered to you yet.',
   standing: 'Requires friendship with this government', // the screens name the government via standingBlockText
+  rank: 'Requires a higher rank with this government', // the screens name the government and rank via rankBlockText
 };
 
 /** Flag set when a one-off hull is bought, so it can never be bought twice. */
@@ -55,18 +59,23 @@ export function shipHidden(world: Pick<WorldState, 'flags'>, hull: { hiddenByFla
   return !!hull.hiddenByFlag && world.flags.includes(hull.hiddenByFlag);
 }
 
-/** Price, trade-in, net cost and whether the swap is allowed. Check order: notSold, owned, gone, locked, standing, cargo, passengers, credits. */
+/**
+ * Price, trade-in, net cost and whether the swap is allowed. The rank discount comes off the list price
+ * before the trade-in. Check order: notSold, owned, gone, locked, standing, rank, cargo, passengers, credits.
+ */
 export function shipQuote(world: WorldState, data: GameData, planetId: string, shipId: string): ShipQuote {
   const hull = data.ships[shipId];
   const tradeIn = tradeInValue(world, data);
-  const price = hull?.price ?? 0;
+  const listPrice = hull?.price ?? 0;
+  const price = discountedPrice(world, data, planetId, listPrice);
   const net = price - tradeIn;
-  const result = (check: ShipQuote['check']): ShipQuote => ({ price, tradeIn, net, check });
+  const result = (check: ShipQuote['check']): ShipQuote => ({ listPrice, price, tradeIn, net, check });
   if (!hull || !shipStock(planetId, data).some((s) => s.id === shipId)) return result({ ok: false, reason: 'notSold' });
   if (world.shipId === shipId) return result({ ok: false, reason: 'owned' });
   if (hull.unique && hasFlag(world, boughtFlag(shipId))) return result({ ok: false, reason: 'gone' });
   if (hull.requiresFlag && !hasFlag(world, hull.requiresFlag)) return result({ ok: false, reason: 'locked' });
-  if (!standingMet(world, hull.requiresStanding, data)) return result({ ok: false, reason: 'standing' });
+  if (!standingGateMet(world, data, hull.requiresStanding)) return result({ ok: false, reason: 'standing' });
+  if (!rankMet(world, data, hull.requiresRank)) return result({ ok: false, reason: 'rank' });
   if (cargoUsed(world) > hull.cargo) return result({ ok: false, reason: 'cargo' });
   const riders = world.missions.reduce((n, m) => n + m.passengers, 0);
   if (riders > hull.passengers) return result({ ok: false, reason: 'passengers' });

@@ -1060,6 +1060,7 @@ describe('law.json, factions.json and contraband', () => {
       refuseHeat: 5, decayPerDay: 2, fineRate: 40, bribeMul: 1.5, bribeChance: 0.6, bribeFailHeat: 10,
       hailRange: 900, scanRange: 600, catchChance: 0.8, scramblerCut: 0.5, contrabandFine: 100,
     });
+    expect(d.law.rankPoints).toEqual({ mission: 2, combatJob: 4, story: 5, raiderKill: 1 });
     expect(Object.keys(d.factions).sort()).toEqual(['concord', 'free-reach', 'independent', 'unlit']);
     for (const f of Object.values(d.factions)) {
       expect(f.ranks.map((r) => r.points)).toEqual([10, 30, 70, 150, 300]);
@@ -1242,6 +1243,10 @@ describe('law.json, factions.json and contraband', () => {
       (l) => (l.scramblerCut = 2),
       (l) => (l.crimes.hit = -1),
       (l) => (l.extra = 1),
+      (l) => delete l.rankPoints,
+      (l) => (l.rankPoints.mission = -1),
+      (l) => (l.rankPoints.story = 2.5),
+      (l) => (l.rankPoints.bonus = 1),
     ];
     for (const mutate of muts) {
       const r = raw();

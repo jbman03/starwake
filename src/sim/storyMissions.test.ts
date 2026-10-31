@@ -151,7 +151,7 @@ describe('acceptStory and canAcceptStory', () => {
     expect(w.missions[0].typeId).toBe(STORY_TYPE);
     expect(sell(w, d, 'halcyon', key, 8)).toMatchObject({ tons: 0, reason: 'notTraded' });
     expect(sell(w, d, 'halcyon', key, 8).world).toBe(w);
-    expect(completeAt(w, 'merrow').completed).toEqual([]);
+    expect(completeAt(w, d, 'merrow').completed).toEqual([]);
   });
 });
 

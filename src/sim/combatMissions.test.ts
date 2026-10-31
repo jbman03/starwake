@@ -75,14 +75,14 @@ describe('combat missions', () => {
     expect(recordKill(w, m.combat!.systemId, { role: 'raider' }).missions[0].combat!.done).toBe(0);
     expect(recordKill(w, m.combat!.systemId, { role: 'raider', missionId: 'other' }).missions[0].combat!.done).toBe(0);
     // Not paid before the kill.
-    const early = completeAt(w, m.originId);
+    const early = completeAt(w, data, m.originId);
     expect(early.completed).toEqual([]);
     expect(early.world.missions).toHaveLength(1);
     const killed = recordKill(w, m.combat!.systemId, { role: 'raider', missionId: m.id });
     expect(killed.missions[0].combat!.done).toBe(1);
     expect(combatTargetSystem(killed.missions[0])).toBeNull();
     expect(bountyToSpawn(killed, m.combat!.systemId)).toEqual([]);
-    const paid = completeAt(killed, m.originId);
+    const paid = completeAt(killed, data, m.originId);
     expect(paid.completed).toHaveLength(1);
     expect(paid.pay).toBe(m.pay);
     expect(paid.world.credits).toBe(w.credits + m.pay);
@@ -99,18 +99,18 @@ describe('combat missions', () => {
     for (let i = 0; i < m.combat!.needed - 1; i++) x = recordKill(x, sys, { role: 'raider' });
     expect(x.missions[0].combat!.done).toBe(m.combat!.needed - 1);
     expect(combatTargetSystem(x.missions[0])).toBe(sys);
-    expect(completeAt(x, m.originId).completed).toEqual([]);
+    expect(completeAt(x, data, m.originId).completed).toEqual([]);
     x = recordKill(x, sys, { role: 'raider' });
     expect(x.missions[0].combat!.done).toBe(m.combat!.needed);
     x = recordKill(x, sys, { role: 'raider' });
     expect(x.missions[0].combat!.done).toBe(m.combat!.needed); // never over
-    expect(completeAt(x, m.originId).pay).toBe(m.pay);
+    expect(completeAt(x, data, m.originId).pay).toBe(m.pay);
   });
 
   it('incomplete combat job is not paid on landing', () => {
     const w = withJob(take('clear', world()));
     const m = w.missions[0];
-    const r = completeAt(w, m.originId);
+    const r = completeAt(w, data, m.originId);
     expect(r.completed).toEqual([]);
     expect(r.pay).toBe(0);
     expect(r.world).toBe(w);
@@ -123,7 +123,7 @@ describe('combat missions', () => {
     const late = { ...w, day: m.deadlineDay! + 1 };
     expect(failOverdue(late).failed).toHaveLength(1);
     const done = recordKill(late, m.combat!.systemId, { role: 'raider', missionId: m.id });
-    expect(completeAt(done, m.originId).completed).toEqual([]);
+    expect(completeAt(done, data, m.originId).completed).toEqual([]);
     const days = m.deadlineDay! + 1 - w.day;
     expect(advanceDays(w, data, days).world.missions).toEqual([]);
   });

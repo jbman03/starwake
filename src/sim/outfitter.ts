@@ -2,14 +2,14 @@ import type { GameData } from '../data/schemas';
 import { cargoUsed } from './cargo';
 import { revealWithin, systemsWithin } from './galaxy';
 import { shipStats, worldStats } from './shipStats';
-import { standingMet } from './standing';
+import { discountedPrice, rankMet, standingGateMet } from './ranks';
 import { boughtFlag } from './shipyard';
 import { sells } from './stock';
 import { hasFlag, setFlag } from './story';
 import type { WorldState } from './types';
 import { ammoCap, weaponsOf } from './weapons';
 
-export type OutfitBlock = 'credits' | 'space' | 'max' | 'notSold' | 'nothingToReveal' | 'standing' | 'gone' | 'locked' | 'noLauncher';
+export type OutfitBlock = 'credits' | 'space' | 'max' | 'notSold' | 'nothingToReveal' | 'standing' | 'rank' | 'gone' | 'locked' | 'noLauncher';
 export type SellBlock = 'notOwned' | 'cargoWouldNotFit' | 'notSellable';
 
 export type BuyCheck = { ok: true } | { ok: false; reason: OutfitBlock };
@@ -24,6 +24,7 @@ export const OUTFIT_BLOCK_TEXT: Record<OutfitBlock | SellBlock, string> = {
   max: 'You already carry as many as the hull can use.',
   notSold: 'This port does not stock that.',
   standing: 'Requires friendship with this government', // the screens name the government via standingBlockText
+  rank: 'Requires a higher rank with this government', // the screens name the government and rank via rankBlockText
   gone: 'Sold once, and already sold.',
   locked: 'Not for sale yet.',
   noLauncher: 'Needs a launcher',
@@ -33,13 +34,19 @@ export const OUTFIT_BLOCK_TEXT: Record<OutfitBlock | SellBlock, string> = {
   notSellable: 'Charts cannot be sold back.',
 };
 
-/** Whether the outfit can be bought here. Checks run notSold, gone, locked, standing, noLauncher (ammo), max, space, credits (maps: notSold, nothingToReveal, credits). */
+/** What one costs at the port: the list price less the port's rank discount, never below 0 (the list price if unknown). */
+export function outfitPrice(world: WorldState, data: GameData, planetId: string, outfitId: string): number {
+  return discountedPrice(world, data, planetId, data.outfits[outfitId]?.price ?? 0);
+}
+
+/** Whether the outfit can be bought here. Checks run notSold, gone, locked, standing, rank, noLauncher (ammo), max, space, credits (maps: notSold, nothingToReveal, credits). */
 export function outfitBuyCheck(world: WorldState, data: GameData, planetId: string, outfitId: string): BuyCheck {
   const def = data.outfits[outfitId];
   if (!def || !sells(planetId, def, data)) return { ok: false, reason: 'notSold' };
   if (def.unique && hasFlag(world, boughtFlag(outfitId))) return { ok: false, reason: 'gone' };
   if (def.requiresFlag && !hasFlag(world, def.requiresFlag)) return { ok: false, reason: 'locked' };
-  if (!standingMet(world, def.requiresStanding, data)) return { ok: false, reason: 'standing' };
+  if (!standingGateMet(world, data, def.requiresStanding)) return { ok: false, reason: 'standing' };
+  if (!rankMet(world, data, def.requiresRank)) return { ok: false, reason: 'rank' };
   if (def.category === 'map') {
     const system = data.planets[planetId]?.systemId;
     const known = new Set(world.known);
@@ -52,11 +59,11 @@ export function outfitBuyCheck(world: WorldState, data: GameData, planetId: stri
     } else if ((world.outfits[outfitId] ?? 0) >= def.max) return { ok: false, reason: 'max' };
     if (worldStats(world, data).spaceFree < def.space) return { ok: false, reason: 'space' };
   }
-  if (world.credits < def.price) return { ok: false, reason: 'credits' };
+  if (world.credits < outfitPrice(world, data, planetId, outfitId)) return { ok: false, reason: 'credits' };
   return { ok: true };
 }
 
-/** Buys one. A map charges the price and charts the area instead of being stored. Unchanged world when blocked. */
+/** Buys one at the port's price. A map charges the price and charts the area instead of being stored. Unchanged world when blocked. */
 export function buyOutfit(
   world: WorldState,
   data: GameData,
@@ -66,7 +73,7 @@ export function buyOutfit(
   const check = outfitBuyCheck(world, data, planetId, outfitId);
   if (!check.ok) return { world, check };
   const def = data.outfits[outfitId];
-  const paid = { ...(def.unique ? setFlag(world, boughtFlag(outfitId)) : world), credits: world.credits - def.price };
+  const paid = { ...(def.unique ? setFlag(world, boughtFlag(outfitId)) : world), credits: world.credits - outfitPrice(world, data, planetId, outfitId) };
   if (def.category === 'map') {
     const revealed = revealWithin(world.known, world.seen, data, data.planets[planetId].systemId, def.effect.mapJumps, world.flags);
     return { world: { ...paid, ...revealed }, check };

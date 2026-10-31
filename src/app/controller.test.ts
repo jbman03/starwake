@@ -402,6 +402,27 @@ describe('Controller', () => {
     expect(c.takeNotices()).toEqual([]);
   });
 
+  it('landing pays the rank salary once a day, as a planet-screen notice; loading a save does not', async () => {
+    const { c, data } = await setup();
+    const w = newWorld(data, 1);
+    c.beginSession({ ...w, ranks: { concord: { points: 70, salaryDay: -1 } } }, { id: 'p1', name: 'Ava' }, 'halcyon');
+    expect(c.world.credits).toBe(w.credits);
+    expect(c.takeNotices()).toEqual([]);
+    const land = () => {
+      c.leavePlanet();
+      c.selectPlanet('halcyon');
+      c.world = { ...c.world, assist: { kind: 'autopilot', dest: { type: 'planet', id: 'halcyon' }, autoLand: true } };
+      for (let i = 0; i < 60 * 60 && c.landedPlanetId === null; i++) c.update(1 / 60);
+      expect(c.landedPlanetId).toBe('halcyon');
+    };
+    land();
+    expect(c.world.credits).toBe(w.credits + 150);
+    expect(c.takeNotices()).toContain('Concord salary: +150 cr');
+    land();
+    expect(c.world.credits).toBe(w.credits + 150);
+    expect(c.takeNotices()).not.toContain('Concord salary: +150 cr');
+  });
+
   it('several failures from one jump become a single HUD message', async () => {
     const { c, data, events } = await setup();
     const w = newWorld(data, 1);

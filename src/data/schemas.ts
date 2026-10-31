@@ -345,6 +345,7 @@ export const ConfigSchema = z.object({
 
 const heat = z.number().nonnegative();
 const unit = z.number().min(0).max(1);
+const points = z.number().int().nonnegative();
 
 /** Law tunables: heat thresholds and crime values, fines, bribes, decay and contraband scans. */
 export const LawSchema = z
@@ -363,6 +364,8 @@ export const LawSchema = z
     catchChance: unit,
     scramblerCut: unit, // fraction taken off catchChance by a scrambler
     contrabandFine: z.number().nonnegative(), // cr per ton confiscated
+    // Faction rank points per deed (spec §6.2).
+    rankPoints: z.object({ mission: points, combatJob: points, story: points, raiderKill: points }).strict(),
   })
   .strict();
 export type LawDef = z.infer<typeof LawSchema>;

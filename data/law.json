@@ -11,5 +11,6 @@
   "scanRange": 600,
   "catchChance": 0.8,
   "scramblerCut": 0.5,
-  "contrabandFine": 100
+  "contrabandFine": 100,
+  "rankPoints": { "mission": 2, "combatJob": 4, "story": 5, "raiderKill": 1 }
 }

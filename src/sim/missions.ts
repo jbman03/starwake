@@ -1,8 +1,10 @@
 import type { GameData, MissionTypeDef } from '../data/schemas';
 import { berthsFree, cargoFree } from './cargo';
-import { buildCombatOffer, combatOffersOk, combatTargets, missionSystem } from './combatMissions';
+import { buildCombatOffer, combatOffersOk, combatTargets, jobRankPoints, missionSystem } from './combatMissions';
 import { hopDistance } from './galaxy';
 import { hashString, mulberry32, pick, randInt } from './random';
+import { addPoints, missionPayPct } from './ranks';
+import { governmentOf } from './stock';
 import type { Mission, WorldState } from './types';
 
 /** Most missions the pilot can hold at once. */
@@ -161,8 +163,13 @@ export function accept(world: WorldState, data: GameData, offer: MissionOffer): 
   };
 }
 
-/** Deliver every mission bound for `portId` that is not overdue; pays the ones not paid up front. */
-export function completeAt(world: WorldState, portId: string): { world: WorldState; completed: Mission[]; pay: number } {
+/**
+ * Deliver every mission bound for `portId` that is not overdue; pays the ones not paid up front. Each
+ * one also earns rank points with its origin port's government (a combat job more than a delivery),
+ * and from that faction's unlock rank pays its mission bonus on top, up-front jobs included. The bonus
+ * uses the ranks held on landing, before this delivery's points.
+ */
+export function completeAt(world: WorldState, data: GameData, portId: string): { world: WorldState; completed: Mission[]; pay: number } {
   const done = (m: Mission) =>
     m.typeId !== STORY_TYPE &&
     m.destId === portId &&
@@ -170,12 +177,12 @@ export function completeAt(world: WorldState, portId: string): { world: WorldSta
     (!m.combat || m.combat.done >= m.combat.needed); // a combat job pays only once the fighting is done
   const completed = world.missions.filter(done);
   if (completed.length === 0) return { world, completed, pay: 0 };
-  const pay = completed.reduce((sum, m) => sum + (m.paidUpfront ? 0 : m.pay), 0);
-  return {
-    world: { ...world, credits: world.credits + pay, missions: world.missions.filter((m) => !done(m)) },
-    completed,
-    pay,
-  };
+  const govOf = (m: Mission) => governmentOf(m.originId, data);
+  const bonus = (m: Mission) => Math.round((m.pay * missionPayPct(world, data, govOf(m))) / 100);
+  const pay = completed.reduce((sum, m) => sum + (m.paidUpfront ? 0 : m.pay) + bonus(m), 0);
+  let w: WorldState = { ...world, credits: world.credits + pay, missions: world.missions.filter((m) => !done(m)) };
+  for (const m of completed) w = addPoints(w, data, govOf(m), jobRankPoints(m, data));
+  return { world: w, completed, pay };
 }
 
 /** Drop missions whose deadline has passed; no pay. */

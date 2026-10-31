@@ -102,6 +102,11 @@ export function combatTargetSystem(m: Pick<Mission, 'combat'>): string | null {
   return m.combat && m.combat.done < m.combat.needed ? m.combat.systemId : null;
 }
 
+/** Rank points a finished job earns with its origin's government: a combat job (bounty or clear) earns more than a delivery. */
+export function jobRankPoints(m: Pick<Mission, 'combat'>, data: GameData): number {
+  return m.combat ? data.law.rankPoints.combatJob : data.law.rankPoints.mission;
+}
+
 /** The system a job points the pilot at: its combat target until done, else the system of `destId`. */
 export function missionSystem(m: Pick<Mission, 'combat' | 'destId'>, data: GameData): string | undefined {
   return combatTargetSystem(m) ?? data.planets[m.destId]?.systemId;

@@ -9,6 +9,8 @@ import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
 import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordKill } from '../sim/combatMissions';
 import { governmentShortName } from '../sim/standing';
+import { paySalary, salaryNoticeText } from '../sim/ranks';
+import { governmentOf } from '../sim/stock';
 import type { MoodInput } from '../audio/moods';
 import { CombatControl, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
 import type { DemandTerms } from '../sim/raiders';
@@ -1424,13 +1426,17 @@ export class Controller {
     this.prevShip = this.world.ship;
     this.alpha = 0;
     // Pay lands in the world first so the autosave below includes it.
-    const done = completeAt(this.world, planetId);
+    const done = completeAt(this.world, this.data, planetId);
     if (done.completed.length > 0) {
       this.world = { ...done.world, stats: { ...done.world.stats, jobsDone: done.world.stats.jobsDone + done.completed.length } };
       this.completion = { missions: done.completed, pay: done.pay };
       this.emit({ type: 'missionsCompleted', missions: done.completed, pay: done.pay });
     }
     if (autosave) {
+      // A real landing (not loading a save) pays the port owner's rank salary, once a day; it shows on the planet screen.
+      const salary = paySalary(this.world, this.data, planetId);
+      this.world = salary.world;
+      if (salary.paid > 0) this.notices.push(salaryNoticeText(governmentOf(planetId, this.data), salary.paid, this.data));
       // A real landing (not loading a save) can finish a story step; its messages wait on the planet screen.
       const story = advanceStory(this.world, this.data, { kind: 'landed', planetId });
       this.world = story.world;
