@@ -7,13 +7,14 @@ import { jumpFixedSec } from '../sim/world';
 import type { UiContext } from './context';
 import { button, el, hotkeyFor } from './dom';
 
-export type HowToPlayTab = 'flying' | 'trade' | 'missions' | 'travel' | 'controls';
+export type HowToPlayTab = 'flying' | 'trade' | 'missions' | 'travel' | 'law' | 'controls';
 
 export const HOW_TO_PLAY_TABS: { id: HowToPlayTab; text: string }[] = [
   { id: 'flying', text: 'Flying' },
   { id: 'trade', text: 'Planets & trade' },
   { id: 'missions', text: 'Missions' },
   { id: 'travel', text: 'Travel & fuel' },
+  { id: 'law', text: 'Law & ranks' },
   { id: 'controls', text: 'Controls' },
 ];
 
@@ -102,7 +103,7 @@ export function controlRows(bindings: Bindings): { title: string; rows: ControlR
 
 type Block = { heading: string; text: string };
 
-/** The four text tabs. Key names follow the player's bindings; numbers come from the data. */
+/** The text tabs. Key names follow the player's bindings; numbers come from the data. */
 export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindings, data: GameData): Block[] {
   const k = (a: ActionId) => hotkeyFor(bindings, a) ?? 'unbound';
   const ship = data.ships[data.config.startShipId];
@@ -154,6 +155,20 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
         { heading: 'Refuelling', text: `Every port sells fuel; press ${k('refuel')} to refuel. Fuel is charged per unit, and fringe ports charge more, so top up in the core worlds when you can.` },
         { heading: 'Stranded?', text: `With less than one jump of fuel and no port in the system, you can call a tow from the pause menu or the CALL TOW button. It costs ${data.config.towFee} cr, which can leave you in debt. The tow takes you to the nearest port, uses days on the way, and jobs that pass their deadline fail.` },
       ];
+    case 'law': {
+      const t = data.law.thresholds;
+      const pct = (n: number) => `${Math.round(n * 100)}%`;
+      const points = data.factions.concord?.ranks.map((r) => r.points).join(', ') ?? '';
+      return [
+        { heading: 'Your record', text: `Every government keeps a record of you, and crimes against its ships add heat to it: hitting, disabling or destroying a ship, boarding one, carrying contraband, and running from a patrol. The status follows the heat: Clean, then Suspect from ${t.suspect}, Wanted from ${t.wanted} and Hunted from ${t.hunted}. The sidebar shows the status with the government of the system you are in, and your pilot card lists every government that is not Clean. Heat fades by ${data.law.decayPerDay} a day.` },
+        { heading: 'Patrols and fines', text: `A Suspect pilot can still dock. A Wanted pilot is hailed by patrols, who ask for a fine; pay it, bribe them, run or refuse. A Hunted pilot is attacked on sight and the government's ports refuse landing. Fines owed show as a row on the planet screen with a Pay button: the fine is ${data.law.fineRate} cr for each point of heat, and paying clears the record. If you are towed or rescued to a port of a government that hunts you, you are taken into custody and the fine is taken from your credits.` },
+        { heading: 'Bribes', text: `A bribe costs ${data.law.bribeMul} times the fine and works ${pct(data.law.bribeChance)} of the time. If it fails, you keep your credits but the patrol is angrier (${data.law.bribeFailHeat} more heat).` },
+        { heading: 'Cargo scans', text: `Some goods are contraband in some governments' space. A patrol that comes close may scan your hold, and catches contraband ${pct(data.law.catchChance)} of the time. You can comply (the goods are confiscated and fined), bribe or run. Press ${k('encounterChoice1')}, ${k('encounterChoice2')} or ${k('encounterChoice3')} to answer, as with a hail.` },
+        { heading: 'The scrambler', text: `The Scan Scrambler is an outfit sold by independent and unlit ports; no Concord port stocks one. It cuts a patrol scan's catch chance by ${pct(data.law.scramblerCut)}.` },
+        { heading: 'Ranks', text: `Doing honest work for a faction earns it rank points: missions, combat jobs, story jobs and killing raiders. Ranks run from 1 to 5 (Concord: ${points} points) and each has a title shown on your pilot card. Helping one faction costs you with its rivals. While a government has you Wanted or Hunted you earn no points with it.` },
+        { heading: 'Perks', text: 'Rank 1 is a title. Rank 2 takes a share off prices at that faction\'s ports, rank 3 pays a salary each day you land there, rank 4 raises mission pay and opens its best ships and gear at its hub, and rank 5 gives a bigger discount and salary. Locked items name the rank they need.' },
+      ];
+    }
   }
 }
 

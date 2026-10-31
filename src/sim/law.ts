@@ -8,6 +8,10 @@ export type LegalStatus = 'clean' | 'suspect' | 'wanted' | 'hunted';
 /** Crimes against a government's ships; each adds `law.crimes[crime]` heat (spec §4.2). */
 export type Crime = 'hit' | 'disable' | 'destroy' | 'contraband' | 'run' | 'board';
 
+/** How each status reads in the UI ("Wanted") and its colour (sidebar, spec §7). */
+export const LEGAL_LABEL: Record<LegalStatus, string> = { clean: 'Clean', suspect: 'Suspect', wanted: 'Wanted', hunted: 'Hunted' };
+export const LEGAL_COLOR: Record<LegalStatus, string> = { clean: '#7fd18b', suspect: '#e0c060', wanted: '#e08a50', hunted: '#e05050' };
+
 const MAX_HEAT = 100;
 
 /** The pilot's heat (0-100) with the government's law; 0 when it has no record. */

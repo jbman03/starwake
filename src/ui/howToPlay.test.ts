@@ -38,12 +38,12 @@ beforeEach(() => localStorage.clear());
 afterEach(() => document.body.replaceChildren());
 
 describe('How to Play', () => {
-  it('has the five tabs and every one renders text', async () => {
+  it('has the six tabs and every one renders text', async () => {
     const { ctx, root } = await setup();
     showHowToPlay(ctx, { onClose: () => {} });
     const tabs = [...root.querySelectorAll('[role="tab"]')] as HTMLButtonElement[];
-    expect(tabs.map((t) => t.textContent)).toEqual(['Flying', 'Planets & trade', 'Missions', 'Travel & fuel', 'Controls']);
-    expect(HOW_TO_PLAY_TABS).toHaveLength(5);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Flying', 'Planets & trade', 'Missions', 'Travel & fuel', 'Law & ranks', 'Controls']);
+    expect(HOW_TO_PLAY_TABS).toHaveLength(6);
     for (const t of tabs) {
       t.click();
       const panel = root.querySelector('[role="tabpanel"]')!;
@@ -259,6 +259,25 @@ describe('phone column matches the real touch controls', () => {
     expect(PHONE_CONTROLS.board).toBe('Board button');
     expect(PHONE_CONTROLS.faceTarget).toBe('None on phone');
     expect(PHONE_CONTROLS.nextTarget).toBe('TGT');
+  });
+});
+
+describe('Law & ranks page', () => {
+  it('covers status levels, fines, bribes, scans, the scrambler, ranks and perks, with numbers from the data', async () => {
+    const data = await loadGameData();
+    const blocks = tabText('law', DEFAULT_SETTINGS.bindings, data);
+    expect(blocks.map((b) => b.heading)).toEqual(['Your record', 'Patrols and fines', 'Bribes', 'Cargo scans', 'The scrambler', 'Ranks', 'Perks']);
+    const all = blocks.map((b) => b.text).join(' ');
+    expect(all).toContain(`Wanted from ${data.law.thresholds.wanted}`);
+    expect(all).toContain(`${data.law.fineRate} cr for each point of heat`);
+    expect(all).toContain('cuts a patrol scan\'s catch chance by 50%'.replace('cuts', 'It cuts'));
+    expect(all).toContain('Concord: 10, 30, 70, 150, 300 points');
+  });
+
+  it('names no phone control that does not exist (no capitalised button words)', async () => {
+    const data = await loadGameData();
+    const all = tabText('law', DEFAULT_SETTINGS.bindings, data).map((b) => b.text).join(' ');
+    for (const token of all.match(/\b[A-Z]{2,}(?: [A-Z]{2,})*\b/g) ?? []) expect(['II'], token).toContain(token);
   });
 });
 

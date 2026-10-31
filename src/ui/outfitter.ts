@@ -1,8 +1,9 @@
 import type { GameData, OutfitDef } from '../data/schemas';
-import { OUTFIT_BLOCK_TEXT, outfitSellCheck, type OutfitBlock } from '../sim/outfitter';
+import { OUTFIT_BLOCK_TEXT, outfitPrice, outfitSellCheck, type OutfitBlock } from '../sim/outfitter';
 import { worldStats } from '../sim/shipStats';
-import { standingBlockText } from '../sim/standing';
-import { outfitStock } from '../sim/stock';
+import { discountPct, rankBlockText } from '../sim/ranks';
+import { governmentShortName, standingBlockText } from '../sim/standing';
+import { governmentOf, outfitStock } from '../sim/stock';
 import type { UiContext } from './context';
 import { formatCredits } from './dom';
 import { outfitIcon } from './icons';
@@ -37,7 +38,7 @@ function effectText(def: OutfitDef, fuelPerJump: number, data: GameData): string
     case 'pod':
       return 'Saves the pilot once if the ship is lost';
     case 'scrambler':
-      return 'Blunts patrol cargo scans';
+      return `Cuts a patrol scan's catch chance by ${Math.round(data.law.scramblerCut * 100)}%`;
   }
 }
 
@@ -49,7 +50,20 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
 
   /** The words for a block; a standing block names the government. */
   const blockText = (reason: OutfitBlock, def: OutfitDef): string =>
-    reason === 'standing' && def.requiresStanding ? standingBlockText(def.requiresStanding, data) : OUTFIT_BLOCK_TEXT[reason];
+    reason === 'standing' && def.requiresStanding
+      ? standingBlockText(def.requiresStanding, data)
+      : reason === 'rank' && def.requiresRank
+        ? rankBlockText(def.requiresRank, data)
+        : OUTFIT_BLOCK_TEXT[reason];
+
+  /** The price charged, with the list price and discount noted when a rank discount applies. */
+  const priceText = (def: OutfitDef): string => {
+    const charged = outfitPrice(controller.world, data, planetId, def.id);
+    const pct = discountPct(controller.world, data, planetId);
+    return pct > 0 && charged !== def.price
+      ? `${formatCredits(charged)} (${pct}% ${governmentShortName(governmentOf(planetId, data), data)} rank discount, list ${formatCredits(def.price)})`
+      : formatCredits(charged);
+  };
 
   const items = (): ShopItem[] =>
     outfitStock(planetId, data).map((def) => {
@@ -75,7 +89,7 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
         ['Space', `${def.space} t`],
         ['Max', isMap ? 'One-time' : String(def.max)],
         ['Fitted', isMap ? '-' : String(owned)],
-        ['Price', formatCredits(def.price)],
+        ['Price', priceText(def)],
       ];
       const notes: string[] = [];
       if (owned > 0 && sell.ok) {
@@ -106,9 +120,10 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
     items,
     onClose,
     onBuy: (id, say) => {
+      const paid = outfitPrice(controller.world, data, planetId, id); // before the buy: the price the world charges
       const r = controller.buyOutfit(id);
       const def = data.outfits[id];
-      if (r.ok) say(`Bought ${def.name} for ${formatCredits(def.price)}.`);
+      if (r.ok) say(`Bought ${def.name} for ${formatCredits(paid)}.`);
       else say(blockText(r.reason, def), true);
     },
     onSell: (id, say) => {

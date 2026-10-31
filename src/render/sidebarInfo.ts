@@ -2,6 +2,7 @@
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
 import { cargoFree } from '../sim/cargo';
+import { legalStatus, LEGAL_COLOR, LEGAL_LABEL } from '../sim/law';
 import { jumpPoint, SYSTEM_CENTER } from '../sim/rules';
 import { isTargetable, npcLabel, targetedNpc, type Traffic } from '../sim/traffic';
 import { worldStats } from '../sim/shipStats';
@@ -21,6 +22,8 @@ export interface SidebarInfo {
   fuelFrac: number;
   jumps: number;
   nav: string;
+  /** "Law: Wanted" for the current system's government, and its status colour (#rrggbb). */
+  law: { text: string; color: string };
   /** The selected launcher's ammo and count ("Seeker Missile ×6"), or "None". */
   secondary: string;
   /** The player's shields and armor as 0–1 fractions. */
@@ -47,6 +50,8 @@ export function sidebarInfo(
   const n = world.route.length;
   const t = world.targetPlanetId ? data.planets[world.targetPlanetId] : undefined;
   const hasTarget = t !== undefined && t.systemId === world.systemId;
+  const gov = data.systems[world.systemId]?.government;
+  const status = gov ? legalStatus(world, data, gov) : 'clean';
   const ship = targetedNpc(traffic);
   const ammo = secondaryAmmo(world, data, battle?.secondary ?? null);
   return {
@@ -55,6 +60,7 @@ export function sidebarInfo(
     fuelFrac: stats.fuelCapacity > 0 ? Math.max(0, Math.min(1, world.ship.fuel / stats.fuelCapacity)) : 0,
     jumps: fuelJumps(world, data),
     nav: next === undefined ? 'No course' : `${data.systems[next]?.name ?? next} · ${n} ${n === 1 ? 'jump' : 'jumps'}`,
+    law: { text: `Law: ${LEGAL_LABEL[status]}`, color: LEGAL_COLOR[status] },
     secondary: ammo ? `${ammo.name} ×${ammo.count}` : 'None',
     hull: playerHull(world, data, battle),
     targetHull: ship && !site ? { ...hullBars(ship.hull), disabled: ship.hull.disabled } : null,

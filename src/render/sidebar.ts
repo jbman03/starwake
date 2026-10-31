@@ -28,7 +28,7 @@ export class Sidebar {
   private g: Phaser.GameObjects.Graphics;
   private radar: Phaser.GameObjects.Graphics;
   private texts: Phaser.GameObjects.Text[] = [];
-  private labels: Record<'shields' | 'armor' | 'fuel' | 'nav' | 'secondary' | 'target' | 'targetDetail' | 'cargo' | 'credits' | 'date', Phaser.GameObjects.Text>;
+  private labels: Record<'shields' | 'armor' | 'fuel' | 'nav' | 'law' | 'secondary' | 'target' | 'targetDetail' | 'cargo' | 'credits' | 'date', Phaser.GameObjects.Text>;
   private mapBtn: Phaser.GameObjects.Text;
   private screenX = 0;
   private readonly x = 0;
@@ -52,6 +52,7 @@ export class Sidebar {
       armor: text(11, '#8fa0b5'),
       fuel: text(11, '#8fa0b5'),
       nav: text(13, '#9fe7a0'),
+      law: text(13),
       secondary: text(13, '#b8c4d2'),
       target: text(13, '#e8eef5'),
       targetDetail: text(12, '#b8c4d2'),
@@ -119,8 +120,9 @@ export class Sidebar {
     L.fuel.setPosition(x, y + 40);
     y += 70;
     L.nav.setPosition(x, y);
-    L.secondary.setPosition(x, y + 20);
-    y += 50;
+    L.law.setPosition(x, y + 20);
+    L.secondary.setPosition(x, y + 40);
+    y += 70;
     L.target.setPosition(x, y);
     L.targetDetail.setPosition(x, y + 18);
     y += 62;
@@ -147,6 +149,7 @@ export class Sidebar {
     L.armor.setText('Armor');
     L.fuel.setText(`Fuel · ${info.jumps === Infinity ? '∞' : info.jumps} ${info.jumps === 1 ? 'jump' : 'jumps'}`);
     L.nav.setText(fitText(`Nav: ${info.nav}`, MAX_CHARS));
+    L.law.setText(info.law.text).setColor(info.law.color);
     L.secondary.setText(fitText(`Ammo: ${info.secondary}`, MAX_CHARS));
     L.target.setText(fitText(info.target ?? 'No target', MAX_CHARS));
     L.targetDetail.setText(info.targetHull?.disabled ? `${info.targetDetail ?? ''} · Disabled` : (info.targetDetail ?? ''));

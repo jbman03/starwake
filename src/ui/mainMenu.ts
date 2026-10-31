@@ -3,6 +3,8 @@ import { SaveError, worldFromPilot, type PilotSave } from '../save/pilot';
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
 import { visibleSystems } from '../sim/galaxy';
+import { legalStatus, LEGAL_LABEL } from '../sim/law';
+import { rankTitle } from '../sim/ranks';
 import { combatRating } from '../sim/rating';
 import { governmentShortName, standingOf } from '../sim/standing';
 import { netWorth, shipDisplayName } from '../sim/shipyard';
@@ -43,6 +45,10 @@ export interface PilotCard {
   jobs: string;
   /** "Concord: friend · Free Reach: cool", or "Standing: neutral everywhere". */
   standing: string;
+  /** One line per government that is not Clean with the pilot: "Concord: Wanted". */
+  lawLines: string[];
+  /** One line per faction the pilot has a rank in: "Concord: Keeper". */
+  rankLines: string[];
   /** "Green", "Ace" and so on, from kills and captures. */
   rating: string;
 }
@@ -70,6 +76,13 @@ export function pilotCard(save: PilotSave, data: GameData): PilotCard {
     explored: `${seen.size}/${visible.size} systems`,
     jobs: `${save.stats.jobsDone} ${save.stats.jobsDone === 1 ? 'job' : 'jobs'}`,
     standing: standingLine(save, data),
+    lawLines: Object.keys(save.law)
+      .filter((g) => legalStatus(save, data, g) !== 'clean')
+      .map((g) => `${governmentShortName(g, data)}: ${LEGAL_LABEL[legalStatus(save, data, g)]}`),
+    rankLines: Object.keys(data.factions)
+      .map((g) => [g, rankTitle(save, data, g)] as const)
+      .filter((r): r is readonly [string, string] => r[1] !== null)
+      .map(([g, title]) => `${governmentShortName(g, data)}: ${title}`),
     rating: combatRating(save.stats),
   };
 }
@@ -114,6 +127,8 @@ export function showMainMenu(ctx: UiContext): void {
             el('div', { class: 'sw-pilot-saved', text: `${c.date} · ${c.explored} · ${c.jobs} done` }),
             el('div', { class: 'sw-pilot-saved', text: `Rating: ${c.rating}` }),
             el('div', { class: 'sw-pilot-saved', text: c.standing }),
+            ...c.lawLines.map((t) => el('div', { class: 'sw-pilot-saved sw-pilot-law', text: t })),
+            ...c.rankLines.map((t) => el('div', { class: 'sw-pilot-saved sw-pilot-rank', text: t })),
           ]),
           el('div', { class: 'sw-pilot-actions' }, [
             button('Load', guarded(() => load(p.id)), { class: 'sw-btn-primary' }),

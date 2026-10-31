@@ -9,6 +9,7 @@ import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
 import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordKill } from '../sim/combatMissions';
 import { governmentShortName } from '../sim/standing';
+import { fineFor, payFines } from '../sim/law';
 import { paySalary, salaryNoticeText } from '../sim/ranks';
 import { governmentOf } from '../sim/stock';
 import type { MoodInput } from '../audio/moods';
@@ -641,6 +642,15 @@ export class Controller {
     const r = sellOutfit(this.world, this.data, outfitId);
     this.world = r.world;
     return r.check;
+  }
+
+  /** Pay the government's fine from the credits (does not save). `paid` is the fine; an error leaves the world unchanged. */
+  payFines(gov: string): { ok: true; paid: number } | { ok: false; error: 'short' | 'none' } {
+    const fine = fineFor(this.world, this.data, gov);
+    const r = payFines(this.world, this.data, gov);
+    if ('error' in r) return { ok: false, error: r.error };
+    this.world = r.world;
+    return { ok: true, paid: fine };
   }
 
   /** What buying would do right now, without doing it. */

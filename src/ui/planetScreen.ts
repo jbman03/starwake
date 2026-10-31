@@ -1,6 +1,8 @@
 import type { ActionId } from '../input/actions';
 import { formatDate } from '../sim/calendar';
 import { cargoFree } from '../sim/cargo';
+import { fineFor, legalStatus } from '../sim/law';
+import { governmentShortName } from '../sim/standing';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import type { RefuelQuote } from '../sim/rules';
 import type { UiContext } from './context';
@@ -85,6 +87,12 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     if (q && q.units > 0) status.textContent = `Bought ${q.units} fuel for ${formatCredits(q.cost)}.`;
     render();
   };
+  const payFine = (gov: string) => {
+    const r = controller.payFines(gov);
+    if (r.ok) status.textContent = `Paid ${formatCredits(r.paid)} to ${governmentShortName(gov, data)}.`;
+    else if (r.error === 'short') status.textContent = 'Not enough credits.';
+    render();
+  };
   // The map returns here (a fresh planet screen) when it closes.
   const openMap = () => ctx.go.map({ onClose: () => ctx.go.planet(planetId) });
   const leave = () => {
@@ -142,12 +150,22 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       disabled: !canRefuel,
     });
     const reason = !canRefuel && q?.reason ? el('p', { class: 'sw-reason', text: REFUEL_REASON[q.reason] }) : null;
+    // One row per government the pilot owes fines to (spec §7).
+    const fineRows = Object.keys(w.law)
+      .filter((gov) => legalStatus(w, data, gov) !== 'clean')
+      .map((gov) =>
+        el('div', { class: 'sw-fine-row', attrs: { 'data-fine': gov } }, [
+          el('span', { text: `Fines owed to ${governmentShortName(gov, data)}: ${formatCredits(fineFor(w, data, gov))}` }),
+          button('Pay', () => payFine(gov)),
+        ]),
+      );
     const logBtn = button('Mission Log', openMissionLog, { hotkey: hotkeyFor(bindings, 'missionLog') });
     const helpBtn = button('How to Play', openHowToPlay, { hotkey: hotkeyFor(bindings, 'howToPlay') });
     const leaveBtn = button('Leave', leave, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'leave') });
     actions.replaceChildren(
       ...[exchangeBtn, missionsBtn, shipyardBtn, outfitterBtn, barBtn, refuelBtn].filter((b) => b !== null),
       ...(reason ? [reason] : []),
+      ...fineRows,
       logBtn,
       helpBtn,
       leaveBtn,

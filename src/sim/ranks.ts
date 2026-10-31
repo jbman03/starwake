@@ -15,7 +15,7 @@ function pointsOf(world: Pick<WorldState, 'ranks'>, gov: string): number {
 }
 
 /** The pilot's rank with the government: how many of its thresholds the points reach. 0 for a government with no faction. */
-export function rankOf(world: WorldState, data: GameData, gov: string): Rank {
+export function rankOf(world: Pick<WorldState, 'ranks'>, data: GameData, gov: string): Rank {
   const faction = data.factions[gov];
   if (!faction) return 0;
   const points = pointsOf(world, gov);
@@ -23,7 +23,7 @@ export function rankOf(world: WorldState, data: GameData, gov: string): Rank {
 }
 
 /** The title of the pilot's rank with the government, or null below rank 1. */
-export function rankTitle(world: WorldState, data: GameData, gov: string): string | null {
+export function rankTitle(world: Pick<WorldState, 'ranks'>, data: GameData, gov: string): string | null {
   const rank = rankOf(world, data, gov);
   return rank > 0 ? data.factions[gov].ranks[rank - 1].title : null;
 }
