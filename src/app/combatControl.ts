@@ -123,6 +123,11 @@ export class CombatControl {
   private readonly lawHailed = new Set<string>();
   /** Caught scans and law hails waiting for the pilot's hail slot, oldest first. */
   private lawQueue: LawOffer[] = [];
+  /**
+   * Counts system visits (every reset: arrival, take-off, landing, session), so seeded law rolls
+   * differ per visit even with the same patrol on the same day. Transient: never saved.
+   */
+  visit = 0;
   private readonly sessions = new Map<string, BoardingSession>();
   /** The ship whose boarding card is open, or null. */
   boardingId: string | null = null;
@@ -152,6 +157,7 @@ export class CombatControl {
     this.scanned.clear();
     this.lawHailed.clear();
     this.lawQueue = [];
+    this.visit++;
     this.sessions.clear();
     this.boardingId = null;
     this.scuttling = [];
@@ -396,9 +402,11 @@ export class CombatControl {
         const d = dist(n.ship.pos, world.ship.pos);
         if (d <= law.scanRange && !this.scanned.has(n.id) && Object.keys(illegalHeld(world, this.data, n.government)).length > 0) {
           this.scanned.add(n.id);
-          if (scanCatches(world, this.data, n.government, `scan|${world.seed}|${world.systemId}|${world.day}|${n.id}`)) {
+          // A scan, whatever it finds, is that government's one law hail this visit (Ruling 11).
+          this.lawHailed.add(n.government);
+          if (scanCatches(world, this.data, n.government, `scan|${world.seed}|${world.systemId}|${world.day}|${this.visit}|${n.id}`)) {
             this.lawQueue.push({ npcId: n.id, npcName: n.name, gov: n.government, reason: 'scan' });
-          } else messages.push(MSG_SCAN_CLEAN);
+          } else if (!messages.includes(MSG_SCAN_CLEAN)) messages.push(MSG_SCAN_CLEAN);
         }
         const best = hailers.get(n.government);
         if (d <= law.hailRange && !this.lawHailed.has(n.government) && owesFine(world, this.data, n.government) && (!best || d < best.d)) {

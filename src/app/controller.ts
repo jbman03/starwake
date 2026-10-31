@@ -292,6 +292,9 @@ export class Controller {
   startFlight(): void {
     const changed = !this.flying;
     this.flying = true;
+    // Flight resumes only once any card has closed (the card's own close does this), so none is open now.
+    this.card = null;
+    this.hailCard = null;
     this.landedPlanetId = null;
     if (changed) this.emit({ type: 'flying', flying: true });
   }
@@ -956,7 +959,7 @@ export class Controller {
    * site is parked until the hail ends); otherwise it waits in the combat module's queue.
    */
   private checkLaw(): string[] {
-    // Flight is paused while a card is open, so only the pending slot matters here (`card` can be left over from a closed one).
+    // Flight is paused while a card is open, so only the pending slot matters here.
     const busy = this.pending !== null && this.pending.kind !== 'site';
     const r = this.combat.checkLaw(this.world, this.traffic, busy);
     if (r.open) {
@@ -1014,7 +1017,7 @@ export class Controller {
   private answerLawHail(answer: LawAnswer): string[] | null {
     const p = this.pending;
     if (p?.kind !== 'law') return null;
-    const seed = `bribe|${this.world.seed}|${this.world.systemId}|${this.world.day}|${p.npcId}`;
+    const seed = `bribe|${this.world.seed}|${this.world.systemId}|${this.world.day}|${this.combat.visit}|${p.npcId}|${p.reason}`;
     const r = answerLaw(this.world, this.data, { gov: p.gov, reason: p.reason, npcName: p.npcName }, answer, seed);
     if (!r) return null;
     this.world = r.world;

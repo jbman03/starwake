@@ -107,3 +107,10 @@ describe('answering a law hail', () => {
     expect(wanted.patrol).toBe('angry');
   });
 });
+
+describe('Comply messages', () => {
+  it('a pilot with no credits is told the whole fine goes on the record', () => {
+    const r = answerLaw(w({ credits: 0, cargo: { stims: 2 } }), data, { gov: 'concord', reason: 'scan', npcName: 'G' }, 'comply', 's')!;
+    expect(r.messages).toEqual(["G confiscates 2 t of contraband. You can't pay the fine of 200 cr: it goes on your record."]);
+  });
+});

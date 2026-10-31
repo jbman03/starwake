@@ -41,7 +41,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
   // The market, then any contraband in the hold that this port's government outlaws (shown, never traded).
   const goods = [
     ...Object.keys(port.market ?? {}).filter((id) => data.commodities[id] && !outlawed(id)),
-    ...Object.keys(controller.world.cargo).filter((id) => data.commodities[id] && outlawed(id) && !(id in (port.market ?? {}))),
+    ...Object.keys(controller.world.cargo).filter((id) => data.commodities[id] && outlawed(id)),
   ];
   const bindings = controller.settings.bindings;
   let selected = goods[0] ?? '';

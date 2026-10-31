@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Controller } from '../app/controller';
 import { loadGameData } from '../data/load';
+import type { GameData } from '../data/schemas';
 import type { ActionId } from '../input/actions';
 import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
@@ -13,8 +14,8 @@ import { LONG_PRESS_MS, showExchange } from './exchange';
 
 const down = (button = 0) => new PointerEvent('pointerdown', { bubbles: true, button, isPrimary: true });
 
-async function setup(credits = 100_000, cargo: Record<string, number> = {}) {
-  const data = await loadGameData();
+async function setup(credits = 100_000, cargo: Record<string, number> = {}, tweak: (d: GameData) => GameData = (d) => d) {
+  const data = tweak(await loadGameData());
   const c = new Controller(data, DEFAULT_SETTINGS, new EventTarget());
   const w = newWorld(data);
   c.beginSession({ ...w, credits, cargo }, { id: 'p', name: 'P' }, 'halcyon');
@@ -241,4 +242,10 @@ describe('outlawed goods at the exchange', () => {
     expect(q('exchange-message')).toBe('Outlawed here: the Concord does not trade it');
     expect(c.world.cargo.stims).toBe(5);
   });
+});
+
+it('a held good that a plug-in market lists but the government outlaws still gets its Not traded row', async () => {
+  const plugin = (d: GameData): GameData => ({ ...d, planets: { ...d.planets, halcyon: { ...d.planets.halcyon, market: { ...d.planets.halcyon.market, stims: 'low' } } } });
+  const { row } = await setup(100_000, { stims: 2 }, plugin);
+  expect(row('stims').querySelector('.sw-ex-price')!.textContent).toBe('Not traded');
 });

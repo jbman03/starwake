@@ -93,8 +93,12 @@ export function answerLaw(
   if (answer === 'comply') {
     if (reason === 'scan') {
       const c = confiscate(world, data, gov);
-      const messages = [`${npcName} confiscates ${c.tons} t of contraband. You pay a fine of ${c.paid} cr.`];
-      if (c.paid < c.fine) messages.push(`You can't cover the other ${c.fine - c.paid} cr: it goes on your record.`);
+      const took = `${npcName} confiscates ${c.tons} t of contraband.`;
+      const messages =
+        c.paid <= 0 && c.fine > 0
+          ? [`${took} You can't pay the fine of ${c.fine} cr: it goes on your record.`]
+          : [`${took} You pay a fine of ${c.paid} cr.`];
+      if (c.paid > 0 && c.paid < c.fine) messages.push(`You can't cover the other ${c.fine - c.paid} cr: it goes on your record.`);
       return { world: c.world, messages, patrol: 'stays' };
     }
     const fine = fineFor(world, data, gov);

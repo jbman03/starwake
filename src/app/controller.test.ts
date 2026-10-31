@@ -1687,6 +1687,23 @@ describe('combat in flight', () => {
 
 
 describe('raider demands in flight', () => {
+  it('a demand after an encounter card closed in the same visit is still a demand (Ruling 10)', async () => {
+    const s = await setup();
+    s.c.startFlight();
+    s.c.update(1 / 60);
+    s.c.traffic = { ...s.c.traffic, npcs: [], nextSpawnSec: 1e9 };
+    const hail = Object.values(s.c.data.encounters).find((e) => e.kind === 'hail' && e.choices.length > 0)!;
+    s.c.forceEncounter(hail.id);
+    expect(s.c.openEncounter()).toBe(true);
+    s.c.declineEncounter();
+    s.c.startFlight(); // the card closes
+    s.c.update(1 / 60);
+    const r = hostileAhead(s.c.world, s.c.traffic, s.c.data);
+    s.c.traffic = { ...r.traffic, npcs: r.traffic.npcs.map((n) => ({ ...n, engaged: false, demand: true })) };
+    s.c.update(1 / 60);
+    expect(s.c.pending).toMatchObject({ kind: 'demand', npcId: r.id });
+  });
+
   async function demanding() {
     const s = await setup();
     s.c.startFlight();
@@ -2006,7 +2023,7 @@ describe('law: scans and law hails in flight', () => {
     expect(heat(c)).toBe(0);
     run(c, 2);
     expect(c.pending).toBeNull();
-    expect(heat(c)).toBeGreaterThanOrEqual(20);
+    expect(heat(c)).toBe(20);
     expect(c.combat.isHostile(npc(c, id), c.world)).toBe(true);
   });
 
@@ -2154,6 +2171,69 @@ describe('law: scans and law hails in flight', () => {
     c.openEncounter();
     c.chooseEncounter(0);
     expect(npc(c, id).hold).toBeUndefined();
+  });
+
+  it('a scan counts as the visit\'s law hail: Comply leaves the pilot Suspect, and no fine hail follows (Ruling 11)', async () => {
+    const { c } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    c.update(1 / 60);
+    c.openEncounter();
+    expect(c.chooseEncounter(0)).not.toBeNull();
+    expect(heat(c)).toBe(15); // Suspect
+    c.startFlight(); // the card closes
+    addPatrol(c); // even a second patrol in range keeps quiet
+    run(c, 3);
+    expect(c.pending).toBeNull();
+  });
+
+  it('several clean scans in one tick say so once', async () => {
+    const { c, said } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 0 } });
+    addPatrol(c);
+    c.update(1 / 60);
+    expect(said).toEqual(['Scan complete. Fly safe.']);
+  });
+
+  /** Land and take off again at Halcyon (a new visit, same system and day), with one fresh patrol ahead. */
+  function newVisit(c: Controller, p: { cargo?: Record<string, number>; heat?: number }) {
+    (c as unknown as { landAt(id: string): void }).landAt('halcyon');
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.05);
+    c.traffic = { ...c.traffic, npcs: [] };
+    c.world = { ...c.world, credits: 50_000, cargo: p.cargo ?? {}, law: p.heat ? { concord: { heat: p.heat } } : {} };
+    expect(addPatrol(c)).toBe('test-raider-1');
+    c.update(1 / 60);
+  }
+
+  it('the same patrol rolls its scan afresh on a second visit', async () => {
+    const { c } = await patrolled({ law: { catchChance: 0.5 } });
+    const caught: boolean[] = [];
+    for (let i = 0; i < 16; i++) {
+      newVisit(c, { cargo: { stims: 3 } });
+      caught.push(c.pending?.kind === 'law');
+      c.pending = null;
+    }
+    expect(caught).toContain(true);
+    expect(caught).toContain(false);
+  });
+
+  it('a scan bribe and a fine bribe roll independently', async () => {
+    const bribes = async (p: { cargo?: Record<string, number>; heat?: number }) => {
+      const { c } = await patrolled({ law: { catchChance: 1, bribeChance: 0.5 } });
+      const ok: boolean[] = [];
+      for (let i = 0; i < 16; i++) {
+        newVisit(c, p);
+        expect(c.pending?.kind).toBe('law');
+        c.openEncounter();
+        c.chooseEncounter(1);
+        ok.push(npc(c, 'test-raider-1').peaceful);
+        c.startFlight();
+      }
+      return ok;
+    };
+    const scan = await bribes({ cargo: { stims: 3 } });
+    const fine = await bribes({ heat: 20 });
+    expect(scan).toContain(true);
+    expect(scan).toContain(false);
+    expect(fine).not.toEqual(scan);
   });
 
   it('a take-off starts a new visit: the same patrol scans again', async () => {
