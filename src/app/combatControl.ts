@@ -2,6 +2,7 @@ import type { GameData } from '../data/schemas';
 import type { ActionId } from '../input/actions';
 import { angerGovernment, isHostileToPlayer, newBattle, stepBattle, type Battle, type BattleEvent } from '../sim/battle';
 import {
+  boardingCrime,
   canBoard,
   canTakeCommand,
   captureOdds,
@@ -231,9 +232,11 @@ export class CombatControl {
         const row = rows.find((r) => r.id === choice);
         if (!row || row.used || row.blocked || s.tried) return null;
         const t = choice === 'credits' ? takeCredits(world, s.left) : choice === 'cargo' ? takeCargo(world, this.data, s.left) : takeAmmo(world, this.data, s.left);
+        // Looting is one crime per ship, however many rows are taken (spec §4.2).
+        const looted = s.used.size === 0 ? boardingCrime(t.world, this.data, npc, 'board') : t.world;
         s.left = t.loot;
         s.used.add(choice);
-        return keep(t.world, [t.text]);
+        return keep(looted, [t.text]);
       }
       if (choice !== 'capture' || s.tried) return null;
       s.tried = true;
@@ -242,7 +245,7 @@ export class CombatControl {
         return keep(world, ['The crew drives your party off.']);
       }
       s.stage = 'captured';
-      const a = angerGovernment(world, this.battle, npc, true);
+      const a = angerGovernment(boardingCrime(world, this.data, npc, 'destroy'), this.battle, npc, true);
       this.battle = a.battle;
       const messages = ['Your party takes the bridge. The ship is yours.'];
       if (a.angered) messages.push(`The ${governmentShortName(npc.government, this.data)} will remember that.`);

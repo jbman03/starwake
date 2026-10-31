@@ -24,6 +24,11 @@ export function legalStatus(world: Pick<WorldState, 'law'>, data: GameData, gov:
   return 'clean';
 }
 
+/** The governments that hunt the pilot (their patrols attack on sight, spec §4.4), in record order. */
+export function huntingGovernments(world: Pick<WorldState, 'law'>, data: GameData): string[] {
+  return Object.keys(world.law).filter((gov) => legalStatus(world, data, gov) === 'hunted');
+}
+
 function setHeat(world: WorldState, gov: string, heat: number): WorldState {
   return { ...world, law: { ...world.law, [gov]: { heat } } };
 }

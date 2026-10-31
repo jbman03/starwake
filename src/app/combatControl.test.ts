@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import type { ActionId } from '../input/actions';
+import { captureSucceeds } from '../sim/boarding';
 import { fullHull, type Projectile } from '../sim/combat';
+import { heatOf } from '../sim/law';
 import { worldStats } from '../sim/shipStats';
 import type { Npc, Traffic } from '../sim/traffic';
 import type { FrameInput, WorldState } from '../sim/types';
@@ -308,5 +310,59 @@ describe('raider demands', () => {
     expect(n.engaged).toBe(true);
     expect(Math.hypot(n.ship.pos.x, n.ship.pos.y)).toBeLessThan(data.combat.ai.raider.keepRange * 1.5);
     expect(world.credits).toBe(w.credits);
+  });
+});
+
+describe('boarding crimes (cycle 5, spec §4.2)', () => {
+  /** A wreck id whose seeded capture roll comes out `ok`. */
+  const wreckWhere = (w: WorldState, ok: boolean, over: Partial<Npc> = {}): Npc => {
+    for (let i = 0; i < 200; i++) {
+      const n = wreck(`w${i}`, 30, 0, over);
+      if (captureSucceeds(w, data, n) === ok) return n;
+    }
+    throw new Error('no wreck found');
+  };
+
+  it('boarding a Concord ship for loot gives +15 heat, once per ship', () => {
+    const w = mkWorld();
+    const c = new CombatControl(data, w);
+    const t = mkTraffic([wreck('near', 30, 0)]);
+    expect(c.startBoarding(w, t)?.id).toBe('near');
+    expect(heatOf(w, 'concord')).toBe(0); // opening the hatch is no crime yet
+    let r = c.boardChoose(w, t, 'credits')!;
+    expect(heatOf(r.world, 'concord')).toBe(15);
+    r = c.boardChoose(r.world, t, 'cargo')!;
+    expect(heatOf(r.world, 'concord')).toBe(15);
+    c.leaveBoarding();
+    c.startBoarding(r.world, t);
+    r = c.boardChoose(r.world, t, 'ammo') ?? r; // nothing to take, or taken: no second crime either way
+    expect(heatOf(r.world, 'concord')).toBe(15);
+  });
+  it('boarding a raider adds no heat', () => {
+    const w = mkWorld();
+    const c = new CombatControl(data, w);
+    const t = mkTraffic([wreck('r1', 30, 0, { government: 'raiders', role: 'raider' })]);
+    c.startBoarding(w, t);
+    const r = c.boardChoose(w, t, 'credits')!;
+    expect(r.world.credits).toBeGreaterThan(w.credits);
+    expect(r.world.law).toEqual({});
+  });
+  it('capturing a Concord ship gives +40 heat and keeps the cycle 4 anger', () => {
+    const w = mkWorld({ standing: { concord: 'friend' } });
+    const c = new CombatControl(data, w);
+    const t = mkTraffic([wreckWhere(w, true)]);
+    c.startBoarding(w, t);
+    const r = c.boardChoose(w, t, 'capture')!;
+    expect(heatOf(r.world, 'concord')).toBe(40);
+    expect(r.world.standing.concord).toBe('neutral');
+    expect(c.battle.angry).toEqual(['concord']);
+  });
+  it('a failed capture is no crime', () => {
+    const w = mkWorld();
+    const c = new CombatControl(data, w);
+    const t = mkTraffic([wreckWhere(w, false)]);
+    c.startBoarding(w, t);
+    const r = c.boardChoose(w, t, 'capture')!;
+    expect(r.world.law).toEqual({});
   });
 });

@@ -3,6 +3,7 @@ import type { ActionId } from '../input/actions';
 import { testData } from '../data/testData';
 import { fullHull, PLAYER_ID, type Projectile } from './combat';
 import { cycleSecondary, newBattle, nearestHostile, playerTargetId, stepBattle, type Battle, type BattleEvent } from './battle';
+import { heatOf } from './law';
 import { worldStats } from './shipStats';
 import type { Npc, Traffic } from './traffic';
 import type { FrameInput, WorldState } from './types';
@@ -294,5 +295,103 @@ describe('determinism', () => {
       return tick(begin(w, t), frame(['firePrimary', 'fireSecondary']), 600);
     };
     expect(run()).toEqual(run());
+  });
+});
+
+describe('law: combat crimes and patrol hostility (cycle 5, spec §4.2, §4.4, §6.2)', () => {
+  const concordWorld = (over: Partial<WorldState> = {}) => mkWorld({ systemId: 'calder', ...over });
+  const patrol = (over: Partial<Npc> = {}) =>
+    mkNpc('p1', 'concord', 300, 0, { role: 'patrol', peaceful: false, outfits: { 'light-blaster': 2 }, ship: { pos: { x: 300, y: 0 }, vel: { x: 0, y: 0 }, heading: Math.PI, fuel: 0 }, ...over });
+
+  it('shooting a Concord trader once gives +10 heat, and hitting the same ship again adds nothing', () => {
+    let s = tick(begin(concordWorld(), mkTraffic([mkNpc('c1', 'concord', 120, 0)], 'c1')), FIRE, 30);
+    expect(count(s, 'hit')).toBeGreaterThan(1);
+    expect(heatOf(s.w, 'concord')).toBe(10);
+    s = tick(s, FIRE, 60);
+    expect(npc(s, 'c1').hull.disabled).toBe(false);
+    expect(heatOf(s.w, 'concord')).toBe(10);
+  });
+  it('a first hit on a second ship of the same government is a new crime', () => {
+    const t = mkTraffic([mkNpc('c1', 'concord', 120, 0), mkNpc('c2', 'concord', 120, 0)], 'c1');
+    const s0 = begin(concordWorld(), t);
+    const s = tick({ ...s0, b: { ...s0.b, projectiles: [bolt({ pos: { x: 120, y: 0 }, id: 901 })] } }, IDLE);
+    expect(heatOf(s.w, 'concord')).toBe(10); // one bolt hits one ship
+    const s2 = tick({ ...s, t: { ...s.t, npcs: s.t.npcs.map((n) => (n.id === 'c1' ? { ...n, ship: { ...n.ship, pos: { x: 900, y: 900 } } } : n)) }, b: { ...s.b, projectiles: [bolt({ pos: { x: 120, y: 0 }, id: 902 })] } }, IDLE);
+    expect(heatOf(s2.w, 'concord')).toBe(20);
+  });
+  it('disabling gives +20, and destroying +40', () => {
+    // Already shot once by the player, so the first-hit crime is spent.
+    const t = mkTraffic([mkNpc('c1', 'concord', 120, 0, { hull: hullAt(5), aggro: [PLAYER_ID] })], 'c1');
+    let s = tick(begin(concordWorld(), t), FIRE, 14);
+    expect(npc(s, 'c1').hull.disabled).toBe(true);
+    expect(heatOf(s.w, 'concord')).toBe(20);
+    s = tick(s, FIRE, 120);
+    expect(count(s, 'destroyed')).toBe(1);
+    expect(heatOf(s.w, 'concord')).toBe(60);
+  });
+  it('a crime keeps the cycle 4 standing drop and anger', () => {
+    const s = tick(begin(concordWorld({ standing: { concord: 'friend' } }), mkTraffic([mkNpc('c1', 'concord', 120, 0)], 'c1')), FIRE, 30);
+    expect(s.w.standing.concord).toBe('neutral');
+    expect(s.b.angry).toEqual(['concord']);
+    expect(heatOf(s.w, 'concord')).toBe(10);
+  });
+  it('attacking raiders adds no heat', () => {
+    const s = tick(begin(concordWorld(), mkTraffic([mkNpc('r1', 'raiders', 120, 0, { hull: hullAt(5) })], 'r1')), FIRE, 400);
+    expect(count(s, 'destroyed')).toBe(1);
+    expect(s.w.law).toEqual({});
+  });
+  it('damage between NPCs never adds heat', () => {
+    const c1 = mkNpc('c1', 'concord', 300, 0, { hull: hullAt(5) });
+    const s0 = begin(concordWorld(), mkTraffic([c1]));
+    const shots = [1, 2, 3, 4].map((i) => bolt({ id: 910 + i, ownerId: 'r9', pos: { x: 300, y: 0 }, damage: 20 }));
+    let s: Sim = s0;
+    for (const p of shots) s = tick({ ...s, b: { ...s.b, projectiles: [p] } }, IDLE);
+    expect(count(s, 'disabled')).toBe(1);
+    expect(count(s, 'destroyed')).toBe(1);
+    expect(s.w.law).toEqual({});
+  });
+  it('killing a raider in Concord space gives +1 Concord point', () => {
+    let s = tick(begin(concordWorld(), mkTraffic([mkNpc('r1', 'raiders', 120, 0, { hull: hullAt(5) })], 'r1')), FIRE, 14);
+    expect(npc(s, 'r1').hull.disabled).toBe(true);
+    expect(s.w.ranks.concord).toBeUndefined(); // disabling is not destroying
+    s = tick(s, FIRE, 300);
+    expect(count(s, 'destroyed')).toBe(1);
+    expect(s.w.ranks.concord?.points).toBe(data.law.rankPoints.raiderKill);
+    expect(s.w.ranks['free-reach']).toBeUndefined();
+  });
+  it('a raider destroyed by someone else earns no point', () => {
+    const r1 = mkNpc('r1', 'raiders', 300, 0, { hull: { ...hullAt(1), disabled: true } });
+    const s0 = begin(concordWorld(), mkTraffic([r1]));
+    const s = tick({ ...s0, b: { ...s0.b, projectiles: [bolt({ ownerId: 'p9', pos: { x: 300, y: 0 }, damage: 20 })] } }, IDLE);
+    expect(count(s, 'destroyed')).toBe(1);
+    expect(s.w.ranks).toEqual({});
+  });
+  it('a Concord patrol attacks a Hunted player who has not fired', () => {
+    const w = concordWorld({ law: { concord: { heat: 60 } } });
+    const s = tick(begin(w, mkTraffic([patrol()])), IDLE, 30);
+    expect(npc(s, 'p1').engaged).toBe(true);
+    expect(s.events.some((e) => e.type === 'shot' && e.ownerId === 'p1')).toBe(true);
+    expect(s.b.angry).toEqual([]); // hunted, not angered: standing is untouched
+    expect(nearestHostile(w, mkTraffic([patrol()]), newBattle(w, data))).toBe('p1');
+  });
+  it('a Concord patrol ignores a Clean player', () => {
+    const w = concordWorld();
+    const s = tick(begin(w, mkTraffic([patrol()])), IDLE, 30);
+    expect(s.events.some((e) => e.type === 'shot' && e.ownerId === 'p1')).toBe(false);
+    expect(nearestHostile(w, mkTraffic([patrol()]), newBattle(w, data))).toBeNull();
+  });
+  it('a Wanted player is not attacked on sight, and Concord traders never attack a Hunted one', () => {
+    const wanted = concordWorld({ law: { concord: { heat: 59 } } });
+    expect(tick(begin(wanted, mkTraffic([patrol()])), IDLE, 30).events.some((e) => e.type === 'shot' && e.ownerId === 'p1')).toBe(false);
+    const hunted = concordWorld({ law: { concord: { heat: 100 } } });
+    const armedTrader = patrol({ role: 'trader' });
+    expect(tick(begin(hunted, mkTraffic([armedTrader])), IDLE, 30).events.some((e) => e.type === 'shot' && e.ownerId === 'p1')).toBe(false);
+  });
+  it('Hunted is read from the world each tick: a battle begun Clean turns hostile once heat reaches 60', () => {
+    const s0 = begin(concordWorld({ law: { concord: { heat: 50 } } }), mkTraffic([patrol()]));
+    expect(tick(s0, IDLE, 30).events.some((e) => e.type === 'shot' && e.ownerId === 'p1')).toBe(false);
+    const s = tick({ ...s0, w: { ...s0.w, law: { concord: { heat: 60 } } } }, IDLE, 30);
+    expect(s.b.angry).toEqual([]);
+    expect(s.events.some((e) => e.type === 'shot' && e.ownerId === 'p1')).toBe(true);
   });
 });
