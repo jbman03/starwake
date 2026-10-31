@@ -2,6 +2,7 @@ import type { GameData } from '../data/schemas';
 import { revealOnArrival, hopDistance } from './galaxy';
 import { jobMissions, STORY_TYPE } from './missions';
 import { shipStats } from './shipStats';
+import { custodyAt } from './rules';
 import { standingOf } from './standing';
 import { currentStep, returnToGiver } from './storyMissions';
 import type { WorldState } from './types';
@@ -14,19 +15,29 @@ export function hasPod(world: WorldState): boolean {
   return (world.outfits[POD_ID] ?? 0) > 0;
 }
 
-/** The nearest port by lane hops (then map distance, then id) whose government isn't cool toward the pilot (Wanted or Hunted counts as cool); else the start planet. */
+/**
+ * The nearest port by lane hops (then map distance, then id) whose government isn't cool toward the
+ * pilot. Wanted or Hunted counts as cool (the standing cap) on purpose: a wrecked pilot is brought to a
+ * friendly port first, not one whose patrols want them. With none in reach, the nearest port at all,
+ * whatever its government thinks (custody follows at a hunting one, Ruling 2); with no port in reach
+ * at all, the start planet.
+ */
 export function rescuePort(world: WorldState, data: GameData): string {
+  return nearestPort(world, data, (gov) => standingOf(world, gov, data) !== 'cool') ?? nearestPort(world, data, () => true) ?? data.config.startPlanetId;
+}
+
+function nearestPort(world: WorldState, data: GameData, ok: (gov: string) => boolean): string | null {
   const here = data.systems[world.systemId];
   let best: { id: string; hops: number; d: number } | null = null;
   for (const p of Object.values(data.planets)) {
     const sys = data.systems[p.systemId];
-    if (!sys || standingOf(world, sys.government, data) === 'cool') continue;
+    if (!sys || !ok(sys.government)) continue;
     const hops = hopDistance(data, world.systemId, p.systemId, world.flags);
     if (!Number.isFinite(hops)) continue;
     const d = here ? dist(here.mapPos, sys.mapPos) : 0;
     if (!best || hops < best.hops || (hops === best.hops && (d < best.d || (d === best.d && p.id < best.id)))) best = { id: p.id, hops, d };
   }
-  return best?.id ?? data.config.startPlanetId;
+  return best?.id ?? null;
 }
 
 /** The ship is lost but the pod works: the pilot wakes docked at the rescue port in the starting ship, with the job and story cargo gone. */
@@ -63,5 +74,8 @@ export function podRescue(world: WorldState, data: GameData): { world: WorldStat
     route: [],
     ship: { ...w.ship, fuel: shipStats(startShipId, outfits, data).fuelCapacity },
   };
-  return { world: { ...departFrom(w, data, planetId), targetPlanetId: planetId }, planetId, messages };
+  w = { ...departFrom(w, data, planetId), targetPlanetId: planetId };
+  const custody = custodyAt(w, data, planetId);
+  if (custody) messages.push(custody.message);
+  return { world: custody?.world ?? w, planetId, messages };
 }

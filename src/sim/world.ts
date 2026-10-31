@@ -11,6 +11,7 @@ import { decayHeat, landingRefused } from './law';
 import {
   canJump,
   canLand,
+  custodyAt,
   jumpDestination,
   jumpPoint,
   landingRefusedText,
@@ -199,7 +200,8 @@ export function applyRefuel(
 /**
  * Tow a stranded ship to the nearest fuel planet, charging the tow fee (credits may go negative).
  * The tow takes a day per hop (at least one). A route through the tow system keeps its remaining
- * hops; one whose next hop isn't linked from there is cleared.
+ * hops; one whose next hop isn't linked from there is cleared. At a port whose owner hunts the pilot (the
+ * fallback when every port in reach does), the pilot is taken into custody.
  */
 export function applyTow(world: WorldState, data: GameData, opts: { disabled?: boolean } = {}): { world: WorldState; events: SimEvent[] } {
   const planetId = towDestination(world, data, opts);
@@ -215,7 +217,11 @@ export function applyTow(world: WorldState, data: GameData, opts: { disabled?: b
   if (route.length > 0 && !lanesOf(data, toSystemId, world.flags).includes(route[0])) route = [];
   const entered = enterSystem({ ...moved, route }, data, toSystemId);
   const after = advanceDays(entered, data, days);
-  return { world: after.world, events: [{ type: 'towed', planetId }, ...after.events] };
+  // Every port in reach hunted the pilot, so the tow came here anyway: custody (heat decayed on the way first).
+  const custody = custodyAt(after.world, data, planetId);
+  const events: SimEvent[] = [{ type: 'towed', planetId }, ...after.events];
+  if (custody) events.push({ type: 'message', text: custody.message });
+  return { world: custody?.world ?? after.world, events };
 }
 
 /** Heading toward the destination system's map position (the jump point's direction). */
@@ -447,7 +453,13 @@ export function stepWorld(
   if (pressed.has('land')) {
     if (isLandingAutopilot(w.assist)) {
       const id = pickLandTarget(w, data, true);
-      if (id) w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
+      if (id && landingRefused(w, data, id)) {
+        // A system's ports share its government, so the next port refuses too: say so at once.
+        events.push({ type: 'message', text: landingRefusedText(data, id) });
+        w = { ...w, targetPlanetId: id, assist: NONE };
+      } else if (id) {
+        w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
+      }
     } else {
       const id = pickLandTarget(w, data, false);
       if (id && landingRefused(w, data, id)) {

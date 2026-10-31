@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Controller, MSG_TOW_REFUSED } from '../app/controller';
+import { Controller } from '../app/controller';
 import { loadGameData } from '../data/load';
 import type { ActionId } from '../input/actions';
 import { InputMode } from '../input/mode';
@@ -268,15 +268,19 @@ describe('pause menu and dialogs', () => {
     expect(c.landedPlanetId).not.toBeNull();
   });
 
-  it('stranded with every port in reach hunting the pilot: the pause menu says no tow will come', async () => {
+  it('stranded with every port in reach hunting the pilot: the pause menu offers the tow, which ends in custody', async () => {
     const { ctx, c, root } = await setup();
     c.leavePlanet();
     for (let i = 0; i < 30; i++) c.update(1 / 60);
     c.traffic = { ...c.traffic, npcs: [], nextSpawnSec: 1e9 };
     c.world = { ...c.world, law: { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 } }, ship: { ...c.world.ship, pos: { x: 3000, y: 0 }, fuel: 0 } };
     showPauseMenu(ctx);
-    expect([...root.querySelectorAll('button')].some((b) => b.textContent?.includes('Call for tow'))).toBe(false);
-    expect(root.querySelector('[data-testid="pause-tow-note"]')?.textContent).toBe(MSG_TOW_REFUSED);
+    expect(root.querySelector('[data-testid="pause-tow-note"]')).toBeNull();
+    const towBtn = [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('Call for tow'));
+    expect(towBtn).toBeDefined();
+    towBtn!.click();
+    expect(c.landedPlanetId).not.toBeNull();
+    expect(c.takeNotices().some((n) => n.startsWith('Taken into custody by the Concord.'))).toBe(true);
   });
 
   it('arrows do not move the log selection behind the Abandon dialog', async () => {

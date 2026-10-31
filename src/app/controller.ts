@@ -47,7 +47,7 @@ import {
   storySitePos,
   type StoryAccept,
 } from '../sim/storyMissions';
-import { refuelQuote, towBlockedByLaw, towDestination, type RefuelQuote } from '../sim/rules';
+import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
@@ -172,8 +172,6 @@ export const MSG_USED_BACKUP = 'Your last save was damaged; loaded the previous 
 export const MSG_DISABLED = 'Your ship is disabled. When no enemy is near, you can call a tow: {callTow}.';
 /** Said once when the disabled ship's wait is over and a tow can be called. */
 export const MSG_TOW_READY = 'No enemy near. You can call a tow now: {callTow}.';
-/** Said once when a tow is needed but every port in reach hunts the pilot (and again on a tow call). */
-export const MSG_TOW_REFUSED = 'No tow will come: every port in reach hunts you. Quit to the main menu to go back to your last landing.';
 
 /** Where pilots are written. PilotStore satisfies this. */
 export interface SaveSink {
@@ -247,8 +245,6 @@ export class Controller {
   /** The disabled and tow-ready messages have been said for the current spell (see stepCombat). */
   private saidDisabled = false;
   private saidTowReady = false;
-  /** MSG_TOW_REFUSED has been said for the current spell of being stuck. */
-  private saidTowRefused = false;
   /** Settles when the most recent autosave finishes (never rejects). */
   lastSave: Promise<void> = Promise.resolve();
 
@@ -559,19 +555,9 @@ export class Controller {
     return { disabled: this.combat.disabledCalm() };
   }
 
-  /** A tow is needed (stranded, or disabled and calm) but none comes: every port in reach hunts the pilot. */
-  towBlocked(): boolean {
-    if (this.landedPlanetId || this.fx?.kind === 'land' || this.world.jump) return false;
-    if (this.combat.playerDisabled() && !this.combat.disabledCalm()) return false;
-    return towBlockedByLaw(this.world, this.data, this.towOpts());
-  }
-
-  /** Call for a tow (works while paused). Lands at the destination; false if none is offered (saying why when the law blocks it). */
+  /** Call for a tow (works while paused). Lands at the destination; false if none is offered. */
   callTow(): boolean {
-    if (!this.towDestination()) {
-      if (this.towBlocked()) this.emit({ type: 'message', text: MSG_TOW_REFUSED });
-      return false;
-    }
+    if (!this.towDestination()) return false;
     const r = applyTow(this.world, this.data, this.towOpts());
     this.world = r.world;
     this.prevShip = r.world.ship;
@@ -862,7 +848,6 @@ export class Controller {
       }
       this.handleEvents(r.events);
       this.stepCombat(input, dt);
-      this.sayTowRefused();
       this.stepTraffic(dt);
       this.lapseHail(dt);
       this.syncSiteTarget();
@@ -890,19 +875,11 @@ export class Controller {
     const disabled = this.combat.playerDisabled() && !this.combat.battle.playerDestroyed;
     const calm = this.combat.disabledCalm();
     if (disabled && !this.saidDisabled) said.push(MSG_DISABLED);
-    if (calm && !this.saidTowReady && !this.towBlocked()) said.push(MSG_TOW_READY); // else sayTowRefused explains
+    if (calm && !this.saidTowReady) said.push(MSG_TOW_READY);
     this.saidDisabled = disabled;
     this.saidTowReady = calm;
     if (r.events.length > 0) this.emit({ type: 'battle', events: r.events });
     if (said.length > 0) this.emit({ type: 'message', text: said.join(' ') });
-  }
-
-  /** Say MSG_TOW_REFUSED once when the ship becomes stuck with every port in reach hunting it (never a soft lock in silence). */
-  private sayTowRefused(): void {
-    if (!this.flying) return;
-    const blocked = this.towBlocked();
-    if (blocked && !this.saidTowRefused) this.emit({ type: 'message', text: MSG_TOW_REFUSED });
-    this.saidTowRefused = blocked;
   }
 
   /** The ship is disabled and an enemy is still near, so no tow can be called yet. */

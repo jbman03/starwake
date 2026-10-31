@@ -11,11 +11,12 @@ import {
   landingRefused,
   legalStatus,
   payFines,
+  takeIntoCustody,
   tryBribe,
   type Crime,
 } from './law';
 import { mulberry32, hashString } from './random';
-import { canLand, landingRefusedText, towBlockedByLaw, towDestination } from './rules';
+import { canLand, landingRefusedText, towDestination } from './rules';
 import { standingMet, standingOf } from './standing';
 import type { WorldState } from './types';
 import { advanceDays, applyTow, newWorld, stepWorld } from './world';
@@ -185,6 +186,18 @@ describe('landing refusal', () => {
     expect(f.events).toEqual([{ type: 'message', text: 'Landing refused: you are hunted by the Concord.' }]);
     expect(f.world.assist.kind).toBe('none');
   });
+  it('pressing land again during a landing autopilot (cycling ports) refuses at once too', () => {
+    const w: WorldState = {
+      ...hunted,
+      systemId: 'calder',
+      targetPlanetId: 'halcyon',
+      assist: { kind: 'autopilot', dest: { type: 'planet', id: 'halcyon' }, autoLand: true },
+      ship: { ...hunted.ship, pos: { x: -3000, y: 0 }, vel: { x: 0, y: 0 } },
+    };
+    const r = stepWorld(w, data, frame(['land']), 1 / 60, { autoLandOnArrival: true });
+    expect(r.events).toEqual([{ type: 'message', text: 'Landing refused: you are hunted by the Concord.' }]);
+    expect(r.world.assist.kind).toBe('none');
+  });
   it('a landing autopilot that arrives at a refusing port stops without landing', () => {
     const h = data.planets.halcyon;
     const w: WorldState = {
@@ -203,33 +216,69 @@ describe('landing refusal', () => {
 describe('tow when hunted', () => {
   const noVesk = withoutPorts(data, 'vesk');
   const stranded = (law: Record<string, number>, systemId = 'vesk') => withHeat(law, { systemId, ship: { ...base.ship, pos: { x: 0, y: 0 }, fuel: 0 } });
-  it('tow when hunted everywhere nearby picks the nearest non-hunting port, or returns null with a message', () => {
+  it('tow when hunted everywhere nearby picks the nearest non-hunting port, or falls back to the nearest port with custody', () => {
     // From vesk the lanes run calder (concord), mirren, lastlight: Hunted by the Concord, the tow skips calder.
     expect(towDestination(stranded({}), noVesk)).toBe('halcyon');
     expect(towDestination(stranded({ concord: 60 }), noVesk)).toBe('mirren-hollow');
-    expect(towBlockedByLaw(stranded({ concord: 60 }), noVesk)).toBe(false);
-    // Hunted by every government in reach: no tow, and the law is why.
-    const everywhere = stranded({ concord: 100, 'free-reach': 100, independent: 100 });
-    expect(towDestination(everywhere, noVesk)).toBeNull();
-    expect(towDestination(everywhere, noVesk, { disabled: true })).toBeNull();
-    expect(towBlockedByLaw(everywhere, noVesk)).toBe(true);
-    expect(towBlockedByLaw(everywhere, noVesk, { disabled: true })).toBe(true);
-    expect(applyTow(everywhere, noVesk).world).toBe(everywhere);
+    // Hunted by every government in reach: the tow goes to the nearest port anyway (calder's, one hop).
+    const everywhere = { ...stranded({ concord: 100, 'free-reach': 100, independent: 100 }), credits: 10000 };
+    expect(towDestination(everywhere, noVesk)).toBe('halcyon');
+    expect(towDestination(everywhere, noVesk, { disabled: true })).toBe('halcyon');
+    const r = applyTow(everywhere, noVesk);
+    // One day passes on the way (heat 100 -> 98), then the Concord takes the pilot into custody.
+    const fine = Math.round(98 * data.law.fineRate);
+    const afterFee = 10000 - data.config.towFee;
+    expect(r.events[0]).toEqual({ type: 'towed', planetId: 'halcyon' });
+    expect(r.events).toContainEqual({ type: 'message', text: `Taken into custody by the Concord. Fine paid: ${fine.toLocaleString('en-US')} cr.` });
+    expect(r.world.credits).toBe(afterFee - fine);
+    expect(heatOf(r.world, 'concord')).toBe(data.law.thresholds.wanted - 1);
+    expect(legalStatus(r.world, data, 'concord')).toBe('suspect');
+    expect(landingRefused(r.world, data, 'halcyon')).toBe(false);
+    expect(heatOf(r.world, 'independent')).toBe(98); // only the arrival port's government
+  });
+  it('a tow to a port that takes the ship applies no custody', () => {
+    const r = applyTow({ ...stranded({ concord: 60, independent: 40 }), credits: 10000 }, noVesk);
+    expect(r.events[0]).toEqual({ type: 'towed', planetId: 'mirren-hollow' });
+    expect(r.events.some((e) => e.type === 'message' && e.text.startsWith('Taken into custody'))).toBe(false);
+    expect(r.world.credits).toBe(10000 - data.config.towFee);
   });
   it('stranded beside refusing ports only: towed on to a port that will take the ship', () => {
     expect(towDestination(stranded({}, 'calder'), data)).toBeNull(); // fuel is sold here
     const id = towDestination(stranded({ concord: 60 }, 'calder'), data);
     expect(id).toBe('vesk-outpost'); // vesk, the first lane from calder; the port nearest its center
+    // Every port in reach hunts: towed to the nearest port here, into custody.
+    expect(towDestination(stranded({ concord: 100, 'free-reach': 100, independent: 100 }, 'calder'), data)).toBe('halcyon');
+    expect(towDestination(withHeat({ concord: 100 }, { systemId: 'calder' }), data)).toBeNull(); // fuelled, not disabled
   });
   it('disabled beside a refusing port: the tow skips it', () => {
     const near = (law: Record<string, number>) => withHeat(law, { systemId: 'calder', ship: { ...base.ship, pos: { x: -800, y: 400 }, fuel: 300 } });
     expect(towDestination(near({}), data, { disabled: true })).toBe('merrow');
     expect(data.systems[data.planets[towDestination(near({ concord: 60 }), data, { disabled: true })!].systemId].government).not.toBe('concord');
+    // Hunted everywhere: the port nearest the ship, as with a clean record.
+    expect(towDestination(near({ concord: 100, 'free-reach': 100, independent: 100 }), data, { disabled: true })).toBe('merrow');
   });
-  it('not blocked when no tow is needed, or when only distance stops it', () => {
-    expect(towBlockedByLaw(stranded({ concord: 100, 'free-reach': 100, independent: 100 }, 'calder'), data)).toBe(true);
-    expect(towBlockedByLaw(withHeat({ concord: 100 }, { systemId: 'calder' }), data)).toBe(false); // fuelled, not disabled
-    expect(towBlockedByLaw(stranded({}), noVesk)).toBe(false);
+});
+
+describe('custody', () => {
+  it('pays the fine in full when the credits cover it, and drops heat to just below Wanted', () => {
+    const r = takeIntoCustody(withHeat({ concord: 80 }, { credits: 5000 }), data, 'concord');
+    expect(r.paid).toBe(3200);
+    expect(r.world.credits).toBe(1800);
+    expect(heatOf(r.world, 'concord')).toBe(29);
+  });
+  it('custody when credits are short takes all credits and still drops heat', () => {
+    const r = takeIntoCustody(withHeat({ concord: 80 }, { credits: 700 }), data, 'concord');
+    expect(r.paid).toBe(700);
+    expect(r.world.credits).toBe(0);
+    expect(heatOf(r.world, 'concord')).toBe(29);
+    // In debt (a tow fee can push credits below 0): nothing is paid, heat still drops.
+    const debt = takeIntoCustody(withHeat({ concord: 80 }, { credits: -50 }), data, 'concord');
+    expect(debt.paid).toBe(0);
+    expect(debt.world.credits).toBe(-50);
+    expect(heatOf(debt.world, 'concord')).toBe(29);
+  });
+  it('never raises heat that is already lower', () => {
+    expect(heatOf(takeIntoCustody(withHeat({ concord: 12 }, { credits: 5000 }), data, 'concord').world, 'concord')).toBe(12);
   });
 });
 

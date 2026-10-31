@@ -49,8 +49,8 @@ export interface PilotCard {
 
 function standingLine(save: PilotSave, data: GameData): string {
   const parts = Object.keys(data.governments)
-    .filter((id) => standingOf(save, id) !== 'neutral')
-    .map((id) => `${governmentShortName(id, data)}: ${standingOf(save, id)}`);
+    .filter((id) => standingOf(save, id, data) !== 'neutral')
+    .map((id) => `${governmentShortName(id, data)}: ${standingOf(save, id, data)}`);
   return parts.length ? parts.join(' · ') : 'Standing: neutral everywhere';
 }
 

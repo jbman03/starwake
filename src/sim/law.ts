@@ -90,3 +90,15 @@ export function landingRefused(world: Pick<WorldState, 'law'>, data: GameData, p
   const gov = planet ? data.systems[planet.systemId]?.government : undefined;
   return gov !== undefined && legalStatus(world, data, gov) === 'hunted';
 }
+
+/**
+ * Taken into custody on arrival at a port of a government that hunts the pilot (a tow or pod with
+ * nowhere else to go, Ruling 2): its fine is paid from the credits as far as they go (nothing when
+ * in debt), and its heat drops to just below Wanted so the port takes the ship and patrols hold fire.
+ */
+export function takeIntoCustody(world: WorldState, data: GameData, gov: string): { world: WorldState; paid: number } {
+  if (gov === RAIDERS) return { world, paid: 0 };
+  const paid = Math.max(0, Math.min(world.credits, fineFor(world, data, gov)));
+  const heat = Math.min(heatOf(world, gov), data.law.thresholds.wanted - 1);
+  return { world: setHeat({ ...world, credits: world.credits - paid }, gov, Math.max(0, heat)), paid };
+}
