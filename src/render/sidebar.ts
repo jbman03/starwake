@@ -19,6 +19,14 @@ const MAP_H = 30;
 /** The target's thin shield and armor bars under its detail line. */
 const TARGET_BAR_H = 4;
 
+/** One thing the sidebar draws, in screen px: a text line (with its text), the radar, the target bars or the Map button. */
+export interface SidebarBox {
+  name: string;
+  text: string;
+  top: number;
+  bottom: number;
+}
+
 /**
  * Escape Velocity style right-hand sidebar for keyboard play: radar, shield/armor/fuel bars,
  * nav, target, cargo, credits, date and a Map button. Phaser Graphics and Text at depth 1000,
@@ -103,6 +111,24 @@ export class Sidebar {
   mapButtonBounds(): { x: number; y: number; w: number; h: number } {
     const b = this.localMapBounds();
     return { ...b, x: this.screenX + b.x };
+  }
+
+  /**
+   * What the sidebar shows, top to bottom (screen px; its camera starts at the top of the window).
+   * Empty lines are left out; the target bars' room is always listed (they are drawn only with a ship
+   * targeted). For e2e: what it reads, and whether it fits the window.
+   */
+  boxes(): SidebarBox[] {
+    const L = this.labels;
+    const line = (name: keyof typeof L): SidebarBox => ({ name, text: L[name].text, top: L[name].y, bottom: L[name].y + L[name].height });
+    const out: SidebarBox[] = [{ name: 'radar', text: '', top: 12, bottom: 12 + RADAR_R * 2 }];
+    for (const name of ['shields', 'armor', 'fuel', 'nav', 'law', 'secondary', 'target', 'targetDetail'] as const) out.push(line(name));
+    const barsTop = L.targetDetail.y + 20;
+    out.push({ name: 'targetBars', text: '', top: barsTop, bottom: barsTop + TARGET_BAR_H * 2 + 2 });
+    for (const name of ['cargo', 'credits', 'date'] as const) out.push(line(name));
+    const m = this.localMapBounds();
+    out.push({ name: 'map', text: this.mapBtn.text, top: m.y, bottom: m.y + m.h });
+    return out.filter((b) => b.name === 'radar' || b.name === 'targetBars' || b.text !== '');
   }
 
   private localMapBounds(): { x: number; y: number; w: number; h: number } {

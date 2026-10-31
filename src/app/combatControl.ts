@@ -471,29 +471,50 @@ export class CombatControl {
 
 /** Test support: an engaged raider in a `shipId` hull, SPAWN_AHEAD px ahead of the ship. */
 export function hostileAhead(world: WorldState, traffic: Traffic, data: GameData, shipId = 'kestrel'): { traffic: Traffic; id: string } {
-  const def = data.ships[shipId];
-  if (!def) throw new Error(`hostileAhead: unknown ship ${shipId}`);
+  return shipAhead(world, traffic, data, { shipId, prefix: 'test-raider', name: 'Test Raider', government: RAIDERS, role: 'raider', engaged: true });
+}
+
+/**
+ * Test support: a peaceful patrol of `gov` (default the system's government) in a `shipId` hull,
+ * SPAWN_AHEAD px ahead of the ship and at rest, on a pass-through errand. It is inside the scan and
+ * hail ranges, so the law's own rules decide whether it scans the hold or hails the pilot.
+ */
+export function patrolAhead(world: WorldState, traffic: Traffic, data: GameData, gov?: string, shipId?: string): { traffic: Traffic; id: string } {
+  const government = gov ?? data.systems[world.systemId].government;
+  if (!data.governments[government] || government === RAIDERS) throw new Error(`patrolAhead: ${government} keeps no law`);
+  const hull = shipId ?? data.combat.spawn.patrolHulls[0];
+  return shipAhead(world, traffic, data, { shipId: hull, prefix: 'test-patrol', name: 'Test Patrol', government, role: 'patrol', engaged: false });
+}
+
+function shipAhead(
+  world: WorldState,
+  traffic: Traffic,
+  data: GameData,
+  o: { shipId: string; prefix: string; name: string; government: string; role: Npc['role']; engaged: boolean },
+): { traffic: Traffic; id: string } {
+  const def = data.ships[o.shipId];
+  if (!def) throw new Error(`shipAhead: unknown ship ${o.shipId}`);
   let k = 1;
-  while (traffic.npcs.some((n) => n.id === `test-raider-${k}`)) k++;
-  const id = `test-raider-${k}`;
+  while (traffic.npcs.some((n) => n.id === `${o.prefix}-${k}`)) k++;
+  const id = `${o.prefix}-${k}`;
   const outfits = { ...npcLoadout(def) };
   const st = shipStats(def.id, outfits, data);
   const npc: Npc = {
     id,
-    name: `Test Raider ${k}`,
+    name: `${o.name} ${k}`,
     shipId: def.id,
-    government: 'raiders',
+    government: o.government,
     errand: 'pass',
     ship: { pos: add(world.ship.pos, scale(fromAngle(world.ship.heading), SPAWN_AHEAD)), vel: { x: 0, y: 0 }, heading: world.ship.heading + Math.PI, fuel: def.fuelCapacity },
     portId: null,
     phase: 'fly',
     phaseT: 0,
     thrusting: false,
-    role: 'raider',
+    role: o.role,
     hull: fullHull(st.shields, st.armor),
     outfits,
     aggro: [],
-    engaged: true,
+    engaged: o.engaged,
     peaceful: false,
     demand: false,
     killCounted: false,

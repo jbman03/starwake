@@ -4,8 +4,9 @@ import type { PilotStore } from '../save/store';
 import type { JumpPhase, WorldState } from '../sim/types';
 import type { MoodId } from '../audio/moods';
 import type { SidebarInfo } from '../render/sidebarInfo';
+import type { SidebarBox } from '../render/sidebar';
 import type { Hull } from '../sim/combat';
-import { hostileAhead } from './combatControl';
+import { hostileAhead, patrolAhead } from './combatControl';
 import type { Controller, StoryMeet, StorySite } from './controller';
 
 export interface StarwakeTestHook {
@@ -33,6 +34,11 @@ export interface StarwakeTestHook {
   combatState: () => { player: Hull; secondary: string | null; npcs: { id: string; role: string; hull: Hull; hostile: boolean }[] };
   /** Test-only: add an engaged raider (a `shipId` hull, default kestrel) 400 px ahead of the ship; returns its id. */
   spawnHostile: (shipId?: string) => string;
+  /**
+   * Test-only: add a peaceful patrol of `gov` (default the system's government) 400 px ahead of the ship, inside the
+   * scan and hail ranges; returns its id. The law's own rules then decide whether it scans or hails (spec §4.4, §5.2).
+   */
+  spawnPatrol: (gov?: string, shipId?: string) => string;
   /** Test-only: drop the targeted ship to 1 armor and disable it; false with no ship targeted. */
   disableTarget: () => boolean;
   /** Set by SpaceScene: the main camera's viewport in screen px. */
@@ -61,8 +67,11 @@ export interface StarwakeTestHook {
   forceEncounter: (id: string) => void;
   /** Set by SpaceScene: the desktop HUD's guide hint and its skip control's screen box, or null when hidden. */
   hudGuide?: () => { text: string; skip: { x: number; y: number; w: number; h: number } } | null;
-  /** Set by SpaceScene: whether the PC sidebar is showing, and what it shows. */
-  sidebar?: () => { visible: boolean; info: SidebarInfo };
+  /**
+   * Set by SpaceScene: whether the PC sidebar is showing, what it shows, and what it drew last frame: each line
+   * (and the radar, target bars and Map button) top to bottom with its text and screen box.
+   */
+  sidebar?: () => { visible: boolean; info: SidebarInfo; drawn: SidebarBox[] };
   /** Set by SpaceScene: the NPC ships in this system with their on-screen position (null before a sprite exists). */
   traffic?: () => { id: string; label: string; texture: string | null; tint: number | null; screen: { x: number; y: number } | null }[];
   /** Set by SpaceScene: a planet's on-screen position, or null if not in the current system. */
@@ -131,6 +140,11 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     controller.traffic = r.traffic;
     return r.id;
   };
+  const spawnPatrol = (gov?: string, shipId?: string): string => {
+    const r = patrolAhead(controller.world, controller.traffic, data, gov, shipId);
+    controller.traffic = r.traffic;
+    return r.id;
+  };
   const disableTarget = (): boolean => {
     const id = controller.traffic.targetId;
     if (!id || !controller.traffic.npcs.some((n) => n.id === id)) return false;
@@ -155,6 +169,7 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     forceEncounter: (id) => controller.forceEncounter(id),
     combatState,
     spawnHostile,
+    spawnPatrol,
     disableTarget,
   };
 }

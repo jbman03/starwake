@@ -174,6 +174,7 @@ export class SpaceScene extends Phaser.Scene {
     hook.sidebar = () => ({
       visible: this.sidebar.isVisible(),
       info: sidebarInfo(this.controller.world, this.controller.data, this.controller.traffic, this.controller.targetedSite(), this.controller.battleView()),
+      drawn: this.sidebar.boxes(),
     });
     hook.traffic = () => {
       const c = this.cameras.main;
