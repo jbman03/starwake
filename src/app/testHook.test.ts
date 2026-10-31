@@ -48,3 +48,29 @@ describe('combat test hooks', () => {
     c.dispose();
   });
 });
+
+describe('law test hooks', () => {
+  it('spawnPatrol adds a peaceful patrol of the system government in scan range, or of a named one', async () => {
+    vi.stubEnv('DEV', true);
+    const { testData } = await import('../data/testData');
+    const { DEFAULT_SETTINGS } = await import('../save/settings');
+    const { Controller } = await import('./controller');
+    const { installTestHook } = await import('./testHook');
+    const data = testData();
+    const c = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget());
+    installTestHook(c, data, {} as never);
+    const hook = window.__starwake!;
+    const gov = data.systems[c.world.systemId].government;
+    const id = hook.spawnPatrol();
+    const npc = c.traffic.npcs.find((n) => n.id === id)!;
+    expect(npc).toMatchObject({ role: 'patrol', government: gov, engaged: false, peaceful: false, demand: false });
+    expect(Math.hypot(npc.ship.pos.x - c.world.ship.pos.x, npc.ship.pos.y - c.world.ship.pos.y)).toBeLessThanOrEqual(data.law.scanRange);
+    expect(hook.combatState().npcs.find((n) => n.id === id)!.hostile).toBe(false);
+    const other = Object.keys(data.governments).find((g) => g !== gov && g !== 'raiders')!;
+    const id2 = hook.spawnPatrol(other);
+    expect(id2).not.toBe(id);
+    expect(c.traffic.npcs.find((n) => n.id === id2)!.government).toBe(other);
+    expect(() => hook.spawnPatrol('raiders')).toThrow(/keeps no law/);
+    c.dispose();
+  });
+});

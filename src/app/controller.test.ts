@@ -402,6 +402,27 @@ describe('Controller', () => {
     expect(c.takeNotices()).toEqual([]);
   });
 
+  it('landing pays the rank salary once a day, as a planet-screen notice; loading a save does not', async () => {
+    const { c, data } = await setup();
+    const w = newWorld(data, 1);
+    c.beginSession({ ...w, ranks: { concord: { points: 70, salaryDay: -1 } } }, { id: 'p1', name: 'Ava' }, 'halcyon');
+    expect(c.world.credits).toBe(w.credits);
+    expect(c.takeNotices()).toEqual([]);
+    const land = () => {
+      c.leavePlanet();
+      c.selectPlanet('halcyon');
+      c.world = { ...c.world, assist: { kind: 'autopilot', dest: { type: 'planet', id: 'halcyon' }, autoLand: true } };
+      for (let i = 0; i < 60 * 60 && c.landedPlanetId === null; i++) c.update(1 / 60);
+      expect(c.landedPlanetId).toBe('halcyon');
+    };
+    land();
+    expect(c.world.credits).toBe(w.credits + 150);
+    expect(c.takeNotices()).toContain('Concord salary: +150 cr');
+    land();
+    expect(c.world.credits).toBe(w.credits + 150);
+    expect(c.takeNotices()).not.toContain('Concord salary: +150 cr');
+  });
+
   it('several failures from one jump become a single HUD message', async () => {
     const { c, data, events } = await setup();
     const w = newWorld(data, 1);
@@ -1594,6 +1615,59 @@ describe('combat in flight', () => {
     expect(said).toEqual([MSG_DISABLED, MSG_TOW_READY]);
   });
 
+  const huntedEverywhere = { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 } };
+
+  it('a land attempt at a port that hunts the pilot is refused with a message, by key or tap', async () => {
+    const { c, target } = await flying();
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    const h = c.data.planets.halcyon;
+    c.world = { ...c.world, law: { concord: { heat: 60 } }, ship: { ...c.world.ship, pos: { ...h.pos }, vel: { x: 0, y: 0 } } };
+    press(c, target, 'KeyL');
+    run(c, LANDING_FX_SEC + 0.05);
+    expect(c.landedPlanetId).toBeNull();
+    expect(said).toEqual(['Landing refused: you are hunted by the Concord.']);
+    c.tapPlanet('halcyon');
+    run(c, LANDING_FX_SEC + 0.05);
+    expect(c.landedPlanetId).toBeNull();
+    expect(said).toEqual(['Landing refused: you are hunted by the Concord.', 'Landing refused: you are hunted by the Concord.']);
+    // Wanted only: the port takes the ship.
+    c.world = { ...c.world, law: { concord: { heat: 59 } } };
+    c.doContextAction();
+    run(c, LANDING_FX_SEC + 0.05);
+    expect(c.landedPlanetId).toBe('halcyon');
+  });
+
+  it('disabled and hunted by every port in reach: the tow comes anyway, into custody, told on the planet screen', async () => {
+    const { c } = await flying();
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    c.world = { ...c.world, credits: 10000, law: huntedEverywhere };
+    c.traffic = { ...c.traffic, npcs: [], nextSpawnSec: 1e9 };
+    c.combat.battle = { ...c.combat.battle, projectiles: [], player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true, lastHitSec: c.world.timeSec } };
+    run(c, CALM_SEC + 0.1);
+    expect(said).toEqual([MSG_DISABLED, MSG_TOW_READY]);
+    const to = c.towDestination();
+    expect(to).not.toBeNull();
+    expect(c.callTow()).toBe(true);
+    expect(c.landedPlanetId).toBe(to);
+    expect(c.world.law.concord.heat).toBe(0); // 10,000 cr covers the fine in full
+    const notices = c.takeNotices();
+    expect(notices.some((n) => /^Taken into custody by the Concord\. Fine paid: [\d,]+ cr\.$/.test(n))).toBe(true);
+  });
+
+  it('stranded with every port in reach hunting the pilot: the tow is still offered', async () => {
+    const { c } = await flying();
+    c.traffic = { ...c.traffic, npcs: [], nextSpawnSec: 1e9 };
+    c.world = { ...c.world, law: huntedEverywhere, ship: { ...c.world.ship, pos: { x: 3000, y: 0 }, fuel: 0 } };
+    run(c, 0.1);
+    expect(c.towDestination()).not.toBeNull();
+    expect(c.currentContext()).toBe('tow');
+    // Hunted only by the Concord: the tow goes on past calder's ports instead.
+    c.world = { ...c.world, law: { concord: { heat: 100 } } };
+    expect(c.towDestination()).toBe('vesk-outpost');
+  });
+
   it('a disabled ship cannot answer a hail with Y', async () => {
     const { c, target } = await flying();
     const opened: string[] = [];
@@ -1613,6 +1687,23 @@ describe('combat in flight', () => {
 
 
 describe('raider demands in flight', () => {
+  it('a demand after an encounter card closed in the same visit is still a demand (Ruling 10)', async () => {
+    const s = await setup();
+    s.c.startFlight();
+    s.c.update(1 / 60);
+    s.c.traffic = { ...s.c.traffic, npcs: [], nextSpawnSec: 1e9 };
+    const hail = Object.values(s.c.data.encounters).find((e) => e.kind === 'hail' && e.choices.length > 0)!;
+    s.c.forceEncounter(hail.id);
+    expect(s.c.openEncounter()).toBe(true);
+    s.c.declineEncounter();
+    s.c.startFlight(); // the card closes
+    s.c.update(1 / 60);
+    const r = hostileAhead(s.c.world, s.c.traffic, s.c.data);
+    s.c.traffic = { ...r.traffic, npcs: r.traffic.npcs.map((n) => ({ ...n, engaged: false, demand: true })) };
+    s.c.update(1 / 60);
+    expect(s.c.pending).toMatchObject({ kind: 'demand', npcId: r.id });
+  });
+
   async function demanding() {
     const s = await setup();
     s.c.startFlight();
@@ -1850,5 +1941,313 @@ describe('Controller.musicInput', () => {
     const { c } = await setup();
     c.world = { ...c.world, jump: { toSystemId: 'brannock', phase: 'burn', t: 0 } };
     expect(c.musicInput().jumpPhase).toBe('burn');
+  });
+});
+
+describe('law: scans and law hails in flight', () => {
+  /**
+   * In flight at Halcyon (Concord space) with the traffic cleared and one Concord patrol 400 px ahead.
+   * `law` overrides law.json tunables so the seeded rolls are certain.
+   */
+  async function patrolled(p: { cargo?: Record<string, number>; heat?: number; credits?: number; law?: Partial<import('../data/schemas').LawDef> } = {}) {
+    const real = await loadGameData();
+    const data = { ...real, law: { ...real.law, ...p.law } };
+    const target = new EventTarget();
+    const c = new Controller(data, { ...DEFAULT_SETTINGS }, target);
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    c.startFlight();
+    c.update(1 / 60);
+    c.world = { ...c.world, credits: p.credits ?? 5000, cargo: p.cargo ?? {}, law: p.heat ? { concord: { heat: p.heat } } : {} };
+    const id = addPatrol(c);
+    return { c, data, target, said, id };
+  }
+  function addPatrol(c: Controller): string {
+    const r = hostileAhead(c.world, { ...c.traffic, nextSpawnSec: 1e9, npcs: c.traffic.npcs.filter((n) => n.id.startsWith('test-')) }, c.data);
+    c.traffic = { ...r.traffic, npcs: r.traffic.npcs.map((n) => (n.id === r.id ? { ...n, role: 'patrol' as const, government: 'concord', engaged: false, name: `Grey Lance ${n.id}` } : n)) };
+    return r.id;
+  }
+  const npc = (c: Controller, id: string) => c.traffic.npcs.find((n) => n.id === id)!;
+  const heat = (c: Controller) => c.world.law.concord?.heat ?? 0;
+  /** A raider waiting to make its demand, 2,500 px behind the ship (out of the patrol's reach, so they don't fight). */
+  function addDemander(c: Controller): string {
+    const r = hostileAhead(c.world, c.traffic, c.data);
+    const back = { x: c.world.ship.pos.x - Math.cos(c.world.ship.heading) * 2500, y: c.world.ship.pos.y - Math.sin(c.world.ship.heading) * 2500 };
+    c.traffic = { ...r.traffic, npcs: r.traffic.npcs.map((n) => (n.id === r.id ? { ...n, engaged: false, demand: true, ship: { ...n.ship, pos: back } } : n)) };
+    return r.id;
+  }
+
+  it('a caught scan hails; Comply leaves the cargo gone, the fine paid and heat +15', async () => {
+    const { c, id } = await patrolled({ cargo: { stims: 3, food: 2 }, law: { catchChance: 1 } });
+    c.update(1 / 60);
+    expect(c.pending).toMatchObject({ kind: 'law', npcId: id, gov: 'concord', reason: 'scan' });
+    expect(c.hailName()).toBe(npc(c, id).name);
+    expect(c.currentContext()).toBe('answerHail');
+    expect(c.openEncounter()).toBe(true);
+    const v = c.encounterView()!;
+    expect(v.choices.map((x) => x.label)).toEqual(['Comply (fine 300 cr)', 'Bribe 450 cr', 'Run']);
+    expect(c.chooseEncounter(0)).not.toBeNull();
+    expect(c.world.cargo).toEqual({ food: 2 });
+    expect(c.world.credits).toBe(4700);
+    expect(heat(c)).toBe(15);
+    expect(c.pending).toBeNull();
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(false);
+  });
+
+  it('Run gives heat +20 and makes the patrol hostile', async () => {
+    const { c, id } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    c.update(1 / 60);
+    c.openEncounter();
+    expect(c.chooseEncounter(2)).not.toBeNull();
+    expect(heat(c)).toBe(20);
+    expect(c.world.cargo).toEqual({ stims: 3 });
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(true);
+  });
+
+  it('a law card has no "Not now": declining leaves the hail open and heat unchanged', async () => {
+    const { c, id } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    c.update(1 / 60);
+    c.openEncounter();
+    expect(c.encounterView()?.noDecline).toBe(true);
+    c.declineEncounter();
+    expect(c.pending?.kind).toBe('law');
+    expect(c.encounterView()).not.toBeNull();
+    expect(heat(c)).toBe(0);
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(false);
+  });
+
+  it('an unanswered scan counts as Run', async () => {
+    const { c, id } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    c.update(1 / 60);
+    expect(c.pending?.kind).toBe('law');
+    run(c, 29);
+    expect(c.pending?.kind).toBe('law');
+    expect(heat(c)).toBe(0);
+    run(c, 2);
+    expect(c.pending).toBeNull();
+    expect(heat(c)).toBe(20);
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(true);
+  });
+
+  it('the hail clock waits while the ship is disabled', async () => {
+    const { c } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    c.update(1 / 60);
+    const left = c.pending?.kind === 'law' ? c.pending.expiresSec : 0;
+    c.combat.battle = { ...c.combat.battle, player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true } };
+    run(c, 5);
+    expect(c.pending).toMatchObject({ kind: 'law', expiresSec: left });
+    expect(heat(c)).toBe(0);
+  });
+
+  it('a successful bribe leaves the patrol gone and heat unchanged', async () => {
+    const { c, id } = await patrolled({ cargo: { stims: 2 }, law: { catchChance: 1, bribeChance: 1 } });
+    c.update(1 / 60);
+    c.openEncounter();
+    expect(c.chooseEncounter(1)).not.toBeNull();
+    expect(c.world.credits).toBe(5000 - 300);
+    expect(heat(c)).toBe(0);
+    expect(c.world.cargo).toEqual({ stims: 2 });
+    expect(npc(c, id)).toMatchObject({ peaceful: true, errand: 'pass', portId: null });
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(false);
+  });
+
+  it('a failed bribe costs no credits, adds heat and that patrol attacks', async () => {
+    const { c, id } = await patrolled({ cargo: { stims: 2 }, law: { catchChance: 1, bribeChance: 0 } });
+    c.update(1 / 60);
+    c.openEncounter();
+    expect(c.chooseEncounter(1)).not.toBeNull();
+    expect(c.world.credits).toBe(5000);
+    expect(heat(c)).toBe(c.data.law.bribeFailHeat);
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(true);
+  });
+
+  it('a clean scan only says so, and each patrol scans at most once per system visit', async () => {
+    const { c, said } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 0 } });
+    run(c, 2);
+    expect(said.filter((t) => t === 'Scan complete. Fly safe.')).toHaveLength(1);
+    expect(c.pending).toBeNull();
+    addPatrol(c);
+    run(c, 2);
+    expect(said.filter((t) => t === 'Scan complete. Fly safe.')).toHaveLength(2);
+  });
+
+  it('a Clean pilot with a legal hold is never hailed', async () => {
+    const { c, said } = await patrolled({ cargo: { food: 10 } });
+    run(c, 3);
+    expect(c.pending).toBeNull();
+    expect(said.some((t) => /scan|fine/i.test(t))).toBe(false);
+  });
+
+  it('a Suspect pilot is hailed for the fine; Refuse adds +5 heat and the patrol stays peaceful', async () => {
+    const { c, id } = await patrolled({ heat: 12 });
+    c.update(1 / 60);
+    expect(c.pending).toMatchObject({ kind: 'law', npcId: id, reason: 'fine' });
+    c.openEncounter();
+    expect(c.encounterView()!.choices.map((x) => x.label)).toEqual(['Pay fine 480 cr', 'Bribe 720 cr', 'Refuse']);
+    expect(c.chooseEncounter(2)).not.toBeNull();
+    expect(heat(c)).toBe(17);
+    expect(c.combat.isHostile(npc(c, id), c.world)).toBe(false);
+    c.startFlight(); // the card closes
+    run(c, 2);
+    expect(c.pending).toBeNull(); // one law hail per visit
+  });
+
+  it('a Wanted pilot pays the fine and ends Clean; Refuse is Run', async () => {
+    const a = await patrolled({ heat: 35 });
+    a.c.update(1 / 60);
+    a.c.openEncounter();
+    expect(a.c.encounterView()!.choices.map((x) => x.label)).toEqual(['Pay fine 1,400 cr', 'Bribe 2,100 cr', 'Run']);
+    expect(a.c.chooseEncounter(0)).not.toBeNull();
+    expect(heat(a.c)).toBe(0);
+    expect(a.c.world.credits).toBe(3600);
+    const b = await patrolled({ heat: 35 });
+    b.c.update(1 / 60);
+    b.c.openEncounter();
+    b.c.chooseEncounter(2);
+    expect(heat(b.c)).toBe(55);
+    expect(b.c.combat.isHostile(npc(b.c, b.id), b.c.world)).toBe(true);
+  });
+
+  it('hail Pay with too few credits keeps the card open', async () => {
+    const { c } = await patrolled({ heat: 35, credits: 100 });
+    c.update(1 / 60);
+    c.openEncounter();
+    const v = c.encounterView()!;
+    expect(v.choices[0].blocked).toBe('Not enough credits');
+    expect(v.choices[1].blocked).toBe('Not enough credits');
+    expect(c.chooseEncounter(0)).toBeNull();
+    expect(c.chooseEncounter(1)).toBeNull();
+    expect(c.pending).toMatchObject({ kind: 'law', reason: 'fine' });
+    expect(heat(c)).toBe(35);
+  });
+
+  it('a scan queued behind a demand opens after it resolves', async () => {
+    const { c, id } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    // A demanding raider arrives in the same tick as the patrol's scan.
+    const raider = addDemander(c);
+    c.update(1 / 60);
+    expect(c.pending).toMatchObject({ kind: 'demand', npcId: raider });
+    run(c, 1);
+    expect(c.pending?.kind).toBe('demand');
+    c.openEncounter();
+    expect(c.chooseEncounter(0)).not.toBeNull(); // pay the toll
+    expect(c.pending).toBeNull();
+    c.startFlight(); // the card closes
+    c.update(1 / 60);
+    expect(c.pending).toMatchObject({ kind: 'law', npcId: id, reason: 'scan' });
+  });
+
+  it('a waiting law hail steps aside for a raider demand, then comes back', async () => {
+    const { c, id } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    c.update(1 / 60);
+    expect(c.pending?.kind).toBe('law');
+    const raider = addDemander(c);
+    c.update(1 / 60);
+    expect(c.pending).toMatchObject({ kind: 'demand', npcId: raider });
+    c.openEncounter();
+    expect(c.chooseEncounter(0)).not.toBeNull();
+    c.startFlight(); // the card closes
+    c.update(1 / 60);
+    expect(c.pending).toMatchObject({ kind: 'law', npcId: id });
+  });
+
+  it('an encounter site steps aside for the law hail and comes back after it', async () => {
+    const { c } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    const site = Object.values(c.data.encounters).find((e) => e.kind === 'site')!;
+    c.forceEncounter(site.id);
+    const pos = c.sitePos();
+    c.update(1 / 60);
+    expect(c.pending?.kind).toBe('law');
+    expect(c.sitePos()).toBeNull();
+    c.openEncounter();
+    expect(c.chooseEncounter(0)).not.toBeNull();
+    expect(c.pending).toMatchObject({ kind: 'site', pos });
+  });
+
+  it('the patrol holds station while its hail waits, and goes back to its errand after', async () => {
+    const { c, id } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    c.update(1 / 60);
+    expect(npc(c, id).hold).toBeDefined();
+    run(c, 10);
+    expect(npc(c, id).phase).toBe('fly');
+    c.openEncounter();
+    c.chooseEncounter(0);
+    expect(npc(c, id).hold).toBeUndefined();
+  });
+
+  it('a scan counts as the visit\'s law hail: Comply leaves the pilot Suspect, and no fine hail follows (Ruling 11)', async () => {
+    const { c } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 1 } });
+    c.update(1 / 60);
+    c.openEncounter();
+    expect(c.chooseEncounter(0)).not.toBeNull();
+    expect(heat(c)).toBe(15); // Suspect
+    c.startFlight(); // the card closes
+    addPatrol(c); // even a second patrol in range keeps quiet
+    run(c, 3);
+    expect(c.pending).toBeNull();
+  });
+
+  it('several clean scans in one tick say so once', async () => {
+    const { c, said } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 0 } });
+    addPatrol(c);
+    c.update(1 / 60);
+    expect(said).toEqual(['Scan complete. Fly safe.']);
+  });
+
+  /** Land and take off again at Halcyon (a new visit, same system and day), with one fresh patrol ahead. */
+  function newVisit(c: Controller, p: { cargo?: Record<string, number>; heat?: number }) {
+    (c as unknown as { landAt(id: string): void }).landAt('halcyon');
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.05);
+    c.traffic = { ...c.traffic, npcs: [] };
+    c.world = { ...c.world, credits: 50_000, cargo: p.cargo ?? {}, law: p.heat ? { concord: { heat: p.heat } } : {} };
+    expect(addPatrol(c)).toBe('test-raider-1');
+    c.update(1 / 60);
+  }
+
+  it('the same patrol rolls its scan afresh on a second visit', async () => {
+    const { c } = await patrolled({ law: { catchChance: 0.5 } });
+    const caught: boolean[] = [];
+    for (let i = 0; i < 16; i++) {
+      newVisit(c, { cargo: { stims: 3 } });
+      caught.push(c.pending?.kind === 'law');
+      c.pending = null;
+    }
+    expect(caught).toContain(true);
+    expect(caught).toContain(false);
+  });
+
+  it('a scan bribe and a fine bribe roll independently', async () => {
+    const bribes = async (p: { cargo?: Record<string, number>; heat?: number }) => {
+      const { c } = await patrolled({ law: { catchChance: 1, bribeChance: 0.5 } });
+      const ok: boolean[] = [];
+      for (let i = 0; i < 16; i++) {
+        newVisit(c, p);
+        expect(c.pending?.kind).toBe('law');
+        c.openEncounter();
+        c.chooseEncounter(1);
+        ok.push(npc(c, 'test-raider-1').peaceful);
+        c.startFlight();
+      }
+      return ok;
+    };
+    const scan = await bribes({ cargo: { stims: 3 } });
+    const fine = await bribes({ heat: 20 });
+    expect(scan).toContain(true);
+    expect(scan).toContain(false);
+    expect(fine).not.toEqual(scan);
+  });
+
+  it('a take-off starts a new visit: the same patrol scans again', async () => {
+    const { c, said } = await patrolled({ cargo: { stims: 3 }, law: { catchChance: 0 } });
+    run(c, 1);
+    expect(said.filter((t) => t === 'Scan complete. Fly safe.')).toHaveLength(1);
+    (c as unknown as { landAt(id: string): void }).landAt('halcyon');
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.05);
+    c.traffic = { ...c.traffic, npcs: [] };
+    expect(addPatrol(c)).toBe('test-raider-1');
+    run(c, 1);
+    expect(said.filter((t) => t === 'Scan complete. Fly safe.')).toHaveLength(2);
   });
 });

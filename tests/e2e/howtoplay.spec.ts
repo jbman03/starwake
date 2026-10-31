@@ -88,11 +88,13 @@ test.describe('phone (touch, landscape)', () => {
   test.use({ hasTouch: true, viewport: { width: 844, height: 390 } });
 
   test('How to Play fits 844×390 on every tab with buttons of at least 44 px', async ({ page }) => {
+    // Six tabs now, each checking every button: on a slow machine this runs past the 30 s default.
+    test.setTimeout(60_000);
     const errors = trackErrors(page);
     await newPilot(page, 'Thumbs');
     await page.getByRole('button', { name: /^How to Play/ }).tap();
     await expect(htp(page)).toBeVisible();
-    for (const name of ['Flying', 'Planets & trade', 'Missions', 'Travel & fuel', 'Controls']) {
+    for (const name of ['Flying', 'Planets & trade', 'Missions', 'Travel & fuel', 'Law & ranks', 'Controls']) {
       await htp(page).getByRole('tab', { name }).tap();
       const m = await page.evaluate(() => {
         const panel = document.querySelector<HTMLElement>('[data-testid="how-to-play"] .sw-panel')!;

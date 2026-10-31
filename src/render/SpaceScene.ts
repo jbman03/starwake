@@ -174,6 +174,7 @@ export class SpaceScene extends Phaser.Scene {
     hook.sidebar = () => ({
       visible: this.sidebar.isVisible(),
       info: sidebarInfo(this.controller.world, this.controller.data, this.controller.traffic, this.controller.targetedSite(), this.controller.battleView()),
+      drawn: this.sidebar.boxes(),
     });
     hook.traffic = () => {
       const c = this.cameras.main;
@@ -320,6 +321,7 @@ export class SpaceScene extends Phaser.Scene {
     if (name === null || !this.controller.isFlying) return null;
     const key = hotkeyFor(this.controller.settings.bindings, 'interact') ?? 'unbound';
     if (this.controller.pending?.kind === 'demand') return `${name} (raider) hails you (${key} to answer)`;
+    if (this.controller.pending?.kind === 'law') return `${name} (patrol) hails you (${key} to answer)`;
     return `Incoming hail — ${name} (${key} to answer)`;
   }
 

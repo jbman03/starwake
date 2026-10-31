@@ -3,6 +3,8 @@ import {
   CommoditySchema,
   CombatSchema,
   AudioSchema,
+  LawSchema,
+  FactionsSchema,
   ConfigSchema,
   EncounterSchema,
   EventSchema,
@@ -16,6 +18,8 @@ import {
   SystemSchema,
   type CombatDef,
   type AudioDef,
+  type LawDef,
+  type FactionDef,
   type GameConfig,
   type Outcome,
   type GameData,
@@ -138,6 +142,8 @@ const KEYS = [
   'story',
   'combat',
   'audio',
+  'law',
+  'factions',
 ] as const;
 
 export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): GameData {
@@ -170,6 +176,14 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   const au = AudioSchema.safeParse(raw.audio);
   if (!au.success) throw new DataError('audio.json', zodIssues('audio.json', '', au.error));
   const audio: AudioDef = au.data;
+
+  const lw = LawSchema.safeParse(raw.law);
+  if (!lw.success) throw new DataError('law.json', zodIssues('law.json', '', lw.error));
+  const law: LawDef = lw.data;
+
+  const fc = FactionsSchema.safeParse(raw.factions);
+  if (!fc.success) throw new DataError('factions.json', zodIssues('factions.json', '', fc.error));
+  const factions: Record<string, FactionDef> = fc.data;
 
   const sysIssues: string[] = [];
   for (const s of Object.values(systems)) {
@@ -228,10 +242,20 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
       planetIssues.push(
         fmt('planets.json', `${p.id}.services`, '"exchange" must be listed exactly when market is non-empty'),
       );
+    // A port does not trade what its own government outlaws.
+    const gov = systems[p.systemId]?.government;
+    for (const g of Object.keys(p.market ?? {}))
+      if (gov && commodities[g]?.illegalIn?.includes(gov))
+        planetIssues.push(fmt('planets.json', `${p.id}.market.${g}`, `"${gov}" outlaws "${g}", so its ports cannot trade it`));
   }
   if (planetIssues.length) throw new DataError('planets.json', planetIssues);
 
   const goodsIssues: string[] = [];
+  for (const c of Object.values(commodities))
+    (c.illegalIn ?? []).forEach((g, i) => {
+      if (g === 'raiders') goodsIssues.push(fmt('commodities.json', `${c.id}.illegalIn.${i}`, 'raiders have no law and no ranks'));
+      else if (!(g in governments)) goodsIssues.push(fmt('commodities.json', `${c.id}.illegalIn.${i}`, `unknown government "${g}"`));
+    });
   for (const c of Object.values(commodities)) {
     if (c.origin === undefined) continue;
     const port = planets[c.origin];
@@ -262,7 +286,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
           );
       }
   }
-  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio } as GameData;
+  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, factions } as GameData;
   const items: { file: string; item: { id: string; techTier: number; soldBy?: string[] } }[] = [
     ...Object.values(ships).map((item) => ({ file: 'ships.json', item })),
     ...Object.values(outfits).map((item) => ({ file: 'outfits.json', item })),
@@ -278,6 +302,11 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     const gate = (item as { requiresStanding?: { government: string } }).requiresStanding;
     if (gate && !(gate.government in governments))
       shopIssues.push(fmt(file, `${item.id}.requiresStanding.government`, `unknown government "${gate.government}"`));
+    const rankGate = (item as { requiresRank?: { government: string } }).requiresRank;
+    if (rankGate?.government === 'raiders')
+      shopIssues.push(fmt(file, `${item.id}.requiresRank.government`, 'raiders have no law and no ranks'));
+    else if (rankGate && !(rankGate.government in governments))
+      shopIssues.push(fmt(file, `${item.id}.requiresRank.government`, `unknown government "${rankGate.government}"`));
     const sellers = Object.values(planets).filter((p) => p.services.includes(shop) && sells(p.id, item, partial));
     if (sellers.length === 0) shopIssues.push(fmt(file, item.id, 'no port sells this'));
     for (const g of item.soldBy ?? []) {
@@ -287,6 +316,32 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     }
   }
   if (shopIssues.length) throw new DataError('planets.json', shopIssues);
+
+  const factionIssues: string[] = [];
+  // The raiders have no law and no ranks, so they may not appear in any law or rank data.
+  const NO_LAW = 'raiders';
+  const noLaw = (at: string) => fmt('factions.json', at, 'raiders have no law and no ranks');
+  for (const gid of Object.keys(governments))
+    if (gid !== NO_LAW && !(gid in factions) && Object.values(systems).some((sy) => sy.government === gid))
+      factionIssues.push(fmt('factions.json', gid, `government "${gid}" holds a system and needs a faction entry`));
+  for (const [gid, f] of Object.entries(factions)) {
+    if (gid === NO_LAW) factionIssues.push(noLaw(gid));
+    else if (!(gid in governments)) factionIssues.push(fmt('factions.json', gid, `unknown government "${gid}"`));
+    const hub = planets[f.hub];
+    if (!hub) factionIssues.push(fmt('factions.json', `${gid}.hub`, `unknown planet "${f.hub}"`));
+    else if (systems[hub.systemId]?.government !== gid)
+      factionIssues.push(fmt('factions.json', `${gid}.hub`, `planet "${f.hub}" is not a "${gid}" port`));
+    f.rivals.forEach((rv, i) => {
+      if (rv === NO_LAW) factionIssues.push(noLaw(`${gid}.rivals.${i}`));
+      else if (f.rivals.indexOf(rv) !== i) factionIssues.push(fmt('factions.json', `${gid}.rivals.${i}`, `duplicate rival "${rv}"`));
+      else if (rv in governments && rv !== gid && !(factions[rv]?.rivals ?? []).includes(gid))
+        factionIssues.push(fmt('factions.json', `${gid}.rivals.${i}`, `"${rv}" does not list "${gid}" as a rival back`));
+      if (rv === NO_LAW) return;
+      if (!(rv in governments)) factionIssues.push(fmt('factions.json', `${gid}.rivals.${i}`, `unknown government "${rv}"`));
+      else if (rv === gid) factionIssues.push(fmt('factions.json', `${gid}.rivals.${i}`, 'a faction cannot rival itself'));
+    });
+  }
+  if (factionIssues.length) throw new DataError('factions.json', factionIssues);
 
   const eventIssues: string[] = [];
   for (const e of Object.values(events)) {
@@ -447,14 +502,14 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   });
   if (cfgIssues.length) throw new DataError('config.json', cfgIssues);
 
-  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio };
+  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, factions };
 }
 
 /** Loads and validates the bundled data. `override` swaps raw payloads (used by test flags). */
 export async function loadGameData(
   override: Partial<Record<(typeof KEYS)[number], unknown>> = {},
 ): Promise<GameData> {
-  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio] =
+  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, factions] =
     await Promise.all([
       import('../../data/ships.json'),
       import('../../data/systems.json'),
@@ -470,6 +525,8 @@ export async function loadGameData(
       import('../../data/story.json'),
       import('../../data/combat.json'),
       import('../../data/audio.json'),
+      import('../../data/law.json'),
+      import('../../data/factions.json'),
     ]);
   return parseGameData({
     ships: ships.default,
@@ -486,6 +543,8 @@ export async function loadGameData(
     story: story.default,
     combat: combat.default,
     audio: audio.default,
+    law: law.default,
+    factions: factions.default,
     ...override,
   });
 }

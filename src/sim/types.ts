@@ -108,6 +108,10 @@ export interface WorldState {
   };
   /** Standing with each government; an absent government counts as neutral. */
   standing: Record<string, StandingLevel>;
+  /** Heat (0-100) with each government's law; an absent government has none. */
+  law: Record<string, { heat: number }>;
+  /** Rank points and the day salary was last paid, per government; absent means unranked. */
+  ranks: Record<string, { points: number; salaryDay: number }>;
 }
 
 export type SimEvent =

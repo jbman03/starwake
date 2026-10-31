@@ -204,7 +204,7 @@ describe('taken offers', () => {
   it('keeps the offer of a completed mission hidden', () => {
     const w = [2, 3, 4, 5].map((d) => at(d)).find((x) => offersAt(x, data, home.id).some((o) => !o.combat))!;
     const o = offersAt(w, data, home.id).find((x) => !x.combat)!;
-    const done = completeAt(accept(w, data, o), o.destId).world;
+    const done = completeAt(accept(w, data, o), data, o.destId).world;
     expect(done.missions).toEqual([]);
     expect(offersAt(done, data, home.id).map((x) => x.offerId)).not.toContain(o.offerId);
   });
@@ -230,7 +230,7 @@ describe('completeAt / failOverdue / abandon', () => {
       mission({ id: 'c', destId: 'q', pay: 999 }),
     );
     const w: WorldState = { ...base, cargo: { food: 10 } };
-    const r = completeAt(w, 'p');
+    const r = completeAt(w, data, 'p');
     expect(r.completed.map((m) => m.id)).toEqual(['a', 'b']);
     expect(r.pay).toBe(1250);
     expect(r.world.credits).toBe(w.credits + 1250);
@@ -244,7 +244,7 @@ describe('completeAt / failOverdue / abandon', () => {
       mission({ id: 'late', destId: 'p', deadlineDay: 5 }),
       mission({ id: 'dump', destId: 'p', pay: 400, paidUpfront: true }),
     );
-    const r = completeAt(w, 'p');
+    const r = completeAt(w, data, 'p');
     expect(r.completed.map((m) => m.id)).toEqual(['dump']);
     expect(r.pay).toBe(0);
     expect(r.world.missions.map((m) => m.id)).toEqual(['late']);

@@ -7,11 +7,14 @@ import { missionSystem } from './combatMissions';
 import { failOverdue, jobMissions } from './missions';
 import { checkStoryDeadlines, storyDestinations } from './storyMissions';
 import { hashString } from './random';
+import { decayHeat, landingRefused } from './law';
 import {
   canJump,
   canLand,
+  custodyAt,
   jumpDestination,
   jumpPoint,
+  landingRefusedText,
   pickLandTarget,
   planetsByDistance,
   refuelQuote,
@@ -87,6 +90,8 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     lastEncounterDay: null,
     story: { active: [], done: [], failed: [], declined: [] },
     standing: {},
+    law: {},
+    ranks: {},
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
 }
@@ -102,6 +107,7 @@ export function advanceDays(world: WorldState, data: GameData, n: number): { wor
   for (let i = 0; i < n; i++) {
     w = { ...w, day: w.day + 1 };
     w = economyDay(w, data);
+    w = decayHeat(w, data, 1);
     const day = w.day;
     w = { ...w, takenOffers: w.takenOffers.filter((id) => Number(id.split(':').slice(-2)[0]) >= day) };
     const overdue = failOverdue(w);
@@ -194,7 +200,8 @@ export function applyRefuel(
 /**
  * Tow a stranded ship to the nearest fuel planet, charging the tow fee (credits may go negative).
  * The tow takes a day per hop (at least one). A route through the tow system keeps its remaining
- * hops; one whose next hop isn't linked from there is cleared.
+ * hops; one whose next hop isn't linked from there is cleared. At a port whose owner hunts the pilot (the
+ * fallback when every port in reach does), the pilot is taken into custody.
  */
 export function applyTow(world: WorldState, data: GameData, opts: { disabled?: boolean } = {}): { world: WorldState; events: SimEvent[] } {
   const planetId = towDestination(world, data, opts);
@@ -210,7 +217,11 @@ export function applyTow(world: WorldState, data: GameData, opts: { disabled?: b
   if (route.length > 0 && !lanesOf(data, toSystemId, world.flags).includes(route[0])) route = [];
   const entered = enterSystem({ ...moved, route }, data, toSystemId);
   const after = advanceDays(entered, data, days);
-  return { world: after.world, events: [{ type: 'towed', planetId }, ...after.events] };
+  // Every port in reach hunted the pilot, so the tow came here anyway: custody (heat decayed on the way first).
+  const custody = custodyAt(after.world, data, planetId);
+  const events: SimEvent[] = [{ type: 'towed', planetId }, ...after.events];
+  if (custody) events.push({ type: 'message', text: custody.message });
+  return { world: custody?.world ?? after.world, events };
 }
 
 /** Heading toward the destination system's map position (the jump point's direction). */
@@ -442,14 +453,25 @@ export function stepWorld(
   if (pressed.has('land')) {
     if (isLandingAutopilot(w.assist)) {
       const id = pickLandTarget(w, data, true);
-      if (id) w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
+      if (id && landingRefused(w, data, id)) {
+        // A system's ports share its government, so the next port refuses too: say so at once.
+        events.push({ type: 'message', text: landingRefusedText(data, id) });
+        w = { ...w, targetPlanetId: id, assist: NONE };
+      } else if (id) {
+        w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
+      }
     } else {
       const id = pickLandTarget(w, data, false);
-      if (id && canLand(w, data, id)) {
+      if (id && landingRefused(w, data, id)) {
+        // Refused outright, near or far: say so rather than fly there to be turned away.
+        events.push({ type: 'message', text: landingRefusedText(data, id) });
+        w = { ...w, targetPlanetId: id, assist: NONE };
+      } else if (id && canLand(w, data, id)) {
         events.push({ type: 'landed', planetId: id });
         return { world: { ...w, targetPlanetId: id, assist: NONE, ship: { ...w.ship, vel: { ...ZERO } } }, events };
+      } else if (id) {
+        w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
       }
-      if (id) w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
     }
   }
 
@@ -518,7 +540,9 @@ export function stepWorld(
       const r = autopilotInput(w.ship, def, dest, data.config.arrivalRadius, AUTOPILOT_ARRIVE_SPEED);
       if (r.arrived) {
         w = { ...w, assist: NONE, ship: { ...w.ship, vel: { ...ZERO } } };
-        if (a.dest.type === 'planet' && a.autoLand) {
+        if (a.dest.type === 'planet' && a.autoLand && landingRefused(w, data, a.dest.id)) {
+          events.push({ type: 'message', text: landingRefusedText(data, a.dest.id) });
+        } else if (a.dest.type === 'planet' && a.autoLand) {
           events.push({ type: 'landed', planetId: a.dest.id });
           return { world: w, events };
         }

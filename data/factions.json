@@ -1,0 +1,190 @@
+{
+  "concord": {
+    "ranks": [
+      {
+        "title": "Lamplighter",
+        "points": 10,
+        "perk": {
+          "kind": "title"
+        }
+      },
+      {
+        "title": "Warden",
+        "points": 30,
+        "perk": {
+          "kind": "discount",
+          "pct": 5
+        }
+      },
+      {
+        "title": "Keeper",
+        "points": 70,
+        "perk": {
+          "kind": "salary",
+          "cr": 150
+        }
+      },
+      {
+        "title": "Beacon",
+        "points": 150,
+        "perk": {
+          "kind": "unlock",
+          "missionPayPct": 10
+        }
+      },
+      {
+        "title": "Lanternmarshal",
+        "points": 300,
+        "perk": {
+          "kind": "discountSalary",
+          "pct": 10,
+          "cr": 400
+        }
+      }
+    ],
+    "hub": "vanterre",
+    "rivals": [
+      "unlit"
+    ]
+  },
+  "free-reach": {
+    "ranks": [
+      {
+        "title": "Handshake",
+        "points": 10,
+        "perk": {
+          "kind": "title"
+        }
+      },
+      {
+        "title": "Tallyman",
+        "points": 30,
+        "perk": {
+          "kind": "discount",
+          "pct": 5
+        }
+      },
+      {
+        "title": "Factor",
+        "points": 70,
+        "perk": {
+          "kind": "salary",
+          "cr": 150
+        }
+      },
+      {
+        "title": "Reeve",
+        "points": 150,
+        "perk": {
+          "kind": "unlock",
+          "missionPayPct": 10
+        }
+      },
+      {
+        "title": "Compact Speaker",
+        "points": 300,
+        "perk": {
+          "kind": "discountSalary",
+          "pct": 10,
+          "cr": 400
+        }
+      }
+    ],
+    "hub": "wrenhold",
+    "rivals": []
+  },
+  "independent": {
+    "ranks": [
+      {
+        "title": "Neighbour",
+        "points": 10,
+        "perk": {
+          "kind": "title"
+        }
+      },
+      {
+        "title": "Homesteader",
+        "points": 30,
+        "perk": {
+          "kind": "discount",
+          "pct": 5
+        }
+      },
+      {
+        "title": "Steward",
+        "points": 70,
+        "perk": {
+          "kind": "salary",
+          "cr": 150
+        }
+      },
+      {
+        "title": "Elder",
+        "points": 150,
+        "perk": {
+          "kind": "unlock",
+          "missionPayPct": 10
+        }
+      },
+      {
+        "title": "Hearthwarden",
+        "points": 300,
+        "perk": {
+          "kind": "discountSalary",
+          "pct": 10,
+          "cr": 400
+        }
+      }
+    ],
+    "hub": "lastlight-beacon",
+    "rivals": []
+  },
+  "unlit": {
+    "ranks": [
+      {
+        "title": "Whisper",
+        "points": 10,
+        "perk": {
+          "kind": "title"
+        }
+      },
+      {
+        "title": "Shade",
+        "points": 30,
+        "perk": {
+          "kind": "discount",
+          "pct": 5
+        }
+      },
+      {
+        "title": "Veilkeeper",
+        "points": 70,
+        "perk": {
+          "kind": "salary",
+          "cr": 150
+        }
+      },
+      {
+        "title": "Duskwarden",
+        "points": 150,
+        "perk": {
+          "kind": "unlock",
+          "missionPayPct": 10
+        }
+      },
+      {
+        "title": "Lampless",
+        "points": 300,
+        "perk": {
+          "kind": "discountSalary",
+          "pct": 10,
+          "cr": 400
+        }
+      }
+    ],
+    "hub": "reeds-anchor",
+    "rivals": [
+      "concord"
+    ]
+  }
+}

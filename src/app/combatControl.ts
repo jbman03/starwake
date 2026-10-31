@@ -2,6 +2,7 @@ import type { GameData } from '../data/schemas';
 import type { ActionId } from '../input/actions';
 import { angerGovernment, isHostileToPlayer, newBattle, stepBattle, type Battle, type BattleEvent } from '../sim/battle';
 import {
+  boardingCrime,
   canBoard,
   canTakeCommand,
   captureOdds,
@@ -17,6 +18,9 @@ import {
   type Loot,
 } from '../sim/boarding';
 import { driftShip, fullHull } from '../sim/combat';
+import { illegalHeld, scanCatches, type LawReason } from '../sim/contraband';
+import { legalStatus } from '../sim/law';
+import { RAIDERS } from '../sim/ai';
 import { shipStats, worldStats } from '../sim/shipStats';
 import { governmentShortName } from '../sim/standing';
 import { isTargetable, targetedNpc, type Npc, type Traffic } from '../sim/traffic';
@@ -25,6 +29,23 @@ import { add, dist, fromAngle, scale } from '../sim/vec';
 import { demandTerms, dumpCargo, payCredits, type DemandTerms } from '../sim/raiders';
 import { npcLoadout } from '../sim/weapons';
 import { newWorld } from '../sim/world';
+
+/** What a scan that finds nothing says (spec §5.2). */
+export const MSG_SCAN_CLEAN = 'Scan complete. Fly safe.';
+
+/** A patrol's scan that caught contraband, or its law hail for a fine, waiting for or holding the hail slot. */
+export interface LawOffer {
+  npcId: string;
+  npcName: string;
+  gov: string;
+  reason: LawReason;
+}
+
+/** Suspect or Wanted with `gov`: its patrols hail for the fine (Hunted ones attack instead). */
+function owesFine(world: WorldState, data: GameData, gov: string): boolean {
+  const s = legalStatus(world, data, gov);
+  return s === 'suspect' || s === 'wanted';
+}
 
 /** A disabled pilot may call a tow once no threatening hostile has been this close (px)... */
 export const CALM_RANGE = 1500;
@@ -96,6 +117,17 @@ export class CombatControl {
   disabledCalmSec = 0;
   /** Raiders whose demand has been put to the player (once each). */
   private readonly offered = new Set<string>();
+  /** Patrols that have scanned the hold this visit (each scans once, spec §5.2). */
+  private readonly scanned = new Set<string>();
+  /** Governments that have sent their law hail this visit (one per visit, spec §4.4). */
+  private readonly lawHailed = new Set<string>();
+  /** Caught scans and law hails waiting for the pilot's hail slot, oldest first. */
+  private lawQueue: LawOffer[] = [];
+  /**
+   * Counts system visits (every reset: arrival, take-off, landing, session), so seeded law rolls
+   * differ per visit even with the same patrol on the same day. Transient: never saved.
+   */
+  visit = 0;
   private readonly sessions = new Map<string, BoardingSession>();
   /** The ship whose boarding card is open, or null. */
   boardingId: string | null = null;
@@ -122,6 +154,10 @@ export class CombatControl {
     this.battle = opts.keepHull && !this.battle.playerDestroyed ? { ...fresh, player: hull } : fresh;
     this.disabledCalmSec = 0;
     this.offered.clear();
+    this.scanned.clear();
+    this.lawHailed.clear();
+    this.lawQueue = [];
+    this.visit++;
     this.sessions.clear();
     this.boardingId = null;
     this.scuttling = [];
@@ -231,9 +267,11 @@ export class CombatControl {
         const row = rows.find((r) => r.id === choice);
         if (!row || row.used || row.blocked || s.tried) return null;
         const t = choice === 'credits' ? takeCredits(world, s.left) : choice === 'cargo' ? takeCargo(world, this.data, s.left) : takeAmmo(world, this.data, s.left);
+        // Looting is one crime per ship, however many rows are taken (spec §4.2).
+        const looted = s.used.size === 0 ? boardingCrime(t.world, this.data, npc, 'board') : t.world;
         s.left = t.loot;
         s.used.add(choice);
-        return keep(t.world, [t.text]);
+        return keep(looted, [t.text]);
       }
       if (choice !== 'capture' || s.tried) return null;
       s.tried = true;
@@ -242,7 +280,7 @@ export class CombatControl {
         return keep(world, ['The crew drives your party off.']);
       }
       s.stage = 'captured';
-      const a = angerGovernment(world, this.battle, npc, true);
+      const a = angerGovernment(boardingCrime(world, this.data, npc, 'destroy'), this.battle, npc, true);
       this.battle = a.battle;
       const messages = ['Your party takes the bridge. The ship is yours.'];
       if (a.angered) messages.push(`The ${governmentShortName(npc.government, this.data)} will remember that.`);
@@ -346,6 +384,76 @@ export class CombatControl {
     return { world: next, traffic: { ...traffic, npcs }, messages };
   }
 
+  /**
+   * Patrols at work this tick (spec §4.4, §5.2). Each patrol in `scanRange` scans a hold its
+   * government outlaws goods in, once per visit: a clean scan only says so (`messages`), a caught one
+   * joins the queue. The nearest patrol in `hailRange` of a government that finds the pilot Suspect
+   * or Wanted queues that government's one law hail per visit. Nothing new starts while the player is
+   * disabled. When not `busy`, the oldest queued offer that still holds (its patrol is still there
+   * and peaceful, and the hold or record still warrants it) is handed back as `open`.
+   */
+  checkLaw(world: WorldState, traffic: Traffic, busy: boolean): { open: LawOffer | null; messages: string[] } {
+    const messages: string[] = [];
+    const law = this.data.law;
+    if (!this.playerDisabled()) {
+      const hailers = new Map<string, { npc: Npc; d: number }>();
+      for (const n of traffic.npcs) {
+        if (!this.lawful(n, world)) continue;
+        const d = dist(n.ship.pos, world.ship.pos);
+        if (d <= law.scanRange && !this.scanned.has(n.id) && Object.keys(illegalHeld(world, this.data, n.government)).length > 0) {
+          this.scanned.add(n.id);
+          // A scan, whatever it finds, is that government's one law hail this visit (Ruling 11).
+          this.lawHailed.add(n.government);
+          if (scanCatches(world, this.data, n.government, `scan|${world.seed}|${world.systemId}|${world.day}|${this.visit}|${n.id}`)) {
+            this.lawQueue.push({ npcId: n.id, npcName: n.name, gov: n.government, reason: 'scan' });
+          } else if (!messages.includes(MSG_SCAN_CLEAN)) messages.push(MSG_SCAN_CLEAN);
+        }
+        const best = hailers.get(n.government);
+        if (d <= law.hailRange && !this.lawHailed.has(n.government) && owesFine(world, this.data, n.government) && (!best || d < best.d)) {
+          hailers.set(n.government, { npc: n, d });
+        }
+      }
+      for (const [gov, { npc }] of hailers) {
+        if (this.lawHailed.has(gov)) continue; // a scan found this government after its hailer was picked (Ruling 11)
+        this.lawHailed.add(gov);
+        this.lawQueue.push({ npcId: npc.id, npcName: npc.name, gov, reason: 'fine' });
+      }
+    }
+    if (busy) return { open: null, messages };
+    while (this.lawQueue.length > 0) {
+      const o = this.lawQueue.shift()!;
+      if (this.lawOfferHolds(o, world, traffic)) return { open: o, messages };
+    }
+    return { open: null, messages };
+  }
+
+  /** The patrols whose scan or law hail is waiting in the queue. */
+  queuedLawNpcs(): string[] {
+    return this.lawQueue.map((o) => o.npcId);
+  }
+
+  /** Put an open law offer back at the head of the queue (a raider's demand took the hail slot). */
+  requeueLaw(offer: LawOffer): void {
+    this.lawQueue.unshift(offer);
+  }
+
+  /** Does the offer still stand: its patrol is there and peaceful, and the hold or record still warrants it? */
+  lawOfferHolds(o: LawOffer, world: WorldState, traffic: Traffic): boolean {
+    const n = traffic.npcs.find((x) => x.id === o.npcId);
+    if (!n || !this.lawful(n, world)) return false;
+    return o.reason === 'scan' ? Object.keys(illegalHeld(world, this.data, o.gov)).length > 0 : owesFine(world, this.data, o.gov);
+  }
+
+  /** A patrol that keeps the law: in flight, able, and not already fighting the pilot. */
+  private lawful(n: Npc, world: WorldState): boolean {
+    return n.role === 'patrol' && n.government !== RAIDERS && isTargetable(n) && !n.hull.disabled && n.phase !== 'gone' && !isHostileToPlayer(n, world, this.battle);
+  }
+
+  /** The pilot ran from `gov`'s law: its ships turn on the pilot for the rest of the visit. */
+  angerAt(gov: string): void {
+    if (!this.battle.angry.includes(gov)) this.battle = { ...this.battle, angry: [...this.battle.angry, gov] };
+  }
+
   /** Whether `n` would fight the player in this battle. */
   isHostile(n: Npc, world: WorldState): boolean {
     return isHostileToPlayer(n, world, this.battle);
@@ -364,29 +472,50 @@ export class CombatControl {
 
 /** Test support: an engaged raider in a `shipId` hull, SPAWN_AHEAD px ahead of the ship. */
 export function hostileAhead(world: WorldState, traffic: Traffic, data: GameData, shipId = 'kestrel'): { traffic: Traffic; id: string } {
-  const def = data.ships[shipId];
-  if (!def) throw new Error(`hostileAhead: unknown ship ${shipId}`);
+  return shipAhead(world, traffic, data, { shipId, prefix: 'test-raider', name: 'Test Raider', government: RAIDERS, role: 'raider', engaged: true });
+}
+
+/**
+ * Test support: a peaceful patrol of `gov` (default the system's government) in a `shipId` hull,
+ * SPAWN_AHEAD px ahead of the ship and at rest, on a pass-through errand. It is inside the scan and
+ * hail ranges, so the law's own rules decide whether it scans the hold or hails the pilot.
+ */
+export function patrolAhead(world: WorldState, traffic: Traffic, data: GameData, gov?: string, shipId?: string): { traffic: Traffic; id: string } {
+  const government = gov ?? data.systems[world.systemId].government;
+  if (!data.governments[government] || government === RAIDERS) throw new Error(`patrolAhead: ${government} keeps no law`);
+  const hull = shipId ?? data.combat.spawn.patrolHulls[0];
+  return shipAhead(world, traffic, data, { shipId: hull, prefix: 'test-patrol', name: 'Test Patrol', government, role: 'patrol', engaged: false });
+}
+
+function shipAhead(
+  world: WorldState,
+  traffic: Traffic,
+  data: GameData,
+  o: { shipId: string; prefix: string; name: string; government: string; role: Npc['role']; engaged: boolean },
+): { traffic: Traffic; id: string } {
+  const def = data.ships[o.shipId];
+  if (!def) throw new Error(`shipAhead: unknown ship ${o.shipId}`);
   let k = 1;
-  while (traffic.npcs.some((n) => n.id === `test-raider-${k}`)) k++;
-  const id = `test-raider-${k}`;
+  while (traffic.npcs.some((n) => n.id === `${o.prefix}-${k}`)) k++;
+  const id = `${o.prefix}-${k}`;
   const outfits = { ...npcLoadout(def) };
   const st = shipStats(def.id, outfits, data);
   const npc: Npc = {
     id,
-    name: `Test Raider ${k}`,
+    name: `${o.name} ${k}`,
     shipId: def.id,
-    government: 'raiders',
+    government: o.government,
     errand: 'pass',
     ship: { pos: add(world.ship.pos, scale(fromAngle(world.ship.heading), SPAWN_AHEAD)), vel: { x: 0, y: 0 }, heading: world.ship.heading + Math.PI, fuel: def.fuelCapacity },
     portId: null,
     phase: 'fly',
     phaseT: 0,
     thrusting: false,
-    role: 'raider',
+    role: o.role,
     hull: fullHull(st.shields, st.armor),
     outfits,
     aggro: [],
-    engaged: true,
+    engaged: o.engaged,
     peaceful: false,
     demand: false,
     killCounted: false,

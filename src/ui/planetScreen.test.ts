@@ -157,6 +157,23 @@ describe('planet screen after a tow', () => {
   });
 });
 
+describe('fines owed', () => {
+  it('a Pay the credits cannot cover is flagged in the warning style; a paid one is not', async () => {
+    const { root, c, ctx } = await setup(100, 100);
+    c.world = { ...c.world, law: { concord: { heat: 50 } } };
+    showPlanetScreen(ctx, 'halcyon');
+    const pay = () => root.querySelector<HTMLElement>('[data-fine="concord"] button')!;
+    const status = () => root.querySelector('.sw-status')!;
+    pay().click();
+    expect(status().textContent).toBe('Not enough credits.');
+    expect(status().classList.contains('sw-status-bad')).toBe(true);
+    c.world = { ...c.world, credits: 50000 };
+    pay().click();
+    expect(status().textContent).toMatch(/^Paid /);
+    expect(status().classList.contains('sw-status-bad')).toBe(false);
+  });
+});
+
 describe('credits count-up after jobs pay', () => {
   afterEach(() => {
     vi.useRealTimers();

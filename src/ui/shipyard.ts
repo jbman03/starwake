@@ -1,7 +1,9 @@
 import { jumpsOf } from '../sim/fuel';
 import type { ShipDef } from '../data/schemas';
 import { SHIP_BLOCK_TEXT, shipHidden, type ShipBlock } from '../sim/shipyard';
-import { standingBlockText } from '../sim/standing';
+import { discountPct, rankBlockText } from '../sim/ranks';
+import { governmentOf } from '../sim/stock';
+import { governmentShortName, standingBlockText } from '../sim/standing';
 import { shipStock } from '../sim/stock';
 import type { UiContext } from './context';
 import { confirmDialog, formatCredits, promptDialog } from './dom';
@@ -19,7 +21,19 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
 
   /** The words for a block; a standing block names the government. */
   const blockText = (reason: ShipBlock, def: ShipDef): string =>
-    reason === 'standing' && def.requiresStanding ? standingBlockText(def.requiresStanding, data) : SHIP_BLOCK_TEXT[reason];
+    reason === 'standing' && def.requiresStanding
+      ? standingBlockText(def.requiresStanding, data)
+      : reason === 'rank' && def.requiresRank
+        ? rankBlockText(def.requiresRank, data)
+        : SHIP_BLOCK_TEXT[reason];
+
+  /** The price charged, with the list price and discount noted when a rank discount applies. */
+  const priceText = (list: number, charged: number): string => {
+    const pct = discountPct(controller.world, data, planetId);
+    return pct > 0 && charged !== list
+      ? `${formatCredits(charged)} (${pct}% ${governmentShortName(governmentOf(planetId, data), data)} rank discount, list ${formatCredits(list)})`
+      : formatCredits(charged);
+  };
 
   const items = (): ShopItem[] =>
     shipStock(planetId, data)
@@ -67,7 +81,7 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
               ['Outfit space', `${def.outfitSpace} t`],
               ['Speed', String(def.maxSpeed)],
               ['Turn', `${def.turnRate}°/s`],
-              ['Price', formatCredits(q.price)],
+              ['Price', priceText(q.listPrice, q.price)],
               ['Trade-in', formatCredits(q.tradeIn)],
               ['Net cost', formatCredits(q.net)],
             ],

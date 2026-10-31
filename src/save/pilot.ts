@@ -5,7 +5,7 @@ import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 6;
+export const CURRENT_SAVE_VERSION = 7;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -49,8 +49,20 @@ const MarketEventSchema = z.object({
   strength: z.number().finite(),
 });
 
+const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+function tolerantRecord<T>(fix: (entry: Record<string, unknown>) => T) {
+  return z
+    .record(z.string(), z.unknown())
+    .transform((rec): Record<string, T> => {
+      const out: Record<string, T> = {};
+      for (const [k, v] of Object.entries(rec)) if (typeof v === 'object' && v !== null && !Array.isArray(v)) out[k] = fix(v as Record<string, unknown>);
+      return out;
+    });
+}
+
 export const PilotSaveSchema = z.object({
-  version: z.literal(6),
+  version: z.literal(7),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -97,6 +109,11 @@ export const PilotSaveSchema = z.object({
     declined: z.array(z.string()),
   }),
   standing: z.record(z.string(), StandingLevelSchema),
+  // v7: law heat and rank records, per government. Corrupt values never fail the load: an entry that is
+  // not an object is dropped, a non-finite or non-number field becomes 0, and the range clamps
+  // (salaryDay keeps its -1 "never paid" floor). A law or ranks that is missing or not a record loads as empty.
+  law: tolerantRecord((e) => ({ heat: clamp(num(e.heat), 0, 100) })).catch({}),
+  ranks: tolerantRecord((e) => ({ points: Math.max(0, num(e.points)), salaryDay: Math.max(-1, num(e.salaryDay)) })).catch({}),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
@@ -178,6 +195,8 @@ export const migrations: Record<number, (s: any) => any> = {
     }
     return { ...s, version: 6, outfits, stats: { ...s.stats, kills: 0, captures: 0 } };
   },
+  // v6 -> v7. Data-free: no heat with any government, no rank points.
+  6: (s) => ({ ...s, version: 7, law: {}, ranks: {} }),
 };
 
 export function upgradeSave(raw: unknown): PilotSave {
@@ -237,6 +256,8 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
       declined: [...world.story.declined],
     },
     standing: { ...world.standing },
+    law: Object.fromEntries(Object.entries(world.law).map(([g, l]) => [g, { ...l }])),
+    ranks: Object.fromEntries(Object.entries(world.ranks).map(([g, r]) => [g, { ...r }])),
   };
 }
 
@@ -291,6 +312,9 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
       declined: [...p.story.declined],
     },
     standing: { ...p.standing },
+    // A corrupt value clamps rather than failing the load: heat to 0-100, points to 0 or more.
+    law: Object.fromEntries(Object.entries(p.law).map(([g, l]) => [g, { heat: Math.min(100, Math.max(0, l.heat)) }])),
+    ranks: Object.fromEntries(Object.entries(p.ranks).map(([g, r]) => [g, { ...r, points: Math.max(0, r.points) }])),
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
 }

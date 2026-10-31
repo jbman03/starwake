@@ -22,6 +22,8 @@ import {
   type ShotKind,
 } from './combat';
 import { faceInput } from './assists';
+import { commitCrime, huntingGovernments } from './law';
+import { addPoints } from './ranks';
 import { stepShip } from './flight';
 import { hashString, mulberry32 } from './random';
 import { JUMP_POINT_MARGIN, SYSTEM_CENTER } from './rules';
@@ -44,6 +46,8 @@ export interface Battle {
   secondary: string | null;
   /** Governments hostile to the player this visit. */
   angry: string[];
+  /** Governments that hunt the pilot, so their patrols attack on sight; read from law heat every tick. */
+  hunted: string[];
   nextShotId: number;
   /** The player's hull has been destroyed (set once, with the playerDestroyed event). */
   playerDestroyed: boolean;
@@ -80,6 +84,7 @@ export function newBattle(world: WorldState, data: GameData): Battle {
     cooldowns: {},
     secondary: loadedLaunchers(world.outfits, data)[0] ?? null,
     angry: [],
+    hunted: huntingGovernments(world, data),
     nextShotId: 1,
     playerDestroyed: false,
   };
@@ -126,12 +131,15 @@ function aiSelfOf(n: Npc, me: Combatant, data: GameData): AiSelf {
   };
 }
 
+/** The governments whose patrols treat the player as hostile: angered this visit, or hunting the pilot (spec §4.4). */
+const hostileGovernments = (b: Battle): readonly string[] => (b.hunted.length ? [...b.angry, ...b.hunted] : b.angry);
+
 /** Would this NPC fight the player (whether or not it can right now)? A stood-down raider would not. */
 export function isHostileToPlayer(n: Npc, world: WorldState, b: Battle): boolean {
   const player: Combatant = { id: PLAYER_ID, government: '', ship: world.ship, radius: 0, hull: b.player, outfits: world.outfits };
   const me: Combatant = { id: n.id, government: n.government, ship: n.ship, radius: 0, hull: n.hull, outfits: n.outfits };
   const self: AiSelf = { role: n.role, me, peaceful: n.peaceful || n.demand, aggro: n.aggro, maxSpeed: 0, fireRange: 0 };
-  return isHostileTo(self, player, b.angry);
+  return isHostileTo(self, player, hostileGovernments(b));
 }
 
 /** Nearest targetable, active NPC that is hostile to the player (a stood-down raider is not). */
@@ -289,7 +297,7 @@ export function stepBattle(
 
   // 1. Recharge every hull.
   let playerHull = rechargeHull(b.player, dt, now);
-  let battle: Battle = { ...b, player: playerHull };
+  let battle: Battle = { ...b, player: playerHull, hunted: huntingGovernments(world, data) };
   let npcs: Npc[] = traffic.npcs.map((n) => (isTargetable(n) ? { ...n, hull: rechargeHull(n.hull, dt, now) } : n));
   let outfits = world.outfits;
 
@@ -344,7 +352,7 @@ export function stepBattle(
     }
     const me = combatantOf(n, data);
     const others = all.filter((c) => c.id !== n.id);
-    const d = decide(aiSelfOf(n, me, data), others, battle.angry, fleePoint(n.ship, sys.jumpDistance), data);
+    const d = decide(aiSelfOf(n, me, data), others, hostileGovernments(battle), fleePoint(n.ship, sys.jumpDistance), data);
     if (d.mode === 'flee') {
       if (!n.fled) flee.push(n.id);
       next.push({ ...n, engaged: false, errand: 'pass', portId: null, fled: true });
@@ -394,7 +402,9 @@ export function stepBattle(
     else if (p.ttl > 0) survivors.push(p);
   }
 
-  // 5 and 6. Damage, standing, kills and events.
+  // 5 and 6. Damage, standing, crimes, kills and events.
+  let lawWorld = world; // carries law heat and rank points; only the player's damage changes them
+  const localGov = sys.government;
   let stats = world.stats;
   let standing = world.standing;
   const angry = [...battle.angry];
@@ -424,6 +434,11 @@ export function stepBattle(
     if (updated.demand) updated = { ...updated, demand: false, engaged: true };
     events.push({ type: 'hit', targetId: n.id, shield: r.shieldHit, pos: h.pos });
     if (byPlayer && !isRaider(n)) {
+      // Cycle 5 crimes (spec §4.2), on top of the standing below: the first player hit on this ship
+      // (its aggro remembers the player), then disabling it, then destroying it.
+      if (!n.aggro.includes(PLAYER_ID)) lawWorld = commitCrime(lawWorld, data, n.government, 'hit');
+      if (r.disabledNow) lawWorld = commitCrime(lawWorld, data, n.government, 'disable');
+      if (r.destroyed) lawWorld = commitCrime(lawWorld, data, n.government, 'destroy');
       // Spec §9: destroying (or capturing) a patrol sets standing cool; disabling one is a plain hit.
       const a = angerOnHit(standing, angry, n, r.destroyed);
       standing = a.standing;
@@ -437,6 +452,8 @@ export function stepBattle(
       events.push({ type: 'destroyed', id: n.id, byPlayer, pos: h.pos });
       dead.add(n.id);
     }
+    // A raider destroyed by the player earns a rank point with the local government (spec §6.2).
+    if (byPlayer && r.destroyed && isRaider(n) && localGov) lawWorld = addPoints(lawWorld, data, localGov, data.law.rankPoints.raiderKill);
     if (byPlayer && (r.disabledNow || r.destroyed) && !updated.killCounted) {
       stats = { ...stats, kills: stats.kills + 1 };
       updated = { ...updated, killCounted: true };
@@ -445,9 +462,10 @@ export function stepBattle(
   }
 
   const finalNpcs = npcs.filter((n) => !dead.has(n.id)).map((n) => byId.get(n.id) ?? n);
-  const nextWorld: WorldState = { ...world, outfits, stats, standing };
+  const nextWorld: WorldState = { ...lawWorld, outfits, stats, standing };
+  const hunted = lawWorld === world ? battle.hunted : huntingGovernments(nextWorld, data);
   return {
-    battle: { ...battle, player: playerHull, playerDestroyed: playerDead, projectiles: survivors, beams: t.beams, cooldowns: t.cooldowns, angry, nextShotId: t.nextShotId },
+    battle: { ...battle, player: playerHull, playerDestroyed: playerDead, projectiles: survivors, beams: t.beams, cooldowns: t.cooldowns, angry, hunted, nextShotId: t.nextShotId },
     traffic: { ...traffic, npcs: finalNpcs, targetId: traffic.targetId && dead.has(traffic.targetId) ? null : traffic.targetId },
     world: nextWorld,
     events,

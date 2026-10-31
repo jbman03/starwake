@@ -39,8 +39,16 @@ export function eventMult(world: WorldState, portId: string, commodityId: string
   return m;
 }
 
-/** Current price at a port, or null if the port doesn't trade the good. */
+/** The port's government outlaws the good, so the port never trades it (spec §5.1). */
+export function outlawedAt(data: GameData, portId: string, commodityId: string): boolean {
+  const planet = data.planets[portId];
+  const gov = planet ? data.systems[planet.systemId]?.government : undefined;
+  return gov !== undefined && (data.commodities[commodityId]?.illegalIn?.includes(gov) ?? false);
+}
+
+/** Current price at a port, or null if the port doesn't trade the good (or its government outlaws it). */
 export function priceOf(world: WorldState, data: GameData, portId: string, commodityId: string): number | null {
+  if (outlawedAt(data, portId, commodityId)) return null;
   const level = data.planets[portId]?.market?.[commodityId];
   const base = data.commodities[commodityId]?.basePrice;
   if (!level || base === undefined) return null;

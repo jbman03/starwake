@@ -1,5 +1,7 @@
 import type { GameData } from '../data/schemas';
+import { isRaider } from './battle';
 import { cargoFree } from './cargo';
+import { commitCrime } from './law';
 import { hashString, mulberry32 } from './random';
 import { shipStats } from './shipStats';
 import { tradeInValue } from './shipyard';
@@ -51,6 +53,14 @@ export function lootOf(world: WorldState, data: GameData, npc: Npc): Loot {
   const ammo: Record<string, number> = {};
   for (const [id, n] of Object.entries(npc.outfits)) if (n > 0 && data.outfits[id]?.category === 'ammo') ammo[id] = n;
   return { credits, cargo, ammo };
+}
+
+/**
+ * A boarding crime against the ship's government (spec §4.2): `board` for taking its loot, `destroy`
+ * for capturing it. Raiders have no law, so boarding them is never a crime.
+ */
+export function boardingCrime(world: WorldState, data: GameData, npc: Npc, crime: 'board' | 'destroy'): WorldState {
+  return isRaider(npc) ? world : commitCrime(world, data, npc.government, crime);
 }
 
 export function captureOdds(world: WorldState, data: GameData, npc: Npc): number {

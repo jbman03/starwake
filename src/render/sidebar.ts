@@ -19,6 +19,14 @@ const MAP_H = 30;
 /** The target's thin shield and armor bars under its detail line. */
 const TARGET_BAR_H = 4;
 
+/** One thing the sidebar draws, in screen px: a text line (with its text), the radar, the target bars or the Map button. */
+export interface SidebarBox {
+  name: string;
+  text: string;
+  top: number;
+  bottom: number;
+}
+
 /**
  * Escape Velocity style right-hand sidebar for keyboard play: radar, shield/armor/fuel bars,
  * nav, target, cargo, credits, date and a Map button. Phaser Graphics and Text at depth 1000,
@@ -28,7 +36,7 @@ export class Sidebar {
   private g: Phaser.GameObjects.Graphics;
   private radar: Phaser.GameObjects.Graphics;
   private texts: Phaser.GameObjects.Text[] = [];
-  private labels: Record<'shields' | 'armor' | 'fuel' | 'nav' | 'secondary' | 'target' | 'targetDetail' | 'cargo' | 'credits' | 'date', Phaser.GameObjects.Text>;
+  private labels: Record<'shields' | 'armor' | 'fuel' | 'nav' | 'law' | 'secondary' | 'target' | 'targetDetail' | 'cargo' | 'credits' | 'date', Phaser.GameObjects.Text>;
   private mapBtn: Phaser.GameObjects.Text;
   private screenX = 0;
   private readonly x = 0;
@@ -52,6 +60,7 @@ export class Sidebar {
       armor: text(11, '#8fa0b5'),
       fuel: text(11, '#8fa0b5'),
       nav: text(13, '#9fe7a0'),
+      law: text(13),
       secondary: text(13, '#b8c4d2'),
       target: text(13, '#e8eef5'),
       targetDetail: text(12, '#b8c4d2'),
@@ -104,6 +113,24 @@ export class Sidebar {
     return { ...b, x: this.screenX + b.x };
   }
 
+  /**
+   * What the sidebar shows, top to bottom (screen px; its camera starts at the top of the window).
+   * Empty lines are left out; the target bars' room is always listed (they are drawn only with a ship
+   * targeted). For e2e: what it reads, and whether it fits the window.
+   */
+  boxes(): SidebarBox[] {
+    const L = this.labels;
+    const line = (name: keyof typeof L): SidebarBox => ({ name, text: L[name].text, top: L[name].y, bottom: L[name].y + L[name].height });
+    const out: SidebarBox[] = [{ name: 'radar', text: '', top: 12, bottom: 12 + RADAR_R * 2 }];
+    for (const name of ['shields', 'armor', 'fuel', 'nav', 'law', 'secondary', 'target', 'targetDetail'] as const) out.push(line(name));
+    const barsTop = L.targetDetail.y + 20;
+    out.push({ name: 'targetBars', text: '', top: barsTop, bottom: barsTop + TARGET_BAR_H * 2 + 2 });
+    for (const name of ['cargo', 'credits', 'date'] as const) out.push(line(name));
+    const m = this.localMapBounds();
+    out.push({ name: 'map', text: this.mapBtn.text, top: m.y, bottom: m.y + m.h });
+    return out.filter((b) => b.name === 'radar' || b.name === 'targetBars' || b.text !== '');
+  }
+
   private localMapBounds(): { x: number; y: number; w: number; h: number } {
     return { x: this.x + PAD, y: this.h - PAD - MAP_H, w: SIDEBAR_W - PAD * 2, h: MAP_H };
   }
@@ -119,8 +146,9 @@ export class Sidebar {
     L.fuel.setPosition(x, y + 40);
     y += 70;
     L.nav.setPosition(x, y);
-    L.secondary.setPosition(x, y + 20);
-    y += 50;
+    L.law.setPosition(x, y + 20);
+    L.secondary.setPosition(x, y + 40);
+    y += 70;
     L.target.setPosition(x, y);
     L.targetDetail.setPosition(x, y + 18);
     y += 62;
@@ -147,6 +175,7 @@ export class Sidebar {
     L.armor.setText('Armor');
     L.fuel.setText(`Fuel · ${info.jumps === Infinity ? '∞' : info.jumps} ${info.jumps === 1 ? 'jump' : 'jumps'}`);
     L.nav.setText(fitText(`Nav: ${info.nav}`, MAX_CHARS));
+    L.law.setText(info.law.text).setColor(info.law.color);
     L.secondary.setText(fitText(`Ammo: ${info.secondary}`, MAX_CHARS));
     L.target.setText(fitText(info.target ?? 'No target', MAX_CHARS));
     L.targetDetail.setText(info.targetHull?.disabled ? `${info.targetDetail ?? ''} · Disabled` : (info.targetDetail ?? ''));

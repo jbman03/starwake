@@ -75,6 +75,11 @@ describe('pilotCard standing', () => {
     expect(pilotCard(save(), data).standing).toBe('Standing: neutral everywhere');
   });
 
+  it('shows the standing capped at cool while Wanted or Hunted', () => {
+    expect(pilotCard(save({ standing: { concord: 'friend' }, law: { concord: { heat: 30 } } }), data).standing).toBe('Concord: cool');
+    expect(pilotCard(save({ standing: { concord: 'friend' }, law: { concord: { heat: 29 } } }), data).standing).toBe('Concord: friend');
+  });
+
   it('ignores a government this version lacks', () => {
     expect(pilotCard(save({ standing: { nowhere: 'friend' } }), data).standing).toBe('Standing: neutral everywhere');
   });

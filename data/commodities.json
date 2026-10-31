@@ -14,5 +14,11 @@
   { "id": "stillwater-pearl", "name": "Stillwater Pearl", "basePrice": 900, "origin": "quiet-shoal",
     "description": "Grey-silver pearls grown in the still pools of Quiet Shoal, each with a faint glow like a held breath. Divers will only trade them to captains who found the place themselves." },
   { "id": "dimglass", "name": "Dimglass", "basePrice": 700, "origin": "cullet-yard",
-    "description": "Offcuts of lantern-glass, cooled slow and clouded grey from the Dimming. Concord collectors prize it because no one can say how it was made, and the people who sell it will not say either." }
+    "description": "Offcuts of lantern-glass, cooled slow and clouded grey from the Dimming. Concord collectors prize it because no one can say how it was made, and the people who sell it will not say either." },
+  { "id": "stims", "name": "Unlicensed Stims", "basePrice": 600, "illegalIn": ["concord", "free-reach"],
+    "description": "Pressed tablets that keep a hauler awake through three shifts. Concord and the Compact both ban them, and neither has ever stopped a crew from buying." },
+  { "id": "relics", "name": "Dimming Relics", "basePrice": 900, "illegalIn": ["concord", "unlit"],
+    "description": "Scorched fittings and cracked lamp-cores pulled from the worlds that went dark. The Unlit call it grave-robbing and Concord calls it evidence tampering. Collectors elsewhere pay well." },
+  { "id": "gunparts", "name": "Weapon Parts", "basePrice": 750, "illegalIn": ["concord", "independent"],
+    "description": "Barrels, feed-springs and firing pins, sold by the crate with no questions asked. The settlements want fewer guns on the rim, and Concord wants an accounting of every one." }
 ]
