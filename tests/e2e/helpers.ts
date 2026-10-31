@@ -110,6 +110,19 @@ export async function holdAhead(page: Page, id: string): Promise<void> {
 }
 
 /**
+ * Test-only: put the player's shields and armor back to full (and clear disabled). The ship under fire is the
+ * player's too: on a slow frame a target that fires back can disable her before the first shot, and a disabled
+ * ship is towed to port, leaving nothing to shoot with.
+ */
+export async function guardPlayer(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const c = window.__starwake!.controller;
+    const b = c.combat.battle;
+    c.combat.battle = { ...b, player: { ...b.player, shields: b.player.maxShields, armor: b.player.maxArmor, disabled: false } };
+  });
+}
+
+/**
  * Fire single shots (`shoot` presses and releases the fire control) at NPC `id` until she is disabled. State-based,
  * with no shot count or time budget of its own, so slow (software-rendered CI) timing only makes it take longer:
  * whenever none of the player's shots is in flight and she is still up, she is weakened, held ahead and shot once.
@@ -121,6 +134,7 @@ export async function shootUntilDisabled(page: Page, id: string, shoot: () => Pr
     const n = await npcOf(page, id);
     if (!n) return 'gone';
     if (n.hull.disabled) return 'disabled';
+    await guardPlayer(page);
     if ((await playerShots(page)) === 0) {
       await weaken(page, id);
       await holdAhead(page, id);
