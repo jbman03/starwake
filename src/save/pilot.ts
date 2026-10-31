@@ -49,6 +49,18 @@ const MarketEventSchema = z.object({
   strength: z.number().finite(),
 });
 
+const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
+function tolerantRecord<T>(fix: (entry: Record<string, unknown>) => T) {
+  return z
+    .record(z.string(), z.unknown())
+    .transform((rec): Record<string, T> => {
+      const out: Record<string, T> = {};
+      for (const [k, v] of Object.entries(rec)) if (typeof v === 'object' && v !== null && !Array.isArray(v)) out[k] = fix(v as Record<string, unknown>);
+      return out;
+    });
+}
+
 export const PilotSaveSchema = z.object({
   version: z.literal(7),
   id: z.string().min(1),
@@ -97,9 +109,10 @@ export const PilotSaveSchema = z.object({
     declined: z.array(z.string()),
   }),
   standing: z.record(z.string(), StandingLevelSchema),
-  // v7: law heat and rank records, per government. Out-of-range values clamp in worldFromPilot.
-  law: z.record(z.string(), z.object({ heat: z.number().finite() })),
-  ranks: z.record(z.string(), z.object({ points: z.number().finite(), salaryDay: z.number().finite() })),
+  // v7: law heat and rank records, per government. Corrupt values never fail the load: an entry that is
+  // not an object is dropped, a non-finite or non-number field becomes 0, and the range clamps.
+  law: tolerantRecord((e) => ({ heat: clamp(num(e.heat), 0, 100) })),
+  ranks: tolerantRecord((e) => ({ points: Math.max(0, num(e.points)), salaryDay: Math.max(0, num(e.salaryDay)) })),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;

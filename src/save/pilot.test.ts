@@ -351,6 +351,26 @@ describe('save v7', () => {
     }
   });
 
+  it('non-numeric, null, NaN and 1e999 heat and points still load and clamp', () => {
+    const raw = JSON.parse(
+      '{"law":{"a":{"heat":"hot"},"b":{"heat":null},"c":{"heat":1e999},"d":{"heat":-1e999},"e":7,"f":null,"g":[1]},' +
+        '"ranks":{"a":{"points":"x","salaryDay":"y"},"b":{"points":null,"salaryDay":null},"c":{"points":1e999,"salaryDay":-5},"d":"no"}}',
+    );
+    const nan = { ...v6Of(), version: 7, law: { n: { heat: NaN } }, ranks: { n: { points: NaN, salaryDay: Infinity } } };
+    const up = upgradeSave({ ...v6Of(), version: 7, ...raw });
+    expect(up.law).toEqual({ a: { heat: 0 }, b: { heat: 0 }, c: { heat: 0 }, d: { heat: 0 } });
+    expect(up.ranks).toEqual({ a: { points: 0, salaryDay: 0 }, b: { points: 0, salaryDay: 0 }, c: { points: 0, salaryDay: 0 } });
+    const w = worldFromPilot(upgradeSave(nan), data);
+    expect(w.law).toEqual({ n: { heat: 0 } });
+    expect(w.ranks).toEqual({ n: { points: 0, salaryDay: 0 } });
+  });
+
+  it('upgradeSave itself clamps heat, points and salaryDay', () => {
+    const up = upgradeSave({ ...v6Of(), version: 7, law: { a: { heat: 250 } }, ranks: { a: { points: -3, salaryDay: -2 } } });
+    expect(up.law).toEqual({ a: { heat: 100 } });
+    expect(up.ranks).toEqual({ a: { points: 0, salaryDay: 0 } });
+  });
+
   it('law and ranks round-trip', () => {
     const w = { ...newWorld(data, 5), law: { concord: { heat: 40 } }, ranks: { concord: { points: 12, salaryDay: 9 } } };
     const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
