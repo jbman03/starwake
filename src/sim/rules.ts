@@ -1,5 +1,7 @@
 import type { GameData, PlanetDef } from '../data/schemas';
 import { lanesOf } from './galaxy';
+import { landingRefused } from './law';
+import { governmentShortName } from './standing';
 import type { WorldState } from './types';
 import { add, dist, len, norm, scale, sub, type Vec2 } from './vec';
 
@@ -19,9 +21,16 @@ export function planetsByDistance(world: WorldState, data: GameData): PlanetDef[
     .sort((a, b) => dist(pos, a.pos) - dist(pos, b.pos));
 }
 
+/** "Landing refused: you are hunted by the Concord." (the planet's owner hunts the pilot, spec §4.3). */
+export function landingRefusedText(data: GameData, planetId: string): string {
+  const gov = data.systems[data.planets[planetId]?.systemId]?.government ?? '';
+  return `Landing refused: you are hunted by the ${governmentShortName(gov, data)}.`;
+}
+
+/** False at a port whose owner hunts the pilot (see `landingRefused`), else close and slow enough. */
 export function canLand(world: WorldState, data: GameData, planetId: string): boolean {
   const p = data.planets[planetId];
-  if (!p || p.systemId !== world.systemId) return false;
+  if (!p || p.systemId !== world.systemId || landingRefused(world, data, planetId)) return false;
   const { landingMargin, landingSpeed } = data.config;
   return dist(world.ship.pos, p.pos) <= p.radius + landingMargin && len(world.ship.vel) <= landingSpeed;
 }
@@ -91,13 +100,28 @@ export function refuelQuote(fuel: number, fuelCapacity: number, planet: PlanetDe
 
 /**
  * Where a stranded ship gets towed: null unless fuel < fuelPerJump and the current system has no
- * port (every port sells fuel). BFS over links; in the first system with a port, the planet nearest its center.
- * A disabled ship (`opts.disabled`) is towed whatever its fuel: to the port nearest the ship in this
- * system, else by the same search.
+ * port that will take the ship (every port sells fuel). BFS over links; in the first system with such
+ * a port, the planet nearest its center. A disabled ship (`opts.disabled`) is towed whatever its fuel:
+ * to the port nearest the ship in this system, else by the same search.
+ * Ports whose owner hunts the pilot refuse landing, so the tow skips them; with every port in reach
+ * refusing it is null (`towBlockedByLaw` tells that apart from no tow being needed).
  */
 export function towDestination(world: WorldState, data: GameData, opts: { disabled?: boolean } = {}): string | null {
+  return towSearch(world, data, opts, true);
+}
+
+/** No tow comes only because every port in reach hunts the pilot (one would come with a clean record). */
+export function towBlockedByLaw(world: WorldState, data: GameData, opts: { disabled?: boolean } = {}): boolean {
+  if (!opts.disabled && world.ship.fuel >= data.config.fuelPerJump) return false; // no tow needed
+  if (towSearch(world, data, opts, true) !== null) return false;
+  // A stranded ship beside a port that takes it lands there instead (it needs no tow).
+  if (Object.values(data.planets).some((p) => p.systemId === world.systemId && !landingRefused(world, data, p.id))) return false;
+  return towSearch(world, data, { disabled: true }, false) !== null; // any port at all in reach, law aside
+}
+
+function towSearch(world: WorldState, data: GameData, opts: { disabled?: boolean }, skipRefused: boolean): string | null {
   if (!opts.disabled && world.ship.fuel >= data.config.fuelPerJump) return null;
-  const planets = Object.values(data.planets);
+  const planets = Object.values(data.planets).filter((p) => !skipRefused || !landingRefused(world, data, p.id));
   const fuelIn = (sysId: string) => planets.filter((p) => p.systemId === sysId);
   const here = fuelIn(world.systemId);
   if (here.length > 0) {

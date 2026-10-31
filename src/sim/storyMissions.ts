@@ -61,7 +61,7 @@ function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef):
   if (o.minDay !== undefined && world.day < o.minDay) return false;
   if (o.requires?.some((f) => !world.flags.includes(f))) return false;
   if (o.notFlags?.some((f) => world.flags.includes(f))) return false;
-  for (const [gov, level] of Object.entries(o.standing ?? {})) if (RANK[standingOf(world, gov)] < RANK[level]) return false;
+  for (const [gov, level] of Object.entries(o.standing ?? {})) if (RANK[standingOf(world, gov, data)] < RANK[level]) return false;
   // One main mission at a time (its `requires` flags carry the order), and one per chain.
   const others = s.active.map((a) => data.story[a.id]).filter((d): d is StoryMissionDef => !!d);
   if (def.arc === 'main' && others.some((d) => d.arc === 'main')) return false;

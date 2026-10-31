@@ -1,4 +1,5 @@
 import { exportFileName, exportPilot } from '../save/transfer';
+import { MSG_TOW_REFUSED } from '../app/controller';
 import type { UiContext } from './context';
 import { showHowToPlay } from './howToPlay';
 import { showMissionLog } from './missionLog';
@@ -54,9 +55,12 @@ export function showPauseMenu(ctx: UiContext): void {
 
   // Built when the menu opens; flight is paused while it is open, so the tow can't change under it.
   const towTo = controller.towDestination();
-  const towNote = controller.towWaiting()
-    ? el('p', { class: 'sw-status', text: 'Your ship is disabled. You can call a tow once no enemy is near.', attrs: { 'data-testid': 'pause-tow-note' } })
-    : null;
+  const towNoteText = controller.towWaiting()
+    ? 'Your ship is disabled. You can call a tow once no enemy is near.'
+    : controller.towBlocked()
+      ? MSG_TOW_REFUSED
+      : null;
+  const towNote = towNoteText ? el('p', { class: 'sw-status', text: towNoteText, attrs: { 'data-testid': 'pause-tow-note' } }) : null;
   const buttons = el('div', { class: 'sw-actions' }, [
     button('Resume', resume, { class: 'sw-btn-primary', hotkey: hotkeyFor(controller.settings.bindings, 'back') }),
     button('Save (at last planet)', () => void save()),

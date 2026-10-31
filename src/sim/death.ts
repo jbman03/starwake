@@ -14,13 +14,13 @@ export function hasPod(world: WorldState): boolean {
   return (world.outfits[POD_ID] ?? 0) > 0;
 }
 
-/** The nearest port by lane hops (then map distance, then id) whose government isn't cool toward the pilot; else the start planet. */
+/** The nearest port by lane hops (then map distance, then id) whose government isn't cool toward the pilot (Wanted or Hunted counts as cool); else the start planet. */
 export function rescuePort(world: WorldState, data: GameData): string {
   const here = data.systems[world.systemId];
   let best: { id: string; hops: number; d: number } | null = null;
   for (const p of Object.values(data.planets)) {
     const sys = data.systems[p.systemId];
-    if (!sys || standingOf(world, sys.government) === 'cool') continue;
+    if (!sys || standingOf(world, sys.government, data) === 'cool') continue;
     const hops = hopDistance(data, world.systemId, p.systemId, world.flags);
     if (!Number.isFinite(hops)) continue;
     const d = here ? dist(here.mapPos, sys.mapPos) : 0;

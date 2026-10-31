@@ -14,7 +14,7 @@ import { newWorld } from '../sim/world';
 import { contextLabel } from '../ui/rails';
 import { governmentShortName } from '../sim/standing';
 import { CALM_SEC, hostileAhead } from './combatControl';
-import { Controller, LANDING_FX_SEC, MSG_DISABLED, MSG_TOW_READY, type ControllerEvent } from './controller';
+import { Controller, LANDING_FX_SEC, MSG_DISABLED, MSG_TOW_READY, MSG_TOW_REFUSED, type ControllerEvent } from './controller';
 
 /** Run `sec` of frames at 60 fps (the landing and take-off effects take time). */
 function run(c: Controller, sec: number): void {
@@ -1592,6 +1592,63 @@ describe('combat in flight', () => {
     expect(c.towDestination()).not.toBeNull();
     run(c, 1);
     expect(said).toEqual([MSG_DISABLED, MSG_TOW_READY]);
+  });
+
+  const huntedEverywhere = { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 } };
+
+  it('a land attempt at a port that hunts the pilot is refused with a message, by key or tap', async () => {
+    const { c, target } = await flying();
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    const h = c.data.planets.halcyon;
+    c.world = { ...c.world, law: { concord: { heat: 60 } }, ship: { ...c.world.ship, pos: { ...h.pos }, vel: { x: 0, y: 0 } } };
+    press(c, target, 'KeyL');
+    run(c, LANDING_FX_SEC + 0.05);
+    expect(c.landedPlanetId).toBeNull();
+    expect(said).toEqual(['Landing refused: you are hunted by the Concord.']);
+    c.tapPlanet('halcyon');
+    run(c, LANDING_FX_SEC + 0.05);
+    expect(c.landedPlanetId).toBeNull();
+    expect(said).toEqual(['Landing refused: you are hunted by the Concord.', 'Landing refused: you are hunted by the Concord.']);
+    // Wanted only: the port takes the ship.
+    c.world = { ...c.world, law: { concord: { heat: 59 } } };
+    c.doContextAction();
+    run(c, LANDING_FX_SEC + 0.05);
+    expect(c.landedPlanetId).toBe('halcyon');
+  });
+
+  it('disabled and hunted by every port in reach: says no tow will come instead of offering one', async () => {
+    const { c } = await flying();
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    c.world = { ...c.world, law: huntedEverywhere };
+    c.traffic = { ...c.traffic, npcs: [], nextSpawnSec: 1e9 };
+    c.combat.battle = { ...c.combat.battle, projectiles: [], player: { ...c.combat.battle.player, armor: 1, shields: 0, disabled: true, lastHitSec: c.world.timeSec } };
+    run(c, CALM_SEC + 0.1);
+    expect(said).toEqual([MSG_DISABLED, MSG_TOW_REFUSED]);
+    expect(c.towDestination()).toBeNull();
+    expect(c.towBlocked()).toBe(true);
+    run(c, 1);
+    expect(said).toEqual([MSG_DISABLED, MSG_TOW_REFUSED]); // once
+    // The context button (CALL TOW) or the key explains again rather than doing nothing.
+    expect(c.callTow()).toBe(false);
+    expect(said).toEqual([MSG_DISABLED, MSG_TOW_REFUSED, MSG_TOW_REFUSED]);
+    expect(c.landedPlanetId).toBeNull();
+  });
+
+  it('stranded with every port in reach hunting the pilot: says so once', async () => {
+    const { c } = await flying();
+    const said: string[] = [];
+    c.on('message', (e) => said.push(e.text));
+    c.traffic = { ...c.traffic, npcs: [], nextSpawnSec: 1e9 };
+    c.world = { ...c.world, law: huntedEverywhere, ship: { ...c.world.ship, pos: { x: 3000, y: 0 }, fuel: 0 } };
+    run(c, 0.5);
+    expect(said).toEqual([MSG_TOW_REFUSED]);
+    expect(c.towDestination()).toBeNull();
+    // Hunted only by the Concord: the tow goes on past calder's ports instead.
+    c.world = { ...c.world, law: { concord: { heat: 100 } } };
+    expect(c.towBlocked()).toBe(false);
+    expect(c.towDestination()).toBe('vesk-outpost');
   });
 
   it('a disabled ship cannot answer a hail with Y', async () => {

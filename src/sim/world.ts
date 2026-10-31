@@ -7,11 +7,13 @@ import { missionSystem } from './combatMissions';
 import { failOverdue, jobMissions } from './missions';
 import { checkStoryDeadlines, storyDestinations } from './storyMissions';
 import { hashString } from './random';
+import { decayHeat, landingRefused } from './law';
 import {
   canJump,
   canLand,
   jumpDestination,
   jumpPoint,
+  landingRefusedText,
   pickLandTarget,
   planetsByDistance,
   refuelQuote,
@@ -104,6 +106,7 @@ export function advanceDays(world: WorldState, data: GameData, n: number): { wor
   for (let i = 0; i < n; i++) {
     w = { ...w, day: w.day + 1 };
     w = economyDay(w, data);
+    w = decayHeat(w, data, 1);
     const day = w.day;
     w = { ...w, takenOffers: w.takenOffers.filter((id) => Number(id.split(':').slice(-2)[0]) >= day) };
     const overdue = failOverdue(w);
@@ -447,11 +450,16 @@ export function stepWorld(
       if (id) w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
     } else {
       const id = pickLandTarget(w, data, false);
-      if (id && canLand(w, data, id)) {
+      if (id && landingRefused(w, data, id)) {
+        // Refused outright, near or far: say so rather than fly there to be turned away.
+        events.push({ type: 'message', text: landingRefusedText(data, id) });
+        w = { ...w, targetPlanetId: id, assist: NONE };
+      } else if (id && canLand(w, data, id)) {
         events.push({ type: 'landed', planetId: id });
         return { world: { ...w, targetPlanetId: id, assist: NONE, ship: { ...w.ship, vel: { ...ZERO } } }, events };
+      } else if (id) {
+        w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
       }
-      if (id) w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
     }
   }
 
@@ -520,7 +528,9 @@ export function stepWorld(
       const r = autopilotInput(w.ship, def, dest, data.config.arrivalRadius, AUTOPILOT_ARRIVE_SPEED);
       if (r.arrived) {
         w = { ...w, assist: NONE, ship: { ...w.ship, vel: { ...ZERO } } };
-        if (a.dest.type === 'planet' && a.autoLand) {
+        if (a.dest.type === 'planet' && a.autoLand && landingRefused(w, data, a.dest.id)) {
+          events.push({ type: 'message', text: landingRefusedText(data, a.dest.id) });
+        } else if (a.dest.type === 'planet' && a.autoLand) {
           events.push({ type: 'landed', planetId: a.dest.id });
           return { world: w, events };
         }

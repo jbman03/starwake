@@ -39,7 +39,7 @@ export function outfitBuyCheck(world: WorldState, data: GameData, planetId: stri
   if (!def || !sells(planetId, def, data)) return { ok: false, reason: 'notSold' };
   if (def.unique && hasFlag(world, boughtFlag(outfitId))) return { ok: false, reason: 'gone' };
   if (def.requiresFlag && !hasFlag(world, def.requiresFlag)) return { ok: false, reason: 'locked' };
-  if (!standingMet(world, def.requiresStanding)) return { ok: false, reason: 'standing' };
+  if (!standingMet(world, def.requiresStanding, data)) return { ok: false, reason: 'standing' };
   if (def.category === 'map') {
     const system = data.planets[planetId]?.systemId;
     const known = new Set(world.known);

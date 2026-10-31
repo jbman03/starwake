@@ -66,7 +66,7 @@ export function shipQuote(world: WorldState, data: GameData, planetId: string, s
   if (world.shipId === shipId) return result({ ok: false, reason: 'owned' });
   if (hull.unique && hasFlag(world, boughtFlag(shipId))) return result({ ok: false, reason: 'gone' });
   if (hull.requiresFlag && !hasFlag(world, hull.requiresFlag)) return result({ ok: false, reason: 'locked' });
-  if (!standingMet(world, hull.requiresStanding)) return result({ ok: false, reason: 'standing' });
+  if (!standingMet(world, hull.requiresStanding, data)) return result({ ok: false, reason: 'standing' });
   if (cargoUsed(world) > hull.cargo) return result({ ok: false, reason: 'cargo' });
   const riders = world.missions.reduce((n, m) => n + m.passengers, 0);
   if (riders > hull.passengers) return result({ ok: false, reason: 'passengers' });
