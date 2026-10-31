@@ -17,6 +17,8 @@ describe('law card', () => {
   it('both law cards are answered, never declined', () => {
     expect(lawCardView({ ...base, reason: 'scan', goods: ['1 t of X'] }).noDecline).toBe(true);
     expect(lawCardView({ ...base, reason: 'fine' }).noDecline).toBe(true);
+    expect(lawCardView({ ...base, reason: 'scan', goods: ['1 t of X'] }).mustAnswer).toBe(true);
+    expect(lawCardView({ ...base, reason: 'fine' }).mustAnswer).toBe(true);
   });
   it('a fine hail warns when Wanted, and blocks what the credits cannot cover', () => {
     const suspect = lawCardView({ ...base, reason: 'fine' });

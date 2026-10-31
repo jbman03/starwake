@@ -9,8 +9,9 @@ const CHOICE_ACTIONS: readonly ActionId[] = ['encounterChoice1', 'encounterChoic
  * The card for a hail or a site: the situation, then one button per choice (hotkeys 1-3). A blocked
  * choice is disabled and says why. `onChoose` takes the choice and returns the outcome lines, or
  * null if it was refused. Afterwards the outcome shows with a Done button. "Not now" (or Esc)
- * closes the card without using the encounter. A card with `noDecline` has no "Not now" and Esc does
- * nothing until it is answered. Closing resumes flight.
+ * closes the card without using the encounter. A card with `noDecline` shows Done instead of "Not now";
+ * one with `mustAnswer` shows nothing to close it, and Esc does nothing, until it is answered. Closing
+ * resumes flight.
  */
 export function showEncounterCard(ctx: UiContext, view: EncounterView, onChoose: (index: number) => string[] | null): void {
   const { controller } = ctx;
@@ -38,8 +39,7 @@ export function showEncounterCard(ctx: UiContext, view: EncounterView, onChoose:
   };
   const notNow = button('Not now', decline, { hotkey: hotkeyFor(bindings, 'back') });
   const doneBtn = button('Done', close, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'back') });
-  // Before an answer a `noDecline` card shows Done without the Esc hotkey: Esc must not close it.
-  const actions = el('div', { class: 'sw-ex-actions' }, view.noDecline ? [button('Done', close, { class: 'sw-btn-primary' })] : [notNow]);
+  const actions = el('div', { class: 'sw-ex-actions' }, view.mustAnswer ? [] : view.noDecline ? [doneBtn] : [notNow]);
 
   function choose(i: number): void {
     const c = view.choices[i];
@@ -65,7 +65,7 @@ export function showEncounterCard(ctx: UiContext, view: EncounterView, onChoose:
   ctx.mount(screen, {
     groups: ['menus'],
     onPress: (pressed) => {
-      if (pressed.has('back')) return done ? close() : view.noDecline ? undefined : decline();
+      if (pressed.has('back')) return done ? close() : view.mustAnswer ? undefined : decline();
       CHOICE_ACTIONS.forEach((a, i) => {
         if (pressed.has(a)) choose(i);
       });

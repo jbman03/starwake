@@ -119,6 +119,8 @@ export interface EncounterView {
   choices: { label: string; blocked: string | null }[];
   /** True when the card can't be put off (no "Not now"). */
   noDecline?: boolean;
+  /** True when the card must be answered: no way to close it before a choice, Esc included (law hails, Ruling 14). */
+  mustAnswer?: boolean;
 }
 
 export type ControllerEvent =

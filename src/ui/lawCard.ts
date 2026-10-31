@@ -24,7 +24,7 @@ const list = (items: string[]) => (items.length <= 1 ? (items[0] ?? '') : `${ite
  * The card for a patrol's scan or law hail, shown by the encounter card (keys 1/2/3) like a raider's
  * demand: scan → Comply / Bribe / Run; fine → Pay fine / Bribe / Refuse (Run while Wanted). Pay and
  * Bribe are blocked when the credits fall short; Comply never is (a shortfall goes on the record).
- * There is no "Not now" (`noDecline`): a law hail is always answered, and Esc does nothing (Ruling 14).
+ * There is no "Not now" and no Done before an answer (`mustAnswer`): a law hail is always answered, and Esc does nothing (Ruling 14).
  */
 export function lawCardView(v: LawCardInput): EncounterView {
   const short = (cost: number) => (v.credits >= cost ? null : 'Not enough credits');
@@ -40,6 +40,7 @@ export function lawCardView(v: LawCardInput): EncounterView {
         { label: 'Run', blocked: null },
       ],
       noDecline: true,
+      mustAnswer: true,
     };
   }
   return {
@@ -52,5 +53,6 @@ export function lawCardView(v: LawCardInput): EncounterView {
       { label: v.run ? 'Run' : 'Refuse', blocked: null },
     ],
     noDecline: true,
+    mustAnswer: true,
   };
 }

@@ -72,16 +72,28 @@ describe('encounter card', () => {
     expect(root.querySelectorAll('.sw-mc-row')).toHaveLength(1);
   });
 
-  it('a card that cannot be declined ignores Esc until it is answered', async () => {
+  it('a card that must be answered has no way to close it and ignores Esc until it is answered', async () => {
+    const { c, root, ctx, state } = await setup();
+    c.forceEncounter('cargo-drift');
+    const view = { ...c.encounterView()!, noDecline: true, mustAnswer: true };
+    c.pauseFlight();
+    showEncounterCard(ctx, view, () => ['Done deal.']);
+    expect(root.querySelectorAll('.sw-ex-actions button')).toHaveLength(0);
+    state.onPress!(new Set<ActionId>(['back']));
+    expect(root.querySelector('[data-testid="encounter-card"]')).not.toBeNull();
+    expect(c.isFlying).toBe(false);
+    state.onPress!(new Set<ActionId>(['encounterChoice1']));
+    state.onPress!(new Set<ActionId>(['back']));
+    expect(root.querySelector('[data-testid="encounter-card"]')).toBeNull();
+  });
+
+  it('a card that cannot be declined shows Done, and Esc still closes it', async () => {
     const { c, root, ctx, state } = await setup();
     c.forceEncounter('cargo-drift');
     const view = { ...c.encounterView()!, noDecline: true };
     c.pauseFlight();
     showEncounterCard(ctx, view, () => ['Done deal.']);
-    state.onPress!(new Set<ActionId>(['back']));
-    expect(root.querySelector('[data-testid="encounter-card"]')).not.toBeNull();
-    expect(c.isFlying).toBe(false);
-    state.onPress!(new Set<ActionId>(['encounterChoice1']));
+    expect([...root.querySelectorAll('.sw-ex-actions button')].map((b) => b.textContent)).toEqual([expect.stringMatching(/^Done/)]);
     state.onPress!(new Set<ActionId>(['back']));
     expect(root.querySelector('[data-testid="encounter-card"]')).toBeNull();
   });
