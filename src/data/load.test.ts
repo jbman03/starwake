@@ -294,7 +294,7 @@ describe('galaxy content', () => {
 
   it('classic basePrice 80-500, unique and contraband basePrice 400-900', () => {
     for (const c of Object.values(d.commodities)) {
-      const [lo, hi] = c.origin || c.illegalIn ? [400, 900] : [80, 500];
+      const [lo, hi] = c.origin || ['stims', 'relics', 'gunparts'].includes(c.id) ? [400, 900] : [80, 500];
       expect(c.basePrice, c.id).toBeGreaterThanOrEqual(lo);
       expect(c.basePrice, c.id).toBeLessThanOrEqual(hi);
     }
@@ -1100,6 +1100,9 @@ describe('law.json, factions.json and contraband', () => {
       );
       expect(gated.length, gid).toBeGreaterThan(0);
       expect(gated.some((i) => sells(f.hub, i, d)), `${gid} hub ${f.hub}`).toBe(true);
+      // Every hub of the faction's government stocks at least one gated item, so no hub is left ungated.
+      const hubs = Object.values(d.planets).filter((p) => p.hub && d.systems[p.systemId].government === gid);
+      for (const h of hubs) expect(gated.some((i) => sells(h.id, i, d)), `${gid} hub ${h.id}`).toBe(true);
     }
   });
 
@@ -1174,9 +1177,60 @@ describe('law.json, factions.json and contraband', () => {
   });
 
   it('rejects an illegalIn list that is empty or has duplicates', () => {
-    const r = raw();
-    r.commodities.find((c) => c.id === 'stims').illegalIn = ['concord', 'concord'];
-    expect(failure(r).file).toBe('commodities.json');
+    for (const bad of [[], ['concord', 'concord']]) {
+      const r = raw();
+      r.commodities.find((c) => c.id === 'stims').illegalIn = bad;
+      expect(failure(r).file).toBe('commodities.json');
+    }
+  });
+
+  it('rejects the raiders in illegalIn, requiresRank, rivals and as a faction key', () => {
+    let r = raw();
+    r.commodities.find((c) => c.id === 'stims').illegalIn = ['concord', 'raiders'];
+    let e = failure(r);
+    expect(e.file).toBe('commodities.json');
+    has(e, 'raiders have no law');
+    r = raw();
+    r.ships.find((s) => s.id === 'ironback').requiresRank = { government: 'raiders', rank: 4 };
+    has(failure(r), 'raiders have no law');
+    r = raw();
+    r.outfits.find((o) => o.id === 'lance-beam').requiresRank = { government: 'raiders', rank: 4 };
+    e = failure(r);
+    expect(e.file).toBe('planets.json');
+    has(e, 'raiders have no law');
+    r = raw();
+    r.factions.concord.rivals = ['unlit', 'raiders'];
+    e = failure(r);
+    expect(e.file).toBe('factions.json');
+    has(e, 'raiders have no law');
+    r = raw();
+    r.factions.raiders = clone(r.factions.concord);
+    e = failure(r);
+    expect(e.file).toBe('factions.json');
+    has(e, 'raiders have no law');
+  });
+
+  it('requires a faction for every government that holds a system', () => {
+    for (const gid of ['concord', 'free-reach', 'independent', 'unlit']) {
+      const r = raw();
+      delete r.factions[gid];
+      const e = failure(r);
+      expect(e.file).toBe('factions.json');
+      has(e, `"${gid}" holds a system`);
+    }
+  });
+
+  it('rejects duplicate and one-way rivals', () => {
+    let r = raw();
+    r.factions.concord.rivals = ['unlit', 'unlit'];
+    let e = failure(r);
+    expect(e.file).toBe('factions.json');
+    has(e, 'duplicate rival');
+    r = raw();
+    r.factions.unlit.rivals = [];
+    e = failure(r);
+    expect(e.file).toBe('factions.json');
+    has(e, 'as a rival back');
   });
 
   it('rejects a bad law.json, naming it', () => {

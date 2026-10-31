@@ -253,7 +253,8 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   const goodsIssues: string[] = [];
   for (const c of Object.values(commodities))
     (c.illegalIn ?? []).forEach((g, i) => {
-      if (!(g in governments)) goodsIssues.push(fmt('commodities.json', `${c.id}.illegalIn.${i}`, `unknown government "${g}"`));
+      if (g === 'raiders') goodsIssues.push(fmt('commodities.json', `${c.id}.illegalIn.${i}`, 'raiders have no law and no ranks'));
+      else if (!(g in governments)) goodsIssues.push(fmt('commodities.json', `${c.id}.illegalIn.${i}`, `unknown government "${g}"`));
     });
   for (const c of Object.values(commodities)) {
     if (c.origin === undefined) continue;
@@ -302,7 +303,9 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     if (gate && !(gate.government in governments))
       shopIssues.push(fmt(file, `${item.id}.requiresStanding.government`, `unknown government "${gate.government}"`));
     const rankGate = (item as { requiresRank?: { government: string } }).requiresRank;
-    if (rankGate && !(rankGate.government in governments))
+    if (rankGate?.government === 'raiders')
+      shopIssues.push(fmt(file, `${item.id}.requiresRank.government`, 'raiders have no law and no ranks'));
+    else if (rankGate && !(rankGate.government in governments))
       shopIssues.push(fmt(file, `${item.id}.requiresRank.government`, `unknown government "${rankGate.government}"`));
     const sellers = Object.values(planets).filter((p) => p.services.includes(shop) && sells(p.id, item, partial));
     if (sellers.length === 0) shopIssues.push(fmt(file, item.id, 'no port sells this'));
@@ -315,13 +318,25 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   if (shopIssues.length) throw new DataError('planets.json', shopIssues);
 
   const factionIssues: string[] = [];
+  // The raiders have no law and no ranks, so they may not appear in any law or rank data.
+  const NO_LAW = 'raiders';
+  const noLaw = (at: string) => fmt('factions.json', at, 'raiders have no law and no ranks');
+  for (const gid of Object.keys(governments))
+    if (gid !== NO_LAW && !(gid in factions) && Object.values(systems).some((sy) => sy.government === gid))
+      factionIssues.push(fmt('factions.json', gid, `government "${gid}" holds a system and needs a faction entry`));
   for (const [gid, f] of Object.entries(factions)) {
-    if (!(gid in governments)) factionIssues.push(fmt('factions.json', gid, `unknown government "${gid}"`));
+    if (gid === NO_LAW) factionIssues.push(noLaw(gid));
+    else if (!(gid in governments)) factionIssues.push(fmt('factions.json', gid, `unknown government "${gid}"`));
     const hub = planets[f.hub];
     if (!hub) factionIssues.push(fmt('factions.json', `${gid}.hub`, `unknown planet "${f.hub}"`));
     else if (systems[hub.systemId]?.government !== gid)
       factionIssues.push(fmt('factions.json', `${gid}.hub`, `planet "${f.hub}" is not a "${gid}" port`));
     f.rivals.forEach((rv, i) => {
+      if (rv === NO_LAW) factionIssues.push(noLaw(`${gid}.rivals.${i}`));
+      else if (f.rivals.indexOf(rv) !== i) factionIssues.push(fmt('factions.json', `${gid}.rivals.${i}`, `duplicate rival "${rv}"`));
+      else if (rv in governments && rv !== gid && !(factions[rv]?.rivals ?? []).includes(gid))
+        factionIssues.push(fmt('factions.json', `${gid}.rivals.${i}`, `"${rv}" does not list "${gid}" as a rival back`));
+      if (rv === NO_LAW) return;
       if (!(rv in governments)) factionIssues.push(fmt('factions.json', `${gid}.rivals.${i}`, `unknown government "${rv}"`));
       else if (rv === gid) factionIssues.push(fmt('factions.json', `${gid}.rivals.${i}`, 'a faction cannot rival itself'));
     });
