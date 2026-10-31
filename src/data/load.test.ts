@@ -13,13 +13,16 @@ import encounters from '../../data/encounters.json';
 import story from '../../data/story.json';
 import combat from '../../data/combat.json';
 import audio from '../../data/audio.json';
+import law from '../../data/law.json';
+import factions from '../../data/factions.json';
 import { parseGameData, DataError, loadGameData } from './load';
 import { SFX_IDS } from './schemas';
+import { sells } from '../sim/stock';
 import { MOOD_IDS } from '../audio/moods';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
-  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio }) as {
+  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, factions }) as {
   ships: any[];
   systems: any[];
   planets: any[];
@@ -34,6 +37,8 @@ const raw = () =>
   story: { missions: any[] };
   combat: any;
   audio: any;
+  law: any;
+  factions: any;
 };
 
 const port = (r: ReturnType<typeof raw>, id: string) => r.planets.find((p) => p.id === id);
@@ -287,9 +292,9 @@ describe('galaxy content', () => {
     expect(bad).toEqual([]);
   });
 
-  it('classic basePrice 80-500, unique basePrice 400-900', () => {
+  it('classic basePrice 80-500, unique and contraband basePrice 400-900', () => {
     for (const c of Object.values(d.commodities)) {
-      const [lo, hi] = c.origin ? [400, 900] : [80, 500];
+      const [lo, hi] = c.origin || c.illegalIn ? [400, 900] : [80, 500];
       expect(c.basePrice, c.id).toBeGreaterThanOrEqual(lo);
       expect(c.basePrice, c.id).toBeLessThanOrEqual(hi);
     }
@@ -1041,5 +1046,153 @@ describe('audio.json and config.jump', () => {
     const e = failure(r);
     expect(e.file).toBe('config.json');
     has(e, 'chargeSec');
+  });
+});
+
+describe('law.json, factions.json and contraband', () => {
+  const has = (e: DataError, text: string) => expect(e.issues.join('\n')).toContain(text);
+
+  it('the shipped law and factions data parse', () => {
+    const d = parseGameData(raw());
+    expect(d.law.thresholds).toEqual({ suspect: 10, wanted: 30, hunted: 60 });
+    expect(d.law.crimes).toEqual({ hit: 10, disable: 20, destroy: 40, contraband: 15, run: 20, board: 15 });
+    expect(d.law).toMatchObject({
+      refuseHeat: 5, decayPerDay: 2, fineRate: 40, bribeMul: 1.5, bribeChance: 0.6, bribeFailHeat: 10,
+      hailRange: 900, scanRange: 600, catchChance: 0.8, scramblerCut: 0.5, contrabandFine: 100,
+    });
+    expect(Object.keys(d.factions).sort()).toEqual(['concord', 'free-reach', 'independent', 'unlit']);
+    for (const f of Object.values(d.factions)) {
+      expect(f.ranks.map((r) => r.points)).toEqual([10, 30, 70, 150, 300]);
+      expect(f.ranks.map((r) => r.perk.kind)).toEqual(['title', 'discount', 'salary', 'unlock', 'discountSalary']);
+    }
+    expect(d.factions.concord.ranks.map((r) => r.title)).toEqual(['Lamplighter', 'Warden', 'Keeper', 'Beacon', 'Lanternmarshal']);
+    expect(d.factions.concord.rivals).toEqual(['unlit']);
+    expect(d.factions.unlit.rivals).toEqual(['concord']);
+    expect(d.factions.concord.ranks[1].perk).toEqual({ kind: 'discount', pct: 5 });
+    expect(d.factions.concord.ranks[2].perk).toEqual({ kind: 'salary', cr: 150 });
+    expect(d.factions.concord.ranks[3].perk).toEqual({ kind: 'unlock', missionPayPct: 10 });
+    expect(d.factions.concord.ranks[4].perk).toEqual({ kind: 'discountSalary', pct: 10, cr: 400 });
+  });
+
+  it('ships the three contraband goods, a scrambler, and black markets that respect the law', () => {
+    const d = parseGameData(raw());
+    expect(d.commodities.stims).toMatchObject({ name: 'Unlicensed Stims', basePrice: 600, illegalIn: ['concord', 'free-reach'] });
+    expect(d.commodities.relics).toMatchObject({ name: 'Dimming Relics', basePrice: 900, illegalIn: ['concord', 'unlit'] });
+    expect(d.commodities.gunparts).toMatchObject({ name: 'Weapon Parts', basePrice: 750, illegalIn: ['concord', 'independent'] });
+    expect(d.outfits.scrambler).toMatchObject({ name: 'Scan Scrambler', price: 4500, space: 1 });
+    for (const g of ['stims', 'relics', 'gunparts']) {
+      const lows = Object.values(d.planets).filter((p) => p.market?.[g] === 'low');
+      expect(lows.length, g).toBeGreaterThanOrEqual(2);
+      expect(Object.values(d.planets).some((p) => p.market?.[g] === 'high'), g).toBe(true);
+    }
+    const fringe = new Set(Object.values(d.planets).filter((p) => ['stims', 'relics', 'gunparts'].some((g) => p.market?.[g] === 'low')).map((p) => p.id));
+    expect(fringe.size).toBeGreaterThanOrEqual(2);
+    expect(fringe.size).toBeLessThanOrEqual(3);
+    // The scrambler is not sold at any Concord port.
+    for (const p of Object.values(d.planets)) if (d.systems[p.systemId].government === 'concord') expect(sells(p.id, d.outfits.scrambler, d), p.id).toBe(false);
+  });
+
+  it('every lawful faction has a rank-4 gated item at its hub', () => {
+    const d = parseGameData(raw());
+    for (const [gid, f] of Object.entries(d.factions)) {
+      const gated = [...Object.values(d.ships), ...Object.values(d.outfits)].filter(
+        (i) => i.requiresRank?.government === gid && i.requiresRank.rank === 4,
+      );
+      expect(gated.length, gid).toBeGreaterThan(0);
+      expect(gated.some((i) => sells(f.hub, i, d)), `${gid} hub ${f.hub}`).toBe(true);
+    }
+  });
+
+  it('rejects a faction with 4 ranks, naming factions.json', () => {
+    const r = raw();
+    r.factions.concord.ranks.pop();
+    const e = failure(r);
+    expect(e.file).toBe('factions.json');
+    has(e, 'factions.json');
+  });
+
+  it('rejects rank points that do not increase', () => {
+    const r = raw();
+    r.factions.concord.ranks[2].points = 30;
+    const e = failure(r);
+    expect(e.file).toBe('factions.json');
+    r.factions.concord.ranks[2].points = 5;
+    expect(failure(r).file).toBe('factions.json');
+  });
+
+  it('rejects an unknown perk kind', () => {
+    const r = raw();
+    r.factions.concord.ranks[0].perk = { kind: 'free-ship' };
+    expect(failure(r).file).toBe('factions.json');
+  });
+
+  it('rejects an unknown government as a faction, a rival, an illegalIn entry or a requiresRank', () => {
+    let r = raw();
+    r.factions['no-such'] = clone(r.factions.concord);
+    has(failure(r), 'no-such');
+    r = raw();
+    r.factions.concord.rivals = ['no-such'];
+    has(failure(r), 'factions.json');
+    r = raw();
+    r.commodities.find((c) => c.id === 'stims').illegalIn = ['concord', 'no-such'];
+    const e = failure(r);
+    has(e, 'commodities.json');
+    has(e, 'no-such');
+    r = raw();
+    r.ships.find((s) => s.id === 'ironback').requiresRank = { government: 'no-such', rank: 4 };
+    has(failure(r), 'no-such');
+    r = raw();
+    r.outfits.find((o) => o.id === 'lance-beam').requiresRank = { government: 'no-such', rank: 4 };
+    has(failure(r), 'no-such');
+  });
+
+  it('rejects a requiresRank outside 1 to 5', () => {
+    const r = raw();
+    r.ships.find((s) => s.id === 'ironback').requiresRank = { government: 'free-reach', rank: 6 };
+    expect(failure(r).issues.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a hub naming an unknown planet, or one outside the faction', () => {
+    let r = raw();
+    r.factions.concord.hub = 'no-such-port';
+    has(failure(r), 'no-such-port');
+    r = raw();
+    r.factions.concord.hub = 'wrenhold';
+    has(failure(r), 'factions.json');
+  });
+
+  it('rejects a planet whose own government outlaws a good in its market', () => {
+    let r = raw();
+    port(r, 'halcyon').market.stims = 'low'; // concord outlaws stims
+    let e = failure(r);
+    has(e, 'planets.json');
+    has(e, 'halcyon.market.stims');
+    r = raw();
+    port(r, 'cullet-yard').market.relics = 'low'; // unlit outlaws relics
+    e = failure(r);
+    has(e, 'cullet-yard.market.relics');
+  });
+
+  it('rejects an illegalIn list that is empty or has duplicates', () => {
+    const r = raw();
+    r.commodities.find((c) => c.id === 'stims').illegalIn = ['concord', 'concord'];
+    expect(failure(r).file).toBe('commodities.json');
+  });
+
+  it('rejects a bad law.json, naming it', () => {
+    const muts: ((l: any) => void)[] = [
+      (l) => delete l.fineRate,
+      (l) => (l.thresholds = { suspect: 30, wanted: 30, hunted: 60 }),
+      (l) => (l.bribeChance = 1.5),
+      (l) => (l.catchChance = -0.1),
+      (l) => (l.scramblerCut = 2),
+      (l) => (l.crimes.hit = -1),
+      (l) => (l.extra = 1),
+    ];
+    for (const mutate of muts) {
+      const r = raw();
+      mutate(r.law);
+      expect(failure(r).file).toBe('law.json');
+    }
   });
 });

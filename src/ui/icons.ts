@@ -45,6 +45,8 @@ const GLYPHS: Record<OutfitDef['category'], string[]> = {
   beam: ['M3 9h4v6H3z', 'M7 12h14', 'M17 9l4 3-4 3'],
   // Capsule with a hatch window.
   pod: ['M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z', 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0'],
+  // Box with scrambled signal lines.
+  scrambler: ['M4 8h16v10H4z', 'M7 13l2-2 2 3 2-4 2 3 2-2', 'M9 8V5', 'M15 8V5'],
 };
 
 /** Outline glyph for an outfit; `data-stroke` records the tier colour. */

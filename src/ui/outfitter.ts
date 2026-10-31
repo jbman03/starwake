@@ -36,6 +36,8 @@ function effectText(def: OutfitDef, fuelPerJump: number, data: GameData): string
       return `${def.effect.dps} dmg/s · range ${def.effect.range}`;
     case 'pod':
       return 'Saves the pilot once if the ship is lost';
+    case 'scrambler':
+      return 'Blunts patrol cargo scans';
   }
 }
 

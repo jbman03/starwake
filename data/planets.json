@@ -93,12 +93,12 @@
 
   {
     "id": "brannock-deeps", "name": "Brannock Deeps", "systemId": "brannock", "pos": { "x": 550, "y": 500 }, "radius": 50, "techTier": 3, "fuelPrice": 3, "kind": "planet",
-    "services": ["exchange", "missions", "shipyard", "outfitter", "bar"], "market": { "metal": "low", "food": "high", "medical": "high", "equipment": "med" },
+    "services": ["exchange", "missions", "shipyard", "outfitter", "bar"], "market": { "metal": "low", "food": "high", "medical": "high", "equipment": "med", "gunparts": "high" },
     "description": "A mining world honeycombed so deep that the miners commute by elevator for an hour each way. They come up hungry and go down bandaged."
   },
   {
     "id": "shaft-nine", "name": "Shaft Nine", "systemId": "brannock", "pos": { "x": -650, "y": -400 }, "radius": 26, "techTier": 2, "fuelPrice": 3, "kind": "station",
-    "services": ["exchange", "bar"], "market": { "metal": "low", "food": "high", "medical": "high" },
+    "services": ["exchange", "bar"], "market": { "metal": "low", "food": "high", "medical": "high", "gunparts": "low", "relics": "low" },
     "description": "An ore depot bolted to a spent asteroid. Shafts one through eight are a long story, and the dockhands will tell it for a drink."
   },
 
@@ -120,7 +120,7 @@
   },
   {
     "id": "the-commons", "name": "The Commons", "systemId": "wrenhold", "pos": { "x": -700, "y": -300 }, "radius": 32, "techTier": 3, "fuelPrice": 3, "kind": "station",
-    "services": ["exchange", "missions", "bar"], "market": { "industrial": "high", "equipment": "med", "food": "med" },
+    "services": ["exchange", "missions", "bar"], "market": { "industrial": "high", "equipment": "med", "food": "med", "relics": "high" },
     "description": "A cooperative station where every dock, bunk and bolt belongs to someone in particular. Pilots who mind their manners are made welcome; the rest are made to sweep."
   },
   {
@@ -203,13 +203,13 @@
 
   {
     "id": "lastlight-beacon", "name": "Lastlight Beacon", "systemId": "lastlight", "pos": { "x": -400, "y": 300 }, "radius": 30, "techTier": 2, "fuelPrice": 5, "kind": "station",
-    "hub": true, "services": ["exchange", "missions", "shipyard", "outfitter", "bar"], "market": { "food": "high", "equipment": "high", "metal": "med" },
+    "hub": true, "services": ["exchange", "missions", "shipyard", "outfitter", "bar"], "market": { "food": "high", "equipment": "high", "metal": "med", "stims": "high" },
     "description": "A lighthouse at the bottom of the charts, kept by a family who have never once let it go out. Their fuel is dear, and their soup is free."
   },
 
   {
     "id": "brackwater", "name": "Brackwater", "systemId": "brackwater", "pos": { "x": 550, "y": -300 }, "radius": 48, "techTier": 1, "fuelPrice": 4, "kind": "planet",
-    "services": ["exchange", "outfitter"], "market": { "metal": "low", "food": "high", "luxury": "high", "copperwine": "high" },
+    "services": ["exchange", "outfitter"], "market": { "metal": "low", "food": "high", "luxury": "high", "copperwine": "high", "stims": "low", "relics": "low" },
     "description": "A drowned world of tin-roofed rafts lashed into floating towns. The scrap-divers bring up hull metal by the ton and spend it on anything that reminds them of land."
   },
   {
@@ -220,7 +220,7 @@
 
   {
     "id": "skerry-light", "name": "Skerry Light", "systemId": "skerry", "pos": { "x": -450, "y": 450 }, "radius": 28, "techTier": 2, "fuelPrice": 5, "kind": "station",
-    "services": ["exchange", "missions", "outfitter", "bar"], "market": { "food": "high", "medical": "high", "emberwool": "high" },
+    "services": ["exchange", "missions", "outfitter", "bar"], "market": { "food": "high", "medical": "high", "emberwool": "high", "relics": "high" },
     "description": "A cold, bright station at the very rim, where the heaters run all year and never quite win. Its keepers trade for anything warm, edible or both."
   },
   {
@@ -236,12 +236,12 @@
 
   {
     "id": "cairn-rest", "name": "Cairn Rest", "systemId": "gloam", "pos": { "x": -420, "y": 380 }, "radius": 42, "techTier": 1, "fuelPrice": 6, "kind": "planet",
-    "services": ["exchange", "bar"], "market": { "food": "high", "medical": "high", "metal": "med" },
+    "services": ["exchange", "bar"], "market": { "food": "high", "medical": "high", "metal": "med", "stims": "low", "gunparts": "low" },
     "description": "A low grey world where travellers stack a stone on the cairn at the landing field before they leave. The cairn is taller than the control hut, and nobody remembers who started it."
   },
   {
     "id": "slagwater", "name": "Slagwater", "systemId": "sootfall", "pos": { "x": 520, "y": -300 }, "radius": 30, "techTier": 2, "fuelPrice": 5, "kind": "station",
-    "services": ["exchange", "bar"], "market": { "industrial": "high", "equipment": "high", "food": "med" },
+    "services": ["exchange", "bar"], "market": { "industrial": "high", "equipment": "high", "food": "med", "stims": "high" },
     "description": "A smelting ring that burns its furnaces low to save the dark. The air inside tastes of hot iron and the crew speak in whispers, out of habit."
   },
   {
@@ -252,7 +252,7 @@
   },
   {
     "id": "greywake", "name": "Greywake", "systemId": "hollowmere", "pos": { "x": -300, "y": -450 }, "radius": 36, "techTier": 1, "fuelPrice": 6, "kind": "planet",
-    "services": ["exchange", "bar"], "market": { "food": "high", "industrial": "med", "medical": "high" },
+    "services": ["exchange", "bar"], "market": { "food": "high", "industrial": "med", "medical": "high", "gunparts": "high" },
     "description": "A hushed farming world under a permanent haze. The fields are tended by lamplight, and the harvest is brought in by people who remember when the sky had a lantern in it."
   },
   {

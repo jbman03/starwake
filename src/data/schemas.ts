@@ -8,6 +8,7 @@ const tier = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.
 export const StandingLevelSchema = z.enum(['cool', 'neutral', 'friend']);
 export type StandingLevel = z.infer<typeof StandingLevelSchema>;
 const StandingReqSchema = z.object({ government: id, level: StandingLevelSchema });
+const RankReqSchema = z.object({ government: id, rank: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]) });
 
 export const ShipSchema = z.object({
   id,
@@ -43,6 +44,7 @@ export const ShipSchema = z.object({
   unique: z.boolean().optional(), // a one-off hull, sold once
   requiresFlag: z.string().min(1).optional(), // story flag needed before it is offered
   requiresStanding: StandingReqSchema.optional(), // government standing needed before it is offered
+  requiresRank: RankReqSchema.optional(), // faction rank needed before it is offered
   hiddenByFlag: z.string().min(1).optional(), // once this flag is set the yard no longer lists the hull
   teaser: z.string().min(1).optional(), // caption on the locked silhouette tile; absent = a neutral default
   chartJumps: z.number().int().positive().optional(), // built-in chart: reveals this many jumps on arrival
@@ -63,6 +65,7 @@ const outfitBase = {
   unique: z.boolean().optional(), // a one-off, sold once
   requiresFlag: z.string().min(1).optional(), // story flag needed before it is offered
   requiresStanding: StandingReqSchema.optional(),
+  requiresRank: RankReqSchema.optional(), // faction rank needed before it is offered
 };
 
 const effect = <K extends string>(key: K) => z.object({ [key]: z.number().positive() } as Record<K, z.ZodNumber>).strict();
@@ -96,6 +99,7 @@ export const OutfitSchema = z.discriminatedUnion('category', [
   }),
   z.object({ ...outfitBase, category: z.literal('beam'), effect: z.object({ dps: pos, range: pos }).strict() }),
   z.object({ ...outfitBase, category: z.literal('pod'), effect: z.object({ pods: z.literal(1) }).strict() }),
+  z.object({ ...outfitBase, category: z.literal('scrambler'), effect: effect('scramble') }), // blunts patrol cargo scans
 ]);
 
 export const SystemSchema = z.object({
@@ -142,6 +146,7 @@ export const CommoditySchema = z.object({
   basePrice: z.number().positive(),
   description: z.string(),
   origin: id.optional(), // port id for unique goods
+  illegalIn: z.array(id).min(1).refine((a) => new Set(a).size === a.length, 'duplicate government').optional(), // governments that outlaw it
 });
 
 const range = z
@@ -337,6 +342,56 @@ export const ConfigSchema = z.object({
   startOutfits: z.record(id, z.number().int().positive()), // outfit id -> count a new pilot starts with
   jump: JumpConfigSchema,
 });
+
+const heat = z.number().nonnegative();
+const unit = z.number().min(0).max(1);
+
+/** Law tunables: heat thresholds and crime values, fines, bribes, decay and contraband scans. */
+export const LawSchema = z
+  .object({
+    thresholds: z.object({ suspect: z.number().positive(), wanted: z.number().positive(), hunted: z.number().positive() }).strict()
+      .refine((t) => t.suspect < t.wanted && t.wanted < t.hunted && t.hunted <= 100, { message: 'expected 0 < suspect < wanted < hunted <= 100' }),
+    crimes: z.object({ hit: heat, disable: heat, destroy: heat, contraband: heat, run: heat, board: heat }).strict(),
+    refuseHeat: heat,
+    decayPerDay: heat,
+    fineRate: z.number().nonnegative(), // cr per heat point
+    bribeMul: z.number().positive(), // bribe cost = bribeMul x fine
+    bribeChance: unit,
+    bribeFailHeat: heat,
+    hailRange: z.number().positive(), // px
+    scanRange: z.number().positive(), // px
+    catchChance: unit,
+    scramblerCut: unit, // fraction taken off catchChance by a scrambler
+    contrabandFine: z.number().nonnegative(), // cr per ton confiscated
+  })
+  .strict();
+export type LawDef = z.infer<typeof LawSchema>;
+
+const PerkSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('title') }).strict(),
+  z.object({ kind: z.literal('discount'), pct: z.number().positive().max(100) }).strict(),
+  z.object({ kind: z.literal('salary'), cr: z.number().positive() }).strict(),
+  z.object({ kind: z.literal('unlock'), missionPayPct: z.number().nonnegative() }).strict(),
+  z.object({ kind: z.literal('discountSalary'), pct: z.number().positive().max(100), cr: z.number().positive() }).strict(),
+]);
+export type Perk = z.infer<typeof PerkSchema>;
+
+const RankSchema = z.object({ title: z.string().min(1), points: z.number().int().positive(), perk: PerkSchema }).strict();
+
+export const FactionSchema = z
+  .object({
+    ranks: z
+      .array(RankSchema)
+      .length(5)
+      .refine((r) => r.every((x, i) => i === 0 || x.points > r[i - 1].points), { message: 'rank points must strictly increase' }),
+    hub: id, // planet id
+    rivals: z.array(id),
+  })
+  .strict();
+/** factions.json is an object keyed by government id. */
+export const FactionsSchema = z.record(id, FactionSchema);
+export type FactionDef = z.infer<typeof FactionSchema>;
+export type RankReq = z.infer<typeof RankReqSchema>;
 
 export type ShipDef = z.infer<typeof ShipSchema>;
 export type OutfitDef = z.infer<typeof OutfitSchema>;
@@ -617,4 +672,6 @@ export interface GameData {
   config: GameConfig;
   combat: CombatDef;
   audio: AudioDef;
+  law: LawDef;
+  factions: Record<string, FactionDef>;
 }

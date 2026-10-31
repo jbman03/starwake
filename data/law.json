@@ -1,0 +1,15 @@
+{
+  "thresholds": { "suspect": 10, "wanted": 30, "hunted": 60 },
+  "crimes": { "hit": 10, "disable": 20, "destroy": 40, "contraband": 15, "run": 20, "board": 15 },
+  "refuseHeat": 5,
+  "decayPerDay": 2,
+  "fineRate": 40,
+  "bribeMul": 1.5,
+  "bribeChance": 0.6,
+  "bribeFailHeat": 10,
+  "hailRange": 900,
+  "scanRange": 600,
+  "catchChance": 0.8,
+  "scramblerCut": 0.5,
+  "contrabandFine": 100
+}
