@@ -1,6 +1,7 @@
 import { formatDate } from '../sim/calendar';
 import { cargoFree, maxBuy } from '../sim/cargo';
-import { displayLevel, localNews, priceOf } from '../sim/economy';
+import { displayLevel, localNews, outlawedAt, priceOf } from '../sim/economy';
+import { governmentShortName } from '../sim/standing';
 import { worldStats } from '../sim/shipStats';
 import type { UiContext } from './context';
 import { button, el, formatCredits, hotkeyFor } from './dom';
@@ -19,6 +20,9 @@ export const EXCHANGE_REASON = {
   notTraded: 'Not traded here',
 } as const;
 
+/** Why an outlawed good can't be traded at this port. */
+export const outlawedText = (govName: string) => `Outlawed here: the ${govName} does not trade it`;
+
 const LEVEL_TEXT = { low: 'Low', med: 'Med', high: 'High' } as const;
 
 const tons = (n: number) => `${n} t`;
@@ -32,7 +36,13 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
   const { controller } = ctx;
   const { data } = controller;
   const port = data.planets[portId];
-  const goods = Object.keys(port.market ?? {}).filter((id) => data.commodities[id]);
+  const gov = data.systems[port.systemId]?.government ?? '';
+  const outlawed = (id: string) => outlawedAt(data, portId, id);
+  // The market, then any contraband in the hold that this port's government outlaws (shown, never traded).
+  const goods = [
+    ...Object.keys(port.market ?? {}).filter((id) => data.commodities[id] && !outlawed(id)),
+    ...Object.keys(controller.world.cargo).filter((id) => data.commodities[id] && outlawed(id) && !(id in (port.market ?? {}))),
+  ];
   const bindings = controller.settings.bindings;
   let selected = goods[0] ?? '';
   let shiftHeld = false;
@@ -53,6 +63,9 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
     message.classList.toggle('sw-ex-bad', bad);
   };
 
+  const reasonText = (reason: keyof typeof EXCHANGE_REASON | 'outlawed') =>
+    reason === 'outlawed' ? outlawedText(governmentShortName(gov, data)) : EXCHANGE_REASON[reason];
+
   /** One trade of `n` tons (or all that fits); zero-result presses explain why. */
   const trade = (kind: 'buy' | 'sell', n: number | 'all') => {
     if (!selected) return;
@@ -61,13 +74,13 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
       const want = n === 'all' ? Math.max(1, maxBuy(controller.world, data, portId, selected)) : n;
       const r = controller.buy(selected, want);
       if (r.tons > 0) say(`Bought ${tons(r.tons)} of ${name} for ${formatCredits(r.cost)}.`);
-      else say(EXCHANGE_REASON[r.reason ?? 'holdFull'], true);
+      else say(reasonText(r.reason ?? 'holdFull'), true);
     } else {
       const held = controller.world.cargo[selected] ?? 0;
       const want = n === 'all' ? Math.max(1, held) : n;
       const r = controller.sell(selected, want);
       if (r.tons > 0) say(`Sold ${tons(r.tons)} of ${name} for ${formatCredits(r.revenue)}.`);
-      else say(EXCHANGE_REASON[r.reason ?? 'noneHeld'], true);
+      else say(reasonText(r.reason ?? 'noneHeld'), true);
     }
     render();
   };
@@ -94,8 +107,8 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
     tbody.replaceChildren(
       ...goods.map((id) => {
         const c = data.commodities[id];
-        const price = priceOf(w, data, portId, id) ?? 0;
-        const level = displayLevel(price, c.basePrice);
+        const price = priceOf(w, data, portId, id);
+        const level = price === null ? null : displayLevel(price, c.basePrice);
         const tr = el('tr', {
           class: id === selected ? 'sw-ex-row sw-ex-selected' : 'sw-ex-row',
           attrs: { 'data-good': id, 'aria-selected': String(id === selected) },
@@ -104,8 +117,8 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
         tr.append(
           el('td', { class: 'sw-ex-name', text: c.name }),
           el('td', { class: 'sw-ex-held', text: tons(w.cargo[id] ?? 0) }),
-          el('td', { class: `sw-ex-level sw-ex-level-${level}`, text: LEVEL_TEXT[level] }),
-          el('td', { class: 'sw-ex-price', text: formatCredits(price) }),
+          el('td', { class: level ? `sw-ex-level sw-ex-level-${level}` : 'sw-ex-level', text: level ? LEVEL_TEXT[level] : '—' }),
+          el('td', { class: price === null ? 'sw-ex-price sw-ex-bad' : 'sw-ex-price', text: price === null ? 'Not traded' : formatCredits(price) }),
         );
         return tr;
       }),

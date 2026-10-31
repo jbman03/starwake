@@ -13,11 +13,11 @@ import { LONG_PRESS_MS, showExchange } from './exchange';
 
 const down = (button = 0) => new PointerEvent('pointerdown', { bubbles: true, button, isPrimary: true });
 
-async function setup(credits = 100_000) {
+async function setup(credits = 100_000, cargo: Record<string, number> = {}) {
   const data = await loadGameData();
   const c = new Controller(data, DEFAULT_SETTINGS, new EventTarget());
   const w = newWorld(data);
-  c.beginSession({ ...w, credits }, { id: 'p', name: 'P' }, 'halcyon');
+  c.beginSession({ ...w, credits, cargo }, { id: 'p', name: 'P' }, 'halcyon');
   const root = document.createElement('div');
   document.body.append(root);
   const state: { onPress?: (p: Set<ActionId>) => void; cleanup?: () => void; closed: number } = { closed: 0 };
@@ -225,5 +225,20 @@ describe('commodity exchange', () => {
     const { btn } = await setup();
     expect(btn('Buy 10').title).toBe('Shift-click or hold for 1 t');
     expect(btn('Sell 10').title).toBe('Shift-click or hold for 1 t');
+  });
+});
+
+describe('outlawed goods at the exchange', () => {
+  it('outlawed port lists the good as not traded and refuses a sale', async () => {
+    const { c, row, btn, q, root, keys } = await setup(100_000, { stims: 5 });
+    // Halcyon (Concord) outlaws stims: the row shows what is held, with no level or price.
+    expect([...root.querySelectorAll('tbody tr')].map((r) => r.getAttribute('data-good'))).toEqual([...keys, 'stims']);
+    expect(row('stims').querySelector('.sw-ex-held')!.textContent).toBe('5 t');
+    expect(row('stims').querySelector('.sw-ex-price')!.textContent).toBe('Not traded');
+    expect(row('stims').querySelector('.sw-ex-level')!.textContent).toBe('—');
+    row('stims').click();
+    btn('Sell all').click();
+    expect(q('exchange-message')).toBe('Outlawed here: the Concord does not trade it');
+    expect(c.world.cargo.stims).toBe(5);
   });
 });

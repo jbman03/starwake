@@ -228,3 +228,18 @@ describe('no same-port arbitrage (prices are post-impact)', () => {
     }
   });
 });
+
+describe('outlawed goods', () => {
+  // A plug-in market that lists a good its own government outlaws (the shipped data can't: load rejects it).
+  const outlaw: GameData = {
+    ...data,
+    planets: { ...data.planets, halcyon: { ...data.planets.halcyon, market: { ...data.planets.halcyon.market, stims: 'low' } } },
+  };
+  it('outlawed port lists the good as not traded and refuses a sale', () => {
+    const w = rich({ ...newWorld(outlaw), cargo: { stims: 5 } });
+    expect(priceOf(w, outlaw, 'halcyon', 'stims')).toBeNull();
+    expect(sell(w, outlaw, 'halcyon', 'stims', 5)).toMatchObject({ tons: 0, reason: 'outlawed' });
+    expect(buy(w, outlaw, 'halcyon', 'stims', 5)).toMatchObject({ tons: 0, reason: 'outlawed' });
+    expect(maxBuy(w, outlaw, 'halcyon', 'stims')).toBe(0);
+  });
+});

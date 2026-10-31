@@ -13,6 +13,9 @@ import { paySalary, salaryNoticeText } from '../sim/ranks';
 import { governmentOf } from '../sim/stock';
 import type { MoodInput } from '../audio/moods';
 import { CombatControl, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
+import { answerLaw, illegalHeld, lawBribeCost, lawFine, refuseIsRun, type LawAnswer, type LawReason } from '../sim/contraband';
+import { PLAYER_ID } from '../sim/combat';
+import { lawCardView } from '../ui/lawCard';
 import type { DemandTerms } from '../sim/raiders';
 import { contextAction, siteReachable, type ContextAction, type PendingHint } from '../sim/context';
 import { applyChoice, choiceBlock, ENCOUNTER_BLOCK_TEXT, fillText, hubName, rollEncounter } from '../sim/encounters';
@@ -53,7 +56,7 @@ import { refuelQuote, towDestination, type RefuelQuote } from '../sim/rules';
 import { worldStats } from '../sim/shipStats';
 import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
-import { addBountyNpc, addStoryNpc, cycleTarget, isFringe, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Traffic, type TrafficOpts } from '../sim/traffic';
+import { addBountyNpc, addStoryNpc, cycleTarget, isFringe, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Npc, type Traffic, type TrafficOpts } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
 import type { FrameInput, JumpPhase, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
@@ -89,7 +92,9 @@ export type PendingEncounter =
   | { def: EncounterDef; npcName: string; kind: 'hail'; expiresSec: number }
   | { def: EncounterDef; npcName: string; kind: 'site'; pos: Vec2 }
   /** A raider's demand: pay, dump cargo or refuse before `expiresSec` runs out. */
-  | { kind: 'demand'; npcId: string; npcName: string; terms: DemandTerms; expiresSec: number };
+  | { kind: 'demand'; npcId: string; npcName: string; terms: DemandTerms; expiresSec: number }
+  /** A patrol's caught scan or law hail (spec §4.4, §5.2): unanswered by `expiresSec`, it counts as Run (or Refuse). */
+  | { kind: 'law'; npcId: string; npcName: string; gov: string; reason: LawReason; expiresSec: number };
 
 /** A scan or find site placed in space for a story step. A find site is unseen until the ship is near. */
 export interface StorySite {
@@ -208,6 +213,10 @@ export class Controller {
   readonly combat: CombatControl;
   /** The hail or site waiting in this system, or null. */
   pending: PendingEncounter | null = null;
+  /** An encounter site set aside while a law hail holds the pending slot; it comes back when the hail ends. */
+  private parkedSite: Extract<PendingEncounter, { kind: 'site' }> | null = null;
+  /** Patrols holding station because their scan or law hail is pending or queued (each has `hold` set by us). */
+  private lawHolds = new Set<string>();
   /** The scan or find site of a story step in this system, or null. */
   storySite: StorySite | null = null;
   /** Which site is targeted ('story' or 'encounter', see SiteTarget), or null. Use targetedSite(): it checks the site is still there. */
@@ -331,6 +340,7 @@ export class Controller {
     this.traffic = this.freshTraffic(world);
     this.combat.reset(world);
     this.pending = null;
+    this.parkedSite = null;
     this.card = null;
     this.storySite = null;
     this.storyMeet = null;
@@ -475,6 +485,7 @@ export class Controller {
   async continueAfterDeath(): Promise<void> {
     if (!this.combat.battle.playerDestroyed) return;
     this.pending = null;
+    this.parkedSite = null;
     this.card = null;
     if (hasPod(this.world)) {
       const r = podRescue(this.world, this.data);
@@ -868,6 +879,7 @@ export class Controller {
     this.world = this.creditKills(r.world, before, r.events);
     this.traffic = r.traffic;
     this.checkDemands();
+    const lawSaid = this.checkLaw();
     if (r.lost) {
       this.pauseFlight();
       this.emit({ type: 'destroyed' });
@@ -878,6 +890,7 @@ export class Controller {
     const calm = this.combat.disabledCalm();
     if (disabled && !this.saidDisabled) said.push(MSG_DISABLED);
     if (calm && !this.saidTowReady) said.push(MSG_TOW_READY);
+    said.push(...lawSaid);
     this.saidDisabled = disabled;
     this.saidTowReady = calm;
     if (r.events.length > 0) this.emit({ type: 'battle', events: r.events });
@@ -905,10 +918,14 @@ export class Controller {
 
   /** A raider that arrived wanting a payment hails; it attacks instead when anything else is pending. */
   private checkDemands(): void {
-    const busy = this.pending !== null || this.card !== null || this.hailName() !== null;
+    // A law hail not yet answered steps aside for a demand (spec §9) and waits at the head of the law queue.
+    // (Flight is paused while any card is open, so a hail seen here is never one on screen.)
+    const law = this.pending?.kind === 'law' ? this.pending : null;
+    const busy = law ? this.storyHailName() !== null : this.pending !== null || this.card !== null || this.hailName() !== null;
     const d = this.combat.checkDemands(this.world, this.traffic, busy);
     this.traffic = d.traffic;
     if (!d.offer) return;
+    if (law) this.combat.requeueLaw({ npcId: law.npcId, npcName: law.npcName, gov: law.gov, reason: law.reason });
     this.pending = { kind: 'demand', ...d.offer, expiresSec: this.data.combat.demand.lapseSec };
     this.emit({ type: 'sfx', sfx: 'hail' });
     this.checkContext();
@@ -930,6 +947,87 @@ export class Controller {
     this.traffic = r.traffic;
     this.pending = null;
     this.checkContext();
+    return r.messages;
+  }
+
+  /**
+   * Patrol scans and law hails (spec §4.4, §5.2); returns what clean scans said. A caught scan or a
+   * law hail takes the pending slot only when nothing but a site holds it and no card is open (a
+   * site is parked until the hail ends); otherwise it waits in the combat module's queue.
+   */
+  private checkLaw(): string[] {
+    // Flight is paused while a card is open, so only the pending slot matters here (`card` can be left over from a closed one).
+    const busy = this.pending !== null && this.pending.kind !== 'site';
+    const r = this.combat.checkLaw(this.world, this.traffic, busy);
+    if (r.open) {
+      if (this.pending?.kind === 'site') this.parkedSite = this.pending;
+      this.pending = { kind: 'law', ...r.open, expiresSec: HAIL_SECONDS };
+      this.emit({ type: 'sfx', sfx: 'hail' });
+      this.checkContext();
+    } else if (this.pending === null && this.parkedSite) {
+      this.pending = this.parkedSite;
+      this.parkedSite = null;
+    }
+    this.syncLawHolds();
+    return r.messages;
+  }
+
+  /**
+   * A patrol whose scan or law hail is pending or queued holds station where it is (it would otherwise
+   * fly on and jump out before the pilot answers); one whose hail is over goes back to its errand.
+   */
+  private syncLawHolds(): void {
+    const want = new Set(this.combat.queuedLawNpcs());
+    if (this.pending?.kind === 'law') want.add(this.pending.npcId);
+    if (want.size === 0 && this.lawHolds.size === 0) return;
+    let changed = false;
+    const npcs = this.traffic.npcs.map((n) => {
+      if (want.has(n.id) && !this.lawHolds.has(n.id) && !n.hold) {
+        this.lawHolds.add(n.id);
+        changed = true;
+        return { ...n, hold: { ...n.ship.pos } };
+      }
+      if (!want.has(n.id) && this.lawHolds.has(n.id)) {
+        this.lawHolds.delete(n.id);
+        changed = true;
+        const { hold: _hold, ...free } = n;
+        return free;
+      }
+      return n;
+    });
+    for (const id of this.lawHolds) if (!npcs.some((n) => n.id === id)) this.lawHolds.delete(id);
+    if (changed) this.traffic = { ...this.traffic, npcs };
+  }
+
+  /** The law hail ends: a parked site comes back into the pending slot. */
+  private endLawHail(): void {
+    this.pending = this.parkedSite;
+    this.parkedSite = null;
+    this.checkContext();
+  }
+
+  /**
+   * Answer the pending scan or law hail; null (nothing changes, the card stays open) when the answer
+   * can't be paid for. A bribed patrol leaves; a failed bribe sets that patrol on the pilot; Run turns
+   * its whole government hostile for the visit.
+   */
+  private answerLawHail(answer: LawAnswer): string[] | null {
+    const p = this.pending;
+    if (p?.kind !== 'law') return null;
+    const seed = `bribe|${this.world.seed}|${this.world.systemId}|${this.world.day}|${p.npcId}`;
+    const r = answerLaw(this.world, this.data, { gov: p.gov, reason: p.reason, npcName: p.npcName }, answer, seed);
+    if (!r) return null;
+    this.world = r.world;
+    if (r.patrol === 'leaves' || r.patrol === 'attacks') {
+      const fate = (n: Npc): Npc =>
+        r.patrol === 'leaves'
+          ? { ...n, peaceful: true, engaged: false, errand: 'pass', portId: null }
+          : { ...n, aggro: n.aggro.includes(PLAYER_ID) ? n.aggro : [...n.aggro, PLAYER_ID] };
+      this.traffic = { ...this.traffic, npcs: this.traffic.npcs.map((n) => (n.id === p.npcId ? fate(n) : n)) };
+    }
+    if (r.patrol === 'angry') this.combat.angerAt(p.gov);
+    this.endLawHail();
+    this.syncLawHolds();
     return r.messages;
   }
 
@@ -1036,7 +1134,12 @@ export class Controller {
 
   /** The name on the incoming hail (an encounter's or a story meet's), or null with no hail. */
   hailName(forButton = false): string | null {
-    if (this.pending?.kind === 'hail' || this.pending?.kind === 'demand') return this.pending.npcName;
+    if (this.pending?.kind === 'hail' || this.pending?.kind === 'demand' || this.pending?.kind === 'law') return this.pending.npcName;
+    return this.storyHailName(forButton);
+  }
+
+  /** The name on a story hail or story meet waiting here, or null. */
+  private storyHailName(forButton = false): string | null {
     if (this.storyHail && !(forButton && this.storyHail === this.storyHailQuiet)) return this.data.story[this.storyHail]?.giver.name ?? null;
     const step = this.storyMeet ? currentStep(this.world, this.data, this.storyMeet.missionId) : null;
     return step?.kind === 'meet' ? step.ship.name : null;
@@ -1096,7 +1199,8 @@ export class Controller {
     if (this.storyHail !== this.storyHailQuiet) this.storyHailQuiet = null;
     if (this.traffic.systemId !== sys) return; // the reseed that follows calls this again
     // Story ships left over from a finished step go; the current one stays where it is.
-    const stale = (n: { id: string; hold?: Vec2; missionId?: string }) => n.hold !== undefined && n.missionId === undefined && n.id !== meet?.npcId; // a bounty target holds too
+    // A bounty target holds too, and so does a patrol waiting on its law hail.
+    const stale = (n: { id: string; hold?: Vec2; missionId?: string }) => n.hold !== undefined && n.missionId === undefined && n.id !== meet?.npcId && !this.lawHolds.has(n.id);
     let t = this.traffic;
     if (t.npcs.some(stale)) {
       const target = t.npcs.find((n) => n.id === t.targetId);
@@ -1117,6 +1221,7 @@ export class Controller {
 
   private lapseHail(dt: number): void {
     const p = this.pending;
+    if (p?.kind === 'law') return this.lapseLaw(p, dt);
     if (p?.kind !== 'hail' && p?.kind !== 'demand') return;
     const left = p.expiresSec - dt;
     // A demand ends early when its raider is gone, disabled, or no longer waiting (it was shot, and fights).
@@ -1129,6 +1234,25 @@ export class Controller {
     } else {
       this.pending = null;
     }
+  }
+
+  /** A law hail ends quietly when its patrol is gone, disabled or fighting; unanswered in time, it counts as Run (or Refuse). */
+  private lapseLaw(p: Extract<PendingEncounter, { kind: 'law' }>, dt: number): void {
+    if (!this.combat.lawOfferHolds(p, this.world, this.traffic)) {
+      this.endLawHail();
+      this.syncLawHolds();
+      this.emit({ type: 'message', text: `${p.npcName}'s hail goes quiet.` });
+      return;
+    }
+    // A disabled ship can't answer (the context button and Y offer nothing), so the clock waits.
+    if (this.combat.playerDisabled()) return;
+    const left = p.expiresSec - dt;
+    if (left > 1e-9) {
+      this.pending = { ...p, expiresSec: left };
+      return;
+    }
+    const msgs = this.answerLawHail('refuse');
+    if (msgs) this.emit({ type: 'message', text: msgs.join(' ') });
   }
 
   /** Test aid: make `id` the pending encounter (a hail now, or a site 200 px ahead). */
@@ -1160,7 +1284,7 @@ export class Controller {
       this.checkContext();
       return true;
     }
-    if (p?.kind === 'hail' || p?.kind === 'demand') return this.openCard('encounter');
+    if (p?.kind === 'hail' || p?.kind === 'demand' || p?.kind === 'law') return this.openCard('encounter');
     if (this.storyHail) {
       const id = this.storyHail;
       const def = this.data.story[id];
@@ -1211,6 +1335,10 @@ export class Controller {
       this.answerDemand('refuse'); // Not now is Refuse
       return;
     }
+    if (this.pending?.kind === 'law') {
+      this.answerLawHail('refuse'); // Not now is Refuse (or Run), as with a demand
+      return;
+    }
     if (this.pending?.kind === 'hail') {
       this.pending = null;
       this.checkContext();
@@ -1244,6 +1372,7 @@ export class Controller {
     const p = this.pending;
     if (!p) return null;
     if (p.kind === 'demand') return this.demandView(p);
+    if (p.kind === 'law') return this.lawView(p);
     const ctx = this.cardContext(p.npcName);
     return {
       kind: p.kind,
@@ -1273,6 +1402,22 @@ export class Controller {
     };
   }
 
+  private lawView(p: Extract<PendingEncounter, { kind: 'law' }>): EncounterView {
+    const goods = p.reason === 'scan'
+      ? Object.entries(illegalHeld(this.world, this.data, p.gov)).map(([id, t]) => `${t} t of ${this.data.commodities[id]?.name ?? id}`)
+      : [];
+    return lawCardView({
+      npcName: p.npcName,
+      govName: governmentShortName(p.gov, this.data),
+      reason: p.reason,
+      goods,
+      fine: lawFine(this.world, this.data, p.gov, p.reason),
+      bribe: lawBribeCost(this.world, this.data, p.gov, p.reason),
+      credits: this.world.credits,
+      run: refuseIsRun(this.world, this.data, p.gov, p.reason),
+    });
+  }
+
   private cardContext(ship: string) {
     return { ship, system: this.data.systems[this.world.systemId]?.name ?? this.world.systemId, pilot: shipDisplayName(this.world.shipName, this.world.shipId, this.data), hub: hubName(this.data) };
   }
@@ -1300,6 +1445,11 @@ export class Controller {
     const p = this.pending;
     if (p?.kind === 'demand') {
       const msgs = idx === 0 ? this.answerDemand('pay') : idx === 1 ? this.answerDemand('dump') : idx === 2 ? this.answerDemand('refuse') : null;
+      return msgs ? { messages: msgs } : null;
+    }
+    if (p?.kind === 'law') {
+      const answer = (['comply', 'bribe', 'refuse'] as const)[idx];
+      const msgs = answer ? this.answerLawHail(answer) : null;
       return msgs ? { messages: msgs } : null;
     }
     const choice = p?.def.choices[idx];
@@ -1378,11 +1528,13 @@ export class Controller {
       }
       if (e.type === 'towed') {
         this.pending = null;
+        this.parkedSite = null;
         this.card = null;
         this.traffic = this.freshTraffic(this.world);
         this.landAt(e.planetId);
       } else if (e.type === 'jumped') {
         this.pending = null;
+        this.parkedSite = null;
         this.card = null;
         this.storySite = null;
         this.targetSiteId = null;

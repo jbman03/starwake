@@ -1,5 +1,5 @@
 import type { GameData } from '../data/schemas';
-import { applyPressure, priceOf } from './economy';
+import { applyPressure, outlawedAt, priceOf } from './economy';
 import { worldStats } from './shipStats';
 import type { WorldState } from './types';
 
@@ -8,7 +8,7 @@ export interface BuyResult {
   tons: number;
   cost: number;
   /** Set only when nothing moved. */
-  reason?: 'notTraded' | 'holdFull' | 'noCredits';
+  reason?: 'notTraded' | 'outlawed' | 'holdFull' | 'noCredits';
 }
 
 export interface SellResult {
@@ -16,7 +16,7 @@ export interface SellResult {
   tons: number;
   revenue: number;
   /** Set only when nothing moved. */
-  reason?: 'notTraded' | 'noneHeld';
+  reason?: 'notTraded' | 'outlawed' | 'noneHeld';
 }
 
 /** Tons in the hold: trade goods plus mission cargo. */
@@ -61,6 +61,7 @@ export function maxBuy(world: WorldState, data: GameData, portId: string, commod
  * post-impact price, so buying and selling back at the same port can never make money.
  */
 export function buy(world: WorldState, data: GameData, portId: string, commodityId: string, tons: number): BuyResult {
+  if (outlawedAt(data, portId, commodityId)) return { world, tons: 0, cost: 0, reason: 'outlawed' };
   if (priceOf(world, data, portId, commodityId) === null) return { world, tons: 0, cost: 0, reason: 'notTraded' };
   const moved = Math.min(Math.max(0, Math.floor(tons)), maxBuy(world, data, portId, commodityId));
   if (moved <= 0) {
@@ -82,6 +83,7 @@ export function buy(world: WorldState, data: GameData, portId: string, commodity
 
 /** Sells up to `tons` of what is held, priced at the post-impact price (pressure applied first). */
 export function sell(world: WorldState, data: GameData, portId: string, commodityId: string, tons: number): SellResult {
+  if (outlawedAt(data, portId, commodityId)) return { world, tons: 0, revenue: 0, reason: 'outlawed' };
   if (priceOf(world, data, portId, commodityId) === null) return { world, tons: 0, revenue: 0, reason: 'notTraded' };
   const held = world.cargo[commodityId] ?? 0;
   const moved = Math.min(Math.max(0, Math.floor(tons)), held);

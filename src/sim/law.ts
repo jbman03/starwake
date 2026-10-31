@@ -79,10 +79,16 @@ export function bribeCost(world: Pick<WorldState, 'law'>, data: GameData, gov: s
  * Offer a bribe. It works with probability `bribeChance`, drawn from `mulberry32(hashString(seed))`,
  * so the seed fixes the outcome. On success the cost is paid and heat is unchanged; on failure the
  * patrol keeps its honour (no credits change hands) and heat rises by `bribeFailHeat`. Refused with
- * `short`, changing nothing, when the credits don't cover the cost.
+ * `short`, changing nothing, when the credits don't cover the cost. `cost` defaults to `bribeCost`; a scan's
+ * bribe passes its own (Ruling 4).
  */
-export function tryBribe(world: WorldState, data: GameData, gov: string, seed: string): { world: WorldState; ok: boolean } | { error: 'short' } {
-  const cost = bribeCost(world, data, gov);
+export function tryBribe(
+  world: WorldState,
+  data: GameData,
+  gov: string,
+  seed: string,
+  cost: number = bribeCost(world, data, gov),
+): { world: WorldState; ok: boolean } | { error: 'short' } {
   if (world.credits < cost) return { error: 'short' };
   const ok = mulberry32(hashString(seed))() < data.law.bribeChance;
   if (ok) return { world: { ...world, credits: world.credits - cost }, ok };
