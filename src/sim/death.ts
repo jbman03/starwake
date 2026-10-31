@@ -17,13 +17,11 @@ export function hasPod(world: WorldState): boolean {
 
 /**
  * The nearest port by lane hops (then map distance, then id) whose government isn't cool toward the
- * pilot. Wanted or Hunted counts as cool (the standing cap) on purpose: a wrecked pilot is brought to a
- * friendly port first, not one whose patrols want them. With none in reach, the nearest port at all,
- * whatever its government thinks (custody follows at a hunting one, Ruling 2); with no port in reach
- * at all, the start planet.
+ * pilot; else the start planet (cycle 4 spec §10, Ruling 5). Wanted or Hunted counts as cool (the
+ * standing cap). If the start planet's owner hunts the pilot, `podRescue` takes them into custody there.
  */
 export function rescuePort(world: WorldState, data: GameData): string {
-  return nearestPort(world, data, (gov) => standingOf(world, gov, data) !== 'cool') ?? nearestPort(world, data, () => true) ?? data.config.startPlanetId;
+  return nearestPort(world, data, (gov) => standingOf(world, gov, data) !== 'cool') ?? data.config.startPlanetId;
 }
 
 function nearestPort(world: WorldState, data: GameData, ok: (gov: string) => boolean): string | null {

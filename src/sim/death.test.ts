@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testData, withoutPorts } from '../data/testData';
+import { testData } from '../data/testData';
 import type { GameData, StoryMissionDef } from '../data/schemas';
 import { POD_ID, hasPod, podRescue, rescuePort } from './death';
 import { STORY_TYPE } from './missions';
@@ -29,15 +29,9 @@ describe('rescuePort', () => {
     expect(real.systems[real.planets[port].systemId].government).not.toBe('concord');
     expect(port).toBeTruthy();
   });
-  // Ruling 2 (cycle 5): the fallback is the nearest port in reach, whatever its government thinks; the
-  // start planet only when no port can be reached at all.
-  it('falls back to the nearest port in reach, then to the start planet', () => {
-    const allCool = { concord: 'cool' as const, 'free-reach': 'cool' as const, independent: 'cool' as const, unlit: 'cool' as const };
-    const w = { ...base(), standing: allCool };
-    expect(rescuePort(w, real)).toBe(Object.values(real.planets).filter((p) => p.systemId === 'tessaly').map((p) => p.id).sort()[0]);
-    // Adrift in portless unlit space with every unlit port gone: nothing in reach.
-    const cut = withoutPorts(real, 'gloam', 'sootfall', 'candlewick', 'hollowmere', 'lowlight');
-    expect(rescuePort({ ...w, systemId: 'pallow' }, cut)).toBe(real.config.startPlanetId);
+  it('falls back to the start planet', () => {
+    const w = { ...base(), standing: { concord: 'cool' as const, 'free-reach': 'cool' as const, independent: 'cool' as const, unlit: 'cool' as const } };
+    expect(rescuePort(w, real)).toBe(real.config.startPlanetId);
   });
   it('skips ports whose government hunts the pilot while another is in reach', () => {
     const w = { ...base(), systemId: 'calder', law: { concord: { heat: 60 } } };
@@ -47,24 +41,24 @@ describe('rescuePort', () => {
 
 describe('podRescue', () => {
   it('pod rescue to a hunting start planet applies custody', () => {
-    // Adrift with no port in reach: the start planet (halcyon, Concord), which hunts the pilot.
-    const cut = withoutPorts(real, 'gloam', 'sootfall', 'candlewick', 'hollowmere', 'lowlight');
-    const w: WorldState = { ...base(), systemId: 'pallow', credits: 1500, law: { concord: { heat: 100 } }, outfits: { [POD_ID]: 1 } };
-    const r = podRescue(w, cut);
+    // Hunted by the Concord and cool with everyone else: the start planet (halcyon, Concord) hunts the pilot.
+    const standing = { 'free-reach': 'cool' as const, independent: 'cool' as const, unlit: 'cool' as const };
+    const w: WorldState = { ...base(), standing, credits: 1500, law: { concord: { heat: 100 } }, outfits: { [POD_ID]: 1 } };
+    const r = podRescue(w, real);
     expect(r.planetId).toBe(real.config.startPlanetId);
     expect(r.messages).toContain('Taken into custody by the Concord. Fine paid: 1,500 cr.');
     expect(r.world.credits).toBe(0);
     expect(r.world.law.concord.heat).toBe(real.law.thresholds.wanted - 1);
   });
-  it('hunted by every port in reach: the pod reaches the nearest port and custody follows', () => {
-    const law = { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 } };
-    const w: WorldState = { ...base(), systemId: 'calder', credits: 10000, law, outfits: { [POD_ID]: 1 } };
+  it('hunted by every port in reach, the start planet included: the pod reaches the start planet and custody follows', () => {
+    const law = { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 }, unlit: { heat: 100 } };
+    const w: WorldState = { ...base(), systemId: 'wrenhold', credits: 10000, law, outfits: { [POD_ID]: 1 } };
     const r = podRescue(w, real);
-    expect(real.planets[r.planetId].systemId).toBe('calder');
+    expect(r.planetId).toBe(real.config.startPlanetId);
     expect(r.messages).toContain('Taken into custody by the Concord. Fine paid: 4,000 cr.');
     expect(r.world.credits).toBe(6000);
     expect(r.world.law.concord.heat).toBe(real.law.thresholds.wanted - 1);
-    expect(r.world.law.independent.heat).toBe(100);
+    expect(r.world.law['free-reach'].heat).toBe(100);
   });
   it('keeps credits and story, drops ship, cargo and outfits, uses the pod', () => {
     const w: WorldState = { ...base(), outfits: { [POD_ID]: 1, 'cargo-pod': 2 }, cargo: { food: 3 }, ship: { ...base().ship, fuel: 0 } };
