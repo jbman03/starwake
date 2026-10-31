@@ -78,19 +78,28 @@ Raiders have no law, so attacking them is never a crime. Heat is capped at 100.
   "Pay fines" for each government where you are Suspect or worse. The cost is
   `heat × fineRate` (default 40 cr per point). Paying sets that heat to 0. A patrol's law hail
   offers the same fine in flight.
-- **Bribe:** a law or scan hail offers a bribe costing `bribeMul × fine` (default 1.5). It works
-  with probability `bribeChance` (default 0.6), drawn from the seeded RNG. If it works, the patrol
-  leaves and heat is unchanged. If it fails, heat +10 and that patrol attacks.
+- **Bribe:** a law hail offers a bribe costing `bribeMul × fine` (default 1.5). A scan hail's
+  bribe costs `bribeMul × contrabandFine × illegal tons`, so a Clean pilot's scan bribe is never
+  free. It works with probability `bribeChance` (default 0.6), drawn from the seeded RNG. If it
+  works, the patrol leaves and heat is unchanged. If it fails, no credits are taken, heat +10
+  (`bribeFailHeat`) and that patrol attacks.
 - **Landing when Hunted:** landing at a port of a government that hunts you is refused, with the
   message "Landing refused: you are hunted by the X." A tow skips those ports and goes to the
-  nearest port of any other government.
+  nearest port of any other government. An escape-pod rescue keeps the cycle 4 rule: the nearest
+  port whose standing isn't cool (Wanted counts as cool), else the start planet.
+- **Custody:** the pilot can always recover. When a tow or pod rescue can only reach a port of a
+  government that hunts the pilot, it goes there anyway and the pilot is taken into custody on
+  arrival: that government's fine is paid from the credits (as much as they cover) and its heat
+  drops to just below Wanted (`thresholds.wanted − 1`). A message explains what happened.
 
 ### 4.4 Patrol behaviour
 
 - Patrols are the existing traffic role. A patrol of government G treats the player as hostile
   when G is in the battle's `angry` set (cycle 4) or the player is Hunted by G.
 - When the player is Suspect or Wanted with G, the nearest G patrol within `hailRange`
-  (default 900 px) sends one law hail per system visit.
+  (default 900 px) sends a law hail. Each government sends at most one law hail per system visit,
+  and a contraband scan by one of its patrols (§5.2), whatever it finds, counts as that hail: no
+  fine hail from G follows a scan until the next visit.
 - The law hail card offers Pay fine / Bribe / Refuse (or Run).
 
 ## 5. Contraband
@@ -114,11 +123,11 @@ There are three new commodities with `illegalIn`:
 - In a system whose government outlaws any good in your hold, each patrol of that government
   within `scanRange` (default 600 px) scans you once per system visit.
 - The scan catches the cargo with probability `catchChance` (default 0.8), drawn from the seeded
-  RNG. A scrambler lowers it by `scramblerCut` (default 0.5).
+  RNG. A scrambler multiplies it by `1 − scramblerCut` (default 0.5), so 0.8 becomes 0.4.
 - If you are caught, the scan hail card offers three choices:
   - **Comply:** the illegal cargo is confiscated, you pay a fine of `contrabandFine` (default 100 cr
     per ton) and heat +15.
-  - **Bribe:** §4.3.
+  - **Bribe:** §4.3 (`bribeMul × contrabandFine × illegal tons`).
   - **Run:** heat +20 and the patrol attacks.
 - A clean scan just shows the message "Scan complete. Fly safe."
 
@@ -144,7 +153,8 @@ Concord: Lamplighter, Warden, Keeper, Beacon, Lanternmarshal) and a perk.
 | A story step that changes its standing toward friend | +5 |
 | Destroying a raider in its space | +1 |
 
-No points are earned while Wanted or Hunted by that government.
+No points are earned while Wanted or Hunted by that government. Perks the pilot already holds
+(discount, salary, mission pay) keep working.
 
 ### 6.3 Rivals
 
@@ -173,11 +183,12 @@ Everything is built with `el()`/`button()` and `textContent`, and nothing adds o
 
 - **Sidebar:** under the nav line, "Law: Clean / Suspect / Wanted / Hunted" for the current
   system's government, coloured by status.
-- **Pilot card and the pause menu's pilot page:** the legal status per government and the rank
-  title per faction.
+- **Pilot card (main menu):** the legal status per government and the rank title per faction. The
+  pause menu has no pilot page, so these lines are on the main-menu pilot card only. Phones show
+  no law line in flight (they have no nav line, and no buttons are added).
 - **Planet screen:** a "Pay fines" row when fines are owed, and a salary notice when one is paid.
 - **Shipyard and outfitter:** prices show the rank discount. Locked items say "Requires
-  Concord rank 4 (Keeper)".
+  Concord rank 4 (Beacon)".
 - **How to Play:** a law-and-ranks page.
 
 ## 8. Save v7

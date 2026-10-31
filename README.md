@@ -86,6 +86,17 @@ capture it, then take command or sell it as a prize. An escape pod saves you
 if your ship is destroyed; without one the last save loads. Concord and Free
 Reach ports post bounty and clear-the-lanes jobs for armed pilots.
 
+**Law and ranks.** Each government keeps a record of you: Clean, Suspect,
+Wanted or Hunted (the sidebar's Law line shows it for the system you are in).
+Shooting its ships or carrying goods it outlaws raises your heat, and it fades
+by itself over days. Patrols scan for contraband (a Scan Scrambler helps) and
+hail you for fines: pay, bribe, refuse or run. Hunted pilots are attacked on
+sight and turned away from its ports; any port that does not hunt you lets you
+pay your fines on the planet screen. Work for a faction (missions, combat jobs,
+story steps, raider kills) to climb its five ranks for a title, discounts, a
+salary, better pay and its hub's restricted ships and outfits. Rival factions
+pull against each other.
+
 **Sound, music and the jump.** A jump plays out like Escape Velocity's: the
 ship turns, the engines charge, it burns as the stars stretch, a flash, and it
 streaks into the next system (press J again, or SKIP on a phone, to skip ahead).

@@ -320,7 +320,7 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    `?test&calm=1` flag (no raiders spawn) that the story e2e uses so a random raider at a fringe
    system cannot take its context button or Y key.
    *Still to come:* escorts (keeping a captured ship), reputation and police, contraband.
-8. **Cycle 5 — sound, music and the EV-style jump (2026-10-30)** — spec
+8. **Sound, music and the EV-style jump (2026-10-30, between cycles 4 and 5)** — spec
    `docs/superpowers/specs/2026-10-30-starwake-sound-music-design.md`.
    *The jump:* `world.jump` is `{ toSystemId, phase, t }` with the phases align (turn to the
    destination, up to `alignMaxSec`), charge, burn (3× thrust, uncapped speed), flash (the system change
@@ -348,4 +348,40 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    `muted`; Settings → General has Music and Effects sliders and the mute box, which follows V (V
    mutes music and effects on every screen, even with a slider focused). How to Play explains the
    jump sequence, its skip, the sliders and V. Test hooks: `jumpPhase()` and `musicMood()`.
-Later: escorts, reputation and police, contraband, more regions.
+9. **Cycle 5 — law, contraband and faction ranks (2026-10-31)** — spec
+   `docs/superpowers/specs/2026-10-30-starwake-cycle5-law-ranks-design.md`.
+   *Architecture:* three pure, seeded sim modules sit beside standing (cool, neutral, friend), which
+   stays each faction's opinion of you. `src/sim/law.ts` keeps heat (0-100) per government and reads
+   the legal status from `data/law.json` thresholds (Clean, Suspect at 10, Wanted at 30, Hunted at
+   60); crimes come from the combat hooks against the victim's government (first hit, disable,
+   destroy or capture, boarding, running, contraband), heat decays 2 a day, and it holds fines
+   (heat × `fineRate`), bribes, landing refusal while Hunted and the custody fallback.
+   `src/sim/contraband.ts` knows what each government outlaws (`illegalIn` on commodities), rolls
+   scans (`catchChance`, times `1 − scramblerCut` with a Scan Scrambler) and confiscates.
+   `src/sim/ranks.ts` turns points from missions, combat jobs, story steps and raider kills into a
+   five-step ladder per lawful faction (`data/factions.json`: titles, thresholds, perks, hub,
+   rivals); rivals lose half the points gained, and perks are a discount, a daily salary on
+   landing, mission pay and `requiresRank` unlocks at the hub. Concord rank 4 also covers the
+   Concord `requiresStanding: friend` items. No points are earned while Wanted or Hunted.
+   *In flight:* scans and law hails use the hail slot and the encounter card (keys 1/2/3, Y to
+   answer, the phone's Answer hail context button), queued behind a raider's demand. Each patrol
+   scans a hold it outlaws goods in once per visit; the nearest patrol of a government that finds
+   you Suspect or Wanted sends one fine hail per visit, and a scan counts as that hail. Scan: Comply
+   (cargo confiscated, 100 cr a ton, +15 heat), Bribe (1.5 × the contraband fine; a failed bribe
+   costs nothing but +10 heat and that patrol attacks) or Run (+20, the government turns on you
+   for the visit). Fine hail: Pay, Bribe (1.5 × the fine) or Refuse (+5 while Suspect; Run while
+   Wanted). Patrols attack on sight when you are Hunted, and its ports refuse landing; a tow or
+   pod rescue that can only reach such a port lands you in custody (the fine is taken from your
+   credits and heat drops to just below Wanted). The hailing patrol holds station until the hail ends.
+   *UI:* the PC sidebar's `Law:` line for the current system's government (20 px taller; it fits
+   windows down to about 480 px high), law and rank lines on the main-menu pilot card (the pause
+   menu has no pilot page; phones get no law line), a Pay row per owed fine and a salary notice on
+   the planet screen, discounted prices and rank locks in the shipyard and outfitter, outlawed
+   goods shown as Not traded at the exchange, and a Law & ranks page in How to Play.
+   *Data and saves:* `data/law.json` (`LawSchema`), `data/factions.json`, three contraband goods
+   (Unlicensed Stims, Dimming Relics, Weapon Parts) sold cheap at a few fringe ports, the
+   `scrambler` outfit, and `requiresRank` on ships and outfits; a bad file or an unknown
+   government fails the load with the file name. Saves are v7 (`law`, `ranks`; v6 loads as Clean
+   and rank 0, corrupt values clamp). Test hook: `spawnPatrol(gov?)` puts a peaceful patrol in scan
+   and hail range, and `sidebar().drawn` gives what the sidebar drew, with its boxes.
+Later: escorts, bounty hunters, smuggling missions, rank-locked faction story chains, more regions.
