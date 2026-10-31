@@ -274,6 +274,13 @@ describe('Law & ranks page', () => {
     expect(all).toContain('Concord: 10, 30, 70, 150, 300 points');
   });
 
+  it('says patrols hail a Suspect pilot for the fine as well as a Wanted one, once per visit', async () => {
+    const data = await loadGameData();
+    const fines = tabText('law', DEFAULT_SETTINGS.bindings, data).find((b) => b.heading === 'Patrols and fines')!.text;
+    expect(fines).toContain('A Suspect or Wanted pilot is hailed by a patrol once per visit');
+    expect(fines).not.toContain('A Suspect pilot can still dock. A Wanted pilot is hailed');
+  });
+
   it('names no phone control that does not exist (no capitalised button words)', async () => {
     const data = await loadGameData();
     const all = tabText('law', DEFAULT_SETTINGS.bindings, data).map((b) => b.text).join(' ');
