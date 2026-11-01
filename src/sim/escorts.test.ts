@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import {
-  ESCORT_ORDERS, HIRE_REFUSAL, ORDER_LABEL, dismissEscort, escortMaxArmor, escortMaxFuel, hireEscort, hireOffers, keepCapture,
+  ESCORT_ORDERS, hireRefusal, ORDER_LABEL, dismissEscort, escortMaxArmor, escortMaxFuel, hireEscort, hireOffers, keepCapture,
   escortLosses, landEscorts, nextOrder, payWages, prizeValueOf, repairCost, repairEscorts, sellEscortPrize,
   type EscortOffer,
 } from './escorts';
@@ -69,6 +69,16 @@ describe('hireOffers', () => {
     expect(new Set(days).size).toBeGreaterThan(1);
     expect(JSON.stringify(hireOffers({ ...w, day: 1 }, data, PORT))).not.toBe(JSON.stringify(hireOffers({ ...w, day: 2 }, data, PORT)));
   });
+  it('never offers a name already in the group', () => {
+    for (let d = 0; d < 30; d++) {
+      const w = { ...fresh(), day: d };
+      const names = hireOffers(w, data, PORT).map((o) => o.name);
+      const group = { ...w, escorts: names.slice(0, 2).map((name, i) => mk(`esc-${i + 1}`, { name })) };
+      const again = hireOffers(group, data, PORT);
+      expect(again.length).toBe(names.length);
+      for (const o of again) expect(names.slice(0, 2)).not.toContain(o.name);
+    }
+  });
 });
 
 describe('hireEscort', () => {
@@ -102,9 +112,10 @@ describe('hireEscort', () => {
     expect(hireEscort(full, data, PORT, o.offerId)).toEqual({ error: 'full' });
     const poor = { ...w, day: dayOf(w, o), credits: 2999 };
     expect(hireEscort(poor, data, PORT, o.offerId)).toEqual({ error: 'short' });
-    expect(HIRE_REFUSAL.full).toBe(`Your group is full (${data.escorts.maxEscorts} escorts).`);
-    expect(HIRE_REFUSAL.short).toBe('Not enough credits.');
-    expect(HIRE_REFUSAL.gone).toBe('That pilot has moved on.');
+    expect(hireRefusal(data, 'full')).toBe('Your group is full (3 escorts).');
+    expect(hireRefusal({ ...data, escorts: { ...data.escorts, maxEscorts: 5 } }, 'full')).toBe('Your group is full (5 escorts).');
+    expect(hireRefusal(data, 'short')).toBe('Not enough credits.');
+    expect(hireRefusal(data, 'gone')).toBe('That pilot has moved on.');
   });
 });
 

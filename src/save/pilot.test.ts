@@ -500,6 +500,14 @@ describe('save v8', () => {
     expect(ids[0]).toBe('esc-1');
   });
 
+  it("an id that doesn't start with 'esc-' gets a fresh esc-<n>", () => {
+    const w = load([esc({ id: 'foo' }), esc({ id: 'player' }), esc({ id: 'esc-1' })]);
+    const ids = w.escorts.map((e) => e.id);
+    expect(ids.every((id) => id.startsWith('esc-'))).toBe(true);
+    expect(new Set(ids).size).toBe(3);
+    expect(ids[2]).toBe('esc-1');
+  });
+
   it("escortOrder 'charge' loads as follow", () => {
     expect(load([], { escortOrder: 'charge' }).escortOrder).toBe('follow');
     expect(load([], { escortOrder: 'defend' }).escortOrder).toBe('defend');

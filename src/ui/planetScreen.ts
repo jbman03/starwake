@@ -2,7 +2,7 @@ import type { ActionId } from '../input/actions';
 import { formatDate } from '../sim/calendar';
 import { cargoFree } from '../sim/cargo';
 import { fineFor, legalStatus } from '../sim/law';
-import { escortMaxArmor, HIRE_REFUSAL, prizeValueOf } from '../sim/escorts';
+import { escortMaxArmor, hireRefusal, prizeValueOf } from '../sim/escorts';
 import { governmentShortName } from '../sim/standing';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import type { RefuelQuote } from '../sim/rules';
@@ -105,7 +105,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   const hire = (offerId: string) => {
     const r = controller.hireEscort(offerId);
     if (r.ok) setStatus(`${r.escort.name} joins your escort.`);
-    else setStatus(HIRE_REFUSAL[r.error], true);
+    else setStatus(hireRefusal(data, r.error), true);
     render();
   };
   const dismiss = (id: string) => {

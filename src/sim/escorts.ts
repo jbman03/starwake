@@ -26,11 +26,11 @@ export const ORDER_LABEL: Record<EscortOrder, string> = {
   defend: 'Return fire',
 };
 
-export const HIRE_REFUSAL: Record<'full' | 'short' | 'gone', string> = {
-  full: 'Your group is full (3 escorts).', // keep in step with data/escorts.json maxEscorts
-  short: 'Not enough credits.',
-  gone: 'That pilot has moved on.',
-};
+/** The status line for a refused hire; the group limit comes from data/escorts.json. */
+export function hireRefusal(data: GameData, error: 'full' | 'short' | 'gone'): string {
+  if (error === 'full') return `Your group is full (${data.escorts.maxEscorts} escorts).`;
+  return error === 'short' ? 'Not enough credits.' : 'That pilot has moved on.';
+}
 
 /** A pilot for hire on a shipyard's board. `offerId` becomes the escort's id. */
 export interface EscortOffer {
@@ -58,7 +58,10 @@ export function nextOrder(o: EscortOrder): EscortOrder {
   return ESCORT_ORDERS[(ESCORT_ORDERS.indexOf(o) + 1) % ESCORT_ORDERS.length];
 }
 
-/** Pilots for hire at `portId` today: 1 to maxOffers, same for the same (seed, port, day). None without a shipyard. */
+/**
+ * Pilots for hire at `portId` today: 1 to maxOffers, same for the same (seed, port, day). None without
+ * a shipyard. A name already in the group (or earlier in today's list) is skipped.
+ */
 export function hireOffers(world: WorldState, data: GameData, portId: string): EscortOffer[] {
   const port = data.planets[portId];
   if (!port || !port.services.includes('shipyard')) return [];
@@ -67,7 +70,7 @@ export function hireOffers(world: WorldState, data: GameData, portId: string): E
   if (ships.length === 0 || cfg.names.length === 0) return [];
   const r = mulberry32(hashString(world.seed, 'escorts', portId, world.day));
   const want = randInt(r, 1, cfg.maxOffers);
-  const used = new Set<string>();
+  const used = new Set<string>(world.escorts.map((e) => e.name));
   const offers: EscortOffer[] = [];
   for (let index = 0; index < want; index++) {
     const shipId = ships[Math.floor(r() * ships.length)];

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { StandingLevelSchema, type GameData } from '../data/schemas';
+import { ESCORT_ID_PREFIX } from '../sim/combat';
 import type { Escort, WorldState } from '../sim/types';
 import { ESCORT_ORDERS, escortMaxArmor, escortMaxFuel } from '../sim/escorts';
 import { revealOnArrival } from '../sim/galaxy';
@@ -379,7 +380,10 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
 }
 
-/** Repairs saved escorts against game data: unknown hulls and outfits go, numbers clamp, ids stay unique. */
+/**
+ * Repairs saved escorts against game data: unknown hulls and outfits go, numbers clamp, ids stay unique
+ * and keep the `esc-` prefix (the player's side is known by it).
+ */
 function escortsFromSave(saved: PilotSave['escorts'], data: GameData): Escort[] {
   const out: Escort[] = [];
   const ids = new Set<string>();
@@ -393,7 +397,7 @@ function escortsFromSave(saved: PilotSave['escorts'], data: GameData): Escort[] 
     const hull = data.ships[s.shipId];
     if (!hull) continue;
     const outfits = Object.fromEntries(Object.entries(s.outfits).filter(([id]) => data.outfits[id]));
-    const id = s.id && !ids.has(s.id) ? s.id : freshId();
+    const id = s.id.startsWith(ESCORT_ID_PREFIX) && !ids.has(s.id) ? s.id : freshId();
     ids.add(id);
     out.push({
       id,
