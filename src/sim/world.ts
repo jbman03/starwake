@@ -2,6 +2,7 @@ import type { GameData, PlanetDef } from '../data/schemas';
 import { autopilotInput, autoStopInput, faceInput, reverseInput } from './assists';
 import { stepShip, wrap } from './flight';
 import { economyDay } from './economy';
+import { payWages } from './escorts';
 import { hopDistance, lanesOf, revealOnArrival, revealWithin, routeBetween } from './galaxy';
 import { missionSystem } from './combatMissions';
 import { failOverdue, jobMissions } from './missions';
@@ -110,6 +111,7 @@ export function advanceDays(world: WorldState, data: GameData, n: number): { wor
     w = { ...w, day: w.day + 1 };
     w = economyDay(w, data);
     w = decayHeat(w, data, 1);
+    w = payWages(w, data);
     const day = w.day;
     w = { ...w, takenOffers: w.takenOffers.filter((id) => Number(id.split(':').slice(-2)[0]) >= day) };
     const overdue = failOverdue(w);

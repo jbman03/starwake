@@ -1,6 +1,7 @@
 import type { GameData } from '../data/schemas';
 import { isRaider } from './battle';
 import { cargoFree } from './cargo';
+import { prizeValueOf } from './escorts';
 import { commitCrime } from './law';
 import { hashString, mulberry32 } from './random';
 import { shipStats } from './shipStats';
@@ -171,7 +172,7 @@ export function takeCommand(world: WorldState, data: GameData, npc: Npc): WorldS
 }
 
 export function prizeValue(data: GameData, npc: Npc): number {
-  return round10(data.combat.boarding.prizeFraction * data.ships[npc.shipId].price);
+  return prizeValueOf(data, npc.shipId);
 }
 
 export function sellPrize(world: WorldState, data: GameData, npc: Npc): WorldState {
