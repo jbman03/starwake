@@ -148,7 +148,8 @@ first big upgrade as a milestone. It needs to come soon enough (we aim for rough
    at each faction's tech hub. *Top pick.*
 3. **Clear story signposting** (cycle 3): the mission log always shows the next lead,
    which avoids Nova's "where do I go now" problem. *Top pick.*
-4. **Escorts and carriers' fighters** (cycle 6), building on the cycle 2 carrier.
+4. **Escorts and carriers' fighters** (cycle 6), building on the cycle 2 carrier. *Escorts done
+   (cycle 6); carriers' fighters still to come.*
 5. **Recurring named pilots** in unique ships (cycle 4+).
 6. **Story-gated region** (galaxy growth): a hidden area opened by a mission chain.
 7. **Ship naming** (cycle 3, shown on the pilot card).
@@ -384,4 +385,22 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    government fails the load with the file name. Saves are v7 (`law`, `ranks`; v6 loads as Clean
    and rank 0, corrupt values clamp). Test hook: `spawnPatrol(gov?)` puts a peaceful patrol in scan
    and hail range, and `sidebar().drawn` gives what the sidebar drew, with its boxes.
-Later: escorts, bounty hunters, smuggling missions, rank-locked faction story chains, more regions.
+10. **Escorts (cycle 6)** — up to three ships fly with the pilot.
+   *Rules (`src/sim/escorts.ts`, pure and seeded):* hire offers at a port come from a seeded roll per planet
+   and day (`hireOffers`), fee `hireFeeMul` of the hull price, wage `wageMul` a day, paid at landing (an unpaid
+   escort leaves); a boarded capture can be kept (`keepCapture`) or sold as a prize; repair costs
+   `repairPerArmor` per missing armor. All tunables live in `data/escorts.json` behind `EscortsSchema`.
+   *In flight:* each escort is an ordinary `Npc` with role `escort` and id `esc-<n>` (`escortNpcs.ts` builds,
+   syncs and removes them; `escortAi.ts` picks the target and station by the standing order: follow, attack,
+   hold, or return fire). The battle has an escort branch: escorts shoot what attacks the pilot (or the
+   target on Attack), are never targeted, hailed, scanned or boarded, and friendly fire is ignored; an
+   escort's kill reports `byEscort`, and an escort shooting a lawful ship is the pilot's crime. Jumps take
+   escorts that have fuel; landing syncs their damage into the world and refuels them.
+   *Controls:* KeyI (`escortOrder`) and the phone rail's ORDER button step the order; "Keep as escort" is
+   on the boarding card after a capture.
+   *UI:* Hire escorts and Your escorts lists with Repair all on the planet screen, an `Escorts: n · Order`
+   sidebar line, escort colour on the radar, and an Escorts tab in How to Play.
+   *Saves:* v8 (`escorts`, `escortOrder`; older saves load with none and Follow, a corrupt entry is dropped).
+   *Test hook:* `combatState` NPCs carry `pos` and `aggro`, and `captureWillSucceed(npcId)` reads the
+   capture roll. Carriers' fighters are still to come.
+Later: bounty hunters, smuggling missions, rank-locked faction story chains, more regions.
