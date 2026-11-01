@@ -419,6 +419,36 @@ describe('ORDER button', () => {
     expect(order.getAttribute('aria-label')).toBe('Escort orders (now Attack)');
   });
 
+  it('pausing (a card or the pause menu) keeps ORDER and the rail layout as they were', async () => {
+    for (const steering of ['point', 'classic'] as const) {
+      const { c, rails, parent } = await setup();
+      c.settings.touch.steering = steering;
+      c.startFlight();
+      const esc = { id: 'esc-1', name: 'Pilot', shipId: 'courier', outfits: {}, armor: 50, fuel: 1, hired: true, wage: 0 };
+      c.world = { ...c.world, escorts: [esc] };
+      c.traffic = withEscorts(c.traffic, c.world, c.data, c.world.ship);
+      rails.update();
+      const q = (control: string) => parent.querySelector<HTMLElement>(`[data-control="${control}"]`)!;
+      const metrics = () => ({
+        order: q('order').hidden,
+        fire: q('fire').style.height,
+        target: q('target').style.height,
+        missile: q('missile').style.height,
+        radar: q('radar').style.width,
+      });
+      const flying = metrics();
+      expect(flying.order).toBe(false);
+      c.pauseFlight();
+      rails.update();
+      expect(metrics()).toEqual(flying);
+      // Paused, the order still can't be changed.
+      expect(c.cycleEscortOrder()).toBeNull();
+      c.startFlight();
+      rails.update();
+      expect(metrics()).toEqual(flying);
+    }
+  });
+
   it('at 844x390 fits the button rail in simple and classic steering, with and without the guide hint, at MAP_HEIGHT', async () => {
     for (const steering of ['point', 'classic'] as const) {
       const { c, rails, parent } = await setup();

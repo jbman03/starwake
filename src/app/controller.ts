@@ -503,14 +503,17 @@ export class Controller {
     return true;
   }
 
-  /** Escorts flying with the pilot right now (none while landed or while one waits in another system). */
+  /**
+   * Escorts out in space with the pilot (none while landed or while one waits in another system).
+   * It ignores pause, so a card or the pause menu doesn't re-lay out the phone rail.
+   */
   escortsPresent(): number {
-    return this.flying ? presentEscorts(this.traffic).length : 0;
+    return this.landedPlanetId ? 0 : presentEscorts(this.traffic).length;
   }
 
   /** Step the group's standing order (Follow, Attack, Hold, Return fire) and say so; null (nothing happens) unless flying with an escort. */
   cycleEscortOrder(): EscortOrder | null {
-    if (this.escortsPresent() === 0) return null;
+    if (!this.flying || this.escortsPresent() === 0) return null;
     const order = nextOrder(this.world.escortOrder);
     this.world = { ...this.world, escortOrder: order };
     this.emit({ type: 'message', text: `Escorts: ${ORDER_LABEL[order]}.` });
