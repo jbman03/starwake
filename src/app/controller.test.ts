@@ -10,6 +10,8 @@ import { DEFAULT_SETTINGS } from '../save/settings';
 import { PilotStore } from '../save/store';
 import type { StoryMissionDef } from '../data/schemas';
 import { canAccept } from '../sim/missions';
+import { escortMaxArmor, escortMaxFuel, repairCost } from '../sim/escorts';
+import type { Escort } from '../sim/types';
 import { newWorld } from '../sim/world';
 import { contextLabel } from '../ui/rails';
 import { governmentShortName } from '../sim/standing';
@@ -2268,5 +2270,172 @@ describe('law: scans and law hails in flight', () => {
     expect(addPatrol(c)).toBe('test-raider-1');
     run(c, 1);
     expect(said.filter((t) => t === 'Scan complete. Fly safe.')).toHaveLength(2);
+  });
+});
+
+describe('escorts through landing, take-off, jump and tow', () => {
+  const pilot = { id: 'p1', name: 'Ava' };
+  const COURIER = { shipId: 'courier', outfits: {} as Record<string, number> };
+  const esc = (c: Controller, id: string, over: Partial<Escort> = {}): Escort => ({
+    id, name: `Pilot ${id}`, shipId: 'courier', outfits: {}, armor: escortMaxArmor(c.data, COURIER), fuel: escortMaxFuel(c.data, COURIER), hired: true, wage: 0, ...over,
+  });
+  /** Escort ids flying in traffic, sorted (a duplicate shows twice). */
+  const flying = (c: Controller) => c.traffic.npcs.filter((n) => n.role === 'escort').map((n) => n.id).sort();
+  const start = (c: Controller, escorts: (c: Controller) => Escort[], over: Partial<import('../sim/types').WorldState> = {}) => {
+    const w = newWorld(c.data, 1);
+    c.beginSession({ ...w, ...over, escorts: escorts(c) }, pilot, 'halcyon');
+  };
+  const takeOff = (c: Controller) => {
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.05);
+  };
+  /** Sit on `planetId` and land there through the context button. */
+  const landOn = (c: Controller, planetId: string) => {
+    const p = c.data.planets[planetId];
+    c.world = { ...c.world, ship: { ...c.world.ship, pos: { ...p.pos }, vel: { x: 0, y: 0 } } };
+    c.selectPlanet(planetId);
+    c.doContextAction();
+    for (let i = 0; i < 120 && c.landedPlanetId === null; i++) c.update(1 / 60);
+    expect(c.landedPlanetId).toBe(planetId);
+  };
+  /** Jump from the end of the flash and fly the arrive phase out. */
+  const jumpTo = (c: Controller, systemId: string) => {
+    c.world = { ...c.world, route: [systemId], jump: { toSystemId: systemId, phase: 'flash', t: 99 } };
+    c.update(0.1);
+    expect(c.world.systemId).toBe(systemId);
+    for (let i = 0; i < 120 && c.world.jump; i++) c.update(1 / 60);
+  };
+  const three = (c: Controller) => [esc(c, 'esc-1'), esc(c, 'esc-2'), esc(c, 'esc-3')];
+
+  it('land/take-off/jump/tow/load cycle keeps exactly one NPC per present escort', async () => {
+    const { c, data } = await setup(['vesk']);
+    const two = (x: Controller) => [esc(x, 'esc-1'), esc(x, 'esc-2')];
+    const both = ['esc-1', 'esc-2'];
+    start(c, two, { outfits: { ...newWorld(data, 1).outfits, 'escape-pod': 1 } });
+    expect(flying(c)).toEqual([]);
+    takeOff(c);
+    expect(flying(c)).toEqual(both);
+    landOn(c, 'halcyon');
+    expect(flying(c)).toEqual([]);
+    takeOff(c);
+    expect(flying(c)).toEqual(both);
+    jumpTo(c, 'vesk');
+    expect(flying(c)).toEqual(both);
+    expect(c.traffic.systemId).toBe('vesk');
+    // Stranded in port-less Vesk: the tow lands in Calder.
+    c.world = { ...c.world, ship: { ...c.world.ship, fuel: 0 } };
+    expect(c.callTow()).toBe(true);
+    expect(c.landedPlanetId).not.toBeNull();
+    expect(flying(c)).toEqual([]);
+    takeOff(c);
+    expect(flying(c)).toEqual(both);
+    // Load the save.
+    c.beginSession(worldFromPilot(c.snapshot()!, data), pilot, c.lastPlanetId!);
+    expect(flying(c)).toEqual([]);
+    takeOff(c);
+    expect(flying(c)).toEqual(both);
+    // The escape pod.
+    c.combat.battle = { ...c.combat.battle, playerDestroyed: true };
+    await c.continueAfterDeath();
+    expect(c.landedPlanetId).not.toBeNull();
+    expect(flying(c)).toEqual([]);
+    takeOff(c);
+    expect(flying(c)).toEqual(both);
+    expect(c.world.escorts.map((e) => e.id)).toEqual(both);
+  });
+
+  it('a disabled or empty escort waits on jump and rejoins at a landing two systems away', async () => {
+    const { c } = await setup();
+    start(c, (x) => [esc(x, 'esc-1'), esc(x, 'esc-2', { armor: 1 }), esc(x, 'esc-3')]);
+    takeOff(c);
+    c.world = { ...c.world, escorts: c.world.escorts.map((e) => (e.id === 'esc-1' ? { ...e, fuel: 0 } : e)) }; // landing (and loading) refuels
+    expect(flying(c)).toEqual(['esc-1', 'esc-2', 'esc-3']);
+    jumpTo(c, 'vesk');
+    expect(flying(c)).toEqual(['esc-3']);
+    expect(c.world.escorts.map((e) => e.waiting ?? false)).toEqual([true, true, false]);
+    jumpTo(c, 'mirren');
+    expect(flying(c)).toEqual(['esc-3']);
+    landOn(c, 'mirren-hollow');
+    expect(c.world.escorts.map((e) => e.waiting ?? false)).toEqual([false, false, false]);
+    takeOff(c);
+    expect(flying(c)).toEqual(['esc-1', 'esc-2', 'esc-3']);
+  });
+
+  it('escort armor lost in flight is still missing after landing, and the repair cost reflects it', async () => {
+    const { c, data } = await setup();
+    start(c, (x) => [esc(x, 'esc-1')]);
+    takeOff(c);
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === 'esc-1' ? { ...n, hull: { ...n.hull, armor: n.hull.armor - 12 } } : n)) };
+    landOn(c, 'halcyon');
+    const max = escortMaxArmor(data, COURIER);
+    expect(c.world.escorts[0].armor).toBe(max - 12);
+    expect(repairCost(c.world, data)).toBe(12 * data.escorts.repairPerArmor);
+  });
+
+  it('an unpaid escort is gone after landing, and the notice is in takeNotices()', async () => {
+    const { c } = await setup();
+    start(c, (x) => [esc(x, 'esc-1'), esc(x, 'esc-2', { name: 'Brass Heron' })]);
+    takeOff(c);
+    c.world = { ...c.world, escorts: c.world.escorts.map((e) => (e.id === 'esc-2' ? { ...e, leaving: true as const } : e)) };
+    landOn(c, 'halcyon');
+    expect(c.world.escorts.map((e) => e.id)).toEqual(['esc-1']);
+    expect(c.takeNotices()).toContain('Brass Heron leaves your service: unpaid wages.');
+  });
+
+  it('fuel is full after landing', async () => {
+    const { c, data } = await setup();
+    start(c, (x) => [esc(x, 'esc-1')]);
+    takeOff(c);
+    c.world = { ...c.world, escorts: c.world.escorts.map((e) => ({ ...e, fuel: 1 })) };
+    jumpTo(c, 'vesk');
+    expect(c.world.escorts[0].fuel).toBe(0);
+    landOn(c, 'tallow-rock');
+    expect(c.world.escorts[0].fuel).toBe(escortMaxFuel(data, COURIER));
+  });
+
+  it('with three escorts present, landing, jumping and calling a tow happen on the same tick as with none', async () => {
+    const ticks = async (escorts: (c: Controller) => Escort[]) => {
+      const { c, events } = await setup(['vesk']);
+      start(c, escorts);
+      const n = escorts(c).length;
+      const out: (number | string | null)[] = [];
+      const until = (done: () => boolean) => {
+        let i = 0;
+        for (; i < 2000 && !done(); i++) c.update(1 / 60);
+        out.push(i);
+      };
+      takeOff(c);
+      expect(flying(c)).toHaveLength(n);
+      c.doContextAction(); // land at Halcyon
+      until(() => c.landedPlanetId !== null);
+      takeOff(c);
+      c.world = { ...c.world, route: ['vesk'], ship: { ...c.world.ship, pos: { x: 2100, y: 0 }, vel: { x: 0, y: 0 } } };
+      expect(flying(c)).toHaveLength(n);
+      c.doContextAction(); // jump
+      until(() => events.some((e) => e.type === 'jumped'));
+      expect(flying(c)).toHaveLength(n);
+      until(() => c.world.jump === null);
+      c.world = { ...c.world, ship: { ...c.world.ship, fuel: 0 } };
+      expect(flying(c)).toHaveLength(n);
+      expect(c.callTow()).toBe(true);
+      out.push(c.landedPlanetId, c.world.timeSec);
+      return out;
+    };
+    const none = await ticks(() => []);
+    expect(await ticks(three)).toEqual(none);
+  });
+
+  it('the order survives a save and load through snapshot() and worldFromPilot', async () => {
+    const { c, data } = await setup();
+    start(c, three, { escortOrder: 'hold' });
+    takeOff(c);
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === 'esc-2' ? { ...n, hull: { ...n.hull, armor: 5 } } : n)) };
+    const w = worldFromPilot(c.snapshot()!, data);
+    expect(w.escortOrder).toBe('hold');
+    expect(w.escorts.map((e) => [e.id, e.armor])).toEqual([['esc-1', escortMaxArmor(data, COURIER)], ['esc-2', 5], ['esc-3', escortMaxArmor(data, COURIER)]]);
+    c.beginSession(w, pilot, 'halcyon');
+    expect(c.world.escortOrder).toBe('hold');
+    takeOff(c);
+    expect(flying(c)).toEqual(['esc-1', 'esc-2', 'esc-3']);
   });
 });

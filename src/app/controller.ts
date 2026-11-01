@@ -5,6 +5,8 @@ import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
 import { pilotFromWorld, worldFromPilot, type PilotSave } from '../save/pilot';
 import { hasPod, podRescue } from '../sim/death';
+import { escortLosses, landEscorts } from '../sim/escorts';
+import { escortsJump, syncEscorts, withEscorts, withoutEscorts } from '../sim/escortNpcs';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
 import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordBountyDown, recordKill } from '../sim/combatMissions';
@@ -376,7 +378,8 @@ export class Controller {
   /** The pilot as of the most recent landing, or null with no session. */
   snapshot(): PilotSave | null {
     if (!this.pilot || !this.lastPlanetId) return null;
-    const p = pilotFromWorld(this.world, this.lastPlanetId, this.pilot);
+    // Escort damage and spent ammo taken in flight go into the save.
+    const p = pilotFromWorld(syncEscorts(this.world, this.data, this.traffic), this.lastPlanetId, this.pilot);
     // Saves are landed snapshots: keep the system consistent with the planet even after a jump.
     return { ...p, systemId: this.data.planets[this.lastPlanetId].systemId };
   }
@@ -401,6 +404,8 @@ export class Controller {
   leavePlanet(): void {
     if (!this.landedPlanetId) return;
     this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
+    if (this.traffic.systemId !== this.world.systemId) this.traffic = this.freshTraffic(this.world);
+    this.traffic = withEscorts(this.traffic, this.world, this.data, this.world.ship); // the group takes off around the parked ship
     this.combat.reset(this.world);
     this.prevShip = this.world.ship;
     this.refreshStory();
@@ -494,7 +499,7 @@ export class Controller {
     this.parkedSite = null;
     this.card = null;
     if (hasPod(this.world)) {
-      const r = podRescue(this.world, this.data);
+      const r = podRescue(syncEscorts(this.world, this.data, this.traffic), this.data);
       this.world = r.world;
       this.traffic = this.freshTraffic(this.world);
       this.notices.push(...r.messages);
@@ -577,7 +582,8 @@ export class Controller {
   /** Call for a tow (works while paused). Lands at the destination; false if none is offered. */
   callTow(): boolean {
     if (!this.towDestination()) return false;
-    const r = applyTow(this.world, this.data, this.towOpts());
+    // The escorts' state as they are towed along; the landing that follows rejoins every one.
+    const r = applyTow(syncEscorts(this.world, this.data, this.traffic), this.data, this.towOpts());
     this.world = r.world;
     this.prevShip = r.world.ship;
     this.handleEvents(r.events);
@@ -891,7 +897,8 @@ export class Controller {
     if (!this.flying || this.fx?.kind === 'land' || this.world.jump || this.traffic.systemId !== this.world.systemId) return;
     const before = this.traffic;
     const r = this.combat.tick(this.world, this.traffic, input, dt);
-    this.world = this.creditKills(r.world, before, r.events);
+    const losses = escortLosses(this.creditKills(r.world, before, r.events), before, r.events);
+    this.world = losses.world;
     this.traffic = r.traffic;
     this.checkDemands();
     const lawSaid = this.checkLaw();
@@ -900,6 +907,7 @@ export class Controller {
       this.emit({ type: 'destroyed' });
     }
     const said = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
+    said.push(...losses.messages);
     // Disabled, then calm: say so once each, with how to call the tow.
     const disabled = this.combat.playerDisabled() && !this.combat.battle.playerDestroyed;
     const calm = this.combat.disabledCalm();
@@ -1557,7 +1565,10 @@ export class Controller {
         this.storyHail = null;
         this.storyHailQuiet = null;
         this.prevShip = this.world.ship; // no interpolation across systems
-        this.traffic = this.freshTraffic(this.world);
+        // Escorts with fuel come along and arrive around where the arrive phase leaves the ship; the rest wait.
+        this.world = escortsJump(this.world, this.data, this.traffic);
+        const end = { pos: jumpEndPos(this.world, this.data), heading: this.world.ship.heading };
+        this.traffic = withEscorts(this.freshTraffic(this.world), this.world, this.data, end);
       }
       if (e.type === 'jumpPhase') {
         const sfx = JUMP_PHASE_SFX[e.phase];
@@ -1592,6 +1603,12 @@ export class Controller {
     this.lastPlanetId = planetId;
     this.prevShip = this.world.ship;
     this.alpha = 0;
+    // Escorts land too (also on load): their flight damage is kept, unpaid ones leave, the rest refuel and rejoin.
+    this.world = syncEscorts(this.world, this.data, this.traffic);
+    this.traffic = withoutEscorts(this.traffic);
+    const escorts = landEscorts(this.world, this.data);
+    this.world = escorts.world;
+    this.notices.push(...escorts.notices);
     // Pay lands in the world first so the autosave below includes it.
     const done = completeAt(this.world, this.data, planetId);
     if (done.completed.length > 0) {

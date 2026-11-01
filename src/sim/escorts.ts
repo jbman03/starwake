@@ -1,6 +1,8 @@
 import type { GameData } from '../data/schemas';
 import { hashString, mulberry32, randInt } from './random';
 import { ESCORT_ID_PREFIX } from './combat';
+import type { BattleEvent } from './battle';
+import type { Traffic } from './traffic';
 import type { Escort, EscortOrder, WorldState } from './types';
 import { shipStats } from './shipStats';
 import { npcLoadout } from './weapons';
@@ -205,5 +207,19 @@ export function repairEscorts(world: WorldState, data: GameData): { world: World
   return {
     world: { ...world, credits: world.credits - paid, escorts: world.escorts.map((e) => ({ ...e, armor: escortMaxArmor(data, e) })) },
     paid,
+  };
+}
+
+/** Escorts destroyed in a battle tick (escort NPCs in `before`) leave the list: '<name> is destroyed.' A disabled one stays. */
+export function escortLosses(world: WorldState, before: Traffic, events: readonly BattleEvent[]): { world: WorldState; messages: string[] } {
+  const lost = new Set<string>();
+  for (const ev of events) {
+    if (ev.type === 'destroyed' && before.npcs.some((n) => n.id === ev.id && n.role === 'escort')) lost.add(ev.id);
+  }
+  const gone = world.escorts.filter((e) => lost.has(e.id));
+  if (gone.length === 0) return { world, messages: [] };
+  return {
+    world: { ...world, escorts: world.escorts.filter((e) => !lost.has(e.id)) },
+    messages: gone.map((e) => `${e.name} is destroyed.`),
   };
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import {
   ESCORT_ORDERS, HIRE_REFUSAL, ORDER_LABEL, dismissEscort, escortMaxArmor, escortMaxFuel, hireEscort, hireOffers, keepCapture,
-  landEscorts, nextOrder, payWages, prizeValueOf, repairCost, repairEscorts, sellEscortPrize,
+  escortLosses, landEscorts, nextOrder, payWages, prizeValueOf, repairCost, repairEscorts, sellEscortPrize,
   type EscortOffer,
 } from './escorts';
 import type { Escort, WorldState } from './types';
@@ -230,5 +230,25 @@ describe('nextOrder', () => {
     expect(nextOrder('hold')).toBe('defend');
     expect(nextOrder('defend')).toBe('follow');
     expect(Object.values(ORDER_LABEL)).toEqual(['Follow', 'Attack', 'Hold', 'Return fire']);
+  });
+});
+
+describe('escortLosses', () => {
+  const npc = (id: string) => ({ id, role: 'escort' }) as unknown as import('./traffic').Npc;
+  const before = { systemId: 'calder', npcs: [npc('esc-1'), npc('esc-2')], spawnCount: 0, nextSpawnSec: 0, targetId: null };
+  it('removes a destroyed escort and says so; a disabled one stays', () => {
+    const w = withEscorts([mk('esc-1', { name: 'Brass Heron' }), mk('esc-2', { name: 'Ansel Vorne' })]);
+    const r = escortLosses(w, before, [
+      { type: 'disabled', id: 'esc-2', byPlayer: false },
+      { type: 'destroyed', id: 'esc-1', byPlayer: false, pos: { x: 0, y: 0 } },
+    ]);
+    expect(r.world.escorts.map((e) => e.id)).toEqual(['esc-2']);
+    expect(r.messages).toEqual(['Brass Heron is destroyed.']);
+  });
+  it('changes nothing without an escort destroyed', () => {
+    const w = withEscorts([mk('esc-1')]);
+    const r = escortLosses(w, before, [{ type: 'destroyed', id: 'npc-3', byPlayer: true, pos: { x: 0, y: 0 } }]);
+    expect(r.world).toBe(w);
+    expect(r.messages).toEqual([]);
   });
 });
