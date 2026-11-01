@@ -6,8 +6,9 @@ import { escortMaxArmor, hireRefusal, prizeValueOf } from '../sim/escorts';
 import { governmentShortName } from '../sim/standing';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import type { RefuelQuote } from '../sim/rules';
+import type { Escort } from '../sim/types';
 import type { UiContext } from './context';
-import { alertDialog, button, el, formatCredits, hotkeyFor } from './dom';
+import { alertDialog, button, confirmDialog, el, formatCredits, hotkeyFor } from './dom';
 import { showExchange } from './exchange';
 import { showHowToPlay } from './howToPlay';
 import { worldStats } from '../sim/shipStats';
@@ -108,8 +109,18 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     else setStatus(hireRefusal(data, r.error), true);
     render();
   };
-  const dismiss = (id: string) => {
-    controller.dismissEscort(id);
+  // Dismiss can't be undone (and sits beside Sell as prize), so it asks first.
+  const dismiss = async (e: Escort) => {
+    const ok = await confirmDialog(ctx.root, {
+      title: `Dismiss ${e.name}?`,
+      message: e.hired
+        ? `${e.name} leaves your service for good. The hiring fee is not refunded.`
+        : `The ship is lost for good. Sell as prize pays ${formatCredits(prizeValueOf(data, e.shipId))} instead.`,
+      confirm: 'Dismiss',
+      danger: true,
+    });
+    if (!ok) return;
+    controller.dismissEscort(e.id);
     status.classList.remove('sw-status-bad');
     render();
   };
@@ -213,7 +224,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
                 el('span', {
                   text: `${e.name} — ${data.ships[e.shipId]?.name ?? e.shipId} · armor ${Math.round(e.armor)}/${Math.round(escortMaxArmor(data, e))} · ${e.hired ? `${formatCredits(e.wage)}/day` : 'kept capture'}`,
                 }),
-                button('Dismiss', () => dismiss(e.id)),
+                button('Dismiss', () => void dismiss(e)),
                 e.hired ? null : button(`Sell as prize (${formatCredits(prizeValueOf(data, e.shipId))})`, () => sell(e.id)),
               ]),
             ),

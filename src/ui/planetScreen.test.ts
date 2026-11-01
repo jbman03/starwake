@@ -276,13 +276,31 @@ describe('escorts on the planet screen', () => {
     expect(status(root).classList.contains('sw-status-bad')).toBe(true);
   });
 
-  it('Dismiss removes the row', async () => {
+  it('Dismiss asks first: Cancel keeps the escort, confirming removes the row', async () => {
     const { root, c, ctx } = await setup(500, 300);
     c.world = { ...c.world, escorts: [escort(c)] };
     showPlanetScreen(ctx, 'halcyon');
+    const settle = () => new Promise((r) => setTimeout(r, 0));
     btn(root, 'Dismiss').click();
+    const dialog = root.querySelector<HTMLElement>('.sw-dialog')!;
+    expect(dialog.textContent).toContain(`Dismiss ${c.world.escorts[0].name}?`);
+    [...dialog.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!.click();
+    await settle();
+    expect(c.world.escorts).toHaveLength(1);
+    expect(root.querySelector('.sw-dialog')).toBeNull();
+    btn(root, 'Dismiss').click();
+    root.querySelector<HTMLButtonElement>('.sw-dialog .sw-btn-danger')!.click();
+    await settle();
     expect(c.world.escorts).toEqual([]);
     expect(root.querySelector('[data-escort]')).toBeNull();
+  });
+
+  it('Dismissing a kept capture warns that she is lost and names her prize value', async () => {
+    const { root, c, ctx } = await setup(500, 300);
+    c.world = { ...c.world, escorts: [escort(c, { hired: false, wage: 0 })] };
+    showPlanetScreen(ctx, 'halcyon');
+    btn(root, 'Dismiss').click();
+    expect(root.querySelector('.sw-dialog')!.textContent).toContain(`Sell as prize pays ${prizeValueOf(c.data, 'courier').toLocaleString('en-US')} cr`);
   });
 
   it('Sell as prize is offered for a kept capture only, and pays its value', async () => {
