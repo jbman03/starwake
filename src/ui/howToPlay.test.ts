@@ -337,4 +337,13 @@ describe('Escorts page', () => {
     expect(t2).toContain('20%');
     expect(t2).toContain('15 cr');
   });
+
+  it('says wages are paid as days pass and that escort kills do not count toward combat jobs', async () => {
+    const data = await loadGameData();
+    const text = tabText('escorts', DEFAULT_SETTINGS.bindings, data).map((b) => b.text).join(' ');
+    expect(text).toContain("Wages are paid each day; a pilot you can't pay leaves at your next landing.");
+    expect(text).not.toContain('pay at landing');
+    expect(text).toContain("An escort's kills don't count toward your combat jobs");
+    expect(text).toContain('a bounty target they take down still completes the bounty');
+  });
 });

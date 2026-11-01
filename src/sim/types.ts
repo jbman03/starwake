@@ -112,7 +112,7 @@ export interface WorldState {
   law: Record<string, { heat: number }>;
   /** Rank points and the day salary was last paid, per government; absent means unranked. */
   ranks: Record<string, { points: number; salaryDay: number }>;
-  /** Hired escorts (and offers waiting at the current port), in hire order. */
+  /** The pilot's escorts, hired pilots and kept captures, in the order they joined (hire offers are never stored here). */
   escorts: Escort[];
   /** What the group is told to do. */
   escortOrder: EscortOrder;
@@ -120,7 +120,7 @@ export interface WorldState {
 
 export type EscortOrder = 'follow' | 'attack' | 'hold' | 'defend';
 
-/** A hired (or offered) escort ship. `armor` is hit points; `fuel` is in jumps. */
+/** An escort in the pilot's group: a hired pilot or a kept capture. `armor` is hit points; `fuel` is in jumps. */
 export interface Escort {
   id: string;
   name: string;
@@ -129,9 +129,9 @@ export interface Escort {
   armor: number;
   fuel: number;
   hired: boolean;
-  /** Credits per day while hired; 0 for an offer. */
+  /** Credits per day for a hired pilot, paid as days pass; 0 for a kept capture. */
   wage: number;
-  /** An offer on the current planet's board; never saved. */
+  /** Left behind after a jump (no fuel, or disabled); rejoins at the next landing. Never saved. */
   waiting?: true;
   /** Will leave at the next port (wages unpaid). */
   leaving?: true;

@@ -304,7 +304,7 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
     standing: { ...world.standing },
     law: Object.fromEntries(Object.entries(world.law).map(([g, l]) => [g, { ...l }])),
     ranks: Object.fromEntries(Object.entries(world.ranks).map(([g, r]) => [g, { ...r }])),
-    // `waiting` is not saved: an offer is regenerated for each port visit.
+    // `waiting` is not saved: a save is a landed snapshot, and landing rejoins every escort left behind.
     escorts: world.escorts.map((e) => ({
       id: e.id,
       name: e.name,

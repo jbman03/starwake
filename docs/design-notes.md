@@ -387,8 +387,8 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    and hail range, and `sidebar().drawn` gives what the sidebar drew, with its boxes.
 10. **Escorts (cycle 6)** — up to three ships fly with the pilot.
    *Rules (`src/sim/escorts.ts`, pure and seeded):* hire offers at a port come from a seeded roll per planet
-   and day (`hireOffers`), fee `hireFeeMul` of the hull price, wage `wageMul` a day, paid at landing (an unpaid
-   escort leaves); a boarded capture can be kept (`keepCapture`) or sold as a prize; repair costs
+   and day (`hireOffers`), fee `hireFeeMul` of the hull price, wage `wageMul` a day, paid as days pass (an unpaid
+   escort leaves at the next landing); a boarded capture can be kept (`keepCapture`) or sold as a prize; repair costs
    `repairPerArmor` per missing armor. All tunables live in `data/escorts.json` behind `EscortsSchema`.
    *In flight:* each escort is an ordinary `Npc` with role `escort` and id `esc-<n>` (`escortNpcs.ts` builds,
    syncs and removes them; `escortAi.ts` picks the target and station by the standing order: follow, attack,
