@@ -8,6 +8,7 @@ import { computeLayout, railMetrics, stickFromOffset, type Insets, type Layout, 
 import { hudInfo, routeBannerText, secondaryShort } from '../render/hudInfo';
 import { radarBlips } from '../render/sidebarInfo';
 import type { ContextAction } from '../sim/context';
+import { ORDER_LABEL } from '../sim/escorts';
 import { jumpDestination, pickLandTarget } from '../sim/rules';
 import type { Traffic } from '../sim/traffic';
 import type { WorldState } from '../sim/types';
@@ -99,7 +100,7 @@ const square = (node: HTMLElement, size: number) => {
 };
 
 /**
- * Phone controls: two side rails (stick rail: HUD, Pause, Stop, joystick; button rail: Map, radar
+ * Phone controls: two side rails (stick rail: HUD, Pause, Stop, joystick; button rail: Map, radar, ORDER (with escorts)
  * → map, Target (hold: nearest hostile), Missile, the weapon label, [Thrust], Fire) and a bottom-center context button. Shown only in
  * touch mode during a session. Every control stays inside its rail; only the layer's rails and
  * the context button take pointer events, so taps on the view reach the game.
@@ -213,6 +214,18 @@ export function mountRails(opts: RailsOptions): Rails {
     touch.press('map');
     touch.release('map');
   });
+  // ORDER: shown only with an escort flying along; a tap steps the group's standing order.
+  const orderBtn = el('button', {
+    class: 'sw-rail-btn sw-rail-map',
+    text: 'ORDER',
+    attrs: { type: 'button', 'aria-label': 'Escort orders', 'data-rail-control': '', 'data-control': 'order' },
+  });
+  orderBtn.hidden = true;
+  orderBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    touch.press('escortOrder');
+    touch.release('escortOrder');
+  });
   // TGT: a tap steps to the next target on release; holding it targets the nearest hostile.
   const targetBtn = el('button', {
     class: 'sw-rail-btn',
@@ -260,6 +273,7 @@ export function mountRails(opts: RailsOptions): Rails {
   const buttonRail = el('div', { class: 'sw-rail', attrs: { 'data-rail': 'buttons' } }, [
     mapBtn,
     radar,
+    orderBtn,
     buttonSpacer,
     targetBtn,
     missile,
@@ -326,12 +340,12 @@ export function mountRails(opts: RailsOptions): Rails {
   let lastHint: string | null = null;
   let lastObjective: string | null = null;
 
-  const applyLayout = (w: number, h: number, layout: Layout, hintOn: boolean) => {
+  const applyLayout = (w: number, h: number, layout: Layout, hintOn: boolean, orderOn: boolean) => {
     const s = controller.settings.touch;
-    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}|${hintOn}`;
+    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}|${hintOn}|${orderOn}`;
     if (key === lastKey) return;
     lastKey = key;
-    const m = railMetrics(layout, s, s.steering, hintOn);
+    const m = railMetrics(layout, s, s.steering, hintOn, orderOn);
     layer.dataset.size = `${w}x${h}`;
     layer.dataset.view = JSON.stringify(layout.view);
     layer.dataset.clear = JSON.stringify(layout.clear);
@@ -355,6 +369,9 @@ export function mountRails(opts: RailsOptions): Rails {
     secondary.style.marginTop = px(m.secondaryGap - m.gap); // tucked up under MSL
     mapBtn.style.height = px(m.map);
     mapBtn.style.width = px(m.fire); // as wide as Fire, which always fits the rail
+    orderBtn.hidden = !orderOn;
+    orderBtn.style.height = px(m.order);
+    orderBtn.style.width = px(m.fire);
     square(radar, m.radar);
     radar.hidden = m.radar < 24;
     radarCanvas.width = Math.max(1, Math.round(m.radar));
@@ -388,7 +405,7 @@ export function mountRails(opts: RailsOptions): Rails {
     // The final card belongs to the screens it is reached on; the rail shows steps 1–10 only.
     const current = controller.guide?.current() ?? null;
     const hint = isFinalStep(current) ? null : current;
-    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null);
+    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null, controller.escortsPresent() > 0);
     // The story objective takes the course line's place (same two lines), so the HUD never grows.
     const objectiveLine = controller.isFlying ? controller.objectiveText(true) : null;
     if (objectiveLine !== lastObjective) {
@@ -419,6 +436,8 @@ export function mountRails(opts: RailsOptions): Rails {
     target.textContent = info.target;
     shieldFill.style.width = `${Math.round(info.hull.shields * 100)}%`;
     armorFill.style.width = `${Math.round(info.hull.armor * 100)}%`;
+    const orderLabel = `Escort orders (now ${ORDER_LABEL[world.escortOrder]})`;
+    if (orderBtn.getAttribute('aria-label') !== orderLabel) orderBtn.setAttribute('aria-label', orderLabel);
     const weapon = secondaryShort(world, data, battle.secondary);
     if (secondary.textContent !== weapon) {
       secondary.textContent = weapon;

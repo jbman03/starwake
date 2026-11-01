@@ -13,13 +13,14 @@ interface Entry {
   used: boolean;
 }
 
-/** The buttons for the current stage, in hotkey order: the loot rows then Leave, or Take command, Sell as prize, Leave. */
+/** The buttons for the current stage, in hotkey order: the loot rows then Leave, or Take command, Sell as prize, Keep as escort, Leave. */
 function entriesOf(v: BoardingView): Entry[] {
   const leave: Entry = { choice: 'leave', label: 'Leave', blocked: null, used: false };
   if (v.stage === 'captured') {
     return [
       { choice: 'command', label: 'Take command', blocked: v.commandBlocked, used: false },
       { choice: 'prize', label: `Sell as prize (${v.prize} cr)`, blocked: null, used: false },
+      { choice: 'keep', label: 'Keep as escort', blocked: v.keepBlocked, used: false },
       leave,
     ];
   }
@@ -58,7 +59,7 @@ export function showBoardingCard(ctx: UiContext, controller: Controller): void {
     const lines = controller.boardChoose(e.choice);
     if (!lines) return;
     outcome.append(...lines.map((t) => el('p', { text: t })));
-    if (e.choice === 'command' || e.choice === 'prize') {
+    if (e.choice === 'command' || e.choice === 'prize' || e.choice === 'keep') {
       ended = true;
       choices.remove();
       actions.replaceChildren(button('Done', close, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'back') }));

@@ -212,3 +212,54 @@ describe('boarding card', () => {
     expect(data.governments.concord).toBeTruthy();
   });
 });
+
+describe('boarding card: keep as escort', () => {
+  const esc = (i: number) => ({ id: `esc-${i}`, name: `P${i}`, shipId: 'courier', outfits: {}, armor: 10, fuel: 1, hired: true, wage: 0 });
+
+  it('after a capture the card lists Take command, Sell as prize, Keep as escort and Leave with hotkeys 1-4', async () => {
+    const { root, open, press } = await setup({ capture: true });
+    open();
+    press('encounterChoice4');
+    const labels = [...root.querySelectorAll('[data-testid="boarding-choice"]')].map((b) => b.textContent ?? '');
+    expect(labels).toHaveLength(4);
+    expect(labels[0]).toMatch(/^1\s*Take command|Take command/);
+    expect(labels[1]).toContain('Sell as prize');
+    expect(labels[2]).toContain('Keep as escort');
+    expect(labels[3]).toContain('Leave');
+    const keys = [...root.querySelectorAll('[data-testid="boarding-choice"] .sw-key')].map((k) => k.textContent);
+    expect(keys).toEqual(['1', '2', '3', '4']);
+  });
+
+  it('Keep turns the ship into an escort NPC in place and the group grows by 1', async () => {
+    const { c, open, press, btn, id } = await setup({ capture: true, shipId: 'courier' });
+    const at = { ...c.traffic.npcs.find((n) => n.id === id)!.ship.pos };
+    open();
+    press('encounterChoice4');
+    press('encounterChoice3');
+    expect(c.world.escorts).toHaveLength(1);
+    expect(c.world.stats.captures).toBe(1);
+    expect(c.traffic.npcs.some((n) => n.id === id)).toBe(false);
+    const e = c.traffic.npcs.find((n) => n.role === 'escort')!;
+    expect(e.id).toBe(c.world.escorts[0].id);
+    expect(e.ship.pos).toEqual(at);
+    expect(e.hull.disabled).toBe(true);
+    btn(/Done/).click();
+    expect(c.isFlying).toBe(true);
+    expect(c.escortsPresent()).toBe(1);
+  });
+
+  it('with 3 escorts Keep is disabled with the full-group reason and the others still work', async () => {
+    const { c, root, open, press, btn } = await setup({ capture: true });
+    c.world = { ...c.world, escorts: [esc(1), esc(2), esc(3)] };
+    open();
+    press('encounterChoice4');
+    expect(btn(/Keep as escort/).disabled).toBe(true);
+    expect(root.textContent).toContain('Your group is full (3 escorts)');
+    press('encounterChoice3');
+    expect(c.world.escorts).toHaveLength(3);
+    expect(btn(/Take command/).disabled).toBe(false);
+    expect(btn(/Sell as prize/).disabled).toBe(false);
+    btn(/Sell as prize/).click();
+    expect(c.world.stats.captures).toBe(1);
+  });
+});

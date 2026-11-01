@@ -21,6 +21,7 @@ export const ACTION_IDS = [
   'flightMissionLog',
   'pause',
   'interact',
+  'escortOrder',
   // planet
   'openExchange',
   'openMissions',
@@ -75,6 +76,7 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   flightMissionLog: 'flight',
   pause: 'flight',
   interact: 'flight',
+  escortOrder: 'flight',
   openExchange: 'planet',
   openMissions: 'planet',
   openShipyard: 'planet',
@@ -121,6 +123,7 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   flightMissionLog: 'Mission log',
   pause: 'Pause',
   interact: 'Answer hail / open site',
+  escortOrder: 'Escort orders',
   openExchange: 'Commodity exchange',
   openMissions: 'Mission computer',
   openShipyard: 'Shipyard',

@@ -5,8 +5,8 @@ import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
 import { pilotFromWorld, worldFromPilot, type PilotSave } from '../save/pilot';
 import { hasPod, podRescue } from '../sim/death';
-import { escortLosses, landEscorts } from '../sim/escorts';
-import { escortsJump, syncEscorts, withEscorts, withoutEscorts } from '../sim/escortNpcs';
+import { escortLosses, landEscorts, nextOrder, ORDER_LABEL } from '../sim/escorts';
+import { escortsJump, presentEscorts, syncEscorts, withEscorts, withoutEscorts } from '../sim/escortNpcs';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
 import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordBountyDown, recordKill } from '../sim/combatMissions';
@@ -61,7 +61,7 @@ import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
 import { addBountyNpc, addStoryNpc, cycleTarget, isFringe, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Npc, type Traffic, type TrafficOpts } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
-import type { FrameInput, JumpPhase, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
+import type { EscortOrder, FrameInput, JumpPhase, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
   applyRefuel,
   applyTow,
@@ -460,6 +460,20 @@ export class Controller {
     return true;
   }
 
+  /** Escorts flying with the pilot right now (none while landed or while one waits in another system). */
+  escortsPresent(): number {
+    return this.flying ? presentEscorts(this.traffic).length : 0;
+  }
+
+  /** Step the group's standing order (Follow, Attack, Hold, Return fire) and say so; null (nothing happens) unless flying with an escort. */
+  cycleEscortOrder(): EscortOrder | null {
+    if (this.escortsPresent() === 0) return null;
+    const order = nextOrder(this.world.escortOrder);
+    this.world = { ...this.world, escortOrder: order };
+    this.emit({ type: 'message', text: `Escorts: ${ORDER_LABEL[order]}.` });
+    return order;
+  }
+
   /** The open boarding as the card shows it, or null. */
   boardingView(): BoardingView | null {
     return this.combat.boardingView(this.world, this.traffic);
@@ -853,6 +867,7 @@ export class Controller {
         this.world = { ...this.world, targetPlanetId: pick.planetId };
         this.targetSiteId = pick.siteId;
       }
+      if (pressed.delete('escortOrder')) this.cycleEscortOrder();
       if (pressed.delete('nearestHostile')) this.targetNearestHostile();
       if (pressed.delete('board')) this.board();
       // The autopilot key flies to a targeted site (the sim's own autopilot only knows planets and the jump point).

@@ -2439,3 +2439,59 @@ describe('escorts through landing, take-off, jump and tow', () => {
     expect(flying(c)).toEqual(['esc-1', 'esc-2', 'esc-3']);
   });
 });
+
+describe('escort orders', () => {
+  const pilot = { id: 'p1', name: 'Ava' };
+  const COURIER = { shipId: 'courier', outfits: {} as Record<string, number> };
+  const mkEsc = (c: Controller, id: string): Escort => ({
+    id, name: `Pilot ${id}`, shipId: 'courier', outfits: {}, armor: escortMaxArmor(c.data, COURIER), fuel: escortMaxFuel(c.data, COURIER), hired: true, wage: 0,
+  });
+  const flyWith = async (n: number) => {
+    const { c, target, events } = await setup();
+    const w = newWorld(c.data, 1);
+    c.beginSession({ ...w, escorts: Array.from({ length: n }, (_, i) => mkEsc(c, `esc-${i + 1}`)) }, pilot, 'halcyon');
+    return { c, target, events };
+  };
+  const takeOff = (c: Controller) => {
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.05);
+  };
+  const said = (events: ControllerEvent[]) => events.flatMap((e) => (e.type === 'message' ? [e.text] : []));
+
+  it('KeyI cycles Follow, Attack, Hold, Return fire, Follow and says so', async () => {
+    const { c, target, events } = await flyWith(1);
+    takeOff(c);
+    expect(c.escortsPresent()).toBe(1);
+    expect(c.world.escortOrder).toBe('follow');
+    const seen: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      target.dispatchEvent(keyEvent('keydown', 'KeyI'));
+      c.update(1 / 60);
+      target.dispatchEvent(keyEvent('keyup', 'KeyI'));
+      seen.push(c.world.escortOrder);
+    }
+    expect(seen).toEqual(['attack', 'hold', 'defend', 'follow']);
+    expect(said(events).filter((t) => t.startsWith('Escorts:'))).toEqual(['Escorts: Attack.', 'Escorts: Hold.', 'Escorts: Return fire.', 'Escorts: Follow.']);
+  });
+
+  it('does nothing landed or with no escort present', async () => {
+    const { c, events } = await flyWith(1);
+    expect(c.escortsPresent()).toBe(0); // landed: none flying
+    expect(c.cycleEscortOrder()).toBeNull();
+    expect(c.world.escortOrder).toBe('follow');
+    const none = await flyWith(0);
+    takeOff(none.c);
+    expect(none.c.cycleEscortOrder()).toBeNull();
+    none.c.touch.press('escortOrder');
+    none.c.update(1 / 60);
+    expect(none.c.world.escortOrder).toBe('follow');
+    expect(said(events)).toEqual([]);
+  });
+
+  it('cycleEscortOrder returns the new order while flying with an escort', async () => {
+    const { c } = await flyWith(2);
+    takeOff(c);
+    expect(c.cycleEscortOrder()).toBe('attack');
+    expect(c.world.escortOrder).toBe('attack');
+  });
+});

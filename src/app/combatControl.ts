@@ -18,6 +18,8 @@ import {
   type Loot,
 } from '../sim/boarding';
 import { driftShip, fullHull } from '../sim/combat';
+import { escortNpc } from '../sim/escortNpcs';
+import { keepCapture } from '../sim/escorts';
 import { illegalHeld, scanCatches, type LawReason } from '../sim/contraband';
 import { legalStatus } from '../sim/law';
 import { RAIDERS } from '../sim/ai';
@@ -74,7 +76,7 @@ const allowed = (s: ReadonlySet<ActionId>): Set<ActionId> => new Set([...s].filt
 /** The player is out of the fight for this long (s) before the Destroyed card. */
 export const DESTROYED_DELAY_SEC = 2;
 
-export type BoardingChoice = 'credits' | 'cargo' | 'ammo' | 'capture' | 'command' | 'prize' | 'leave';
+export type BoardingChoice = 'credits' | 'cargo' | 'ammo' | 'capture' | 'command' | 'prize' | 'keep' | 'leave';
 
 /** What the boarding card shows. */
 export interface BoardingView {
@@ -82,6 +84,8 @@ export interface BoardingView {
   stage: 'loot' | 'captured';
   rows: { id: 'credits' | 'cargo' | 'ammo' | 'capture'; label: string; blocked: string | null; used: boolean }[];
   commandBlocked: string | null;
+  /** Why Keep as escort can't be chosen ('Your group is full (3 escorts)'), or null. */
+  keepBlocked: string | null;
   prize: number;
 }
 
@@ -251,6 +255,7 @@ export class CombatControl {
         { id: 'capture', label: `Attempt capture (${Math.round(captureOdds(world, this.data, npc) * 100)}%)`, blocked: null, used: done },
       ],
       commandBlocked: check.ok ? null : COMMAND_BLOCK_TEXT[check.reason],
+      keepBlocked: world.escorts.length >= this.data.escorts.maxEscorts ? `Your group is full (${this.data.escorts.maxEscorts} escorts)` : null,
       prize: prizeValue(this.data, npc),
     };
   }
@@ -291,6 +296,15 @@ export class CombatControl {
       const w = sellPrize(world, this.data, npc);
       this.endBoarding(npc.id);
       return { world: w, traffic: gone(), messages: [`You sell ${npc.name} as a prize for ${prizeValue(this.data, npc)} credits.`], ended: true };
+    }
+    if (choice === 'keep') {
+      const kept = keepCapture(world, this.data, npc);
+      if ('error' in kept) return null;
+      // The ship stays where it lies, hull and all (disabled, so it drifts), now as an escort.
+      const joined = escortNpc(kept.escort, this.data, { pos: npc.ship.pos, heading: npc.ship.heading, vel: npc.ship.vel });
+      this.endBoarding(npc.id);
+      const npcs = traffic.npcs.map((n) => (n.id === npc.id ? joined : n));
+      return { world: kept.world, traffic: { ...traffic, npcs, targetId: traffic.targetId === npc.id ? null : traffic.targetId }, messages: [`${npc.name} joins your escort.`], ended: true };
     }
     if (choice === 'command') {
       if (!canTakeCommand(world, this.data, npc).ok) return null;

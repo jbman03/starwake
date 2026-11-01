@@ -154,3 +154,14 @@ describe('settings', () => {
     expect(loadSettings().bindings.cycleSecondary).toEqual([null, null]);
   });
 });
+
+describe('escort orders key in old settings', () => {
+  it('stored settings without escortOrder get KeyI, unless the pilot put KeyI on another flight action', () => {
+    const old = resetBindings() as Record<string, unknown>;
+    delete old.escortOrder;
+    localStorage.setItem(KEY, JSON.stringify({ bindings: old }));
+    expect(loadSettings().bindings.escortOrder).toEqual(['KeyI', null]);
+    localStorage.setItem(KEY, JSON.stringify({ bindings: { ...old, thrust: ['KeyI', null] } }));
+    expect(loadSettings().bindings.escortOrder).toEqual([null, null]);
+  });
+});

@@ -48,6 +48,7 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   flightMissionLog: 'Pause (II), then Mission Log',
   pause: 'II button',
   interact: 'Answer hail, or the Scan, Search or Open site button',
+  escortOrder: 'ORDER button (with escorts)',
   openExchange: 'Tap the button',
   openMissions: 'Tap the button',
   openShipyard: 'Tap the button',

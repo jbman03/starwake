@@ -390,3 +390,46 @@ describe('law hails (Ruling 11)', () => {
     expect(cc.queuedLawNpcs()).toEqual([]); // nothing else waits behind the scan
   });
 });
+
+describe('keep a capture as an escort', () => {
+  const wreckWhere = (w: WorldState, ok: boolean): Npc => {
+    for (let i = 0; i < 200; i++) {
+      const n = wreck(`w${i}`, 30, 0, { shipId: 'courier', name: 'Brass Heron' });
+      if (captureSucceeds(w, data, n) === ok) return n;
+    }
+    throw new Error('no wreck found');
+  };
+  const captured = (escorts: WorldState['escorts'] = []) => {
+    const w = mkWorld({ escorts });
+    const n = wreckWhere(w, true);
+    const t = mkTraffic([n], n.id);
+    const c = new CombatControl(data, w);
+    c.startBoarding(w, t);
+    const r = c.boardChoose(w, t, 'capture')!;
+    return { c, w: r.world, t, n };
+  };
+  const esc = (i: number) => ({ id: `esc-${i}`, name: `P${i}`, shipId: 'courier', outfits: {}, armor: 10, fuel: 1, hired: true, wage: 0 });
+
+  it('replaces the boarded ship with an escort NPC in place, keeping its hull', () => {
+    const { c, w, t, n } = captured();
+    expect(c.boardingView(w, t)!.keepBlocked).toBeNull();
+    const r = c.boardChoose(w, t, 'keep')!;
+    expect(r.ended).toBe(true);
+    expect(r.messages).toEqual(['Brass Heron joins your escort.']);
+    expect(r.world.escorts.map((e) => e.id)).toEqual(['esc-1']);
+    expect(r.world.escorts[0].armor).toBe(n.hull.armor);
+    expect(r.traffic.npcs).toHaveLength(1);
+    const e = r.traffic.npcs[0];
+    expect([e.id, e.role, e.hull.armor, e.hull.disabled]).toEqual(['esc-1', 'escort', n.hull.armor, true]);
+    expect(e.ship.pos).toEqual(n.ship.pos);
+    expect(r.traffic.targetId).toBeNull();
+    expect(c.boardingId).toBeNull();
+  });
+
+  it('with a full group, Keep is blocked and refused; the other choices still work', () => {
+    const { c, w, t } = captured([esc(1), esc(2), esc(3)]);
+    expect(c.boardingView(w, t)!.keepBlocked).toBe('Your group is full (3 escorts)');
+    expect(c.boardChoose(w, t, 'keep')).toBeNull();
+    expect(c.boardChoose(w, t, 'prize')).not.toBeNull();
+  });
+});
