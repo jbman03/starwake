@@ -1,0 +1,14 @@
+{
+  "maxEscorts": 3,
+  "maxOffers": 3,
+  "hireFeeMul": 0.1,
+  "wageMul": 0.005,
+  "repairPerArmor": 10,
+  "followDistance": 90,
+  "hireable": ["courier", "scout", "kestrel", "warden"],
+  "names": [
+    "Ansel Vorne", "Mirah Teague", "Doss Calloway", "Ketty Ormsby", "Raff Dunmore", "Tova Ellery",
+    "Brannock Hale", "Ishbel Crane", "Lenn Okafor", "Sabra Quill", "Hollis Marrow", "Odile Frayne",
+    "Corvin Tarr", "Wynne Absalom", "Pell Hargrove", "Neris Dace"
+  ]
+}

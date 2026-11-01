@@ -370,6 +370,22 @@ export const LawSchema = z
   .strict();
 export type LawDef = z.infer<typeof LawSchema>;
 
+/** Escort tunables: group size, hire offers, fees and wages, repairs, formation and the hireable hulls. */
+export const EscortsSchema = z
+  .object({
+    maxEscorts: z.number().int().min(1), // most escorts in the group at once
+    maxOffers: z.number().int().min(1), // hire offers shown at a port
+    hireFeeMul: z.number().nonnegative(), // hire fee = hireFeeMul x hull price
+    wageMul: z.number().nonnegative(), // daily wage = wageMul x hull price
+    repairPerArmor: z.number().nonnegative(), // cr per armor point restored
+    followDistance: z.number().positive(), // px kept behind the flagship
+    hireable: z.array(id).min(1), // ship ids, checked against ships.json
+    names: z.array(z.string().min(1)), // in-world pilot names
+  })
+  .strict()
+  .refine((e) => e.names.length >= e.maxOffers, { message: 'needs at least maxOffers names', path: ['names'] });
+export type EscortsDef = z.infer<typeof EscortsSchema>;
+
 const PerkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('title') }).strict(),
   z.object({ kind: z.literal('discount'), pct: z.number().positive().max(100) }).strict(),
@@ -676,5 +692,6 @@ export interface GameData {
   combat: CombatDef;
   audio: AudioDef;
   law: LawDef;
+  escorts: EscortsDef;
   factions: Record<string, FactionDef>;
 }

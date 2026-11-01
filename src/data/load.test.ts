@@ -14,6 +14,7 @@ import story from '../../data/story.json';
 import combat from '../../data/combat.json';
 import audio from '../../data/audio.json';
 import law from '../../data/law.json';
+import escorts from '../../data/escorts.json';
 import factions from '../../data/factions.json';
 import { parseGameData, DataError, loadGameData } from './load';
 import { SFX_IDS } from './schemas';
@@ -22,7 +23,7 @@ import { MOOD_IDS } from '../audio/moods';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
-  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, factions }) as {
+  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions }) as {
   ships: any[];
   systems: any[];
   planets: any[];
@@ -38,6 +39,7 @@ const raw = () =>
   combat: any;
   audio: any;
   law: any;
+  escorts: any;
   factions: any;
 };
 
@@ -1252,6 +1254,55 @@ describe('law.json, factions.json and contraband', () => {
       const r = raw();
       mutate(r.law);
       expect(failure(r).file).toBe('law.json');
+    }
+  });
+});
+
+describe('escorts.json', () => {
+  const has = (e: DataError, text: string) => expect(e.issues.join('\n')).toContain(text);
+
+  it('the shipped escort tunables parse with the default values', () => {
+    const d = parseGameData(raw());
+    expect(d.escorts).toMatchObject({
+      maxEscorts: 3, maxOffers: 3, hireFeeMul: 0.1, wageMul: 0.005, repairPerArmor: 10, followDistance: 90,
+      hireable: ['courier', 'scout', 'kestrel', 'warden'],
+    });
+    expect(d.escorts.names.length).toBeGreaterThanOrEqual(12);
+    expect(new Set(d.escorts.names).size).toBe(d.escorts.names.length);
+  });
+
+  it('rejects hireable naming an unknown hull', () => {
+    const r = raw();
+    r.escorts.hireable = ['nope'];
+    const e = failure(r);
+    expect(e.file).toBe('escorts.json');
+    has(e, 'escorts.json');
+    has(e, 'hireable.0');
+  });
+
+  it('rejects a unique hull in hireable', () => {
+    const r = raw();
+    r.escorts.hireable = ['courier', 'patience'];
+    const e = failure(r);
+    expect(e.file).toBe('escorts.json');
+    has(e, 'hireable.1');
+  });
+
+  it('rejects bad tunables and too few names, naming the file', () => {
+    const muts: ((x: any) => void)[] = [
+      (x) => (x.maxEscorts = 0),
+      (x) => (x.maxOffers = 0),
+      (x) => (x.wageMul = -0.1),
+      (x) => (x.hireFeeMul = -1),
+      (x) => (x.hireable = []),
+      (x) => (x.extra = 1),
+      (x) => delete x.followDistance,
+      (x) => (x.names = x.names.slice(0, x.maxOffers - 1)),
+    ];
+    for (const mutate of muts) {
+      const r = raw();
+      mutate(r.escorts);
+      expect(failure(r).file).toBe('escorts.json');
     }
   });
 });
