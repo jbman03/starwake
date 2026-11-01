@@ -57,7 +57,7 @@ test.describe('desktop', () => {
     );
     await page.reload();
     await page.getByRole('button', { name: /^How to Play/ }).click();
-    for (const name of ['Flying', 'Planets & trade', 'Missions', 'Travel & fuel']) {
+    for (const name of ['Flying', 'Planets & trade', 'Missions', 'Travel & fuel', 'Law & ranks', 'Escorts']) {
       await htp(page).getByRole('tab', { name }).click();
       await expect(page.getByRole('tabpanel')).not.toBeEmpty();
     }

@@ -60,13 +60,13 @@ export const npcOf = (page: Page, id: string) =>
   page.evaluate((i) => window.__starwake!.combatState().npcs.find((n) => n.id === i) ?? null, id);
 
 /**
- * Test-only: clear the sky for a set-up fight. Ambient traffic goes (a bounty target stays), and no new ship
+ * Test-only: clear the sky for a set-up fight. Ambient traffic goes (a bounty target and the player's escorts stay), and no new ship
  * spawns: a Concord patrol would join any fight with a raider, and a random raider could attack or demand.
  */
 export async function quietSky(page: Page): Promise<void> {
   await page.evaluate(() => {
     const c = window.__starwake!.controller;
-    const npcs = c.traffic.npcs.filter((n) => n.id.startsWith('bounty-'));
+    const npcs = c.traffic.npcs.filter((n) => n.id.startsWith('bounty-') || n.role === 'escort');
     c.traffic = { ...c.traffic, npcs, nextSpawnSec: 1e9, targetId: npcs.some((n) => n.id === c.traffic.targetId) ? c.traffic.targetId : null };
   });
 }
