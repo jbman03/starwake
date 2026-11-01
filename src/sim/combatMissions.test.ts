@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import { accept, completeAt, failOverdue, offersAt, type MissionOffer } from './missions';
-import { bountyToSpawn, combatOffersOk, combatTargetSystem, recordKill } from './combatMissions';
+import { bountyToSpawn, combatOffersOk, combatTargetSystem, recordBountyDown, recordKill } from './combatMissions';
 import type { WorldState } from './types';
 import { advanceDays, newWorld } from './world';
 
@@ -86,6 +86,18 @@ describe('combat missions', () => {
     expect(paid.completed).toHaveLength(1);
     expect(paid.pay).toBe(m.pay);
     expect(paid.world.credits).toBe(w.credits + m.pay);
+  });
+
+  it('recordBountyDown completes the bounty and leaves a clear job alone', () => {
+    const b = withJob(take('bounty', world()));
+    const both = { ...b, missions: [...b.missions, ...withJob(take('clear', world())).missions] };
+    const m = both.missions[0];
+    expect(recordBountyDown(both, { missionId: 'other' })).toBe(both);
+    expect(recordBountyDown(both, {})).toBe(both);
+    const down = recordBountyDown(both, { missionId: m.id });
+    expect(down.missions[0].combat!.done).toBe(1);
+    expect(down.missions[1].combat!.done).toBe(0);
+    expect(recordBountyDown(down, { missionId: m.id })).toBe(down); // never over
   });
 
   it('clear: counts raiders in its system only, pays at needed', () => {

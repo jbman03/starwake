@@ -6,7 +6,9 @@ import { npcLoadout } from './weapons';
 import { shipStats } from './shipStats';
 import { addStoryNpc, cycleTarget, npcLabel, npcLanes, seedTraffic, stepTraffic, trafficLevel, isTargetable, raiderChance, patrolChance, addBountyNpc, type Traffic, type TrafficOpts } from './traffic';
 import { newWorld } from './world';
-import type { WorldState } from './types';
+import type { Escort, WorldState } from './types';
+import { escortNpc } from './escortNpcs';
+import { nearestHostile, newBattle } from './battle';
 
 const data = testData();
 const DT = 0.1;
@@ -417,5 +419,53 @@ describe('roles, hulls and safe spawning', () => {
     const t = addBountyNpc({ systemId: 'calder', npcs: [], spawnCount: 0, nextSpawnSec: 1e9, targetId: null }, { id: 'b', name: 'B', shipId: 'kestrel', missionId: 'm1', pos: { x: 100, y: 100 } }, data);
     expect(t.npcs[0]).toMatchObject({ role: 'raider', government: 'raiders', peaceful: false, demand: false, missionId: 'm1' });
     expect(t.npcs[0].ship.pos).toEqual({ x: 100, y: 100 });
+  });
+});
+
+describe('escorts in traffic (cycle 6)', () => {
+  const esc = (n: number): Escort => ({ id: `esc-${n}`, name: `E${n}`, shipId: 'courier', outfits: {}, armor: 40, fuel: 2, hired: true, wage: 9 });
+  const escortAt = (n: number, x: number, y: number) => escortNpc(esc(n), data, { pos: { x, y }, heading: 0, vel: { x: 30, y: 0 } });
+
+  it('stepTraffic for 200 s never moves, lands, jumps out or drops an escort', () => {
+    const w = worldIn('calder');
+    const port = Object.values(data.planets).find((p) => p.systemId === 'calder')!;
+    const escorts = [escortAt(1, port.pos.x, port.pos.y), escortAt(2, 5000, 0)];
+    let t: Traffic = { ...seedTraffic(w, data, o()), };
+    t = { ...t, npcs: [...escorts, ...t.npcs] };
+    const events: string[] = [];
+    for (let time = 0; time < 200; time += DT) {
+      const r = stepTraffic(t, w, data, DT, o());
+      t = r.traffic;
+      for (const e of r.events) if (e.id.startsWith('esc-')) events.push(e.type);
+    }
+    expect(events).toEqual([]);
+    for (const e of escorts) expect(t.npcs.find((n) => n.id === e.id)).toEqual(e);
+  });
+
+  it('escorts do not count toward the wanted ship count', () => {
+    const w = worldIn('calder');
+    const t0: Traffic = { systemId: 'calder', npcs: [escortAt(1, 0, 0), escortAt(2, 0, 0), escortAt(3, 0, 0)], spawnCount: 0, nextSpawnSec: 0, targetId: null };
+    const t = stepTraffic(t0, w, data, DT, o(3)).traffic;
+    expect(t.npcs.length).toBe(4);
+  });
+
+  it('cycleTarget and nearestHostile skip escorts', () => {
+    const w = { ...worldIn('calder'), ship: { ...worldIn('calder').ship, pos: { x: 0, y: 0 } }, targetPlanetId: null };
+    const t: Traffic = { systemId: 'calder', npcs: [escortAt(1, 20, 0)], spawnCount: 0, nextSpawnSec: 1e9, targetId: null };
+    const seen: (string | null)[] = [];
+    let cur = t;
+    let world: WorldState = w;
+    for (let i = 0; i < 20; i++) {
+      const p = cycleTarget(world, data, cur);
+      if (!p.shipId && !p.planetId) break;
+      seen.push(p.shipId);
+      cur = { ...cur, targetId: p.shipId };
+      world = { ...world, targetPlanetId: p.planetId };
+    }
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((id) => id === null)).toBe(true);
+    // Even an escort a raider has angered is never offered as the nearest hostile.
+    const angry: Traffic = { ...t, npcs: [{ ...escortAt(1, 20, 0), aggro: ['player'] }] };
+    expect(nearestHostile(w, angry, newBattle(w, data))).toBeNull();
   });
 });

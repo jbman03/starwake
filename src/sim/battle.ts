@@ -1,6 +1,6 @@
 import type { GameData, StandingLevel } from '../data/schemas';
 import type { AiSelf } from './ai';
-import { decide, isHostileTo, RAIDERS } from './ai';
+import { aiProfile, decide, isHostileTo, RAIDERS } from './ai';
 import {
   applyDamage,
   beamTrace,
@@ -8,6 +8,7 @@ import {
   fullHull,
   gunHeading,
   hitTest,
+  isPlayerSide,
   LOW_ARMOR_FRACTION,
   PLAYER_ID,
   rechargeHull,
@@ -22,6 +23,8 @@ import {
   type ShotKind,
 } from './combat';
 import { faceInput } from './assists';
+import { escortAi, type EscortView } from './escortAi';
+import { escortSlot } from './escortNpcs';
 import { commitCrime, huntingGovernments } from './law';
 import { addPoints } from './ranks';
 import { stepShip } from './flight';
@@ -29,7 +32,7 @@ import { hashString, mulberry32 } from './random';
 import { JUMP_POINT_MARGIN, SYSTEM_CENTER } from './rules';
 import { worldStats } from './shipStats';
 import { STANDING_RANK, standingOf } from './standing';
-import { isTargetable, type Npc, type Traffic } from './traffic';
+import { inFlight, isTargetable, type Npc, type Traffic } from './traffic';
 import type { FrameInput, ShipState, WorldState } from './types';
 import { add, dist, fromAngle, norm, scale, sub, type Vec2 } from './vec';
 import { weaponsOf } from './weapons';
@@ -48,6 +51,8 @@ export interface Battle {
   angry: string[];
   /** Governments that hunt the pilot, so their patrols attack on sight; read from law heat every tick. */
   hunted: string[];
+  /** Ids that have hit the player this visit (escorts fire back at them). */
+  playerAggro: string[];
   nextShotId: number;
   /** The player's hull has been destroyed (set once, with the playerDestroyed event). */
   playerDestroyed: boolean;
@@ -57,8 +62,9 @@ export type BattleEvent =
   /** `outfitId` is the gun, beam or launcher that fired, so each weapon can sound its own. */
   | { type: 'shot'; ownerId: string; kind: ShotKind | 'beam'; outfitId: string }
   | { type: 'hit'; targetId: string; shield: boolean; pos: Vec2 }
-  | { type: 'disabled'; id: string; byPlayer: boolean }
-  | { type: 'destroyed'; id: string; byPlayer: boolean; pos: Vec2 }
+  /** `byEscort` is set (true) when one of the player's escorts did it. */
+  | { type: 'disabled'; id: string; byPlayer: boolean; byEscort?: boolean }
+  | { type: 'destroyed'; id: string; byPlayer: boolean; byEscort?: boolean; pos: Vec2 }
   | { type: 'playerDisabled' }
   | { type: 'playerDestroyed'; pos: Vec2 }
   | { type: 'lowArmor' }
@@ -85,6 +91,7 @@ export function newBattle(world: WorldState, data: GameData): Battle {
     secondary: loadedLaunchers(world.outfits, data)[0] ?? null,
     angry: [],
     hunted: huntingGovernments(world, data),
+    playerAggro: [],
     nextShotId: 1,
     playerDestroyed: false,
   };
@@ -265,6 +272,27 @@ function fireLauncher(t: Tick, c: Combatant, launcherId: string, target: Combata
   return left;
 }
 
+/**
+ * An NPC's guns, turrets and beams at `target` (guns and beams only when `fire`), then one launcher
+ * round when the target is well inside its reach. Returns the outfits after any ammo is spent.
+ */
+function fireAt(t: Tick, c: Combatant, target: Combatant | null, fire: boolean, victims: Combatant[], data: GameData): Record<string, number> {
+  firePrimary(t, c, target, target, { guns: fire, turrets: true, beams: fire }, victims, data);
+  let spent = c.outfits;
+  if (fire && target) {
+    for (const l of weaponsOf(spent, data).launchers) {
+      const ammo = data.outfits[l.def.effect.ammo];
+      if (!ammo || ammo.category !== 'ammo' || dist(c.ship.pos, target.ship.pos) > ammo.effect.range * 0.9) continue;
+      const after = fireLauncher(t, c, l.def.id, target, spent, data);
+      if (after !== spent) {
+        spent = after;
+        break;
+      }
+    }
+  }
+  return spent;
+}
+
 /** The nearest point on the system's jump boundary, outward from the centre through the ship. */
 function fleePoint(ship: ShipState, jumpDistance: number): Vec2 {
   const d = norm(sub(ship.pos, SYSTEM_CENTER));
@@ -298,16 +326,16 @@ export function stepBattle(
   // 1. Recharge every hull.
   let playerHull = rechargeHull(b.player, dt, now);
   let battle: Battle = { ...b, player: playerHull, hunted: huntingGovernments(world, data) };
-  let npcs: Npc[] = traffic.npcs.map((n) => (isTargetable(n) ? { ...n, hull: rechargeHull(n.hull, dt, now) } : n));
+  let npcs: Npc[] = traffic.npcs.map((n) => (inFlight(n) ? { ...n, hull: rechargeHull(n.hull, dt, now) } : n));
   let outfits = world.outfits;
 
   let playerDead = b.playerDestroyed;
   const alive = (h: Hull) => h.armor > 0 || h.disabled; // a disabled hull can still be shot to pieces
   const playerC = (): Combatant => playerCombatant({ ...battle, player: playerHull }, world, data);
-  /** Who can be hit right now: the player and every targetable NPC that is not already wrecked. */
+  /** Who can be hit right now: the player and every NPC in flight (escorts too) that is not already wrecked. */
   const combatants = (): Combatant[] => [
     ...(!playerDead ? [playerC()] : []),
-    ...npcs.filter((n) => isTargetable(n) && alive(n.hull)).map((n) => combatantOf(n, data)),
+    ...npcs.filter((n) => inFlight(n) && alive(n.hull)).map((n) => combatantOf(n, data)),
   ];
   const targetNpc = npcs.find((n) => n.id === traffic.targetId && isTargetable(n) && alive(n.hull));
 
@@ -315,7 +343,7 @@ export function stepBattle(
   if (input.pressed.has('cycleSecondary')) battle = cycleSecondary(battle, world, data);
   if (!world.jump && !playerHull.disabled && !playerDead) {
     const me = playerC();
-    const victims = combatants().filter((c) => c.id !== PLAYER_ID);
+    const victims = combatants().filter((c) => !isPlayerSide(c.id));
     const target = targetNpc ? combatantOf(targetNpc, data) : null;
     if (input.actions.has('firePrimary')) {
       const nearId = target ? null : nearestHostile(world, { ...traffic, npcs }, { ...battle, player: playerHull });
@@ -331,8 +359,16 @@ export function stepBattle(
   const next: Npc[] = [];
   // Hostiles keep shooting a disabled player, so decide() sees the player's hull as not disabled.
   const all = combatants().map((c) => (c.id === PLAYER_ID ? { ...c, hull: { ...c.hull, disabled: false } } : c));
+  // Escorts: their slots in traffic order, and who they answer (spec §5.2).
+  const escortIds = npcs.filter((n) => n.role === 'escort' && inFlight(n)).map((n) => n.id);
+  const attackers = new Set<string>(battle.playerAggro);
+  const threats = new Set<string>();
   for (const n of npcs) {
-    if (!isTargetable(n)) {
+    if (n.role === 'escort') for (const id of n.aggro) attackers.add(id);
+    else if (isRaider(n) && inFlight(n) && isHostileToPlayer(n, world, battle)) threats.add(n.id);
+  }
+  for (const n of npcs) {
+    if (!inFlight(n)) {
       next.push(n);
       continue;
     }
@@ -341,9 +377,34 @@ export function stepBattle(
       continue;
     }
     const def = data.ships[n.shipId];
+    if (n.role === 'escort') {
+      const me = combatantOf(n, data);
+      const others = all.filter((c) => c.id !== n.id);
+      const view: EscortView = {
+        me,
+        player: playerC(),
+        slot: escortSlot(world.ship, escortIds.indexOf(n.id), escortIds.length, data.escorts.followDistance),
+        order: world.escortOrder,
+        playerTargetId: traffic.targetId,
+        attackers,
+        threats,
+        maxSpeed: def.maxSpeed,
+        fireRange: fireRangeOf(n.outfits, data),
+      };
+      const d = escortAi(view, others, data);
+      let ship = stepShip(n.ship, def, d.input, dt);
+      // On its slot it matches the player; under Hold it brakes to rest without thrusting.
+      if (d.station) ship = { ...ship, vel: { ...world.ship.vel }, heading: world.ship.heading };
+      else if (world.escortOrder === 'hold') ship = { ...ship, vel: driftShip(ship, dt).vel };
+      const moved: Npc = { ...n, ship, thrusting: d.input.thrust, engaged: true };
+      const target = others.find((c) => c.id === d.targetId) ?? null;
+      const spent = fireAt(t, combatantOf(moved, data), target, d.fire, others.filter((c) => !isPlayerSide(c.id)), data);
+      next.push(spent === moved.outfits ? moved : { ...moved, outfits: spent });
+      continue;
+    }
     if (n.demand) {
       // A raider awaiting its answer closes to keep range and holds there, silent, until it is resolved.
-      const keep = data.combat.ai[n.role].keepRange;
+      const keep = aiProfile(data, n.role).keepRange;
       const d = dist(n.ship.pos, world.ship.pos);
       const face = faceInput(n.ship, world.ship.pos);
       const ship = stepShip(n.ship, def, { ...face, thrust: d > keep }, dt);
@@ -361,28 +422,15 @@ export function stepBattle(
     } else {
       const ship = stepShip(n.ship, def, d.input, dt);
       const moved: Npc = { ...n, ship, thrusting: d.input.thrust, engaged: true, fled: false };
-      const mc = combatantOf(moved, data);
       const target = others.find((c) => c.id === d.targetId) ?? null;
-      firePrimary(t, mc, target, target, { guns: d.fire, turrets: true, beams: d.fire }, others, data);
-      let spent = moved.outfits;
-      if (d.fire && target) {
-        for (const l of weaponsOf(spent, data).launchers) {
-          const ammo = data.outfits[l.def.effect.ammo];
-          if (!ammo || ammo.category !== 'ammo' || dist(ship.pos, target.ship.pos) > ammo.effect.range * 0.9) continue;
-          const after = fireLauncher(t, mc, l.def.id, target, spent, data);
-          if (after !== spent) {
-            spent = after;
-            break;
-          }
-        }
-      }
+      const spent = fireAt(t, combatantOf(moved, data), target, d.fire, others, data);
       next.push(spent === moved.outfits ? moved : { ...moved, outfits: spent });
     }
   }
   npcs = next;
   for (const id of flee) events.push({ type: 'fled', id });
 
-  // 4. Move projectiles and hit-test them against everyone but their owner.
+  // 4. Move projectiles and hit-test them against everyone but their owner (and the player's side against itself).
   const targets = combatants();
   const survivors: Projectile[] = [];
   for (const p0 of [...b.projectiles, ...t.projectiles]) {
@@ -391,7 +439,7 @@ export function stepBattle(
     let hit: Combatant | null = null;
     let hitD = Infinity;
     for (const c of targets) {
-      if (c.id === p.ownerId || !hitTest(p, c)) continue;
+      if (c.id === p.ownerId || (isPlayerSide(p.ownerId) && isPlayerSide(c.id)) || !hitTest(p, c)) continue;
       const dd = dist(p.pos, c.ship.pos);
       if (dd < hitD) {
         hitD = dd;
@@ -403,17 +451,20 @@ export function stepBattle(
   }
 
   // 5 and 6. Damage, standing, crimes, kills and events.
-  let lawWorld = world; // carries law heat and rank points; only the player's damage changes them
+  let lawWorld = world; // carries law heat and rank points; only the player's side changes them
   const localGov = sys.government;
   let stats = world.stats;
   let standing = world.standing;
   const angry = [...battle.angry];
+  const playerAggro = [...battle.playerAggro];
   const dead = new Set<string>();
   const byId = new Map(npcs.map((n) => [n.id, n]));
   for (const h of t.hits) {
     const byPlayer = h.ownerId === PLAYER_ID;
+    const byEscort = !byPlayer && isPlayerSide(h.ownerId);
     if (h.targetId === PLAYER_ID) {
       if (playerDead) continue;
+      if (!isPlayerSide(h.ownerId) && !playerAggro.includes(h.ownerId)) playerAggro.push(h.ownerId);
       const before = playerHull;
       const r = applyDamage(before, h.damage, now);
       playerHull = r.hull;
@@ -433,10 +484,11 @@ export function stepBattle(
     // A raider shot while it waits on its demand stops waiting and fights (the controller closes its hail as refused).
     if (updated.demand) updated = { ...updated, demand: false, engaged: true };
     events.push({ type: 'hit', targetId: n.id, shield: r.shieldHit, pos: h.pos });
-    if (byPlayer && !isRaider(n)) {
-      // Cycle 5 crimes (spec §4.2), on top of the standing below: the first player hit on this ship
-      // (its aggro remembers the player), then disabling it, then destroying it.
-      if (!n.aggro.includes(PLAYER_ID)) lawWorld = commitCrime(lawWorld, data, n.government, 'hit');
+    if ((byPlayer || byEscort) && !isRaider(n) && !isPlayerSide(n.id)) {
+      // Cycle 5 crimes (spec §4.2), on top of the standing below: the first player-side hit on this ship
+      // (its aggro remembers the player or an escort), then disabling it, then destroying it. An
+      // escort's crimes are the player's (cycle 6).
+      if (!n.aggro.some(isPlayerSide)) lawWorld = commitCrime(lawWorld, data, n.government, 'hit');
       if (r.disabledNow) lawWorld = commitCrime(lawWorld, data, n.government, 'disable');
       if (r.destroyed) lawWorld = commitCrime(lawWorld, data, n.government, 'destroy');
       // Spec §9: destroying (or capturing) a patrol sets standing cool; disabling one is a plain hit.
@@ -447,9 +499,10 @@ export function stepBattle(
         events.push({ type: 'angered', government: n.government });
       }
     }
-    if (r.disabledNow) events.push({ type: 'disabled', id: n.id, byPlayer });
+    const by = byEscort ? { byPlayer, byEscort } : { byPlayer };
+    if (r.disabledNow) events.push({ type: 'disabled', id: n.id, ...by });
     if (r.destroyed) {
-      events.push({ type: 'destroyed', id: n.id, byPlayer, pos: h.pos });
+      events.push({ type: 'destroyed', id: n.id, ...by, pos: h.pos });
       dead.add(n.id);
     }
     // A raider destroyed by the player earns a rank point with the local government (spec §6.2).
@@ -465,7 +518,7 @@ export function stepBattle(
   const nextWorld: WorldState = { ...lawWorld, outfits, stats, standing };
   const hunted = lawWorld === world ? battle.hunted : huntingGovernments(nextWorld, data);
   return {
-    battle: { ...battle, player: playerHull, playerDestroyed: playerDead, projectiles: survivors, beams: t.beams, cooldowns: t.cooldowns, angry, hunted, nextShotId: t.nextShotId },
+    battle: { ...battle, player: playerHull, playerDestroyed: playerDead, projectiles: survivors, beams: t.beams, cooldowns: t.cooldowns, angry, hunted, playerAggro, nextShotId: t.nextShotId },
     traffic: { ...traffic, npcs: finalNpcs, targetId: traffic.targetId && dead.has(traffic.targetId) ? null : traffic.targetId },
     world: nextWorld,
     events,

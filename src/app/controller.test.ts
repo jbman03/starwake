@@ -1849,6 +1849,25 @@ describe('combat jobs in flight', () => {
     expect(c.world.missions.find((m) => m.id === 'c1')!.combat!.done).toBe(1);
   });
 
+  it('an escort destroying the bounty target completes the job, but is no kill and no clear-job raider', async () => {
+    const { c } = await flyingWith(bounty(), clear());
+    jumpTo(c, 'vesk');
+    const id = c.traffic.npcs.find((n) => n.missionId === 'b1')!.id;
+    const at = { x: c.world.ship.pos.x + 400, y: c.world.ship.pos.y };
+    c.traffic = {
+      ...c.traffic,
+      npcs: c.traffic.npcs.map((n) => (n.id === id ? { ...n, ship: { ...n.ship, pos: at, vel: { x: 0, y: 0 } }, hold: at, hull: { ...n.hull, shields: 0, armor: 1, disabled: true } } : n)),
+    };
+    // An escort's bolt sitting on the wreck.
+    c.combat.battle = { ...c.combat.battle, projectiles: [{ id: 999, ownerId: 'esc-1', targetId: id, kind: 'bolt', pos: at, vel: { x: 0, y: 0 }, damage: 20, ttl: 1, turnRate: 0 }] };
+    const kills = c.world.stats.kills;
+    c.update(1 / 60);
+    expect(c.traffic.npcs.some((n) => n.id === id)).toBe(false);
+    expect(c.world.missions.find((m) => m.id === 'b1')!.combat!.done).toBe(1);
+    expect(c.world.missions.find((m) => m.id === 'c1')!.combat!.done).toBe(0);
+    expect(c.world.stats.kills).toBe(kills);
+  });
+
   it('controller passes clearBoost for an active clear job', async () => {
     const { c } = await flyingWith(clear());
     const opts = (c as unknown as { trafficOpts(): { clearBoost?: string } }).trafficOpts();

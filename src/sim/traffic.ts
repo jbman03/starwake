@@ -260,6 +260,8 @@ export function seedTraffic(world: WorldState, data: GameData, opts: TrafficOpts
 }
 
 function stepNpc(npc: Npc, world: WorldState, data: GameData, dt: number, events: TrafficEvent[]): Npc {
+  // An escort has no errand: battle flies it, and only the controller adds or removes it.
+  if (npc.role === 'escort') return npc;
   const def = data.ships[npc.shipId];
   const phaseT = npc.phaseT + dt;
   if (npc.phase === 'jumpIn') return phaseT >= JUMP_SEC ? { ...npc, phase: 'fly', phaseT: 0 } : { ...npc, phaseT };
@@ -306,7 +308,7 @@ export function stepTraffic(
   let next: Traffic = { ...t, npcs, nextSpawnSec: t.nextSpawnSec - dt };
   if (next.nextSpawnSec <= 0) {
     const want = wantedCount(world, data, t.systemId, opts.maxNpcs);
-    const ordinary = npcs.filter((n) => !n.hold).length;
+    const ordinary = npcs.filter((n) => !n.hold && n.role !== 'escort').length;
     if (ordinary < want && ordinary < opts.maxNpcs) {
       const { npc, event } = spawnNpc(next, world, data, opts, false);
       if (event) events.push(event);
@@ -385,8 +387,11 @@ export function npcLabel(npc: Npc, data: GameData): string {
   return `${npc.name} — ${gov} ${def.name.split(' ')[0]} (${role})`;
 }
 
-/** Ships a pilot can target: flying (or just arrived), not landing or leaving. */
-export const isTargetable = (n: Npc): boolean => n.phase === 'fly' || n.phase === 'jumpIn';
+/** Ships in open space: flying (or just arrived), not landing or leaving. Battle recharges, steers and hits these. */
+export const inFlight = (n: Npc): boolean => n.phase === 'fly' || n.phase === 'jumpIn';
+
+/** Ships a pilot can target: in flight and not one of the player's escorts. */
+export const isTargetable = (n: Npc): boolean => n.role !== 'escort' && inFlight(n);
 
 /** The targeted NPC, if it is still there and targetable. */
 export const targetedNpc = (t: Traffic | null): Npc | undefined =>

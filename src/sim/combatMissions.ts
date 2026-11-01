@@ -129,6 +129,18 @@ export function recordKill(world: WorldState, systemId: string, npc: { role: str
   return changed ? { ...world, missions } : world;
 }
 
+/** A bounty target put down by someone other than the player (an escort): its bounty is done. Clear jobs never count it. */
+export function recordBountyDown(world: WorldState, npc: { missionId?: string }): WorldState {
+  let changed = false;
+  const missions = world.missions.map((m) => {
+    const c = m.combat;
+    if (!c || c.kind !== 'bounty' || c.done >= c.needed || npc.missionId !== m.id) return m;
+    changed = true;
+    return { ...m, combat: { ...c, done: c.done + 1 } };
+  });
+  return changed ? { ...world, missions } : world;
+}
+
 /** Bounty missions still to do whose target lives in `systemId`. */
 export function bountyToSpawn(world: WorldState, systemId: string): Mission[] {
   return world.missions.filter((m) => m.combat?.kind === 'bounty' && m.combat.systemId === systemId && m.combat.done < m.combat.needed);

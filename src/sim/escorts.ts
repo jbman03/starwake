@@ -1,5 +1,6 @@
 import type { GameData } from '../data/schemas';
 import { hashString, mulberry32, randInt } from './random';
+import { ESCORT_ID_PREFIX } from './combat';
 import type { Escort, EscortOrder, WorldState } from './types';
 import { shipStats } from './shipStats';
 import { npcLoadout } from './weapons';
@@ -39,6 +40,16 @@ export interface EscortOffer {
 }
 
 const round10 = (n: number): number => Math.round(n / 10) * 10;
+
+/** A fresh escort id: `esc-<n>`, one past the highest `n` in the group. */
+export function nextEscortId(escorts: readonly Pick<Escort, 'id'>[]): string {
+  let top = 0;
+  for (const e of escorts) {
+    const n = e.id.startsWith(ESCORT_ID_PREFIX) ? Number(e.id.slice(ESCORT_ID_PREFIX.length)) : NaN;
+    if (Number.isInteger(n) && n > top) top = n;
+  }
+  return `${ESCORT_ID_PREFIX}${top + 1}`;
+}
 
 /** Cycle follow, attack, hold, return fire. */
 export function nextOrder(o: EscortOrder): EscortOrder {
@@ -88,7 +99,7 @@ export function hireEscort(
   if (world.credits < offer.fee) return { error: 'short' };
   const outfits = { ...npcLoadout(data.ships[offer.shipId]) };
   const escort: Escort = {
-    id: offer.offerId,
+    id: nextEscortId(world.escorts),
     name: offer.name,
     shipId: offer.shipId,
     outfits,
@@ -116,7 +127,7 @@ export function keepCapture(
 ): { world: WorldState; escort: Escort } | { error: 'full' } {
   if (world.escorts.length >= data.escorts.maxEscorts) return { error: 'full' };
   const escort: Escort = {
-    id: `capture:${world.day}:${world.stats.captures}`,
+    id: nextEscortId(world.escorts),
     name: npc.name,
     shipId: npc.shipId,
     outfits: { ...npc.outfits },

@@ -9,6 +9,11 @@ export const SHIELD_REGEN_DELAY = 2; // s after the last hit
 export const DISABLED_STOP_SEC = 8; // drift slows to rest over this
 export const LOW_ARMOR_FRACTION = 0.25;
 export const PLAYER_ID = 'player';
+/** Escort ids (and their traffic NPCs') start with this. */
+export const ESCORT_ID_PREFIX = 'esc-';
+
+/** The player and the player's escorts: one side, which never hurts itself. */
+export const isPlayerSide = (id: string): boolean => id === PLAYER_ID || id.startsWith(ESCORT_ID_PREFIX);
 
 const DEG = Math.PI / 180;
 /** Fraction of speed left after DISABLED_STOP_SEC of drifting; below REST_SPEED it snaps to rest. */

@@ -80,7 +80,7 @@ describe('hireEscort', () => {
     const r = hireEscort({ ...w, day: dayOf(w, o) }, data, PORT, o.offerId);
     if ('error' in r) throw new Error(r.error);
     expect(r.world.credits).toBe(7000);
-    expect(r.escort).toMatchObject({ shipId: 'courier', hired: true, wage: 150, name: o.name });
+    expect(r.escort).toMatchObject({ id: 'esc-1', shipId: 'courier', hired: true, wage: 150, name: o.name });
     expect(r.escort.armor).toBe(escortMaxArmor(data, r.escort));
     expect(r.escort.fuel).toBe(escortMaxFuel(data, r.escort));
     expect(r.escort.outfits).toEqual({ ...npcLoadout(data.ships.courier) });
@@ -126,6 +126,12 @@ describe('keepCapture', () => {
   });
   it('refuses a fourth as full', () => {
     expect(keepCapture(withEscorts([mk('a'), mk('b'), mk('c')]), data, npc)).toEqual({ error: 'full' });
+  });
+  it('hired and kept escorts get esc-<n> ids, one past the highest in the group', () => {
+    const k = keepCapture(withEscorts([{ ...mk('a'), id: 'esc-4' }]), data, npc);
+    if ('error' in k) throw new Error(k.error);
+    expect(k.escort.id).toBe('esc-5');
+    expect(keepCapture(fresh(), data, npc)).toMatchObject({ escort: { id: 'esc-1' } });
   });
   it('gives each kept ship its own id', () => {
     const a = keepCapture(fresh(), data, npc);

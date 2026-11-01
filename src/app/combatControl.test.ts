@@ -143,6 +143,15 @@ describe('CombatControl', () => {
     expect(c.boardable(w, mkTraffic(two))).toBeNull();
   });
 
+  it('a disabled escort beside the player is never offered for boarding (cycle 6)', () => {
+    const w = mkWorld();
+    const c = new CombatControl(data, w);
+    const esc = wreck('esc-1', 20, 0, { role: 'escort', government: '' });
+    expect(c.boardable(w, mkTraffic([esc]))).toBeNull();
+    expect(c.boardable(w, mkTraffic([esc], 'esc-1'))).toBeNull();
+    expect(c.boardable(w, mkTraffic([esc, wreck('near', 40, 0)]))?.id).toBe('near');
+  });
+
   it('disabledCalmSec counts while disabled with no hostile in range', () => {
     const w = mkWorld();
     const c = new CombatControl(data, w);

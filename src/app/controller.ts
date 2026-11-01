@@ -7,7 +7,7 @@ import { pilotFromWorld, worldFromPilot, type PilotSave } from '../save/pilot';
 import { hasPod, podRescue } from '../sim/death';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
-import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordKill } from '../sim/combatMissions';
+import { bountyNpcId, bountySpawnPos, bountyToSpawn, clearBoostSystem, recordBountyDown, recordKill } from '../sim/combatMissions';
 import { governmentShortName } from '../sim/standing';
 import { fineFor, payFines } from '../sim/law';
 import { paySalary, salaryNoticeText } from '../sim/ranks';
@@ -917,16 +917,19 @@ export class Controller {
     return this.combat.playerDisabled() && !this.combat.battle.playerDestroyed && !this.combat.disabledCalm();
   }
 
-  /** Count the player's kills this tick toward combat jobs, once per ship: only those `before` this tick had not already been credited. */
+  /**
+   * Count the player's kills this tick toward combat jobs, once per ship: only those `before` this tick had not already
+   * been credited. An escort's takedown counts only for a bounty on that ship (the target is down either way).
+   */
   private creditKills(world: WorldState, before: Traffic, events: BattleEvent[]): WorldState {
     let w = world;
     const seen = new Set<string>();
     for (const e of events) {
-      if ((e.type !== 'disabled' && e.type !== 'destroyed') || !e.byPlayer || seen.has(e.id)) continue;
+      if ((e.type !== 'disabled' && e.type !== 'destroyed') || !(e.byPlayer || e.byEscort) || seen.has(e.id)) continue;
       const npc = before.npcs.find((n) => n.id === e.id);
       if (!npc || npc.killCounted) continue;
       seen.add(e.id);
-      w = recordKill(w, before.systemId, npc);
+      w = e.byPlayer ? recordKill(w, before.systemId, npc) : recordBountyDown(w, npc);
     }
     return w;
   }
