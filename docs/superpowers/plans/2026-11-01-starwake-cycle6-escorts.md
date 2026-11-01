@@ -21,11 +21,7 @@
 - Escorts never block the player's landing, jump or tow. They are never targeted, hailed, scanned or boarded.
 - Story ships, raider demands and encounter sites are unchanged. Out of scope (spec §11): carriers and fighters, crew, per-escort orders, a fleet screen, cargo, upgrades and morale.
 - No model names in code, docs or commit subjects.
-- Each commit message ends with exactly these two trailer lines:
-  ```
-  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-  Claude-Session: https://claude.ai/code/session_01QjVYnvurdmHh9BBSeaKBLG
-  ```
+- Each commit message ends with exactly the two attribution trailer lines the controller supplies (not quoted here).
 - Playwright runs locally with `npx playwright test -c $PW_LOCAL`. The controller passes in the config path.
 - Before claiming done: `npm run typecheck && npx vitest run` and the full Playwright suite pass. Never merge or deploy; the controller asks the owner.
 
