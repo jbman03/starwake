@@ -5,6 +5,7 @@ import type { Traffic } from '../sim/traffic';
 import type { Vec2 } from '../sim/vec';
 import type { SiteTarget, WorldState } from '../sim/types';
 import { FX_COLORS } from './combatFx';
+import { ESCORT_COLOR } from './hudInfo';
 import { fitText, radarBlips, radarHeadingTip, sidebarInfo, type SidebarInfo } from './sidebarInfo';
 
 const FONT = '"Trebuchet MS", "Segoe UI", sans-serif';
@@ -61,7 +62,7 @@ export class Sidebar {
       fuel: text(11, '#8fa0b5'),
       nav: text(13, '#9fe7a0'),
       law: text(13),
-      escorts: text(13, '#7fe3ff'),
+      escorts: text(13, ESCORT_COLOR),
       secondary: text(13, '#b8c4d2'),
       target: text(13, '#e8eef5'),
       targetDetail: text(12, '#b8c4d2'),

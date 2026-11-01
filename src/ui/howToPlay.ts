@@ -176,9 +176,9 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
       const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
       return [
         { heading: 'Hiring', text: `Ports with a shipyard list pilots for hire on their planet screen, up to ${e.maxOffers} a day. The hiring fee is ${pct(e.hireFeeMul)} of the ship's price and the wage is ${pct(e.wageMul)} of it for each day. You can lead up to ${e.maxEscorts} escorts. A pilot you cannot pay at landing leaves your service.` },
-        { heading: 'Keeping a capture', text: 'Boarding a disabled ship offers to keep her as an escort when your group has room. A kept capture draws no wage and carries no fuel, so she waits when you jump. You can sell her as a prize on the planet screen, or dismiss her.' },
+        { heading: 'Keeping a capture', text: 'Boarding a disabled ship offers to keep her as an escort when your group has room. A kept capture draws no wage and starts with an empty tank, so if you jump before you land she waits; she refuels at your next landing. You can sell her as a prize on the planet screen, or dismiss her.' },
         { heading: 'Orders', text: `${k('escortOrder')} steps the whole group through four orders (on a phone, tap ORDER). Follow keeps them beside you, fighting ships that attack and raiders nearby. Attack sends them after your target first. Hold keeps them in place, firing only at attackers in range. Return fire has them answer only the ships that attack.` },
-        { heading: 'Fuel and waiting', text: 'An escort jumps with you on its own fuel, a jump at a time, and refuels when you land. One without fuel waits in the system you left and rejoins when you land there.' },
+        { heading: 'Fuel and waiting', text: 'An escort jumps with you on its own fuel, one jump of fuel each, and refuels when you land. One with an empty tank, or one that is disabled, stays behind and rejoins at your next landing, wherever that is.' },
         { heading: 'Repair', text: `Damage stays until you pay for it. On a planet screen, Repair all mends the whole group for ${e.repairPerArmor} cr for each point of armor missing.` },
         { heading: 'Crimes', text: "An escort's hits count as your own: if an escort hits, disables or destroys a ship, the crime goes on your record." },
       ];
