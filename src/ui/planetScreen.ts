@@ -2,6 +2,7 @@ import type { ActionId } from '../input/actions';
 import { formatDate } from '../sim/calendar';
 import { cargoFree } from '../sim/cargo';
 import { fineFor, legalStatus } from '../sim/law';
+import { escortMaxArmor, HIRE_REFUSAL, prizeValueOf } from '../sim/escorts';
 import { governmentShortName } from '../sim/standing';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import type { RefuelQuote } from '../sim/rules';
@@ -97,6 +98,32 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     }
     render();
   };
+  const setStatus = (text: string, bad = false) => {
+    status.textContent = text;
+    status.classList.toggle('sw-status-bad', bad); // a refusal is not the success green
+  };
+  const hire = (offerId: string) => {
+    const r = controller.hireEscort(offerId);
+    if (r.ok) setStatus(`${r.escort.name} joins your escort.`);
+    else setStatus(HIRE_REFUSAL[r.error], true);
+    render();
+  };
+  const dismiss = (id: string) => {
+    controller.dismissEscort(id);
+    status.classList.remove('sw-status-bad');
+    render();
+  };
+  const sell = (id: string) => {
+    const r = controller.sellEscort(id);
+    if (r.ok) setStatus(`Sold the prize for ${formatCredits(r.paid)}.`);
+    render();
+  };
+  const repairAll = () => {
+    const r = controller.repairEscorts();
+    if (r.ok) setStatus(`Repaired your escorts for ${formatCredits(r.paid)}.`);
+    else if (r.error === 'short') setStatus('Not enough credits.', true);
+    render();
+  };
   // The map returns here (a fresh planet screen) when it closes.
   const openMap = () => ctx.go.map({ onClose: () => ctx.go.planet(planetId) });
   const leave = () => {
@@ -163,6 +190,41 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
           button('Pay', () => payFine(gov)),
         ]),
       );
+    const offers = controller.escortOffers();
+    const hireList =
+      offers.length > 0
+        ? el('section', { class: 'sw-escort-list', attrs: { 'data-testid': 'hire-escorts', 'aria-label': 'Hire escorts' } }, [
+            el('h3', { class: 'sw-hotkey-group-title', text: 'Hire escorts' }),
+            ...offers.map((o) =>
+              el('div', { class: 'sw-escort-row', attrs: { 'data-offer': o.offerId } }, [
+                el('span', { text: `${o.name} — ${data.ships[o.shipId]?.name ?? o.shipId} · fee ${formatCredits(o.fee)} · ${formatCredits(o.wage)}/day` }),
+                button('Hire', () => hire(o.offerId)),
+              ]),
+            ),
+          ])
+        : null;
+    const repair = controller.escortRepairCost();
+    const escortList =
+      w.escorts.length > 0
+        ? el('section', { class: 'sw-escort-list', attrs: { 'data-testid': 'your-escorts', 'aria-label': 'Your escorts' } }, [
+            el('h3', { class: 'sw-hotkey-group-title', text: 'Your escorts' }),
+            ...w.escorts.map((e) =>
+              el('div', { class: 'sw-escort-row', attrs: { 'data-escort': e.id } }, [
+                el('span', {
+                  text: `${e.name} — ${data.ships[e.shipId]?.name ?? e.shipId} · armor ${Math.round(e.armor)}/${Math.round(escortMaxArmor(data, e))} · ${e.hired ? `${formatCredits(e.wage)}/day` : 'kept capture'}`,
+                }),
+                button('Dismiss', () => dismiss(e.id)),
+                e.hired ? null : button(`Sell as prize (${formatCredits(prizeValueOf(data, e.shipId))})`, () => sell(e.id)),
+              ]),
+            ),
+            repair > 0
+              ? el('div', { class: 'sw-escort-row', attrs: { 'data-testid': 'repair-escorts' } }, [
+                  el('span', { text: `Repair all — ${formatCredits(repair)}` }),
+                  button('Repair', repairAll),
+                ])
+              : null,
+          ])
+        : null;
     const logBtn = button('Mission Log', openMissionLog, { hotkey: hotkeyFor(bindings, 'missionLog') });
     const helpBtn = button('How to Play', openHowToPlay, { hotkey: hotkeyFor(bindings, 'howToPlay') });
     const leaveBtn = button('Leave', leave, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'leave') });
@@ -170,6 +232,8 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       ...[exchangeBtn, missionsBtn, shipyardBtn, outfitterBtn, barBtn, refuelBtn].filter((b) => b !== null),
       ...(reason ? [reason] : []),
       ...fineRows,
+      ...(hireList ? [hireList] : []),
+      ...(escortList ? [escortList] : []),
       logBtn,
       helpBtn,
       leaveBtn,

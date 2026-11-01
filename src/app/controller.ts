@@ -5,7 +5,7 @@ import { KeyboardSource } from '../input/keyboard';
 import { TouchSource } from '../input/touch';
 import { pilotFromWorld, worldFromPilot, type PilotSave } from '../save/pilot';
 import { hasPod, podRescue } from '../sim/death';
-import { escortLosses, landEscorts, nextOrder, ORDER_LABEL } from '../sim/escorts';
+import { dismissEscort, escortLosses, hireEscort, hireOffers, landEscorts, nextOrder, ORDER_LABEL, repairCost, repairEscorts, sellEscortPrize, type EscortOffer } from '../sim/escorts';
 import { escortsJump, presentEscorts, syncEscorts, withEscorts, withoutEscorts } from '../sim/escortNpcs';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
@@ -61,7 +61,7 @@ import { FixedStepper } from '../sim/stepper';
 import { objectiveText, siteNoticeText } from '../sim/siteText';
 import { addBountyNpc, addStoryNpc, cycleTarget, isFringe, isTargetable, seedTraffic, shipName, stepTraffic, targetedNpc, type Npc, type Traffic, type TrafficOpts } from '../sim/traffic';
 import { dist, type Vec2 } from '../sim/vec';
-import type { EscortOrder, FrameInput, JumpPhase, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
+import type { Escort, EscortOrder, FrameInput, JumpPhase, Mission, ShipState, SimEvent, SiteTarget, WorldState } from '../sim/types';
 import {
   applyRefuel,
   applyTow,
@@ -426,6 +426,49 @@ export class Controller {
     const r = applyRefuel(this.world, this.data, this.landedPlanetId);
     this.world = r.world;
     return r.quote;
+  }
+
+  // ---- escorts (landed only) -------------------------------------------------
+
+  /** Pilots for hire at the port we are landed on (none elsewhere, or without a shipyard). */
+  escortOffers(): EscortOffer[] {
+    return this.landedPlanetId ? hireOffers(this.world, this.data, this.landedPlanetId) : [];
+  }
+
+  hireEscort(offerId: string): { ok: true; escort: Escort } | { ok: false; error: 'full' | 'short' | 'gone' } {
+    if (!this.landedPlanetId) return { ok: false, error: 'gone' };
+    const r = hireEscort(this.world, this.data, this.landedPlanetId, offerId);
+    if ('error' in r) return { ok: false, error: r.error };
+    this.world = r.world;
+    return { ok: true, escort: r.escort };
+  }
+
+  /** Let an escort go (nothing refunded). False when not landed or no such escort. */
+  dismissEscort(id: string): boolean {
+    if (!this.landedPlanetId || !this.world.escorts.some((e) => e.id === id)) return false;
+    this.world = dismissEscort(this.world, id);
+    return true;
+  }
+
+  sellEscort(id: string): { ok: true; paid: number } | { ok: false; error: 'hired' | 'gone' } {
+    if (!this.landedPlanetId) return { ok: false, error: 'gone' };
+    const r = sellEscortPrize(this.world, this.data, id);
+    if ('error' in r) return { ok: false, error: r.error };
+    this.world = r.world;
+    return { ok: true, paid: r.paid };
+  }
+
+  /** What mending every escort would cost (0 when not landed). */
+  escortRepairCost(): number {
+    return this.landedPlanetId ? repairCost(this.world, this.data) : 0;
+  }
+
+  repairEscorts(): { ok: true; paid: number } | { ok: false; error: 'short' | 'none' } {
+    if (!this.landedPlanetId) return { ok: false, error: 'none' };
+    const r = repairEscorts(this.world, this.data);
+    if ('error' in r) return { ok: false, error: r.error };
+    this.world = r.world;
+    return { ok: true, paid: r.paid };
   }
 
   // ---- flight --------------------------------------------------------------

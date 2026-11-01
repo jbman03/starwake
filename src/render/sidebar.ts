@@ -36,7 +36,7 @@ export class Sidebar {
   private g: Phaser.GameObjects.Graphics;
   private radar: Phaser.GameObjects.Graphics;
   private texts: Phaser.GameObjects.Text[] = [];
-  private labels: Record<'shields' | 'armor' | 'fuel' | 'nav' | 'law' | 'secondary' | 'target' | 'targetDetail' | 'cargo' | 'credits' | 'date', Phaser.GameObjects.Text>;
+  private labels: Record<'shields' | 'armor' | 'fuel' | 'nav' | 'law' | 'escorts' | 'secondary' | 'target' | 'targetDetail' | 'cargo' | 'credits' | 'date', Phaser.GameObjects.Text>;
   private mapBtn: Phaser.GameObjects.Text;
   private screenX = 0;
   private readonly x = 0;
@@ -61,6 +61,7 @@ export class Sidebar {
       fuel: text(11, '#8fa0b5'),
       nav: text(13, '#9fe7a0'),
       law: text(13),
+      escorts: text(13, '#7fe3ff'),
       secondary: text(13, '#b8c4d2'),
       target: text(13, '#e8eef5'),
       targetDetail: text(12, '#b8c4d2'),
@@ -122,7 +123,7 @@ export class Sidebar {
     const L = this.labels;
     const line = (name: keyof typeof L): SidebarBox => ({ name, text: L[name].text, top: L[name].y, bottom: L[name].y + L[name].height });
     const out: SidebarBox[] = [{ name: 'radar', text: '', top: 12, bottom: 12 + RADAR_R * 2 }];
-    for (const name of ['shields', 'armor', 'fuel', 'nav', 'law', 'secondary', 'target', 'targetDetail'] as const) out.push(line(name));
+    for (const name of ['shields', 'armor', 'fuel', 'nav', 'law', 'escorts', 'secondary', 'target', 'targetDetail'] as const) out.push(line(name));
     const barsTop = L.targetDetail.y + 20;
     out.push({ name: 'targetBars', text: '', top: barsTop, bottom: barsTop + TARGET_BAR_H * 2 + 2 });
     for (const name of ['cargo', 'credits', 'date'] as const) out.push(line(name));
@@ -147,8 +148,9 @@ export class Sidebar {
     y += 70;
     L.nav.setPosition(x, y);
     L.law.setPosition(x, y + 20);
-    L.secondary.setPosition(x, y + 40);
-    y += 70;
+    L.escorts.setPosition(x, y + 40);
+    L.secondary.setPosition(x, y + 60);
+    y += 90;
     L.target.setPosition(x, y);
     L.targetDetail.setPosition(x, y + 18);
     y += 62;
@@ -176,6 +178,7 @@ export class Sidebar {
     L.fuel.setText(`Fuel · ${info.jumps === Infinity ? '∞' : info.jumps} ${info.jumps === 1 ? 'jump' : 'jumps'}`);
     L.nav.setText(fitText(`Nav: ${info.nav}`, MAX_CHARS));
     L.law.setText(info.law.text).setColor(info.law.color);
+    L.escorts.setText(info.escorts ?? '');
     L.secondary.setText(fitText(`Ammo: ${info.secondary}`, MAX_CHARS));
     L.target.setText(fitText(info.target ?? 'No target', MAX_CHARS));
     L.targetDetail.setText(info.targetHull?.disabled ? `${info.targetDetail ?? ''} · Disabled` : (info.targetDetail ?? ''));

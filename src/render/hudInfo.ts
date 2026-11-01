@@ -11,6 +11,9 @@ import { npcLabel, targetedNpc, type Traffic } from '../sim/traffic';
 import type { SiteTarget, WorldState } from '../sim/types';
 import { dist } from '../sim/vec';
 
+/** Radar dots and sprite tint of the pilot's escorts (#rrggbb). */
+export const ESCORT_COLOR = '#7fe3ff';
+
 export const FUEL_COLORS = { normal: '#9fe7a0', low: '#ffb347', empty: '#ff5a4f' } as const;
 
 export function fuelJumps(world: WorldState, data: GameData): number {

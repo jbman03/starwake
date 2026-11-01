@@ -6,6 +6,7 @@ import { fullHull } from '../sim/combat';
 import { newBattle } from '../sim/battle';
 import { npcLabel, type Npc, type Traffic } from '../sim/traffic';
 import { newWorld } from '../sim/world';
+import { ESCORT_COLOR } from './hudInfo';
 import { fitText, radarBlips, radarHeadingTip, RADAR_RANGE, sidebarInfo } from './sidebarInfo';
 
 const data = testData();
@@ -177,5 +178,27 @@ describe('sidebarInfo: combat', () => {
     expect(info.secondary).toBe('None');
     expect(info.targetHull).toBeNull();
     expect(sidebarInfo(w, data).hull).toEqual({ shields: worldStats(w, data).shields > 0 ? 1 : 0, armor: 1 });
+  });
+});
+
+describe('escorts on the sidebar and radar', () => {
+  const escortNpc = (id: string, x: number, y: number): Npc => ({ ...npcAt(id, x, y), role: 'escort', government: 'concord' });
+
+  it('sidebarInfo.escorts reads "Escorts: 2 · Follow" with two present and is null with none', () => {
+    const w = base();
+    const t = trafficOf([escortNpc('esc-1', 10, 10), escortNpc('esc-2', 20, 10), npcAt('a', 50, 50)]);
+    expect(sidebarInfo({ ...w, escortOrder: 'follow' }, data, t).escorts).toBe('Escorts: 2 · Follow');
+    expect(sidebarInfo({ ...w, escortOrder: 'defend' }, data, t).escorts).toBe('Escorts: 2 · Return fire');
+    expect(sidebarInfo(w, data, trafficOf([npcAt('a', 50, 50)])).escorts).toBeNull();
+    expect(sidebarInfo(w, data, null).escorts).toBeNull();
+  });
+
+  it('radarBlips includes an escort in ESCORT_COLOR', () => {
+    const w = base();
+    const blips = radarBlips(w, data, 50, trafficOf([escortNpc('esc-1', w.ship.pos.x + 100, w.ship.pos.y)]));
+    const npcs = blips.filter((b) => b.kind === 'npc');
+    expect(npcs).toHaveLength(1);
+    expect(npcs[0].color).toBe(ESCORT_COLOR);
+    expect(npcs[0].targeted).toBe(false);
   });
 });

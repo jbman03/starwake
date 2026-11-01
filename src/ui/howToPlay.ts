@@ -7,7 +7,7 @@ import { jumpFixedSec } from '../sim/world';
 import type { UiContext } from './context';
 import { button, el, hotkeyFor } from './dom';
 
-export type HowToPlayTab = 'flying' | 'trade' | 'missions' | 'travel' | 'law' | 'controls';
+export type HowToPlayTab = 'flying' | 'trade' | 'missions' | 'travel' | 'law' | 'escorts' | 'controls';
 
 export const HOW_TO_PLAY_TABS: { id: HowToPlayTab; text: string }[] = [
   { id: 'flying', text: 'Flying' },
@@ -15,6 +15,7 @@ export const HOW_TO_PLAY_TABS: { id: HowToPlayTab; text: string }[] = [
   { id: 'missions', text: 'Missions' },
   { id: 'travel', text: 'Travel & fuel' },
   { id: 'law', text: 'Law & ranks' },
+  { id: 'escorts', text: 'Escorts' },
   { id: 'controls', text: 'Controls' },
 ];
 
@@ -168,6 +169,18 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
         { heading: 'The scrambler', text: `The Scan Scrambler is an outfit sold by independent and unlit ports; no Concord port stocks one. It cuts a patrol scan's catch chance by ${pct(data.law.scramblerCut)}.` },
         { heading: 'Ranks', text: `Doing honest work for a faction earns it rank points: missions, combat jobs, story jobs and killing raiders. Ranks run from 1 to 5 (Concord: ${points} points) and each has a title shown on your pilot card. Helping one faction costs you with its rivals. While a government has you Wanted or Hunted you earn no points with it.` },
         { heading: 'Perks', text: 'Rank 1 is a title. Rank 2 takes a share off prices at that faction\'s ports, rank 3 pays a salary each day you land there, rank 4 raises mission pay and opens its best ships and gear at its hub, and rank 5 gives a bigger discount and salary. Locked items name the rank they need.' },
+      ];
+    }
+    case 'escorts': {
+      const e = data.escorts;
+      const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
+      return [
+        { heading: 'Hiring', text: `Ports with a shipyard list pilots for hire on their planet screen, up to ${e.maxOffers} a day. The hiring fee is ${pct(e.hireFeeMul)} of the ship's price and the wage is ${pct(e.wageMul)} of it for each day. You can lead up to ${e.maxEscorts} escorts. A pilot you cannot pay at landing leaves your service.` },
+        { heading: 'Keeping a capture', text: 'Boarding a disabled ship offers to keep her as an escort when your group has room. A kept capture draws no wage and carries no fuel, so she waits when you jump. You can sell her as a prize on the planet screen, or dismiss her.' },
+        { heading: 'Orders', text: `${k('escortOrder')} steps the whole group through four orders (on a phone, tap ORDER). Follow keeps them beside you, fighting ships that attack and raiders nearby. Attack sends them after your target first. Hold keeps them in place, firing only at attackers in range. Return fire has them answer only the ships that attack.` },
+        { heading: 'Fuel and waiting', text: 'An escort jumps with you on its own fuel, a jump at a time, and refuels when you land. One without fuel waits in the system you left and rejoins when you land there.' },
+        { heading: 'Repair', text: `Damage stays until you pay for it. On a planet screen, Repair all mends the whole group for ${e.repairPerArmor} cr for each point of armor missing.` },
+        { heading: 'Crimes', text: "An escort's hits count as your own: if an escort hits, disables or destroys a ship, the crime goes on your record." },
       ];
     }
   }

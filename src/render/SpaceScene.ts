@@ -13,6 +13,7 @@ import { hotkeyFor } from '../ui/dom';
 import { formatMessage } from '../ui/messageText';
 import { CombatLayer, type PlayerDraw } from './combatLayer';
 import { Hud, type HudGuide } from './hud';
+import { ESCORT_COLOR } from './hudInfo';
 import { Sidebar, SIDEBAR_W } from './sidebar';
 import { sidebarInfo } from './sidebarInfo';
 import {
@@ -404,7 +405,7 @@ export class SpaceScene extends Phaser.Scene {
       }
       if (!img) {
         img = this.add.image(n.ship.pos.x, n.ship.pos.y, shipTextureKey(def), shipFrame(n.ship.heading)).setDepth(9);
-        const color = data.governments[n.government]?.color;
+        const color = n.role === 'escort' ? ESCORT_COLOR : data.governments[n.government]?.color;
         if (color) img.setTint(parseInt(color.slice(1), 16));
         const hit = Math.max(MIN_TAP_RADIUS, def.radius + TAP_MARGIN);
         img.setInteractive(new Phaser.Geom.Circle(img.width / 2, img.height / 2, hit), Phaser.Geom.Circle.Contains);
