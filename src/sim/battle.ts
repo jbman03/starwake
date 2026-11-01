@@ -361,11 +361,18 @@ export function stepBattle(
   const all = combatants().map((c) => (c.id === PLAYER_ID ? { ...c, hull: { ...c.hull, disabled: false } } : c));
   // Escorts: their slots in traffic order, and who they answer (spec §5.2).
   const escortIds = npcs.filter((n) => n.role === 'escort' && inFlight(n)).map((n) => n.id);
-  const attackers = new Set<string>(battle.playerAggro);
+  // Anyone who shot the player or an escort this visit counts only while it is hostile to the player's
+  // side and not peaceful, judged afresh each tick: a lawful patrol's stray bolt starts no fight, and a
+  // raider that stands down drops out.
+  const shooters = new Set<string>(battle.playerAggro);
   const threats = new Set<string>();
   for (const n of npcs) {
-    if (n.role === 'escort') for (const id of n.aggro) attackers.add(id);
+    if (n.role === 'escort') for (const id of n.aggro) shooters.add(id);
     else if (isRaider(n) && inFlight(n) && isHostileToPlayer(n, world, battle)) threats.add(n.id);
+  }
+  const attackers = new Set<string>();
+  for (const n of npcs) {
+    if (shooters.has(n.id) && !n.peaceful && !n.demand && isHostileToPlayer(n, world, battle)) attackers.add(n.id);
   }
   for (const n of npcs) {
     if (!inFlight(n)) {

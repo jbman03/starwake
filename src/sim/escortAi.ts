@@ -22,7 +22,7 @@ export interface EscortView {
   slot: Vec2;
   order: EscortOrder;
   playerTargetId: string | null;
-  /** Ids that hit the player or any escort this visit. */
+  /** Ids that hit the player or any escort this visit and are still hostile to the player's side (not peaceful). */
   attackers: ReadonlySet<string>;
   /** Raiders that would fight the player (not peaceful, not demanding). */
   threats: ReadonlySet<string>;

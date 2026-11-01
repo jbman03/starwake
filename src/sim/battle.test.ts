@@ -442,7 +442,7 @@ describe('escorts in battle (cycle 6)', () => {
 
     // The escort's beam at a raider behind the player passes through the player.
     const beamer = escort(100, 0, { outfits: { 'lance-beam': 1 }, aggro: ['r1'], ship: { pos: { x: 100, y: 0 }, vel: { x: 0, y: 0 }, heading: Math.PI, fuel: 0 } });
-    const r = mkNpc('r1', 'raiders', -200, 0, { hull: fullHull(500, 500) });
+    const r = mkNpc('r1', 'raiders', -200, 0, { peaceful: false, hull: fullHull(500, 500) });
     const s2 = tick(begin(concordWorld(), mkTraffic([beamer, r])), IDLE, 10);
     expect(s2.b.beams.some((x) => x.ownerId === 'esc-1')).toBe(true);
     expect(s2.events.some((e) => e.type === 'hit' && e.targetId === PLAYER_ID)).toBe(false);
@@ -492,6 +492,39 @@ describe('escorts in battle (cycle 6)', () => {
     const s0 = begin(concordWorld(far), t());
     expect(firedAt(tick({ ...s0, b: { ...s0.b, angry: ['concord'] } }, IDLE, 40))).toBe(true);
     expect(firedAt(tick(begin(concordWorld({ ...far, law: { concord: { heat: 60 } } }), t()), IDLE, 40))).toBe(true);
+  });
+
+  it('a stray Concord bolt on the player or an escort while Concord is calm: the escort holds fire, no heat, standing unchanged', () => {
+    // The patrol is busy with a raider far off; one of its bolts clips the player, another an escort.
+    const patrol = mkNpc('p1', 'concord', 250, 0, { role: 'patrol', peaceful: false, aggro: ['r9'], outfits: { 'light-blaster': 2 }, hull: fullHull(500, 500) });
+    const r9 = mkNpc('r9', 'raiders', 6000, 6000, { peaceful: false, outfits: {} });
+    for (const victim of [PLAYER_ID, 'esc-1']) {
+      const t = mkTraffic([escort(0, 120), patrol, r9]);
+      const s0 = begin(concordWorld({ standing: { concord: 'friend' } }), t);
+      const at = victim === PLAYER_ID ? { x: 0, y: 0 } : { x: 0, y: 120 };
+      const s = tick(withShots(s0, bolt({ id: 1, ownerId: 'p1', damage: 1, pos: at })), IDLE, 600);
+      expect(s.events.some((e) => e.type === 'hit' && e.targetId === victim)).toBe(true);
+      expect(s.events.some((e) => e.type === 'shot' && e.ownerId === 'esc-1')).toBe(false);
+      expect(heatOf(s.w, 'concord')).toBe(0);
+      expect(s.b.angry).toEqual([]);
+      expect(s.w.standing.concord).toBe('friend');
+    }
+  });
+
+  it('a raider that stands down drops out of the escort\'s attackers; an angry government\'s patrol that fires is engaged', () => {
+    // Raider r1 hit the player earlier, then stood down (peaceful): the escort leaves it alone.
+    const calm = hostileRaider(200, 120, { peaceful: true, outfits: {} });
+    const s0 = begin(concordWorld(), mkTraffic([escort(0, 120), calm]));
+    const shot = (s: Sim) => s.events.some((e) => e.type === 'shot' && e.ownerId === 'esc-1');
+    expect(shot(tick({ ...s0, b: { ...s0.b, playerAggro: ['r1'] } }, IDLE, 120))).toBe(false);
+    // The same raider still fighting is engaged.
+    const s1 = begin(concordWorld(), mkTraffic([escort(0, 120), hostileRaider(200, 120, { outfits: {} })]));
+    expect(shot(tick({ ...s1, b: { ...s1.b, playerAggro: ['r1'] } }, IDLE, 120))).toBe(true);
+    // A patrol of an angry Concord that hits the player is engaged.
+    const p1 = mkNpc('p1', 'concord', 200, 120, { role: 'patrol', peaceful: false, outfits: {}, hull: fullHull(500, 500) });
+    const s2 = begin(concordWorld(), mkTraffic([escort(0, 120), p1]));
+    const angry = { ...s2, b: { ...s2.b, angry: ['concord'] } };
+    expect(shot(tick(withShots(angry, bolt({ id: 1, ownerId: 'p1', damage: 1, pos: { x: 0, y: 0 } })), IDLE, 120))).toBe(true);
   });
 
   it('a raider hitting the player lands in playerAggro', () => {
