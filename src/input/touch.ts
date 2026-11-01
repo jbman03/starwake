@@ -107,6 +107,8 @@ export interface RailMetrics {
   radar: number;
   /** Height of the labelled Map button above the radar (never hidden). */
   map: number;
+  /** Height of the ORDER button under the radar (escorts present); 0 when hidden. */
+  order: number;
   /** Height of the HUD block at the top of the stick rail. */
   hud: number;
   /** Joystick diameter. */
@@ -149,7 +151,7 @@ const MIN_STOP = 44;
 /**
  * Pixel sizes for the rail controls: the S/M/L base size, shrunk only as far as needed so both
  * stacks fit inside their rails (height and width).
- * Stick rail: HUD, Stop, joystick. Button rail: Map, radar, Target, Missile, weapon label, [Thrust], Fire.
+ * Stick rail: HUD, Stop, joystick. Button rail: Map, radar, [ORDER], Target, Missile, weapon label, [Thrust], Fire.
  * With `hint` (the First Flight guide is showing), the stick rail also holds the hint's text under
  * the HUD (HINT_LINES lines) and a Skip guide button beside Stop; only Stop and the stick give way.
 
@@ -159,6 +161,7 @@ export function railMetrics(
   s: Pick<Settings['touch'], 'buttonSize'>,
   steering: Steering,
   hint = false,
+  order = false,
 ): RailMetrics {
   const { insets } = layout;
   const h = layout.leftRail.h;
@@ -167,13 +170,20 @@ export function railMetrics(
   const usable = h - insets.top - insets.bottom - 2 * PAD;
   const plain = steering === 'classic' ? 3 : 2; // Target, Missile (+ Thrust)
   const rightGaps = (plain + 2) * GAP; // map + radar + plain + fire = plain + 3 items (the weapon label adds SECONDARY_GAP)
-  const reserved = rightGaps + MAP_HEIGHT + SECONDARY_H + SECONDARY_GAP;
+  // ORDER (escorts present) is one more item in the stack: the radar shrinks for it before any button does.
+  const orderH = order ? MAP_HEIGHT : 0;
+  const orderGap = order ? GAP : 0;
+  const reserved = rightGaps + orderGap + MAP_HEIGHT + orderH + SECONDARY_H + SECONDARY_GAP;
 
   let radar = Math.min(MAX_RADAR, inner);
   let button = Math.min(BUTTON_SIZES[s.buttonSize], inner / FIRE_SCALE, (usable - reserved - radar) / (plain + FIRE_SCALE));
   // Keep the buttons at a 44 px touch target by giving the radar's room up first.
   const room44 = usable - reserved - BUTTON_SIZES.S * (plain + FIRE_SCALE);
-  if (button < BUTTON_SIZES.S && room44 >= 0 && inner / FIRE_SCALE >= BUTTON_SIZES.S) {
+  if (order && room44 < 0) {
+    // With ORDER the radar goes first: it is dropped entirely before any button gives up its size.
+    radar = 0;
+    button = Math.max(MIN_BUTTON, Math.min(BUTTON_SIZES[s.buttonSize], inner / FIRE_SCALE, (usable - reserved) / (plain + FIRE_SCALE)));
+  } else if (button < BUTTON_SIZES.S && room44 >= 0 && inner / FIRE_SCALE >= BUTTON_SIZES.S) {
     button = BUTTON_SIZES.S;
     radar = Math.min(radar, room44);
   } else if (button < MIN_BUTTON) {
@@ -196,7 +206,7 @@ export function railMetrics(
   }
   stop = Math.floor(stop);
   // On the very shortest screens the weapon label gives up height before Fire is cut off.
-  const rightFixed = MAP_HEIGHT + radar + rightGaps + plain * button + fire + SECONDARY_GAP;
+  const rightFixed = MAP_HEIGHT + orderH + orderGap + radar + rightGaps + plain * button + fire + SECONDARY_GAP;
   const secondary = Math.max(MIN_SECONDARY_H, Math.min(SECONDARY_H, Math.floor(usable - rightFixed)));
   return {
     pad: PAD,
@@ -205,6 +215,7 @@ export function railMetrics(
     fire,
     radar,
     map: MAP_HEIGHT,
+    order: orderH,
     hud: HUD_HEIGHT,
     stick,
     hint: hintH,

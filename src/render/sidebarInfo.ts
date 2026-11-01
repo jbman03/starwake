@@ -4,13 +4,15 @@ import { formatDate } from '../sim/calendar';
 import { cargoFree } from '../sim/cargo';
 import { legalStatus, LEGAL_COLOR, LEGAL_LABEL } from '../sim/law';
 import { jumpPoint, SYSTEM_CENTER } from '../sim/rules';
-import { isTargetable, npcLabel, targetedNpc, type Traffic } from '../sim/traffic';
+import { inFlight, npcLabel, targetedNpc, type Traffic } from '../sim/traffic';
 import { worldStats } from '../sim/shipStats';
 import type { SiteTarget, WorldState } from '../sim/types';
 import { dist, type Vec2 } from '../sim/vec';
 import type { Battle } from '../sim/battle';
 import { hullBars } from './combatFx';
-import { fuelJumps, playerHull, secondaryAmmo, siteTargetText } from './hudInfo';
+import { presentEscorts } from '../sim/escortNpcs';
+import { ORDER_LABEL } from '../sim/escorts';
+import { ESCORT_COLOR, fuelJumps, playerHull, secondaryAmmo, siteTargetText } from './hudInfo';
 
 /** World distance from the radar's centre to its edge (same as the touch rail radar). */
 export const RADAR_RANGE = 2500;
@@ -24,6 +26,8 @@ export interface SidebarInfo {
   nav: string;
   /** "Law: Wanted" for the current system's government, and its status colour (#rrggbb). */
   law: { text: string; color: string };
+  /** "Escorts: 2 · Follow" with escorts flying beside the pilot, else null. */
+  escorts: string | null;
   /** The selected launcher's ammo and count ("Seeker Missile ×6"), or "None". */
   secondary: string;
   /** The player's shields and armor as 0–1 fractions. */
@@ -53,6 +57,7 @@ export function sidebarInfo(
   const gov = data.systems[world.systemId]?.government;
   const status = gov ? legalStatus(world, data, gov) : 'clean';
   const ship = targetedNpc(traffic);
+  const escorts = traffic ? presentEscorts(traffic).length : 0;
   const ammo = secondaryAmmo(world, data, battle?.secondary ?? null);
   return {
     shields: stats.shields,
@@ -61,6 +66,7 @@ export function sidebarInfo(
     jumps: fuelJumps(world, data),
     nav: next === undefined ? 'No course' : `${data.systems[next]?.name ?? next} · ${n} ${n === 1 ? 'jump' : 'jumps'}`,
     law: { text: `Law: ${LEGAL_LABEL[status]}`, color: LEGAL_COLOR[status] },
+    escorts: escorts > 0 ? `Escorts: ${escorts} · ${ORDER_LABEL[world.escortOrder]}` : null,
     secondary: ammo ? `${ammo.name} ×${ammo.count}` : 'None',
     hull: playerHull(world, data, battle),
     targetHull: ship && !site ? { ...hullBars(ship.hull), disabled: ship.hull.disabled } : null,
@@ -109,10 +115,10 @@ export function radarBlips(world: WorldState, data: GameData, radius: number, tr
   }
   out.push(place(jumpPoint(world, data), 'jumpRing'));
   for (const n of traffic?.npcs ?? []) {
-    if (!isTargetable(n)) continue;
+    if (!inFlight(n)) continue;
     out.push({
       ...place(n.ship.pos, 'npc'),
-      color: data.governments[n.government]?.color ?? '#9fb4cc',
+      color: n.role === 'escort' ? ESCORT_COLOR : (data.governments[n.government]?.color ?? '#9fb4cc'),
       targeted: n.id === traffic?.targetId,
     });
   }

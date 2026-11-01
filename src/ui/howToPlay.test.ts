@@ -38,12 +38,12 @@ beforeEach(() => localStorage.clear());
 afterEach(() => document.body.replaceChildren());
 
 describe('How to Play', () => {
-  it('has the six tabs and every one renders text', async () => {
+  it('has the seven tabs and every one renders text', async () => {
     const { ctx, root } = await setup();
     showHowToPlay(ctx, { onClose: () => {} });
     const tabs = [...root.querySelectorAll('[role="tab"]')] as HTMLButtonElement[];
-    expect(tabs.map((t) => t.textContent)).toEqual(['Flying', 'Planets & trade', 'Missions', 'Travel & fuel', 'Law & ranks', 'Controls']);
-    expect(HOW_TO_PLAY_TABS).toHaveLength(6);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Flying', 'Planets & trade', 'Missions', 'Travel & fuel', 'Law & ranks', 'Escorts', 'Controls']);
+    expect(HOW_TO_PLAY_TABS).toHaveLength(7);
     for (const t of tabs) {
       t.click();
       const panel = root.querySelector('[role="tabpanel"]')!;
@@ -319,5 +319,31 @@ describe('weapons', () => {
     showHowToPlay(b.ctx, { onClose: () => {} });
     (b.btn('Replay first flight') as HTMLButtonElement).click();
     expect(b.root.textContent).toContain('Resume flight to see it.');
+  });
+});
+
+describe('Escorts page', () => {
+  it('reads fee, wage and repair from the data and names the order key', async () => {
+    const data = await loadGameData();
+    const text = tabText('escorts', DEFAULT_SETTINGS.bindings, data).map((b) => b.text).join(' ');
+    expect(text).toContain('10%');
+    expect(text).toContain('0.5%');
+    expect(text).toContain('I steps');
+    expect(text).toContain('ORDER');
+    expect(text).toContain('10 cr');
+    expect(text).toContain('crime');
+    const moved = { ...data, escorts: { ...data.escorts, hireFeeMul: 0.2, repairPerArmor: 15 } } as GameData;
+    const t2 = tabText('escorts', DEFAULT_SETTINGS.bindings, moved).map((b) => b.text).join(' ');
+    expect(t2).toContain('20%');
+    expect(t2).toContain('15 cr');
+  });
+
+  it('says wages are paid as days pass and that escort kills do not count toward combat jobs', async () => {
+    const data = await loadGameData();
+    const text = tabText('escorts', DEFAULT_SETTINGS.bindings, data).map((b) => b.text).join(' ');
+    expect(text).toContain("Wages are paid each day; a pilot you can't pay leaves at your next landing.");
+    expect(text).not.toContain('pay at landing');
+    expect(text).toContain("An escort's kills don't count toward your combat jobs");
+    expect(text).toContain('a bounty target they take down still completes the bounty');
   });
 });

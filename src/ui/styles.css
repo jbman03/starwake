@@ -96,6 +96,10 @@
 .sw-actions-row > .sw-btn { width: auto; flex: 1 1 140px; justify-content: center; }
 .sw-status { min-height: 1.3em; margin: 10px 0 0; font-size: 14px; color: var(--sw-good); }
 .sw-status.sw-status-bad { color: var(--sw-danger); }
+.sw-escort-list { display: flex; flex-direction: column; gap: 6px; }
+.sw-escort-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 14px; }
+.sw-escort-row > span { flex: 1 1 100%; }
+.sw-escort-row > .sw-btn { width: auto; flex: 0 1 auto; }
 .sw-reason { margin: -2px 0 2px; font-size: 13px; color: var(--sw-dim); }
 .sw-error { min-height: 1.2em; margin: 6px 0 0; font-size: 13px; color: var(--sw-danger); }
 .sw-hidden { display: none; }

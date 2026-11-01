@@ -97,6 +97,12 @@ story steps, raider kills) to climb its five ranks for a title, discounts, a
 salary, better pay and its hub's restricted ships and outfits. Rival factions
 pull against each other.
 
+**Escorts.** Hire up to three ships at a spaceport (a fee up front and a daily
+wage) or keep a ship you capture, and they fly with you, jump with you and
+land with you. Press I (the ORDER button on a phone) to step their order:
+Follow, Attack your target, Hold, or Return fire. They take damage in flight;
+mend them with Repair all on the planet screen. Unpaid hires leave.
+
 **Sound, music and the jump.** A jump plays out like Escape Velocity's: the
 ship turns, the engines charge, it burns as the stars stretch, a flash, and it
 streaks into the next system (press J again, or SKIP on a phone, to skip ahead).

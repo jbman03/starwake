@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { StandingLevelSchema, type GameData } from '../data/schemas';
-import type { WorldState } from '../sim/types';
+import { ESCORT_ID_PREFIX } from '../sim/combat';
+import type { Escort, WorldState } from '../sim/types';
+import { ESCORT_ORDERS, escortMaxArmor, escortMaxFuel } from '../sim/escorts';
 import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 7;
+export const CURRENT_SAVE_VERSION = 8;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -61,8 +63,38 @@ function tolerantRecord<T>(fix: (entry: Record<string, unknown>) => T) {
     });
 }
 
+interface SavedEscort {
+  id: string;
+  name: string;
+  shipId: string;
+  outfits: Record<string, number>;
+  armor: number;
+  fuel: number;
+  hired: boolean;
+  wage: number;
+  leaving: boolean;
+}
+
+function fixEscort(e: Record<string, unknown>): SavedEscort {
+  const outfits: Record<string, number> = {};
+  if (typeof e.outfits === 'object' && e.outfits !== null && !Array.isArray(e.outfits)) {
+    for (const [k, v] of Object.entries(e.outfits)) if (typeof v === 'number' && Number.isInteger(v) && v > 0) outfits[k] = v;
+  }
+  return {
+    id: typeof e.id === 'string' ? e.id : '',
+    name: typeof e.name === 'string' ? e.name : '',
+    shipId: typeof e.shipId === 'string' ? e.shipId : '',
+    outfits,
+    armor: num(e.armor),
+    fuel: num(e.fuel),
+    hired: e.hired === true,
+    wage: Math.max(0, num(e.wage)),
+    leaving: e.leaving === true,
+  };
+}
+
 export const PilotSaveSchema = z.object({
-  version: z.literal(7),
+  version: z.literal(8),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -114,6 +146,18 @@ export const PilotSaveSchema = z.object({
   // (salaryDay keeps its -1 "never paid" floor). A law or ranks that is missing or not a record loads as empty.
   law: tolerantRecord((e) => ({ heat: clamp(num(e.heat), 0, 100) })).catch({}),
   ranks: tolerantRecord((e) => ({ points: Math.max(0, num(e.points)), salaryDay: Math.max(-1, num(e.salaryDay)) })).catch({}),
+  // v8: hired escorts and the group order. Corrupt values never fail the load: a missing or non-array
+  // list is empty, an entry that is not an object is dropped, a non-finite or non-number field becomes 0
+  // and a non-boolean flag false. worldFromPilot checks the entries against game data.
+  escorts: z
+    .unknown()
+    .transform((v): SavedEscort[] =>
+      Array.isArray(v)
+        ? v.filter((e) => typeof e === 'object' && e !== null && !Array.isArray(e)).map((e) => fixEscort(e as Record<string, unknown>))
+        : [],
+    )
+    .catch([]),
+  escortOrder: z.enum(ESCORT_ORDERS).catch('follow'),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
@@ -197,6 +241,8 @@ export const migrations: Record<number, (s: any) => any> = {
   },
   // v6 -> v7. Data-free: no heat with any government, no rank points.
   6: (s) => ({ ...s, version: 7, law: {}, ranks: {} }),
+  // v7 -> v8. Data-free: no escorts hired, the group follows.
+  7: (s) => ({ ...s, version: 8, escorts: [], escortOrder: 'follow' }),
 };
 
 export function upgradeSave(raw: unknown): PilotSave {
@@ -258,6 +304,19 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
     standing: { ...world.standing },
     law: Object.fromEntries(Object.entries(world.law).map(([g, l]) => [g, { ...l }])),
     ranks: Object.fromEntries(Object.entries(world.ranks).map(([g, r]) => [g, { ...r }])),
+    // `waiting` is not saved: a save is a landed snapshot, and landing rejoins every escort left behind.
+    escorts: world.escorts.map((e) => ({
+      id: e.id,
+      name: e.name,
+      shipId: e.shipId,
+      outfits: { ...e.outfits },
+      armor: e.armor,
+      fuel: e.fuel,
+      hired: e.hired,
+      wage: e.wage,
+      leaving: e.leaving === true,
+    })),
+    escortOrder: world.escortOrder,
   };
 }
 
@@ -315,6 +374,42 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     // A corrupt value clamps rather than failing the load: heat to 0-100, points to 0 or more.
     law: Object.fromEntries(Object.entries(p.law).map(([g, l]) => [g, { heat: Math.min(100, Math.max(0, l.heat)) }])),
     ranks: Object.fromEntries(Object.entries(p.ranks).map(([g, r]) => [g, { ...r, points: Math.max(0, r.points) }])),
+    escorts: escortsFromSave(p.escorts, data),
+    escortOrder: p.escortOrder,
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
+}
+
+/**
+ * Repairs saved escorts against game data: unknown hulls and outfits go, numbers clamp, ids stay unique
+ * and keep the `esc-` prefix (the player's side is known by it).
+ */
+function escortsFromSave(saved: PilotSave['escorts'], data: GameData): Escort[] {
+  const out: Escort[] = [];
+  const ids = new Set<string>();
+  let n = 0;
+  const freshId = (): string => {
+    do n += 1;
+    while (ids.has(`esc-${n}`) || saved.some((e) => e.id === `esc-${n}`));
+    return `esc-${n}`;
+  };
+  for (const s of saved) {
+    const hull = data.ships[s.shipId];
+    if (!hull) continue;
+    const outfits = Object.fromEntries(Object.entries(s.outfits).filter(([id]) => data.outfits[id]));
+    const id = s.id.startsWith(ESCORT_ID_PREFIX) && !ids.has(s.id) ? s.id : freshId();
+    ids.add(id);
+    out.push({
+      id,
+      name: s.name || hull.name,
+      shipId: s.shipId,
+      outfits,
+      armor: clamp(s.armor, 0, escortMaxArmor(data, { shipId: s.shipId, outfits })),
+      fuel: clamp(s.fuel, 0, escortMaxFuel(data, { shipId: s.shipId, outfits })),
+      hired: s.hired,
+      wage: s.hired ? s.wage : 0,
+      ...(s.leaving ? { leaving: true as const } : {}),
+    });
+  }
+  return out.slice(0, data.escorts.maxEscorts);
 }

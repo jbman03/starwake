@@ -23,6 +23,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   flightMissionLog: ['KeyK', null],
   pause: ['Escape', null],
   interact: ['KeyY', null],
+  escortOrder: ['KeyI', null],
   openExchange: ['KeyC', null],
   openMissions: ['KeyM', null],
   openShipyard: ['KeyY', null],

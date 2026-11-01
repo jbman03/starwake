@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
-import { decide, isHostileTo, type AiSelf, type NpcRole } from './ai';
+import { decide, engageInput, isHostileTo, type AiSelf, type NpcRole } from './ai';
 import { fullHull, PLAYER_ID, type Combatant } from './combat';
 
 const data = testData();
@@ -97,5 +97,29 @@ describe('npc ai', () => {
     const tweaked = { ...data, combat: { ...data.combat, ai: { ...data.combat.ai, raider: { ...data.combat.ai.raider, engageRange: 100 } } } };
     const s = selfOf('raider', comb('r1', 'raiders', 0, 0, 0, GUN));
     expect(decide(s, [player(500, 0)], [], FLEE_TO, tweaked).mode).toBe('errand');
+  });
+});
+
+describe('escorts and the player side (cycle 6)', () => {
+  it('engageInput gives the same steering and fire as decide', () => {
+    const profile = data.combat.ai.raider;
+    for (const [x, h] of [[500, 0], [150, 0], [80, 0], [400, deg(30)], [600, 0]] as const) {
+      const me = comb('r1', 'raiders', 0, 0, h, GUN);
+      const d = run(selfOf('raider', me), [player(x, 0)]);
+      expect(engageInput(me, player(x, 0), x, 450, profile, data)).toEqual({ input: d.input, fire: d.fire });
+    }
+  });
+  it('a patrol treats an escort like the player: hostile only when angry or hunting', () => {
+    const s = selfOf('patrol', comb('p1', 'concord', 0, 0, 0, GUN));
+    const esc = comb('esc-1', '', 300, 0);
+    expect(isHostileTo(s, esc, [])).toBe(false);
+    expect(isHostileTo(s, esc, ['concord'])).toBe(true);
+    expect(run(s, [esc], ['concord']).targetId).toBe('esc-1');
+  });
+  it('raiders attack escorts; an escort is never hostile by role', () => {
+    expect(run(selfOf('raider', comb('r1', 'raiders', 0, 0, 0, GUN)), [comb('esc-1', '', 300, 0)]).targetId).toBe('esc-1');
+    const e = selfOf('escort', comb('esc-1', '', 0, 0, 0, GUN));
+    expect(isHostileTo(e, comb('r1', 'raiders', 300, 0), [])).toBe(false);
+    expect(isHostileTo(e, player(300, 0), ['concord'])).toBe(false);
   });
 });

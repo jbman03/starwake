@@ -108,3 +108,12 @@ describe('bindings', () => {
     }
   });
 });
+
+describe('escort orders key', () => {
+  it('escortOrder is a flight action on KeyI with no clash', () => {
+    expect(ACTION_GROUP.escortOrder).toBe('flight');
+    expect(DEFAULT_BINDINGS.escortOrder).toEqual(['KeyI', null]);
+    expect(ACTION_LABEL.escortOrder).toBe('Escort orders');
+    expect(findConflict(DEFAULT_BINDINGS, 'escortOrder', 'KeyI')).toBeNull();
+  });
+});

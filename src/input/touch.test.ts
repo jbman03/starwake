@@ -6,6 +6,7 @@ import {
   FIRE_SCALE,
   HINT_LINE_HEIGHT,
   HINT_LINES,
+  MIN_BUTTON,
   MIN_HINT_STICK,
   MIN_RAIL_WIDTH,
   ROW_GAP,
@@ -270,6 +271,44 @@ describe('railMetrics: stick with real phone insets', () => {
         const m = railMetrics(l, touch({ buttonSize: size }), steering);
         expect(m.stick, `${size} ${steering}`).toBeGreaterThanOrEqual(64);
         expect(m.leftStackHeight).toBeLessThanOrEqual(l.leftRail.h - insets.bottom - 16);
+      }
+    }
+  });
+});
+
+describe('railMetrics: ORDER button', () => {
+  const phones = [[844, 390], [932, 430], [780, 360], [667, 375]] as const;
+
+  it('is 0 tall and changes nothing when hidden', () => {
+    for (const [w, h] of phones) {
+      for (const steering of ['point', 'classic'] as const) {
+        for (const hint of [false, true]) {
+          const l = computeLayout(w, h, touch());
+          const a = railMetrics(l, touch(), steering, hint);
+          const b = railMetrics(l, touch(), steering, hint, false);
+          expect(a.order).toBe(0);
+          expect(b).toEqual(a);
+        }
+      }
+    }
+  });
+
+  it('is MAP_HEIGHT tall, every button stays at least MIN_BUTTON, the stack fits, and the radar shrinks first', () => {
+    for (const [w, h] of phones) {
+      for (const steering of ['point', 'classic'] as const) {
+        for (const hint of [false, true]) {
+          const l = computeLayout(w, h, touch());
+          const off = railMetrics(l, touch(), steering, hint);
+          const on = railMetrics(l, touch(), steering, hint, true);
+          expect(on.order).toBe(on.map);
+          expect(on.button).toBeGreaterThanOrEqual(MIN_BUTTON);
+          expect(on.rightStackHeight).toBeLessThanOrEqual(h - 2 * on.pad);
+          expect(on.radar).toBeLessThanOrEqual(off.radar);
+          // Buttons give way only below the 44 px touch target, and only once the radar is gone.
+          if (on.button < Math.min(off.button, BUTTON_SIZES.S)) expect(on.radar).toBe(0);
+          if (w === 844) expect(on.button).toBe(BUTTON_SIZES.S);
+          expect(on.leftStackHeight).toBeLessThanOrEqual(h - 2 * on.pad);
+        }
       }
     }
   });

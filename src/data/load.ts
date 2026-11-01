@@ -4,6 +4,7 @@ import {
   CombatSchema,
   AudioSchema,
   LawSchema,
+  EscortsSchema,
   FactionsSchema,
   ConfigSchema,
   EncounterSchema,
@@ -19,6 +20,7 @@ import {
   type CombatDef,
   type AudioDef,
   type LawDef,
+  type EscortsDef,
   type FactionDef,
   type GameConfig,
   type Outcome,
@@ -143,6 +145,7 @@ const KEYS = [
   'combat',
   'audio',
   'law',
+  'escorts',
   'factions',
 ] as const;
 
@@ -180,6 +183,10 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   const lw = LawSchema.safeParse(raw.law);
   if (!lw.success) throw new DataError('law.json', zodIssues('law.json', '', lw.error));
   const law: LawDef = lw.data;
+
+  const es = EscortsSchema.safeParse(raw.escorts);
+  if (!es.success) throw new DataError('escorts.json', zodIssues('escorts.json', '', es.error));
+  const escorts: EscortsDef = es.data;
 
   const fc = FactionsSchema.safeParse(raw.factions);
   if (!fc.success) throw new DataError('factions.json', zodIssues('factions.json', '', fc.error));
@@ -286,7 +293,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
           );
       }
   }
-  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, factions } as GameData;
+  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, escorts, factions } as GameData;
   const items: { file: string; item: { id: string; techTier: number; soldBy?: string[] } }[] = [
     ...Object.values(ships).map((item) => ({ file: 'ships.json', item })),
     ...Object.values(outfits).map((item) => ({ file: 'outfits.json', item })),
@@ -502,14 +509,22 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   });
   if (cfgIssues.length) throw new DataError('config.json', cfgIssues);
 
-  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, factions };
+  // Only plain catalogue hulls can be hired; a one-off hull cannot be duplicated.
+  const escortIssues: string[] = [];
+  escorts.hireable.forEach((sid, i) => {
+    if (!(sid in ships)) escortIssues.push(fmt('escorts.json', `hireable.${i}`, `unknown ship "${sid}"`));
+    else if (ships[sid].unique) escortIssues.push(fmt('escorts.json', `hireable.${i}`, `"${sid}" is a unique hull and cannot be hired`));
+  });
+  if (escortIssues.length) throw new DataError('escorts.json', escortIssues);
+
+  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, escorts, factions };
 }
 
 /** Loads and validates the bundled data. `override` swaps raw payloads (used by test flags). */
 export async function loadGameData(
   override: Partial<Record<(typeof KEYS)[number], unknown>> = {},
 ): Promise<GameData> {
-  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, factions] =
+  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions] =
     await Promise.all([
       import('../../data/ships.json'),
       import('../../data/systems.json'),
@@ -526,6 +541,7 @@ export async function loadGameData(
       import('../../data/combat.json'),
       import('../../data/audio.json'),
       import('../../data/law.json'),
+      import('../../data/escorts.json'),
       import('../../data/factions.json'),
     ]);
   return parseGameData({
@@ -544,6 +560,7 @@ export async function loadGameData(
     combat: combat.default,
     audio: audio.default,
     law: law.default,
+    escorts: escorts.default,
     factions: factions.default,
     ...override,
   });

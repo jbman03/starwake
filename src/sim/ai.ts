@@ -1,6 +1,6 @@
-import type { GameData } from '../data/schemas';
+import type { AiProfile, GameData } from '../data/schemas';
 import { faceInput } from './assists';
-import { leadPoint, PLAYER_ID, type Combatant } from './combat';
+import { isPlayerSide, leadPoint, type Combatant } from './combat';
 import { wrap } from './flight';
 import { hashString } from './random';
 import type { FlightInput } from './types';
@@ -9,9 +9,10 @@ import { hasWeapon, weaponsOf } from './weapons';
 
 /**
  * NPC combat AI. The tunables (flee fraction, engage and keep ranges, fire cone) live in
- * data/combat.json under `ai`, keyed by role, and are read through `data.combat.ai[role]`.
+ * data/combat.json under `ai`, keyed by role, and are read through `aiProfile(data, role)`. Escorts
+ * have no profile of their own and fly the patrol's.
  */
-export type NpcRole = 'trader' | 'patrol' | 'raider';
+export type NpcRole = 'trader' | 'patrol' | 'raider' | 'escort';
 export type AiMode = 'errand' | 'attack' | 'flee';
 export interface AiSelf {
   role: NpcRole;
@@ -37,20 +38,57 @@ const FLEE_ALIGN = 20 * DEG;
 
 const IDLE: FlightInput = { thrust: false, turn: 0 };
 
+export const aiProfile = (data: GameData, role: NpcRole): AiProfile => data.combat.ai[role === 'escort' ? 'patrol' : role];
+
+/** Patrols treat the player and the escorts alike: hostile only when their government is angry or hunting. */
 export function isHostileTo(self: AiSelf, other: Combatant, angry: readonly string[]): boolean {
   if (other.id === self.me.id) return false;
   if (self.aggro.includes(other.id)) return true;
   if (self.role === 'raider') return !self.peaceful && other.government !== RAIDERS;
   if (self.role === 'patrol')
-    return other.government === RAIDERS || (other.id === PLAYER_ID && angry.includes(self.me.government));
+    return other.government === RAIDERS || (isPlayerSide(other.id) && angry.includes(self.me.government));
   return false;
+}
+
+/** Where `me` aims its guns at `target`: the lead point for its first gun's shot speed. */
+export function aimPoint(me: Combatant, target: Combatant, data: GameData): Vec2 {
+  const shotSpeed = weaponsOf(me.outfits, data).guns[0]?.def.effect.speed ?? DEFAULT_SHOT_SPEED;
+  return leadPoint(me.ship.pos, shotSpeed, target.ship);
+}
+
+/** Steer to fight `target`, `range` away: close to keepRange, hold there nose on, burn clear when much too close. */
+export function engageInput(
+  me: Combatant,
+  target: Combatant,
+  range: number,
+  fireRange: number,
+  profile: AiProfile,
+  data: GameData,
+): { input: FlightInput; fire: boolean } {
+  const aim = aimPoint(me, target, data);
+  const aimHeading = angleOf(sub(aim, me.ship.pos));
+  let input: FlightInput;
+  if (range > profile.keepRange) {
+    input = { ...faceInput(me.ship, aim), thrust: true };
+  } else if (range > profile.keepRange * BACK_OFF_FRACTION) {
+    // Holding range: keep the nose on the lead point so the guns can fire, and coast.
+    input = { ...faceInput(me.ship, aim), thrust: false };
+  } else {
+    // Much too close: swing round the target and burn to open the range.
+    const side = hashString(me.id) % 2 === 0 ? 1 : -1;
+    const bearing = angleOf(sub(target.ship.pos, me.ship.pos));
+    input = { thrust: true, turn: 0, targetHeading: wrap(bearing + side * ORBIT_ANGLE) };
+  }
+  const offAim = Math.abs(wrap(aimHeading - me.ship.heading));
+  const fire = hasWeapon(me.outfits, data) && range <= fireRange && offAim <= profile.fireCone * DEG;
+  return { input, fire };
 }
 
 export function decide(self: AiSelf, others: readonly Combatant[], angry: readonly string[], fleeTo: Vec2, data: GameData): AiDecision {
   const errand: AiDecision = { mode: 'errand', targetId: null, input: IDLE, fire: false, fleeTo: null };
   const { me } = self;
   if (me.hull.disabled) return errand;
-  const profile = data.combat.ai[self.role];
+  const profile = aiProfile(data, self.role);
 
   const flee = (): AiDecision => {
     const face = faceInput(me.ship, fleeTo);
@@ -74,22 +112,6 @@ export function decide(self: AiSelf, others: readonly Combatant[], angry: readon
   }
   if (!target) return errand;
 
-  const shotSpeed = weaponsOf(me.outfits, data).guns[0]?.def.effect.speed ?? DEFAULT_SHOT_SPEED;
-  const aim = leadPoint(me.ship.pos, shotSpeed, target.ship);
-  const aimHeading = angleOf(sub(aim, me.ship.pos));
-  let input: FlightInput;
-  if (best > profile.keepRange) {
-    input = { ...faceInput(me.ship, aim), thrust: true };
-  } else if (best > profile.keepRange * BACK_OFF_FRACTION) {
-    // Holding range: keep the nose on the lead point so the guns can fire, and coast.
-    input = { ...faceInput(me.ship, aim), thrust: false };
-  } else {
-    // Much too close: swing round the target and burn to open the range.
-    const side = hashString(me.id) % 2 === 0 ? 1 : -1;
-    const bearing = angleOf(sub(target.ship.pos, me.ship.pos));
-    input = { thrust: true, turn: 0, targetHeading: wrap(bearing + side * ORBIT_ANGLE) };
-  }
-  const offAim = Math.abs(wrap(aimHeading - me.ship.heading));
-  const fire = hasWeapon(me.outfits, data) && best <= self.fireRange && offAim <= profile.fireCone * DEG;
+  const { input, fire } = engageInput(me, target, best, self.fireRange, profile, data);
   return { mode: 'attack', targetId: target.id, input, fire, fleeTo: null };
 }

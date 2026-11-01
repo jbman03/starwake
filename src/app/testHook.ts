@@ -6,6 +6,7 @@ import type { MoodId } from '../audio/moods';
 import type { SidebarInfo } from '../render/sidebarInfo';
 import type { SidebarBox } from '../render/sidebar';
 import type { Hull } from '../sim/combat';
+import { captureSucceeds } from '../sim/boarding';
 import { hostileAhead, patrolAhead } from './combatControl';
 import type { Controller, StoryMeet, StorySite } from './controller';
 
@@ -31,7 +32,7 @@ export interface StarwakeTestHook {
   /** Test-only: put the world at `planetId` (in its system) and land there, as a real landing would. */
   teleport: (planetId: string) => void;
   /** The fight: the player's hull, the selected launcher and every NPC's hull and stance. */
-  combatState: () => { player: Hull; secondary: string | null; npcs: { id: string; role: string; hull: Hull; hostile: boolean }[] };
+  combatState: () => { player: Hull; secondary: string | null; npcs: { id: string; role: string; hull: Hull; hostile: boolean; pos: { x: number; y: number }; aggro: string[] }[] };
   /** Test-only: add an engaged raider (a `shipId` hull, default kestrel) 400 px ahead of the ship; returns its id. */
   spawnHostile: (shipId?: string) => string;
   /**
@@ -39,6 +40,8 @@ export interface StarwakeTestHook {
    * scan and hail ranges; returns its id. The law's own rules then decide whether it scans or hails (spec §4.4, §5.2).
    */
   spawnPatrol: (gov?: string, shipId?: string) => string;
+  /** Test-only: whether the capture roll on NPC `npcId` succeeds under the current world seed. */
+  captureWillSucceed: (npcId: string) => boolean;
   /** Test-only: drop the targeted ship to 1 armor and disable it; false with no ship targeted. */
   disableTarget: () => boolean;
   /** Set by SpaceScene: the main camera's viewport in screen px. */
@@ -133,7 +136,7 @@ export function installTestHook(controller: Controller, data: GameData, store: P
   const combatState: StarwakeTestHook['combatState'] = () => ({
     player: { ...controller.combat.battle.player },
     secondary: controller.combat.battle.secondary,
-    npcs: controller.traffic.npcs.map((n) => ({ id: n.id, role: n.role, hull: { ...n.hull }, hostile: controller.combat.isHostile(n, controller.world) })),
+    npcs: controller.traffic.npcs.map((n) => ({ id: n.id, role: n.role, hull: { ...n.hull }, hostile: controller.combat.isHostile(n, controller.world), pos: { ...n.ship.pos }, aggro: [...n.aggro] })),
   });
   const spawnHostile = (shipId?: string): string => {
     const r = hostileAhead(controller.world, controller.traffic, data, shipId);
@@ -154,6 +157,11 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     };
     return true;
   };
+  const captureWillSucceed = (npcId: string): boolean => {
+    const npc = controller.traffic.npcs.find((n) => n.id === npcId);
+    if (!npc) throw new Error(`captureWillSucceed: no ship ${npcId}`);
+    return captureSucceeds(controller.world, data, npc);
+  };
   window.__starwake = {
     world: () => controller.world,
     data,
@@ -171,5 +179,6 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     spawnHostile,
     spawnPatrol,
     disableTarget,
+    captureWillSucceed,
   };
 }

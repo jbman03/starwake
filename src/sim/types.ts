@@ -112,6 +112,29 @@ export interface WorldState {
   law: Record<string, { heat: number }>;
   /** Rank points and the day salary was last paid, per government; absent means unranked. */
   ranks: Record<string, { points: number; salaryDay: number }>;
+  /** The pilot's escorts, hired pilots and kept captures, in the order they joined (hire offers are never stored here). */
+  escorts: Escort[];
+  /** What the group is told to do. */
+  escortOrder: EscortOrder;
+}
+
+export type EscortOrder = 'follow' | 'attack' | 'hold' | 'defend';
+
+/** An escort in the pilot's group: a hired pilot or a kept capture. `armor` is hit points; `fuel` is in jumps. */
+export interface Escort {
+  id: string;
+  name: string;
+  shipId: string;
+  outfits: Record<string, number>;
+  armor: number;
+  fuel: number;
+  hired: boolean;
+  /** Credits per day for a hired pilot, paid as days pass; 0 for a kept capture. */
+  wage: number;
+  /** Left behind after a jump (no fuel, or disabled); rejoins at the next landing. Never saved. */
+  waiting?: true;
+  /** Will leave at the next port (wages unpaid). */
+  leaving?: true;
 }
 
 export type SimEvent =

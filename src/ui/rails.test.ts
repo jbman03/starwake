@@ -7,7 +7,8 @@ import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import type { WorldState } from '../sim/types';
 import { newWorld } from '../sim/world';
-import { rectsIntersect, type Rect } from '../input/touch';
+import { MIN_BUTTON, rectsIntersect, type Rect } from '../input/touch';
+import { withEscorts } from '../sim/escortNpcs';
 import { contextLabel, mountRails } from './rails';
 
 async function setup(mode: 'touch' | 'keyboard' = 'touch') {
@@ -393,5 +394,75 @@ describe('rails: combat controls', () => {
     rails.update();
     expect(parent.querySelector<HTMLElement>('.sw-bar-shield')!.style.width).toBe('50%');
     expect(parent.querySelector<HTMLElement>('.sw-bar-armor')!.style.width).toBe('0%');
+  });
+});
+
+describe('ORDER button', () => {
+  it('is hidden with no escort present, shown with one, and a tap cycles the order', async () => {
+    const { c, rails, parent } = await setup();
+    c.startFlight();
+    rails.update();
+    const order = parent.querySelector<HTMLButtonElement>('[data-control="order"]')!;
+    expect(order.textContent).toBe('ORDER');
+    expect(order.hidden).toBe(true);
+    const esc = { id: 'esc-1', name: 'Pilot', shipId: 'courier', outfits: {}, armor: 50, fuel: 1, hired: true, wage: 0 };
+    c.world = { ...c.world, escorts: [esc] };
+    c.traffic = withEscorts(c.traffic, c.world, c.data, c.world.ship);
+    rails.update();
+    expect(order.hidden).toBe(false);
+    expect(order.getAttribute('aria-label')).toBe('Escort orders (now Follow)');
+    expect(order.closest('[data-rail="buttons"]')).not.toBeNull();
+    order.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    c.update(1 / 60);
+    expect(c.world.escortOrder).toBe('attack');
+    rails.update();
+    expect(order.getAttribute('aria-label')).toBe('Escort orders (now Attack)');
+  });
+
+  it('pausing (a card or the pause menu) keeps ORDER and the rail layout as they were', async () => {
+    for (const steering of ['point', 'classic'] as const) {
+      const { c, rails, parent } = await setup();
+      c.settings.touch.steering = steering;
+      c.startFlight();
+      const esc = { id: 'esc-1', name: 'Pilot', shipId: 'courier', outfits: {}, armor: 50, fuel: 1, hired: true, wage: 0 };
+      c.world = { ...c.world, escorts: [esc] };
+      c.traffic = withEscorts(c.traffic, c.world, c.data, c.world.ship);
+      rails.update();
+      const q = (control: string) => parent.querySelector<HTMLElement>(`[data-control="${control}"]`)!;
+      const metrics = () => ({
+        order: q('order').hidden,
+        fire: q('fire').style.height,
+        target: q('target').style.height,
+        missile: q('missile').style.height,
+        radar: q('radar').style.width,
+      });
+      const flying = metrics();
+      expect(flying.order).toBe(false);
+      c.pauseFlight();
+      rails.update();
+      expect(metrics()).toEqual(flying);
+      // Paused, the order still can't be changed.
+      expect(c.cycleEscortOrder()).toBeNull();
+      c.startFlight();
+      rails.update();
+      expect(metrics()).toEqual(flying);
+    }
+  });
+
+  it('at 844x390 fits the button rail in simple and classic steering, with and without the guide hint, at MAP_HEIGHT', async () => {
+    for (const steering of ['point', 'classic'] as const) {
+      const { c, rails, parent } = await setup();
+      c.settings.touch.steering = steering;
+      c.startFlight();
+      const esc = { id: 'esc-1', name: 'Pilot', shipId: 'courier', outfits: {}, armor: 50, fuel: 1, hired: true, wage: 0 };
+      c.world = { ...c.world, escorts: [esc] };
+      c.traffic = withEscorts(c.traffic, c.world, c.data, c.world.ship);
+      rails.update();
+      const order = parent.querySelector<HTMLElement>('[data-control="order"]')!;
+      expect(parseFloat(order.style.height)).toBe(44);
+      for (const control of ['target', 'missile', 'fire']) {
+        expect(parseFloat(parent.querySelector<HTMLElement>(`[data-control="${control}"]`)!.style.height), control).toBeGreaterThanOrEqual(MIN_BUTTON);
+      }
+    }
   });
 });

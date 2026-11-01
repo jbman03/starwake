@@ -7,6 +7,8 @@ import { InputMode } from '../input/mode';
 import type { PilotStore } from '../save/store';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import { newWorld } from '../sim/world';
+import { escortMaxArmor, prizeValueOf } from '../sim/escorts';
+import type { Escort } from '../sim/types';
 import type { UiContext } from './context';
 import { createUi } from './context';
 import { COUNT_UP_SEC, showPlanetScreen } from './planetScreen';
@@ -210,5 +212,108 @@ describe('credits count-up after jobs pay', () => {
   it('jumps straight to the new value under prefers-reduced-motion', async () => {
     const { root } = await paid(true);
     expect(shown(root)).toBe('1,700');
+  });
+});
+
+describe('escorts on the planet screen', () => {
+  const btn = (root: HTMLElement, text: string) => [...root.querySelectorAll('button')].find((b) => b.textContent?.startsWith(text))!;
+  const hireButtons = (root: HTMLElement) => [...root.querySelectorAll('[data-testid="hire-escorts"] button')] as HTMLButtonElement[];
+  const status = (root: HTMLElement) => root.querySelector('.sw-status')!;
+  const escort = (c: Controller, over: Partial<Escort> = {}): Escort => {
+    const shipId = 'courier';
+    return { id: 'esc-9', name: 'Pip', shipId, outfits: {}, armor: 1, fuel: 1, hired: true, wage: 5, ...over };
+  };
+
+  it('Vanterre lists the offers; Hire charges the fee and the row leaves', async () => {
+    const { root, c } = await setup(100000, 300, DEFAULT_SETTINGS.bindings, 'vanterre');
+    const offers = c.escortOffers();
+    expect(offers.length).toBeGreaterThan(0);
+    const list = root.querySelector('[data-testid="hire-escorts"]')!;
+    const o = offers[0];
+    expect(list.textContent).toContain(`${o.name} — ${c.data.ships[o.shipId].name} · fee ${o.fee.toLocaleString('en-US')} cr · ${o.wage.toLocaleString('en-US')} cr/day`);
+    const before = c.world.credits;
+    hireButtons(root)[0].click();
+    expect(c.world.credits).toBe(before - o.fee);
+    expect(status(root).textContent).toBe(`${o.name} joins your escort.`);
+    expect(root.querySelector(`[data-offer="${o.offerId}"]`)).toBeNull();
+    expect(root.querySelector('[data-testid="your-escorts"]')!.textContent).toContain(o.name);
+  });
+
+  it('a hire past the group limit says the group is full', async () => {
+    const { root, c, ctx } = await setup(1e7, 300, DEFAULT_SETTINGS.bindings, 'vanterre');
+    c.world = { ...c.world, escorts: [escort(c, { id: 'esc-1' }), escort(c, { id: 'esc-2' }), escort(c, { id: 'esc-3' })] };
+    showPlanetScreen(ctx, 'vanterre');
+    hireButtons(root)[0].click();
+    expect(status(root).textContent).toBe('Your group is full (3 escorts).');
+    expect(status(root).classList.contains('sw-status-bad')).toBe(true);
+  });
+
+  it('Halcyon has no shipyard and no Hire button', async () => {
+    const { root } = await setup(100000, 300);
+    expect(root.querySelector('[data-testid="hire-escorts"]')).toBeNull();
+    expect(btn(root, 'Hire')).toBeUndefined();
+  });
+
+  it('Your escorts shows armor; Repair all charges 10 x missing and the row goes', async () => {
+    const { root, c, ctx } = await setup(5000, 300);
+    const max = escortMaxArmor(c.data, { shipId: 'courier', outfits: {} });
+    c.world = { ...c.world, escorts: [escort(c, { armor: max - 12 })] };
+    showPlanetScreen(ctx, 'halcyon');
+    expect(root.querySelector('[data-escort="esc-9"]')!.textContent).toContain(`${c.data.ships.courier.name} · armor ${max - 12}/${max} · 5 cr/day`);
+    expect(root.querySelector('[data-testid="repair-escorts"]')!.textContent).toContain('Repair all — 120 cr');
+    btn(root, 'Repair').click();
+    expect(c.world.credits).toBe(4880);
+    expect(c.world.escorts[0].armor).toBe(max);
+    expect(root.querySelector('[data-testid="repair-escorts"]')).toBeNull();
+  });
+
+  it('Repair all with short credits says so', async () => {
+    const { root, c, ctx } = await setup(50, 300);
+    c.world = { ...c.world, escorts: [escort(c, { armor: 1 })] };
+    showPlanetScreen(ctx, 'halcyon');
+    btn(root, 'Repair').click();
+    expect(status(root).textContent).toBe('Not enough credits.');
+    expect(status(root).classList.contains('sw-status-bad')).toBe(true);
+  });
+
+  it('Dismiss asks first: Cancel keeps the escort, confirming removes the row', async () => {
+    const { root, c, ctx } = await setup(500, 300);
+    c.world = { ...c.world, escorts: [escort(c)] };
+    showPlanetScreen(ctx, 'halcyon');
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+    btn(root, 'Dismiss').click();
+    const dialog = root.querySelector<HTMLElement>('.sw-dialog')!;
+    expect(dialog.textContent).toContain(`Dismiss ${c.world.escorts[0].name}?`);
+    [...dialog.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!.click();
+    await settle();
+    expect(c.world.escorts).toHaveLength(1);
+    expect(root.querySelector('.sw-dialog')).toBeNull();
+    btn(root, 'Dismiss').click();
+    root.querySelector<HTMLButtonElement>('.sw-dialog .sw-btn-danger')!.click();
+    await settle();
+    expect(c.world.escorts).toEqual([]);
+    expect(root.querySelector('[data-escort]')).toBeNull();
+  });
+
+  it('Dismissing a kept capture warns that she is lost and names her prize value', async () => {
+    const { root, c, ctx } = await setup(500, 300);
+    c.world = { ...c.world, escorts: [escort(c, { hired: false, wage: 0 })] };
+    showPlanetScreen(ctx, 'halcyon');
+    btn(root, 'Dismiss').click();
+    expect(root.querySelector('.sw-dialog')!.textContent).toContain(`Sell as prize pays ${prizeValueOf(c.data, 'courier').toLocaleString('en-US')} cr`);
+  });
+
+  it('Sell as prize is offered for a kept capture only, and pays its value', async () => {
+    const { root, c, ctx } = await setup(500, 300);
+    c.world = { ...c.world, escorts: [escort(c, { id: 'esc-1' }), escort(c, { id: 'esc-2', hired: false, wage: 0 })] };
+    showPlanetScreen(ctx, 'halcyon');
+    expect(root.querySelector('[data-escort="esc-1"]')!.textContent).not.toContain('Sell as prize');
+    const row = root.querySelector('[data-escort="esc-2"]')!;
+    expect(row.textContent).toContain('kept capture');
+    const v = prizeValueOf(c.data, 'courier');
+    expect(row.textContent).toContain(`Sell as prize (${v.toLocaleString('en-US')} cr)`);
+    [...row.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Sell'))!.click();
+    expect(c.world.credits).toBe(500 + v);
+    expect(c.world.escorts.map((e) => e.id)).toEqual(['esc-1']);
   });
 });
