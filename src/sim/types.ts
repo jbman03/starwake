@@ -112,6 +112,29 @@ export interface WorldState {
   law: Record<string, { heat: number }>;
   /** Rank points and the day salary was last paid, per government; absent means unranked. */
   ranks: Record<string, { points: number; salaryDay: number }>;
+  /** Hired escorts (and offers waiting at the current port), in hire order. */
+  escorts: Escort[];
+  /** What the group is told to do. */
+  escortOrder: EscortOrder;
+}
+
+export type EscortOrder = 'follow' | 'attack' | 'hold' | 'defend';
+
+/** A hired (or offered) escort ship. `armor` is hit points; `fuel` is in jumps. */
+export interface Escort {
+  id: string;
+  name: string;
+  shipId: string;
+  outfits: Record<string, number>;
+  armor: number;
+  fuel: number;
+  hired: boolean;
+  /** Credits per day while hired; 0 for an offer. */
+  wage: number;
+  /** An offer on the current planet's board; never saved. */
+  waiting?: true;
+  /** Will leave at the next port (wages unpaid). */
+  leaving?: true;
 }
 
 export type SimEvent =
