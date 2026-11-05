@@ -126,7 +126,7 @@
     "requiresKills": 10,
     "chance": 0.25,
     "cooldownDays": 6,
-    "spawnDistance": 900,
+    "spawnDistance": 700,
     "levels": [
       {
         "shipId": "kestrel",

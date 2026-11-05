@@ -114,7 +114,7 @@ NPC carriers launch fighters too.
 A recurring rival who hunts the pilot once they are known as a fighter.
 
 - **Data (`fleet.nemesis`):** `name`, `title`, `requiresKills` (10),
-  `chance` (0.25 on arrival in a system with no story ship), `cooldownDays` (6), `spawnDistance` (900 px); the number of duels
+  `chance` (0.25 on arrival in a system with no story ship), `cooldownDays` (6), `spawnDistance` (700 px, inside the raider engage range); the number of duels
   is the length of `levels` (4) (one per duel: `shipId`, extra `outfits`, `reward`), `lines` (`arrive[]`,
   `escape[]`, `final`), `finalFlag` (`nemesis-done`), `finalReward`.
 - **State.** `WorldState.nemesis: { defeats, nextDay, done }` (save v10, migration 9 → 10 adds
