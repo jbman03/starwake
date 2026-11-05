@@ -150,7 +150,7 @@ first big upgrade as a milestone. It needs to come soon enough (we aim for rough
    which avoids Nova's "where do I go now" problem. *Top pick.*
 4. **Escorts and carriers' fighters** (cycle 6), building on the cycle 2 carrier. *Done (cycle 6):
    escorts, crew, wingmen, carriers' fighters.*
-5. **Recurring named pilots** in unique ships (cycle 4+).
+5. **Recurring named pilots** in unique ships (cycle 4+). *Done (cycle 6): wingmen and the nemesis.*
 6. **Story-gated region** (galaxy growth): a hidden area opened by a mission chain.
 7. **Ship naming** (cycle 3, shown on the pilot card).
 8. **Mod / plug-in loader** (later): extra JSON data packs.
@@ -416,4 +416,8 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    launches (`launchFighters`, KeyU, `Battle.launchQueue`) and recalls (`Battle.recall`) the player's, which fly the
    escort branch on their own arc, and has NPC carriers launch theirs in a fight and land them after. Fighters out
    dock on every jump, landing, tow and rescue; disabled ones are lost. No save change: fighters are outfits.
+13. **The nemesis (cycle 6, part 2C).** `fleet.nemesis` and `src/sim/nemesis.ts`: from `requiresKills`, on a seeded
+   roll per arrival (`nemesisDue`), the rival (NPC id `nemesis`, a raider that never flees) jumps in on the hull for
+   his level. Disabling him is a duel won (`defeatNemesis`: reward, `cooldownDays` away; the last level is final:
+   bonus, `finalFlag`, a log note); a tow or rescue with him present lets him gloat. Saves: v10 (`nemesis`).
 Later: bounty hunters, smuggling missions, rank-locked faction story chains, more regions.

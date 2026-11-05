@@ -36,35 +36,35 @@
 10. Save v9: `crew` with `.catch(-1)` (−1 = full); escort entries keep `wingmanId` (string or absent), `takedowns` (≥ 0 integer), `downUntilDay` (finite or absent).
 
 ### Task A1: Fleet data and schema
-- [ ] `data/fleet.json` with `crew` and `wingmen` (four pilots, ranks, recoverDays).
-- [ ] `FleetSchema` in `schemas.ts`, `GameData.fleet`, loader key `fleet`, testData, load.test `raw()`.
-- [ ] Cross-checks: wingman `shipId` known and not unique-only; `homePort` known with a bar; ranks ascending from 0; ids unique.
-- [ ] Tests for the schema and cross-checks.
+- [x] `data/fleet.json` with `crew` and `wingmen` (four pilots, ranks, recoverDays).
+- [x] `FleetSchema` in `schemas.ts`, `GameData.fleet`, loader key `fleet`, testData, load.test `raw()`.
+- [x] Cross-checks: wingman `shipId` known and not unique-only; `homePort` known with a bar; ranks ascending from 0; ids unique.
+- [x] Tests for the schema and cross-checks.
 
 ### Task A2: Crew
-- [ ] `src/sim/crew.ts`: `crewCap`, `crewHireCost`, `hireCrew`, `crewAfterCapture`.
-- [ ] `newWorld` full crew; `buyShip` full crew; `takeCommand` crew capped; `podRescue`/death reset full.
-- [ ] `captureOdds` uses `world.crew`.
-- [ ] Boarding card shows crew and losses; capture applies losses.
-- [ ] Tests.
+- [x] `src/sim/crew.ts`: `crewCap`, `crewHireCost`, `hireCrew`, `crewAfterCapture`.
+- [x] `newWorld` full crew; `buyShip` full crew; `takeCommand` crew capped; `podRescue`/death reset full.
+- [x] `captureOdds` uses `world.crew`.
+- [x] Boarding card shows crew and losses; capture applies losses.
+- [x] Tests.
 
 ### Task A3: Wingmen rules
-- [ ] `src/sim/wingmen.ts`: `wingmanOffer`, `recruitWingman`, `wingmanRank`, `damageMulOf`, `creditWingmen`.
-- [ ] `escorts.ts`: `payWages`, `landEscorts`, `escortLosses` handle wingmen; `escortNpcs.ts` skips downed and sets `damageMul`; `escortsJump` leaves downed alone.
-- [ ] `battle.ts`: `escortId` on events; `damageMul` on hits.
-- [ ] Controller: credit wingmen after each battle tick, recruit/hire-crew methods.
-- [ ] Tests.
+- [x] `src/sim/wingmen.ts`: `wingmanOffer`, `recruitWingman`, `wingmanRank`, `damageMulOf`, `creditWingmen`.
+- [x] `escorts.ts`: `payWages`, `landEscorts`, `escortLosses` handle wingmen; `escortNpcs.ts` skips downed and sets `damageMul`; `escortsJump` leaves downed alone.
+- [x] `battle.ts`: `escortId` on events; `damageMul` on hits.
+- [x] Controller: credit wingmen after each battle tick, recruit/hire-crew methods.
+- [x] Tests.
 
 ### Task A4: Save v9
-- [ ] Migration 8 → 9, schema, `pilotFromWorld`, `worldFromPilot`, tolerant loading; tests.
+- [x] Migration 8 → 9, schema, `pilotFromWorld`, `worldFromPilot`, tolerant loading; tests.
 
 ### Task A5: UI and docs
-- [ ] Planet screen rows; escort list shows rank / "recovering until <date>".
-- [ ] How to Play: "Crew" and "Wingmen" in the Escorts tab; README; roadmap.
-- [ ] E2E `tests/e2e/fleet.spec.ts`: hire crew, recruit a wingman, a wingman takedown is counted.
+- [x] Planet screen rows; escort list shows rank / "recovering until <date>".
+- [x] How to Play: "Crew" and "Wingmen" in the Escorts tab; README; roadmap.
+- [x] E2E `tests/e2e/fleet.spec.ts`: hire crew, recruit a wingman, a wingman takedown is counted.
 
 ### Task A6: Verify, merge, deploy
-- [ ] typecheck, vitest, Playwright, build; merge to `main`; Deploy green; site loads.
+- [x] typecheck, vitest, Playwright, build; merge to `main`; Deploy green; site loads.
 
 ## Part B — Carriers and fighters (no save change)
 

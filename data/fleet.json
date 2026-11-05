@@ -119,5 +119,58 @@
   "fighters": {
     "fighterDistance": 60,
     "dockRadius": 40
+  },
+  "nemesis": {
+    "name": "Kade Varro",
+    "title": "the Ashen Hand",
+    "requiresKills": 10,
+    "chance": 0.25,
+    "cooldownDays": 6,
+    "spawnDistance": 700,
+    "levels": [
+      {
+        "shipId": "kestrel",
+        "outfits": {
+          "armor-plate": 1
+        },
+        "reward": 5000
+      },
+      {
+        "shipId": "warden",
+        "outfits": {},
+        "reward": 10000
+      },
+      {
+        "shipId": "warden",
+        "outfits": {
+          "heavy-blaster": 2,
+          "shield-booster": 2
+        },
+        "reward": 20000
+      },
+      {
+        "shipId": "bastion",
+        "outfits": {},
+        "reward": 0
+      }
+    ],
+    "finalReward": 50000,
+    "finalFlag": "nemesis-done",
+    "lines": {
+      "arrive": [
+        "So you're the one they talk about in the bars. Let's see.",
+        "Back again? Good. I hate an easy week.",
+        "I've been waiting for you, captain.",
+        "Nice ship. It'll look better in pieces."
+      ],
+      "escape": [
+        "This isn't over!",
+        "Lucky shot. Next time, captain.",
+        "Enjoy it. I'll be back with something bigger.",
+        "You'll see me again."
+      ],
+      "gloat": "Kade Varro laughs over the comm as you limp away. \"Same time next week?\"",
+      "final": "Kade Varro's pod tumbles away, and his voice is quiet for once. \"All right, captain. You win. Find someone else to haunt you.\""
+    }
   }
 }

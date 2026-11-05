@@ -22,6 +22,8 @@ export interface AiSelf {
   aggro: readonly string[];
   maxSpeed: number;
   fireRange: number;
+  /** Fights to the end (the nemesis). */
+  noFlee?: boolean;
 }
 export interface AiDecision { mode: AiMode; targetId: string | null; input: FlightInput; fire: boolean; fleeTo: Vec2 | null }
 
@@ -97,7 +99,7 @@ export function decide(self: AiSelf, others: readonly Combatant[], angry: readon
   };
 
   const armorFrac = me.hull.maxArmor > 0 ? me.hull.armor / me.hull.maxArmor : 1;
-  if (self.role !== 'patrol' && armorFrac < profile.flee) return flee();
+  if (!self.noFlee && self.role !== 'patrol' && armorFrac < profile.flee) return flee();
   if (self.role === 'trader' && self.aggro.length > 0 && !hasWeapon(me.outfits, data)) return flee();
 
   let target: Combatant | null = null;

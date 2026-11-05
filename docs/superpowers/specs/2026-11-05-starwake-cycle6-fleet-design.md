@@ -1,6 +1,6 @@
 # Starwake — Cycle 6, part 2: Crew, wingmen, carriers and a nemesis (design)
 
-Status: approved for spec · 2026-11-05 (owner pre-approved the cycle; choices logged in §9)
+Status: shipped · 2026-11-05 (owner pre-approved the cycle; choices logged in §9)
 
 ## 1. Goal
 
@@ -114,8 +114,8 @@ NPC carriers launch fighters too.
 A recurring rival who hunts the pilot once they are known as a fighter.
 
 - **Data (`fleet.nemesis`):** `name`, `title`, `requiresKills` (10),
-  `chance` (0.25 on arrival in a system with no story ship), `cooldownDays` (6), `defeatsToEnd`
-  (4), `levels` (per defeat: `shipId`, extra `outfits`, `reward`), `lines` (`arrive[]`,
+  `chance` (0.25 on arrival in a system with no story ship), `cooldownDays` (6), `spawnDistance` (700 px, inside the raider engage range); the number of duels
+  is the length of `levels` (4) (one per duel: `shipId`, extra `outfits`, `reward`), `lines` (`arrive[]`,
   `escape[]`, `final`), `finalFlag` (`nemesis-done`), `finalReward`.
 - **State.** `WorldState.nemesis: { defeats, nextDay, done }` (save v10, migration 9 → 10 adds
   `{ defeats: 0, nextDay: 0, done: false }`).
@@ -126,7 +126,7 @@ A recurring rival who hunts the pilot once they are known as a fighter.
   the HUD shows an `arrive` line as a hail ("<name>: …"). They ignore demands and never flee.
 - **Defeat.** Disabling the nemesis (by anyone on the player's side) makes them eject: the ship
   vanishes in a flash, the HUD shows an `escape` line, `defeats + 1`, `nextDay = day +
-  cooldownDays`, and the level's `reward` is paid. They can't be boarded. The `defeatsToEnd`-th
+  cooldownDays`, and the level's `reward` is paid. They can't be boarded. The last level's
   defeat is final: the `final` line, `finalReward`, `finalFlag` set, a captain's-log note, and
   `done = true`.
 - **Losing.** If the nemesis is in the system when the pilot is destroyed or towed, `nextDay`
@@ -190,6 +190,14 @@ normally go to them. Each is easy to change (most are numbers in `data/*.json`):
     a 25% chance per arrival, ejects when disabled, and is finished after 4 defeats, getting a
     tougher hull each time. Rewards 5 000 / 10 000 / 20 000 cr and 50 000 cr at the end.
 13. **Default keys:** U for fighters (L is Land; I stays escort orders).
+14. **Phone LAUNCH shares ORDER's row** (half width each when both show), so the rail needs no new slot.
+15. **Fighters out count as escorts present**: the ORDER button shows and the sidebar's Escorts line counts them.
+16. **The nemesis ejects only when disabled by the pilot's side to count a duel**; a patrol that disables him just
+    sends him away until his cooldown ends (no reward). He vanishes without a special effect.
+17. **The nemesis spawns 700 px away** (inside the raider engage range of 900 px), never beside a story ship.
+18. **Wingmen talk in HUD messages only** (takedown lines, rank-ups, ejecting); their join and return lines show on
+    the planet screen.
+19. **Local e2e runs** use the preinstalled headless shell with video off; CI (one worker, 60 s timeouts) is the gate.
 
 ## 10. Out of scope
 

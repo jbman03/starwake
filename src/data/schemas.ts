@@ -417,7 +417,7 @@ const WingmanSchema = z
   })
   .strict();
 
-/** Fleet tunables (cycle 6 part 2): crew, wingmen, fighters. */
+/** Fleet tunables (cycle 6 part 2): crew, wingmen, fighters, the nemesis. */
 export const FleetSchema = z
   .object({
     crew: z
@@ -443,6 +443,24 @@ export const FleetSchema = z
       .object({
         fighterDistance: z.number().positive(), // px: the fighters' station arc behind the flagship
         dockRadius: z.number().positive(), // px: a recalled fighter docks this close to its carrier
+      })
+      .strict(),
+    nemesis: z
+      .object({
+        name: z.string().min(1),
+        title: z.string().min(1),
+        requiresKills: z.number().int().nonnegative(), // kills before the rival starts hunting
+        chance: share, // chance per arrival in a system, once due
+        cooldownDays: z.number().int().min(1), // days between appearances after a duel
+        spawnDistance: z.number().positive(), // px from where the jump ends
+        levels: z
+          .array(z.object({ shipId: id, outfits: z.record(id, z.number().int().positive()), reward: z.number().int().nonnegative() }).strict())
+          .min(1), // one per duel; the last duel is the final one
+        finalReward: z.number().int().nonnegative(),
+        finalFlag: id, // story flag set when the rival is finished
+        lines: z
+          .object({ arrive: z.array(z.string().min(1)).min(1), escape: z.array(z.string().min(1)).min(1), gloat: z.string().min(1), final: z.string().min(1) })
+          .strict(),
       })
       .strict(),
   })

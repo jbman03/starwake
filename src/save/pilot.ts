@@ -7,7 +7,7 @@ import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 9;
+export const CURRENT_SAVE_VERSION = 10;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -101,7 +101,7 @@ function fixEscort(e: Record<string, unknown>): SavedEscort {
 }
 
 export const PilotSaveSchema = z.object({
-  version: z.literal(9),
+  version: z.literal(10),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -170,6 +170,10 @@ export const PilotSaveSchema = z.object({
     .unknown()
     .transform((v) => (typeof v === 'number' && Number.isFinite(v) ? v : -1))
     .catch(-1),
+  // v10: the rival's record. A corrupt value loads as a fresh rival (no duels yet).
+  nemesis: z
+    .object({ defeats: z.number().int().nonnegative(), nextDay: z.number().finite().nonnegative(), done: z.boolean() })
+    .catch({ defeats: 0, nextDay: 0, done: false }),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
@@ -257,6 +261,8 @@ export const migrations: Record<number, (s: any) => any> = {
   7: (s) => ({ ...s, version: 8, escorts: [], escortOrder: 'follow' }),
   // v8 -> v9. Data-free: the crew is full (-1, resolved against the hull on load); no wingmen yet.
   8: (s) => ({ ...s, version: 9, crew: -1 }),
+  // v9 -> v10. Data-free: the rival has not appeared yet.
+  9: (s) => ({ ...s, version: 10, nemesis: { defeats: 0, nextDay: 0, done: false } }),
 };
 
 export function upgradeSave(raw: unknown): PilotSave {
@@ -334,6 +340,7 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
     })),
     escortOrder: world.escortOrder,
     crew: world.crew,
+    nemesis: { ...world.nemesis },
   };
 }
 
@@ -395,6 +402,8 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     escortOrder: p.escortOrder,
     // -1 is a full complement (a migrated save); otherwise a whole number within the hull's berths.
     crew: p.crew < 0 ? data.ships[p.shipId].crew : clamp(Math.floor(p.crew), 0, data.ships[p.shipId].crew),
+    // More duels than the data has levels (a shortened rival) clamps to the last one.
+    nemesis: { ...p.nemesis, defeats: Math.min(p.nemesis.defeats, data.fleet.nemesis.levels.length) },
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
 }
