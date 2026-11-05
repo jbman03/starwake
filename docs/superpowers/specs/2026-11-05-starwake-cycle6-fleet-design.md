@@ -90,7 +90,7 @@ NPC carriers launch fighters too.
   - The Bastion's NPC loadout gains a bay and 4 Wasps; the shipyard Bastion is unchanged (bays are
     bought).
   - `fleet.fighters` holds `fighterDistance` (60 px) and `dockRadius` (40 px).
-- **Player controls.** Bindable action `launchFighters` (default **KeyL**, "Launch / recall
+- **Player controls.** Bindable action `launchFighters` (default **KeyU**, "Launch / recall
   fighters"). With fighters docked and none out, it launches them one at a time at the bay's rate.
   With any out, it recalls them: they fly home and dock within `dockRadius`. Phone: a **LAUNCH**
   button in the rail, shown only with a bay and fighters. HUD messages: "Fighters launched.",
@@ -189,7 +189,7 @@ normally go to them. Each is easy to change (most are numbers in `data/*.json`):
 12. **The nemesis** ("Kade Varro, the Ashen Hand") appears from 10 kills, at most every 6 days, with
     a 25% chance per arrival, ejects when disabled, and is finished after 4 defeats, getting a
     tougher hull each time. Rewards 5 000 / 10 000 / 20 000 cr and 50 000 cr at the end.
-13. **Default keys:** L for fighters. (I stays escort orders.)
+13. **Default keys:** U for fighters (L is Land; I stays escort orders).
 
 ## 10. Out of scope
 

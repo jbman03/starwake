@@ -115,7 +115,9 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   const dismiss = async (e: Escort) => {
     const ok = await confirmDialog(ctx.root, {
       title: `Dismiss ${e.name}?`,
-      message: e.hired
+      message: wingmanDef(data, e)
+        ? `${e.name} goes home to ${data.planets[wingmanDef(data, e)!.homePort]?.name ?? 'their bar'}. You can recruit them again there, but their takedowns start over and the fee is not refunded.`
+        : e.hired
         ? `${e.name} leaves your service for good. The hiring fee is not refunded.`
         : `The ship is lost for good. Sell as prize pays ${formatCredits(prizeValueOf(data, e.shipId))} instead.`,
       confirm: 'Dismiss',

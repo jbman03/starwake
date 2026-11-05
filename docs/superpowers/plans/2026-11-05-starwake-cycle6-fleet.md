@@ -66,9 +66,25 @@
 ### Task A6: Verify, merge, deploy
 - [ ] typecheck, vitest, Playwright, build; merge to `main`; Deploy green; site loads.
 
-## Part B — Carriers and fighters (outline; detailed before it starts)
+## Part B — Carriers and fighters (no save change)
 
-Outfit categories `bay` and `fighter`, optional outfit `hulls`; hull `wasp` (role and hull `fighter`, sprite); `fleet.fighters`; `src/sim/fighters.ts` (launch, recall, dock, loss); battle hook for NPC carriers; action `launchFighters` (KeyL) and phone LAUNCH; outfitter refusal; docs; e2e.
+### Decisions
+
+1. **Data.** Outfit categories `bay` (`effect: { fighter, rate }`) and `fighter` (`effect: { shipId }`); outfits gain optional `hulls` (hull classes allowed to fit it). `fighter-bay` (carrier hulls only) and `wasp-fighter`; hull `wasp` (role and hull `fighter`, never sold: `soldAt: []`, never spawned: role weight 0, excluded from raider hulls and bounty targets). The NPC Bastion loadout gains a bay and 4 Wasps. `fleet.fighters`: `fighterDistance`, `dockRadius`.
+2. **Capacity.** `fighterCap(outfits, fighterId)` = the fighter's `max` × bays launching it (as `ammoCap`). The outfitter refuses a fighter with no bay (`noBay`: "Needs a fighter bay") and a bay on the wrong hull (`hull`: "Only a carrier can fit this.").
+3. **Fighter NPCs.** `Npc.fighter?: { outfitId: string; carrierId: string }`. Player fighters: id `esc-f<n>` (player side by prefix), `role: 'escort'`, `government: ''`, carrier `player`. NPC fighters: id `<carrierId>-f<n>`, the carrier's role, government and aggro.
+4. **Launch and recall** live in `stepBattle` (like `cycleSecondary`): `Battle.launchQueue` (fighters still to launch) and `Battle.recall` (true while recalled). A press with fighters out recalls them; otherwise it queues every docked fighter. One launches per bay `rate` (cooldown key `player:<bayId>`), spawned at the player's position and velocity. Events: `{ type: 'fighters', what: 'launched' | 'recalled' | 'docked' }`.
+5. **Fighter steering.** Player fighters run the escort branch with their own slot arc at `fighterDistance`. While recalled their slot is the player's position, they ignore targets, and they dock within `dockRadius` (removed; the outfit count goes up). NPC fighters run `decide()`; in errand mode with their carrier present they fly to it and dock the same way; without a carrier they leave with traffic.
+6. **NPC carriers** launch while their decision is `attack`, one per bay rate, while fighters remain in their outfits.
+7. **Docking on leaving.** `dockFighters(world, traffic)` before every jump, landing, tow and pod rescue: every player fighter that is not disabled goes back into the outfit count; disabled ones are lost. `fighterLosses` says "A Wasp is lost." for each player fighter destroyed in battle.
+8. **Counting.** Fighters out count as escorts present (so ORDER shows and orders work); the sidebar line counts them too.
+9. **Controls.** Action `launchFighters` (default KeyU, flight group, "Launch / recall fighters"). Phone: a LAUNCH button sharing the ORDER row (half width each), shown with a bay and fighters docked or out; the row shows when either button does.
+
+### Task B1: Data, schema, sprite and icons
+### Task B2: Fighters sim (`src/sim/fighters.ts`), battle hooks, controller lifecycle
+### Task B3: Outfitter rules and UI, controls (key and phone), How to Play, README, roadmap
+### Task B4: E2E (`tests/e2e/carriers.spec.ts`): buy a bay and Wasps, launch with U, recall, dock on landing; phone LAUNCH
+### Task B5: Verify, merge, deploy
 
 ## Part C — Nemesis (outline; detailed before it starts)
 
