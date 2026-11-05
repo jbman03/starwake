@@ -408,6 +408,8 @@ export class Controller {
   /** Depart from the planet we're landed on, with no target selected, and resume flight. */
   leavePlanet(): void {
     if (!this.landedPlanetId) return;
+    // Save before take-off too, so purchases, refuels and jobs taken here survive a reload (playtest bug 11).
+    this.autosave();
     this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
     if (this.traffic.systemId !== this.world.systemId) this.traffic = this.freshTraffic(this.world);
     this.traffic = withEscorts(this.traffic, this.world, this.data, this.world.ship); // the group takes off around the parked ship

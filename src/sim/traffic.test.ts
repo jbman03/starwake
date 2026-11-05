@@ -233,7 +233,7 @@ describe('cycleTarget with sites', () => {
   const far = site('encounter', 900, 0);
   const t0 = (): Traffic => ({ ...seedTraffic(w0, data, o(8)), targetId: null });
 
-  it('walks sites nearest first, then ships, then planets, then nothing', () => {
+  it('walks sites in order, then ships, then planets, then nothing, never re-sorting by distance', () => {
     const w = { ...w0, ship: { ...w0.ship, pos: { x: 0, y: 0 } }, targetPlanetId: null as string | null };
     let t = t0();
     const nShips = t.npcs.filter(isTargetable).length;
@@ -250,23 +250,22 @@ describe('cycleTarget with sites', () => {
       seen.push(p.siteId ? `site:${p.siteId}` : p.shipId ? 'ship' : 'planet');
     }
     expect(seen).toEqual([
-      'site:story',
       'site:encounter',
+      'site:story',
       ...Array<string>(nShips).fill('ship'),
       ...Array<string>(nPlanets).fill('planet'),
     ]);
   });
 
-  it('with no target picks the nearest site first, and no sites behaves as before', () => {
+  it('with no target picks the first site, and no sites behaves as before', () => {
     const w = { ...w0, ship: { ...w0.ship, pos: { x: 0, y: 0 } }, targetPlanetId: null };
-    expect(cycleTarget(w, data, t0(), [far, near]).siteId).toBe('story');
+    expect(cycleTarget(w, data, t0(), [far, near]).siteId).toBe('encounter');
     expect(cycleTarget(w, data, t0()).siteId).toBeNull();
   });
 
   it('after the last planet the cycle clears everything, including a site target', () => {
     const last = Object.values(data.planets).filter((p) => p.systemId === w0.systemId);
-    const pos = w0.ship.pos;
-    last.sort((a, b) => Math.hypot(a.pos.x - pos.x, a.pos.y - pos.y) - Math.hypot(b.pos.x - pos.x, b.pos.y - pos.y));
+    last.sort((a, b) => Math.hypot(a.pos.x, a.pos.y) - Math.hypot(b.pos.x, b.pos.y)); // from the star outward
     const w = { ...w0, targetPlanetId: last[last.length - 1].id };
     expect(cycleTarget(w, data, { ...t0(), npcs: [] }, [near])).toEqual({ shipId: null, planetId: null, siteId: null });
   });
@@ -467,5 +466,47 @@ describe('escorts in traffic (cycle 6)', () => {
     // Even an escort a raider has angered is never offered as the nearest hostile.
     const angry: Traffic = { ...t, npcs: [{ ...escortAt(1, 20, 0), aggro: ['player'] }] };
     expect(nearestHostile(w, angry, newBattle(w, data))).toBeNull();
+  });
+});
+
+describe('green pilots (playtest: raiders killed new pilots on arrival with no hail)', () => {
+  const d = testData();
+  const opts: TrafficOpts = { maxNpcs: 12, guideActive: false, startSystem: d.config.startSystemId };
+  const raidersIn = (kills: number) => {
+    const out: { demand: boolean; tier: number }[] = [];
+    for (let seed = 1; seed <= 60; seed++) {
+      const w = { ...newWorld(d, seed), systemId: 'dunmore', stats: { jobsDone: 0, kills, captures: 0 } };
+      for (const n of seedTraffic(w, d, opts).npcs) if (n.role === 'raider') out.push({ demand: n.demand, tier: d.ships[n.shipId].techTier });
+    }
+    return out;
+  };
+  it('every raider hails a pilot under greenKills, in a light hull', () => {
+    const r = raidersIn(0);
+    expect(r.length).toBeGreaterThan(5);
+    expect(r.every((x) => x.demand)).toBe(true);
+    expect(Math.max(...r.map((x) => x.tier))).toBeLessThanOrEqual(d.combat.spawn.greenRaiderTier);
+  });
+  it('a seasoned pilot meets raiders that sometimes open fire, in any hull', () => {
+    const r = raidersIn(d.combat.spawn.greenKills);
+    expect(r.some((x) => !x.demand)).toBe(true);
+  });
+});
+
+describe('cycleTarget is stable as ships move (playtest bug 9)', () => {
+  it('moving between presses never skips a target', () => {
+    const d = testData();
+    let w: WorldState = { ...newWorld(d, 9), systemId: 'tessaly' };
+    let t: Traffic = { ...seedTraffic(w, d, o(8)), targetId: null };
+    const visited: string[] = [];
+    for (let i = 0; i < 30; i++) {
+      const p = cycleTarget(w, d, t);
+      if (!p.shipId && !p.planetId) break;
+      visited.push(p.shipId ?? p.planetId!);
+      t = { ...t, targetId: p.shipId };
+      w = { ...w, targetPlanetId: p.planetId, ship: { ...w.ship, pos: { x: w.ship.pos.x + 400 * (i % 2 ? -1 : 1), y: w.ship.pos.y + 300 } } };
+    }
+    const all = [...t.npcs.filter(isTargetable).map((n) => n.id), ...Object.values(d.planets).filter((p) => p.systemId === 'tessaly').map((p) => p.id)];
+    expect(new Set(visited)).toEqual(new Set(all));
+    expect(visited).toHaveLength(all.length);
   });
 });

@@ -43,7 +43,9 @@
     "patrolHulls": [
       "kestrel",
       "warden"
-    ]
+    ],
+    "greenKills": 5,
+    "greenRaiderTier": 2
   },
   "boarding": {
     "range": 60,

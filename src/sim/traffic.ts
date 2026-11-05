@@ -212,9 +212,12 @@ function spawnNpc(t: Traffic, world: WorldState, data: GameData, opts: TrafficOp
   if (role === 'raider' && hostile >= data.combat.spawn.maxHostileRaiders) role = 'trader';
   let demand = false;
   if (role === 'raider') {
-    def = pickFrom(data, data.combat.spawn.raiderHulls, bestTier, r);
+    // A green pilot meets light raiders, and every one of them hails with a toll before it fights (playtest:
+    // new pilots were destroyed within seconds of arriving, with no hail).
+    const green = world.stats.kills < data.combat.spawn.greenKills;
+    def = pickFrom(data, data.combat.spawn.raiderHulls, green ? Math.min(bestTier, data.combat.spawn.greenRaiderTier) : bestTier, r);
     government = 'raiders';
-    demand = r() < data.combat.demand.chance;
+    demand = r() < data.combat.demand.chance || green;
   } else if (role === 'patrol') {
     def = pickFrom(data, Object.fromEntries(data.combat.spawn.patrolHulls.map((h) => [h, 1])), bestTier, r);
     government = data.systems[t.systemId].government;
@@ -412,17 +415,18 @@ export interface TargetPick {
 }
 
 /**
- * The next target after the current one: sites nearest first, then ships nearest first, then planets
- * nearest first, then nothing (so a phone player can clear it). With no target it picks the nearest
- * site, else the nearest ship, else the nearest planet. `siteId` is the site targeted now, if any.
+ * The next target after the current one, in a fixed order: sites, then ships in the order they arrived, then the
+ * system's planets from the star outward, then nothing (so a phone player can clear it). With no target it picks the
+ * first. The order never re-sorts as the ship moves, so Tab never skips anything (playtest bug 9); the nearest
+ * hostile has its own key. `siteId` is the site targeted now, if any.
  */
 export function cycleTarget(world: WorldState, data: GameData, t: Traffic, sites: readonly SiteTarget[] = [], siteId: string | null = null): TargetPick {
-  const pos = world.ship.pos;
-  const byDist = <T>(items: readonly T[], at: (x: T) => Vec2) => [...items].sort((a, b) => dist(pos, at(a)) - dist(pos, at(b)));
-  const ships = byDist(t.npcs.filter(isTargetable), (n) => n.ship.pos);
-  const planets = byDist(Object.values(data.planets).filter((p) => p.systemId === world.systemId), (p) => p.pos);
+  const ships = t.npcs.filter(isTargetable);
+  const planets = Object.values(data.planets)
+    .filter((p) => p.systemId === world.systemId)
+    .sort((a, b) => dist(SYSTEM_CENTER, a.pos) - dist(SYSTEM_CENTER, b.pos) || a.id.localeCompare(b.id));
   const order: TargetPick[] = [
-    ...byDist(sites, (s) => s.pos).map((s) => ({ shipId: null, planetId: null, siteId: s.id })),
+    ...sites.map((s) => ({ shipId: null, planetId: null, siteId: s.id })),
     ...ships.map((n) => ({ shipId: n.id, planetId: null, siteId: null })),
     ...planets.map((p) => ({ shipId: null, planetId: p.id, siteId: null })),
   ];

@@ -40,6 +40,7 @@ export const STICK_DEADZONE = 0.25;
 export const STICK_THRUST = 0.6;
 
 export const MSG_TOO_CLOSE = 'Too close to the star to jump. {autopilot} to fly out.';
+export const MSG_JUMP_WHEN_CLEAR = 'Flying out to jump. The jump starts as soon as you are clear of the star.';
 export const MSG_NO_FUEL = 'Not enough fuel to jump.';
 export const MSG_NO_DESTINATION = 'Choose a destination on the star map{map}.';
 export const MSG_ROUTE_BROKEN = 'Course no longer valid — plot a new one on the star map.';
@@ -284,6 +285,11 @@ function arriveDistance(t: number, v0: number, v1: number, sec: number): number 
   return v0 * t + ((v1 - v0) * t * t) / (2 * sec);
 }
 
+/** Start a jump to `toSystemId` (the press, or a queued jump once clear): fuel is spent, the align phase begins. */
+function startJump(w: WorldState, data: GameData, toSystemId: string): WorldState {
+  return { ...w, assist: NONE, jump: { toSystemId, phase: 'align', t: 0 }, ship: { ...w.ship, fuel: w.ship.fuel - data.config.fuelPerJump } };
+}
+
 /** Where the ship will be when the jump is over: the arrive phase's end point while arriving, else where it is now. */
 export function jumpEndPos(world: WorldState, data: GameData): Vec2 {
   const jump = world.jump;
@@ -509,13 +515,12 @@ export function stepWorld(
       w = { ...w, route: [] };
       events.push({ type: 'message', text: MSG_ROUTE_BROKEN });
     } else if (check.ok && toSystemId) {
-      w = {
-        ...w,
-        assist: NONE,
-        jump: { toSystemId, phase: 'align', t: 0 },
-        ship: { ...w.ship, fuel: w.ship.fuel - data.config.fuelPerJump },
-      };
+      w = startJump(w, data, toSystemId);
       events.push({ type: 'jumpPhase', phase: 'align' });
+    } else if (!check.ok && check.reason === 'tooClose' && toSystemId) {
+      // Too close: fly out and jump the moment the ship is clear (playtest bug 7: J during autopilot did nothing).
+      w = { ...w, assist: { kind: 'autopilot', dest: { type: 'jumpPoint' }, autoLand: false, thenJump: true } };
+      events.push({ type: 'message', text: MSG_JUMP_WHEN_CLEAR });
     } else if (!check.ok && check.reason === 'tooClose') {
       events.push({ type: 'message', text: MSG_TOO_CLOSE });
     } else if (!check.ok && check.reason === 'noFuel') {
@@ -541,6 +546,10 @@ export function stepWorld(
     const target = currentTarget(w, data);
     if (target) flight = faceInput(w.ship, target.pos);
     else w = { ...w, assist: NONE };
+  } else if (!manual && a.kind === 'autopilot' && a.thenJump && canJump(w, data).ok && jumpDestination(w, data)) {
+    // Clear of the star: the queued jump goes.
+    w = startJump(w, data, jumpDestination(w, data)!);
+    events.push({ type: 'jumpPhase', phase: 'align' });
   } else if (!manual && a.kind === 'autopilot') {
     const dest = destPos(w, data, a);
     if (!dest) {

@@ -94,11 +94,21 @@ describe('podRescue', () => {
     expect(r.messages).toEqual(expect.arrayContaining(['Job lost: Haul', 'Job lost: Ride', 'Job lost: Dump']));
     expect(r.messages).not.toContain('Job lost: Bounty');
   });
-  it('a story deliver step goes back to its giver', () => {
+  it('story cargo that fits the starter ship rides the pod: the step goes on', () => {
+    const data = withStory(ferry);
+    let w = acceptStory({ ...base(), systemId: 'calder' }, data, 'fy');
+    w = { ...w, missions: [...w.missions, { ...job({ id: `${STORY_TYPE}:fy:0`, typeId: STORY_TYPE, tons: 1 }) }] };
+    const r = podRescue(w, data);
+    expect(r.world.story.active.map((a) => a.id)).toEqual(['fy']);
+    expect(r.world.missions.some((m) => m.id === `${STORY_TYPE}:fy:0`)).toBe(true);
+    expect(r.messages.some((m) => m.includes('into the pod'))).toBe(true);
+  });
+
+  it('story cargo too big for the starter ship is lost: the step goes back to its giver', () => {
     const data = withStory(ferry);
     let w = acceptStory({ ...base(), systemId: 'calder' }, data, 'fy');
     expect(currentStep(w, data, 'fy')?.kind).toBe('deliver');
-    w = { ...w, missions: [...w.missions, { ...job({ id: `${STORY_TYPE}:fy:0`, typeId: STORY_TYPE, tons: 1 }) }] };
+    w = { ...w, missions: [...w.missions, { ...job({ id: `${STORY_TYPE}:fy:0`, typeId: STORY_TYPE, tons: 999 }) }] };
     const r = podRescue(w, data);
     expect(r.world.story.active).toEqual([]);
     expect(r.world.missions.some((m) => m.typeId === STORY_TYPE)).toBe(false);

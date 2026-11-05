@@ -242,3 +242,25 @@ describe('the phased jump', () => {
     expect(jumpEndPos(before, data)).toEqual(before.ship.pos);
   });
 });
+
+describe('J while too close (playtest bug 7): fly out, then jump by itself', () => {
+  it('one press flies the ship clear and starts the jump', () => {
+    const data = testData();
+    const base = newWorld(data, 4);
+    let w: WorldState = { ...base, route: [data.systems[base.systemId].links[0]], ship: { ...base.ship, pos: { x: 50, y: 0 }, vel: { x: 0, y: 0 } } };
+    expect(canJump(w, data)).toMatchObject({ ok: false, reason: 'tooClose' });
+    const press = (a: ActionId[]): FrameInput => ({ actions: new Set(), pressed: new Set(a) });
+    let r = stepWorld(w, data, press(['jump']), 1 / 60, { autoLandOnArrival: false } as never);
+    w = r.world;
+    expect(w.assist).toMatchObject({ kind: 'autopilot', thenJump: true });
+    expect(r.events.some((e) => e.type === 'message' && e.text.includes('as soon as you are clear'))).toBe(true);
+    let jumped = false;
+    for (let i = 0; i < 120 * 60 && !jumped; i++) {
+      r = stepWorld(w, data, press([]), 1 / 60, { autoLandOnArrival: false } as never);
+      w = r.world;
+      jumped = r.events.some((e) => e.type === 'jumpPhase' && e.phase === 'align');
+    }
+    expect(jumped).toBe(true);
+    expect(w.jump?.toSystemId).toBe(data.systems[base.systemId].links[0]);
+  });
+});

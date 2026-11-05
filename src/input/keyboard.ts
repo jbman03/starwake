@@ -37,7 +37,8 @@ const FLYING: KeyContext = { flying: true, groups: ['flight'] };
 
 export class KeyboardSource {
   private held = new Set<string>();
-  private justPressed = new Set<string>();
+  /** Pending presses: key code -> polls it has already survived without being used. */
+  private justPressed = new Map<string, number>();
 
   constructor(
     private target: EventTarget,
@@ -73,7 +74,7 @@ export class KeyboardSource {
     if (isTextEntry(e.target)) return;
     if (this.shouldBlock(e)) e.preventDefault();
     if (e.repeat) return;
-    if (!this.held.has(e.code)) this.justPressed.add(e.code);
+    if (!this.held.has(e.code)) this.justPressed.set(e.code, 0);
     this.held.add(e.code);
   };
 
@@ -94,22 +95,32 @@ export class KeyboardSource {
     this.justPressed.clear();
   }
 
-  /** Held and newly pressed actions in `groups`; drains every pending press (any group). */
+  /**
+   * Held and newly pressed actions in `groups`. A press these groups use is spent; any other press survives one more
+   * poll, so a key hit in the same frame as one that closes a dialog (Esc then N) reaches the screen underneath
+   * (playtest bug 10), while a press no screen wants is gone a poll later.
+   */
   poll(groups: ActionGroup | readonly ActionGroup[]): { actions: Set<ActionId>; pressed: Set<ActionId> } {
     const wanted: readonly ActionGroup[] = typeof groups === 'string' ? [groups] : groups;
     const b = this.getBindings();
     const actions = new Set<ActionId>();
     const pressed = new Set<ActionId>();
+    const codes = new Set<string>();
     for (const id of ACTION_IDS) {
       if (!wanted.includes(ACTION_GROUP[id])) continue;
       for (const code of b[id]) {
         if (code === null) continue;
         if (this.held.has(code)) actions.add(id);
-        if (this.justPressed.has(code)) pressed.add(id);
+        if (this.justPressed.has(code)) {
+          pressed.add(id);
+          codes.add(code);
+        }
       }
     }
-    // Presses are only meaningful for the context that was active when they happened.
-    this.justPressed.clear();
+    for (const [code, age] of [...this.justPressed]) {
+      if (codes.has(code) || age >= 1) this.justPressed.delete(code);
+      else this.justPressed.set(code, age + 1);
+    }
     return { actions, pressed };
   }
 
