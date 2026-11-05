@@ -1,6 +1,6 @@
 # Starwake — Cycle 6, part 2: Crew, wingmen, carriers and a nemesis (design)
 
-Status: approved for spec · 2026-11-05 (owner pre-approved the cycle; choices logged in §9)
+Status: shipped · 2026-11-05 (owner pre-approved the cycle; choices logged in §9)
 
 ## 1. Goal
 
