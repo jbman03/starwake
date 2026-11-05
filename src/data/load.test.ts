@@ -1354,3 +1354,24 @@ describe('fleet.json', () => {
     }
   });
 });
+
+describe('carriers and fighters data', () => {
+  const has = (e: DataError, text: string) => expect(e.issues.join('\n')).toContain(text);
+  it('rejects a bay that launches a non-fighter, a fighter of a non-fighter hull, and a fighter hull in a spawn list', () => {
+    const cases: [(r: any) => void, string][] = [
+      [(r) => (r.outfits.find((o: any) => o.id === 'fighter-bay').effect.fighter = 'rocket'), 'fighter-bay.effect.fighter'],
+      [(r) => (r.outfits.find((o: any) => o.id === 'wasp-fighter').effect.shipId = 'courier'), 'wasp-fighter.effect.shipId'],
+      [(r) => (r.combat.spawn.patrolHulls = [...r.combat.spawn.patrolHulls, 'wasp']), 'spawn.hulls.wasp'],
+    ];
+    for (const [mutate, at] of cases) {
+      const r = raw();
+      mutate(r);
+      has(failure(r), at);
+    }
+  });
+  it('the Wasp is never sold and never traffic', () => {
+    const d = parseGameData(raw());
+    expect(d.ships.wasp.role).toBe('fighter');
+    expect(d.ships.wasp.soldAt).toEqual([]);
+  });
+});

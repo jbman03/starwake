@@ -148,8 +148,8 @@ first big upgrade as a milestone. It needs to come soon enough (we aim for rough
    at each faction's tech hub. *Top pick.*
 3. **Clear story signposting** (cycle 3): the mission log always shows the next lead,
    which avoids Nova's "where do I go now" problem. *Top pick.*
-4. **Escorts and carriers' fighters** (cycle 6), building on the cycle 2 carrier. *Escorts done
-   (cycle 6); carriers' fighters still to come.*
+4. **Escorts and carriers' fighters** (cycle 6), building on the cycle 2 carrier. *Done (cycle 6):
+   escorts, crew, wingmen, carriers' fighters.*
 5. **Recurring named pilots** in unique ships (cycle 4+).
 6. **Story-gated region** (galaxy growth): a hidden area opened by a mission chain.
 7. **Ship naming** (cycle 3, shown on the pilot card).
@@ -410,4 +410,10 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    `requiresKills`; recruited, they are escorts with `wingmanId` and `takedowns` (counted on disables via the
    battle's `escortId`), ranked for a damage bonus, and eject (`downUntilDay`) instead of being lost.
    *Saves:* v9 (`crew`, wingman fields on escorts).
+12. **Carriers and fighters (cycle 6, part 2B).** Outfit categories `bay` (launches a `fighter` outfit at `rate`) and
+   `fighter` (one craft of a `fighter`-role hull, `wasp`); outfits may name the `hulls` that fit them.
+   `src/sim/fighters.ts` builds fighter NPCs (`Npc.fighter = { outfitId, carrierId }`) and docks them; `stepBattle`
+   launches (`launchFighters`, KeyU, `Battle.launchQueue`) and recalls (`Battle.recall`) the player's, which fly the
+   escort branch on their own arc, and has NPC carriers launch theirs in a fight and land them after. Fighters out
+   dock on every jump, landing, tow and rescue; disabled ones are lost. No save change: fighters are outfits.
 Later: bounty hunters, smuggling missions, rank-locked faction story chains, more regions.

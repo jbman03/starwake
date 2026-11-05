@@ -50,6 +50,7 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   pause: 'II button',
   interact: 'Answer hail, or the Scan, Search or Open site button',
   escortOrder: 'ORDER button (with escorts)',
+  launchFighters: 'LAUNCH button (with a fighter bay)',
   openExchange: 'Tap the button',
   openMissions: 'Tap the button',
   openShipyard: 'Tap the button',
@@ -182,6 +183,7 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
         { heading: 'Repair', text: `Damage stays until you pay for it. On a planet screen, Repair all mends the whole group for ${e.repairPerArmor} cr for each point of armor missing.` },
         { heading: 'Crew', text: `Your ship carries a crew, up to her complement (shown as Crew on the planet screen). Crew is what boards and captures ships, and boarding costs lives. Any port with a bar has a Hire crew row that fills your complement for ${data.fleet.crew.hireCost} cr a head. A ship you buy comes fully crewed; when you take command of a capture, your crew moves across.` },
         { heading: 'Wingmen', text: `Wingmen are named pilots with their own ships who wait in particular bars until your record shows enough kills (the first waits at Vanterre). They join your group for a fee and a wage, take its orders, and count toward its ${e.maxEscorts} places. Every ship a wingman disables is a takedown: they rank up from ${data.fleet.wingmen.ranks.map((r) => r.name).join(' to ')}, and each rank hits harder. A wingman whose ship is destroyed ejects and comes back in a new ship at your first landing ${data.fleet.wingmen.recoverDays} days later.` },
+        { heading: 'Carriers and fighters', text: `A carrier (the Bastion) can fit a Hornet Bay at a Concord outfitter, and each bay holds ${data.outfits['wasp-fighter']?.max ?? 4} Wasp fighters, bought there too. In flight, ${k('launchFighters')} launches every fighter aboard (on a phone, tap LAUNCH); they fly beside you and follow the group's order. Press it again to recall them: they fly home and land aboard. Fighters out in space dock by themselves when you land, jump or are towed, but a disabled or destroyed fighter is lost. Other carriers launch their own fighters when they fight.` },
         { heading: 'Crimes', text: "An escort's hits count as your own: if an escort hits, disables or destroys a ship, the crime goes on your record. An escort's kills don't count toward your combat jobs, though a bounty target they take down still completes the bounty; finish a disabled raider yourself to claim it." },
       ];
     }

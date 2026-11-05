@@ -24,6 +24,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   pause: ['Escape', null],
   interact: ['KeyY', null],
   escortOrder: ['KeyI', null],
+  launchFighters: ['KeyU', null],
   openExchange: ['KeyC', null],
   openMissions: ['KeyM', null],
   openShipyard: ['KeyY', null],

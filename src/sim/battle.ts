@@ -26,6 +26,7 @@ import { faceInput } from './assists';
 import { escortAi, type EscortView } from './escortAi';
 import { escortSlot } from './escortNpcs';
 import { damageMulOf } from './wingmen';
+import { baysOf, dockedCount, dockOne, fighterNpc, PLAYER_FIGHTER_PREFIX } from './fighters';
 import { commitCrime, huntingGovernments } from './law';
 import { addPoints } from './ranks';
 import { stepShip } from './flight';
@@ -55,6 +56,12 @@ export interface Battle {
   /** Ids that have hit the player this visit (escorts fire back at them). */
   playerAggro: string[];
   nextShotId: number;
+  /** Player fighters still to launch from the bays (cycle 6 part 2B). */
+  launchQueue: number;
+  /** The player's fighters are recalled: they fly home and dock. */
+  recall: boolean;
+  /** Numbers the next fighter launched (player or NPC). */
+  nextFighter: number;
   /** The player's hull has been destroyed (set once, with the playerDestroyed event). */
   playerDestroyed: boolean;
 }
@@ -70,7 +77,9 @@ export type BattleEvent =
   | { type: 'playerDestroyed'; pos: Vec2 }
   | { type: 'lowArmor' }
   | { type: 'angered'; government: string }
-  | { type: 'fled'; id: string };
+  | { type: 'fled'; id: string }
+  /** The player's fighters: launched, recalled, or all docked after a recall. */
+  | { type: 'fighters'; what: 'launched' | 'recalled' | 'docked' };
 
 const STANDING_BY_RANK: StandingLevel[] = ['cool', 'neutral', 'friend'];
 
@@ -94,6 +103,9 @@ export function newBattle(world: WorldState, data: GameData): Battle {
     hunted: huntingGovernments(world, data),
     playerAggro: [],
     nextShotId: 1,
+    launchQueue: 0,
+    recall: false,
+    nextFighter: 1,
     playerDestroyed: false,
   };
 }
@@ -352,6 +364,35 @@ export function stepBattle(
       firePrimary(t, me, target, target ?? near, { guns: true, turrets: true, beams: true }, victims, data);
     }
     if (input.actions.has('fireSecondary') && battle.secondary) outfits = fireLauncher(t, me, battle.secondary, target, outfits, data);
+    // Fighters (cycle 6 part 2B): one key launches every docked fighter, or recalls those out.
+    if (input.pressed.has('launchFighters')) {
+      const out = npcs.some((n) => n.fighter?.carrierId === PLAYER_ID);
+      const docked = dockedCount(outfits, data);
+      if (out && !battle.recall) {
+        battle = { ...battle, recall: true, launchQueue: 0 };
+        events.push({ type: 'fighters', what: 'recalled' });
+      } else if (docked > 0 || out) {
+        battle = { ...battle, recall: false, launchQueue: docked };
+        events.push({ type: 'fighters', what: 'launched' });
+      }
+    }
+    // One fighter per bay per 1 / rate seconds, from the player's position.
+    if (battle.launchQueue > 0) {
+      let queue = battle.launchQueue;
+      let nextFighter = battle.nextFighter;
+      for (const bay of baysOf(outfits, data)) {
+        const kind = bay.def.effect.fighter;
+        const key = `${PLAYER_ID}:${bay.def.id}`;
+        if (queue <= 0 || (outfits[kind] ?? 0) <= 0 || !ready(t, key)) continue;
+        npcs = [...npcs, fighterNpc(`${PLAYER_FIGHTER_PREFIX}${nextFighter++}`, kind, { id: PLAYER_ID, government: '', role: 'escort', ship: world.ship, aggro: [] }, data)];
+        outfits = { ...outfits, [kind]: outfits[kind] - 1 };
+        if (outfits[kind] <= 0) delete outfits[kind];
+        queue--;
+        t.cooldowns[key] = (t.cooldowns[key] ?? 0) + 1 / (bay.def.effect.rate * bay.count);
+      }
+      if (dockedCount(outfits, data) === 0) queue = 0;
+      battle = { ...battle, launchQueue: queue, nextFighter };
+    }
   }
 
   // 3. NPC decisions.
@@ -361,7 +402,14 @@ export function stepBattle(
   // Hostiles keep shooting a disabled player, so decide() sees the player's hull as not disabled.
   const all = combatants().map((c) => (c.id === PLAYER_ID ? { ...c, hull: { ...c.hull, disabled: false } } : c));
   // Escorts: their slots in traffic order, and who they answer (spec §5.2).
-  const escortIds = npcs.filter((n) => n.role === 'escort' && inFlight(n)).map((n) => n.id);
+  const escortIds = npcs.filter((n) => n.role === 'escort' && !n.fighter && inFlight(n)).map((n) => n.id);
+  const fighterIds = npcs.filter((n) => n.fighter?.carrierId === PLAYER_ID && inFlight(n)).map((n) => n.id);
+  const fleet = data.fleet.fighters;
+  /** NPC fighters that landed back aboard this tick, by carrier id. */
+  const dockedBy = new Map<string, string[]>();
+  const launched: Npc[] = [];
+  let nextFighter = battle.nextFighter;
+  let dockedAny = false;
   // Anyone who shot the player or an escort this visit counts only while it is hostile to the player's
   // side and not peaceful, judged afresh each tick: a lawful patrol's stray bolt starts no fight, and a
   // raider that stands down drops out.
@@ -388,14 +436,22 @@ export function stepBattle(
     if (n.role === 'escort') {
       const me = combatantOf(n, data);
       const others = all.filter((c) => c.id !== n.id);
+      const mine = n.fighter?.carrierId === PLAYER_ID;
+      // A recalled fighter flies straight home: its slot is the player, it fights nothing.
+      const home = mine && battle.recall;
+      const none = new Set<string>();
       const view: EscortView = {
         me,
         player: playerC(),
-        slot: escortSlot(world.ship, escortIds.indexOf(n.id), escortIds.length, data.escorts.followDistance),
-        order: world.escortOrder,
-        playerTargetId: traffic.targetId,
-        attackers,
-        threats,
+        slot: home
+          ? world.ship.pos
+          : mine
+            ? escortSlot(world.ship, fighterIds.indexOf(n.id), fighterIds.length, fleet.fighterDistance)
+            : escortSlot(world.ship, escortIds.indexOf(n.id), escortIds.length, data.escorts.followDistance),
+        order: home ? 'follow' : world.escortOrder,
+        playerTargetId: home ? null : traffic.targetId,
+        attackers: home ? none : attackers,
+        threats: home ? none : threats,
         maxSpeed: def.maxSpeed,
         fireRange: fireRangeOf(n.outfits, data),
       };
@@ -403,7 +459,12 @@ export function stepBattle(
       let ship = stepShip(n.ship, def, d.input, dt);
       // On its slot it matches the player; under Hold it brakes to rest without thrusting.
       if (d.station) ship = { ...ship, vel: { ...world.ship.vel }, heading: world.ship.heading };
-      else if (world.escortOrder === 'hold') ship = { ...ship, vel: driftShip(ship, dt).vel };
+      else if (view.order === 'hold') ship = { ...ship, vel: driftShip(ship, dt).vel };
+      if (home && dist(ship.pos, world.ship.pos) <= fleet.dockRadius) {
+        outfits = dockOne(outfits, n.fighter!.outfitId, data);
+        dockedAny = true;
+        continue;
+      }
       const moved: Npc = { ...n, ship, thrusting: d.input.thrust, engaged: true };
       const target = others.find((c) => c.id === d.targetId) ?? null;
       const spent = fireAt(t, combatantOf(moved, data), target, d.fire, others.filter((c) => !isPlayerSide(c.id)), data);
@@ -426,16 +487,55 @@ export function stepBattle(
       if (!n.fled) flee.push(n.id);
       next.push({ ...n, engaged: false, errand: 'pass', portId: null, fled: true });
     } else if (d.mode === 'errand') {
+      // An NPC fighter with nothing to fight flies back to its carrier and docks; without one it leaves with traffic.
+      const carrier = n.fighter ? npcs.find((c) => c.id === n.fighter!.carrierId && inFlight(c) && !c.hull.disabled) : undefined;
+      if (carrier) {
+        const ship = stepShip(n.ship, def, { ...faceInput(n.ship, carrier.ship.pos), thrust: true }, dt);
+        if (dist(ship.pos, carrier.ship.pos) <= fleet.dockRadius) {
+          dockedBy.set(carrier.id, [...(dockedBy.get(carrier.id) ?? []), n.fighter!.outfitId]);
+          continue;
+        }
+        next.push({ ...n, ship, thrusting: true, engaged: true });
+        continue;
+      }
       next.push(n.engaged ? { ...n, engaged: false } : n);
     } else {
       const ship = stepShip(n.ship, def, d.input, dt);
-      const moved: Npc = { ...n, ship, thrusting: d.input.thrust, engaged: true, fled: false };
+      let moved: Npc = { ...n, ship, thrusting: d.input.thrust, engaged: true, fled: false };
+      // A carrier in a fight launches its fighters, one per bay per 1 / rate seconds.
+      if (!n.fighter) {
+        for (const bay of baysOf(moved.outfits, data)) {
+          const kind = bay.def.effect.fighter;
+          const key = `${n.id}:${bay.def.id}`;
+          if ((moved.outfits[kind] ?? 0) <= 0 || !ready(t, key)) continue;
+          launched.push(fighterNpc(`${n.id}-f${nextFighter++}`, kind, moved, data));
+          const left = { ...moved.outfits, [kind]: moved.outfits[kind] - 1 };
+          if (left[kind] <= 0) delete left[kind];
+          moved = { ...moved, outfits: left };
+          t.cooldowns[key] = (t.cooldowns[key] ?? 0) + 1 / (bay.def.effect.rate * bay.count);
+        }
+      }
       const target = others.find((c) => c.id === d.targetId) ?? null;
       const spent = fireAt(t, combatantOf(moved, data), target, d.fire, others, data);
       next.push(spent === moved.outfits ? moved : { ...moved, outfits: spent });
     }
   }
-  npcs = next;
+  npcs = [
+    ...next.map((n) => {
+      const back = dockedBy.get(n.id);
+      if (!back) return n;
+      let o = n.outfits;
+      for (const k of back) o = { ...o, [k]: (o[k] ?? 0) + 1 };
+      return { ...n, outfits: o };
+    }),
+    ...launched,
+  ];
+  // A recall ends when the last fighter is aboard (or none is left out to come home).
+  if (battle.recall && !npcs.some((n) => n.fighter?.carrierId === PLAYER_ID)) {
+    if (dockedAny) events.push({ type: 'fighters', what: 'docked' });
+    battle = { ...battle, recall: false };
+  }
+  battle = { ...battle, nextFighter };
   for (const id of flee) events.push({ type: 'fled', id });
 
   // 4. Move projectiles and hit-test them against everyone but their owner (and the player's side against itself).

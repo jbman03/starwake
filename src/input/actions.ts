@@ -22,6 +22,7 @@ export const ACTION_IDS = [
   'pause',
   'interact',
   'escortOrder',
+  'launchFighters',
   // planet
   'openExchange',
   'openMissions',
@@ -77,6 +78,7 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   pause: 'flight',
   interact: 'flight',
   escortOrder: 'flight',
+  launchFighters: 'flight',
   openExchange: 'planet',
   openMissions: 'planet',
   openShipyard: 'planet',
@@ -124,6 +126,7 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   pause: 'Pause',
   interact: 'Answer hail / open site',
   escortOrder: 'Escort orders',
+  launchFighters: 'Launch / recall fighters',
   openExchange: 'Commodity exchange',
   openMissions: 'Mission computer',
   openShipyard: 'Shipyard',

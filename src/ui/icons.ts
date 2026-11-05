@@ -47,6 +47,10 @@ const GLYPHS: Record<OutfitDef['category'], string[]> = {
   pod: ['M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z', 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0'],
   // Box with scrambled signal lines.
   scrambler: ['M4 8h16v10H4z', 'M7 13l2-2 2 3 2-4 2 3 2-2', 'M9 8V5', 'M15 8V5'],
+  // Hangar mouth with a launch arrow.
+  bay: ['M3 20V9l9-5 9 5v11', 'M7 20v-6h10v6', 'M12 11v-4', 'M10 9l2-2 2 2'],
+  // Small delta craft.
+  fighter: ['M12 3l7 16-7-4-7 4z', 'M12 8v7'],
 };
 
 /** Outline glyph for an outfit; `data-stroke` records the tier colour. */

@@ -46,6 +46,8 @@ export interface Npc {
   fled?: boolean;
   /** The bounty mission this ship is the target of. */
   missionId?: string;
+  /** A carrier's fighter: the fighter outfit it docks back as, and its carrier's id (`player` for the pilot's). */
+  fighter?: { outfitId: string; carrierId: string };
 }
 
 export interface TrafficOpts {
@@ -91,6 +93,7 @@ const ROLE_WEIGHT: Record<ShipDef['role'], number> = {
   corvette: 1,
   trader: 3,
   carrier: 1,
+  fighter: 0, // never traffic: fighters only leave their carriers' bays
 };
 
 const portsOf = (data: GameData, systemId: string): PlanetDef[] =>
@@ -144,7 +147,7 @@ function pickHull(data: GameData, systemId: string, r: () => number): ShipDef {
   const bestTier = Math.max(1, ...ports.map((p) => p.techTier));
   const hub = ports.some((p) => p.hub);
   const pool = Object.values(data.ships).filter(
-    (s) => !s.unique && s.techTier <= bestTier && (s.role !== 'carrier' || hub),
+    (s) => !s.unique && s.role !== 'fighter' && s.techTier <= bestTier && (s.role !== 'carrier' || hub),
   );
   const total = pool.reduce((sum, s) => sum + ROLE_WEIGHT[s.role], 0);
   let x = r() * total;

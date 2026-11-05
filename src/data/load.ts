@@ -302,7 +302,8 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   }
   const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, escorts, factions, fleet } as GameData;
   const items: { file: string; item: { id: string; techTier: number; soldBy?: string[] } }[] = [
-    ...Object.values(ships).map((item) => ({ file: 'ships.json', item })),
+    // Fighters only come from a carrier's bay, so no shipyard needs to sell one.
+    ...Object.values(ships).filter((s) => s.role !== 'fighter').map((item) => ({ file: 'ships.json', item })),
     ...Object.values(outfits).map((item) => ({ file: 'outfits.json', item })),
   ];
   for (const { file, item } of items) {
@@ -465,7 +466,13 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   for (const o of Object.values(outfits)) {
     if (o.category === 'launcher' && outfits[o.effect.ammo]?.category !== 'ammo')
       combatIssues.push(fmt('outfits.json', `${o.id}.effect.ammo`, `"${o.effect.ammo}" is not an ammo outfit`));
+    if (o.category === 'bay' && outfits[o.effect.fighter]?.category !== 'fighter')
+      combatIssues.push(fmt('outfits.json', `${o.id}.effect.fighter`, `"${o.effect.fighter}" is not a fighter outfit`));
+    if (o.category === 'fighter' && ships[o.effect.shipId]?.role !== 'fighter')
+      combatIssues.push(fmt('outfits.json', `${o.id}.effect.shipId`, `"${o.effect.shipId}" is not a fighter hull`));
   }
+  for (const sid of [...Object.keys(combat.spawn.raiderHulls), ...combat.spawn.patrolHulls, ...escorts.hireable])
+    if (ships[sid]?.role === 'fighter') combatIssues.push(fmt('combat.json', `spawn.hulls.${sid}`, `"${sid}" is a fighter and only flies from a bay`));
   for (const sh of Object.values(ships))
     for (const oid of Object.keys(sh.loadout ?? {}))
       if (!(oid in outfits)) combatIssues.push(fmt('ships.json', `${sh.id}.loadout.${oid}`, `unknown outfit "${oid}"`));
@@ -501,7 +508,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     cfgIssues.push(fmt('config.json', 'startSystemId', `unknown system "${config.startSystemId}"`));
   if (!(config.startShipId in ships))
     cfgIssues.push(fmt('config.json', 'startShipId', `unknown ship "${config.startShipId}"`));
-  else if (Object.values(ships).some((s) => s.id !== config.startShipId && s.price <= ships[config.startShipId].price))
+  else if (Object.values(ships).some((s) => s.id !== config.startShipId && s.role !== 'fighter' && s.price <= ships[config.startShipId].price))
     cfgIssues.push(fmt('config.json', 'startShipId', 'startShipId must be the lowest-priced ship'));
   const sp = planets[config.startPlanetId];
   if (!sp)

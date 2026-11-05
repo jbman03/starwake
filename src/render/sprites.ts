@@ -275,6 +275,24 @@ export const HULL_PROFILES: Record<Hull, HullProfile> = {
     seamHalfWidth: 0.4,
     nozzles: [[-1.0, 0.12, 0.1, 0.2], [-1.0, 0.5, 0.1, 0.2]],
   },
+  // Carrier-borne fighter: a short delta with forward-swept wingtips.
+  fighter: {
+    half: [
+      [1.0, 0],
+      [0.4, 0.14],
+      [-0.1, 0.3],
+      [-0.2, 0.86],
+      [-0.48, 0.9],
+      [-0.62, 0.36],
+      [-0.9, 0.18],
+    ],
+    fuselage: [[0.9, 0], [0.3, 0.12], [-0.4, 0.14], [-0.85, 0.1]],
+    canopy: [0.3, 0.2, 0.08],
+    stripe: [[-0.15, 0.4], [-0.3, 0.8], [-0.4, 0.8], [-0.28, 0.4]],
+    seams: [-0.3],
+    seamHalfWidth: 0.14,
+    nozzles: [[-0.92, 0.04, 0.08, 0.1]],
+  },
 };
 
 function mirrored(half: Pt[]): Pt[] {
