@@ -10,6 +10,9 @@ export type StandingLevel = z.infer<typeof StandingLevelSchema>;
 const StandingReqSchema = z.object({ government: id, level: StandingLevelSchema });
 const RankReqSchema = z.object({ government: id, rank: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]) });
 
+/** Hull classes: each has its own silhouette. */
+export const HullClassSchema = z.enum(['pod', 'dart', 'wedge', 'hauler', 'liner', 'carrier', 'fighter']);
+
 export const ShipSchema = z.object({
   id,
   name: z.string(),
@@ -36,8 +39,9 @@ export const ShipSchema = z.object({
     'corvette',
     'trader',
     'carrier',
+    'fighter', // a carrier's craft: never sold, hired or spawned as traffic
   ]),
-  hull: z.enum(['pod', 'dart', 'wedge', 'hauler', 'liner', 'carrier']),
+  hull: HullClassSchema,
   description: z.string(),
   soldBy: z.array(id).optional(), // government ids; absent = sold anywhere the tier allows
   soldAt: z.array(id).optional(), // port ids; absent = any port the tier and government allow
@@ -66,6 +70,7 @@ const outfitBase = {
   requiresFlag: z.string().min(1).optional(), // story flag needed before it is offered
   requiresStanding: StandingReqSchema.optional(),
   requiresRank: RankReqSchema.optional(), // faction rank needed before it is offered
+  hulls: z.array(HullClassSchema).min(1).optional(), // hull classes that may fit it; absent = any
 };
 
 const effect = <K extends string>(key: K) => z.object({ [key]: z.number().positive() } as Record<K, z.ZodNumber>).strict();
@@ -100,6 +105,9 @@ export const OutfitSchema = z.discriminatedUnion('category', [
   z.object({ ...outfitBase, category: z.literal('beam'), effect: z.object({ dps: pos, range: pos }).strict() }),
   z.object({ ...outfitBase, category: z.literal('pod'), effect: z.object({ pods: z.literal(1) }).strict() }),
   z.object({ ...outfitBase, category: z.literal('scrambler'), effect: effect('scramble') }), // blunts patrol cargo scans
+  // Carriers (cycle 6 part 2B): a bay launches `fighter` outfits (rate per second); a fighter outfit is one craft of hull `shipId`.
+  z.object({ ...outfitBase, category: z.literal('bay'), effect: z.object({ fighter: id, rate: pos }).strict() }),
+  z.object({ ...outfitBase, category: z.literal('fighter'), effect: z.object({ shipId: id }).strict() }),
 ]);
 
 export const SystemSchema = z.object({
@@ -409,7 +417,7 @@ const WingmanSchema = z
   })
   .strict();
 
-/** Fleet tunables (cycle 6 part 2): crew, wingmen. */
+/** Fleet tunables (cycle 6 part 2): crew, wingmen, fighters. */
 export const FleetSchema = z
   .object({
     crew: z
@@ -429,6 +437,12 @@ export const FleetSchema = z
           .refine((r) => r[0].takedowns === 0, { message: 'the first rank starts at 0 takedowns' })
           .refine((r) => r.every((x, i) => i === 0 || x.takedowns > r[i - 1].takedowns), { message: 'rank takedowns must rise' }),
         pilots: z.array(WingmanSchema).refine((a) => new Set(a.map((w) => w.id)).size === a.length, { message: 'duplicate wingman id' }),
+      })
+      .strict(),
+    fighters: z
+      .object({
+        fighterDistance: z.number().positive(), // px: the fighters' station arc behind the flagship
+        dockRadius: z.number().positive(), // px: a recalled fighter docks this close to its carrier
       })
       .strict(),
   })

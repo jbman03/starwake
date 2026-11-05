@@ -226,6 +226,20 @@ export function mountRails(opts: RailsOptions): Rails {
     touch.press('escortOrder');
     touch.release('escortOrder');
   });
+  // LAUNCH: shown with a fighter bay and fighters (aboard or out); a tap launches them all, or recalls them.
+  const launchBtn = el('button', {
+    class: 'sw-rail-btn sw-rail-map',
+    text: 'LAUNCH',
+    attrs: { type: 'button', 'aria-label': 'Launch or recall fighters', 'data-rail-control': '', 'data-control': 'launch' },
+  });
+  launchBtn.hidden = true;
+  launchBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    touch.press('launchFighters');
+    touch.release('launchFighters');
+  });
+  // ORDER and LAUNCH share one row, so a carrier costs the rail no extra height.
+  const orderRow = el('div', { class: 'sw-rail-row' }, [orderBtn, launchBtn]);
   // TGT: a tap steps to the next target on release; holding it targets the nearest hostile.
   const targetBtn = el('button', {
     class: 'sw-rail-btn',
@@ -273,7 +287,7 @@ export function mountRails(opts: RailsOptions): Rails {
   const buttonRail = el('div', { class: 'sw-rail', attrs: { 'data-rail': 'buttons' } }, [
     mapBtn,
     radar,
-    orderBtn,
+    orderRow,
     buttonSpacer,
     targetBtn,
     missile,
@@ -340,12 +354,12 @@ export function mountRails(opts: RailsOptions): Rails {
   let lastHint: string | null = null;
   let lastObjective: string | null = null;
 
-  const applyLayout = (w: number, h: number, layout: Layout, hintOn: boolean, orderOn: boolean) => {
+  const applyLayout = (w: number, h: number, layout: Layout, hintOn: boolean, orderOn: boolean, launchOn = false) => {
     const s = controller.settings.touch;
-    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}|${hintOn}|${orderOn}`;
+    const key = `${w}x${h}|${JSON.stringify(layout.insets)}|${s.mirror}|${s.buttonSize}|${s.steering}|${hintOn}|${orderOn}|${launchOn}`;
     if (key === lastKey) return;
     lastKey = key;
-    const m = railMetrics(layout, s, s.steering, hintOn, orderOn);
+    const m = railMetrics(layout, s, s.steering, hintOn, orderOn || launchOn);
     layer.dataset.size = `${w}x${h}`;
     layer.dataset.view = JSON.stringify(layout.view);
     layer.dataset.clear = JSON.stringify(layout.clear);
@@ -369,9 +383,15 @@ export function mountRails(opts: RailsOptions): Rails {
     secondary.style.marginTop = px(m.secondaryGap - m.gap); // tucked up under MSL
     mapBtn.style.height = px(m.map);
     mapBtn.style.width = px(m.fire); // as wide as Fire, which always fits the rail
+    orderRow.hidden = !orderOn && !launchOn;
     orderBtn.hidden = !orderOn;
-    orderBtn.style.height = px(m.order);
-    orderBtn.style.width = px(m.fire);
+    launchBtn.hidden = !launchOn;
+    // Side by side they split Fire's width (less the row's 4 px gap).
+    const rowW = orderOn && launchOn ? (m.fire - 4) / 2 : m.fire;
+    for (const b of [orderBtn, launchBtn]) {
+      b.style.height = px(m.order);
+      b.style.width = px(rowW);
+    }
     square(radar, m.radar);
     radar.hidden = m.radar < 24;
     radarCanvas.width = Math.max(1, Math.round(m.radar));
@@ -405,7 +425,10 @@ export function mountRails(opts: RailsOptions): Rails {
     // The final card belongs to the screens it is reached on; the rail shows steps 1–10 only.
     const current = controller.guide?.current() ?? null;
     const hint = isFinalStep(current) ? null : current;
-    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null, controller.escortsPresent() > 0);
+    applyLayout(w, h, computeLayout(w, h, controller.settings.touch, (opts.insets ?? getInsets)()), hint !== null, controller.escortsPresent() > 0, (() => {
+      const f = controller.fighterCount();
+      return f.docked + f.out > 0;
+    })());
     // The story objective takes the course line's place (same two lines), so the HUD never grows.
     const objectiveLine = controller.isFlying ? controller.objectiveText(true) : null;
     if (objectiveLine !== lastObjective) {

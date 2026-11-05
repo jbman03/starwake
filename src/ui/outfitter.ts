@@ -37,6 +37,10 @@ function effectText(def: OutfitDef, fuelPerJump: number, data: GameData): string
       return `${def.effect.dps} dmg/s · range ${def.effect.range}`;
     case 'pod':
       return 'Saves the pilot once if the ship is lost';
+    case 'bay':
+      return `Launches ${data.outfits[def.effect.fighter]?.name ?? def.effect.fighter} · ${def.effect.rate}/s${def.hulls ? ` · ${def.hulls.join(', ')} hulls only` : ''}`;
+    case 'fighter':
+      return `A ${data.ships[def.effect.shipId]?.name ?? def.effect.shipId} for your fighter bay`;
     case 'scrambler':
       return `Cuts a patrol scan's catch chance by ${Math.round(data.law.scramblerCut * 100)}%`;
   }

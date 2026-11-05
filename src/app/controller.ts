@@ -8,6 +8,7 @@ import { hasPod, podRescue } from '../sim/death';
 import { dismissEscort, escortLosses, hireEscort, hireOffers, landEscorts, nextOrder, ORDER_LABEL, repairCost, repairEscorts, sellEscortPrize, type EscortOffer } from '../sim/escorts';
 import { crewHire, hireCrew } from '../sim/crew';
 import { creditWingmen, ejectWingmen, recruitWingman, returnWingmen, wingmanOffer } from '../sim/wingmen';
+import { dockedCount, dockFighters, FIGHTER_TEXT, fighterLosses, playerFighters } from '../sim/fighters';
 import { escortsJump, presentEscorts, syncEscorts, withEscorts, withoutEscorts } from '../sim/escortNpcs';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
@@ -381,7 +382,8 @@ export class Controller {
   snapshot(): PilotSave | null {
     if (!this.pilot || !this.lastPlanetId) return null;
     // Escort damage and spent ammo taken in flight go into the save.
-    const p = pilotFromWorld(syncEscorts(this.world, this.data, this.traffic), this.lastPlanetId, this.pilot);
+    // Fighters out in space count as aboard in a save.
+    const p = pilotFromWorld(syncEscorts(dockFighters(this.world, this.data, this.traffic).world, this.data, this.traffic), this.lastPlanetId, this.pilot);
     // Saves are landed snapshots: keep the system consistent with the planet even after a jump.
     return { ...p, systemId: this.data.planets[this.lastPlanetId].systemId };
   }
@@ -540,6 +542,21 @@ export class Controller {
     return this.landedPlanetId ? 0 : presentEscorts(this.traffic).length;
   }
 
+  /** Leaving the system: the pilot's fighters dock (disabled ones are lost, and the HUD says so). */
+  private dockFleet(): void {
+    const d = dockFighters(this.world, this.data, this.traffic);
+    if (d.traffic === this.traffic) return;
+    this.world = d.world;
+    this.traffic = d.traffic;
+    this.combat.battle = { ...this.combat.battle, launchQueue: 0, recall: false };
+    if (d.lost > 0) this.emit({ type: 'message', text: d.lost === 1 ? 'A fighter is lost.' : `${d.lost} fighters are lost.` });
+  }
+
+  /** Fighters docked aboard and out in space (0 and 0 without a bay). */
+  fighterCount(): { docked: number; out: number } {
+    return { docked: dockedCount(this.world.outfits, this.data), out: this.landedPlanetId ? 0 : playerFighters(this.traffic).length };
+  }
+
   /** Step the group's standing order (Follow, Attack, Hold, Return fire) and say so; null (nothing happens) unless flying with an escort. */
   cycleEscortOrder(): EscortOrder | null {
     if (!this.flying || this.escortsPresent() === 0) return null;
@@ -588,6 +605,7 @@ export class Controller {
     this.parkedSite = null;
     this.card = null;
     if (hasPod(this.world)) {
+      this.dockFleet();
       const r = podRescue(syncEscorts(this.world, this.data, this.traffic), this.data);
       this.world = r.world;
       this.traffic = this.freshTraffic(this.world);
@@ -672,6 +690,7 @@ export class Controller {
   callTow(): boolean {
     if (!this.towDestination()) return false;
     // The escorts' state as they are towed along; the landing that follows rejoins every one.
+    this.dockFleet();
     const r = applyTow(syncEscorts(this.world, this.data, this.traffic), this.data, this.towOpts());
     this.world = r.world;
     this.prevShip = r.world.ship;
@@ -1000,7 +1019,8 @@ export class Controller {
       this.emit({ type: 'destroyed' });
     }
     const said = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
-    said.push(...credited.messages, ...ejected.messages, ...losses.messages);
+    said.push(...credited.messages, ...ejected.messages, ...losses.messages, ...fighterLosses(before, r.events));
+    for (const e of r.events) if (e.type === 'fighters') said.push(FIGHTER_TEXT[e.what]);
     // Disabled, then calm: say so once each, with how to call the tow.
     const disabled = this.combat.playerDisabled() && !this.combat.battle.playerDestroyed;
     const calm = this.combat.disabledCalm();
@@ -1659,6 +1679,7 @@ export class Controller {
         this.storyHailQuiet = null;
         this.prevShip = this.world.ship; // no interpolation across systems
         // Escorts with fuel come along and arrive around where the arrive phase leaves the ship; the rest wait.
+        this.dockFleet();
         this.world = escortsJump(this.world, this.data, this.traffic);
         const end = { pos: jumpEndPos(this.world, this.data), heading: this.world.ship.heading };
         this.traffic = withEscorts(this.freshTraffic(this.world), this.world, this.data, end);
@@ -1697,6 +1718,7 @@ export class Controller {
     this.prevShip = this.world.ship;
     this.alpha = 0;
     // Escorts land too (also on load): their flight damage is kept, unpaid ones leave, the rest refuel and rejoin.
+    this.dockFleet();
     this.world = syncEscorts(this.world, this.data, this.traffic);
     this.traffic = withoutEscorts(this.traffic);
     const escorts = landEscorts(this.world, this.data);

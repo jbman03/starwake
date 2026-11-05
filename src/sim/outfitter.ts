@@ -8,8 +8,9 @@ import { sells } from './stock';
 import { hasFlag, setFlag } from './story';
 import type { WorldState } from './types';
 import { ammoCap, weaponsOf } from './weapons';
+import { baysOf, fighterCap } from './fighters';
 
-export type OutfitBlock = 'credits' | 'space' | 'max' | 'notSold' | 'nothingToReveal' | 'standing' | 'rank' | 'gone' | 'locked' | 'noLauncher';
+export type OutfitBlock = 'credits' | 'space' | 'max' | 'notSold' | 'nothingToReveal' | 'standing' | 'rank' | 'gone' | 'locked' | 'noLauncher' | 'noBay' | 'hull';
 export type SellBlock = 'notOwned' | 'cargoWouldNotFit' | 'notSellable';
 
 export type BuyCheck = { ok: true } | { ok: false; reason: OutfitBlock };
@@ -28,6 +29,8 @@ export const OUTFIT_BLOCK_TEXT: Record<OutfitBlock | SellBlock, string> = {
   gone: 'Sold once, and already sold.',
   locked: 'Not for sale yet.',
   noLauncher: 'Needs a launcher',
+  noBay: 'Needs a fighter bay',
+  hull: 'Only a carrier can fit this.',
   nothingToReveal: 'Everything in range is already on your chart.',
   notOwned: 'You do not have one fitted.',
   cargoWouldNotFit: 'Your hold would be too full without it.',
@@ -39,7 +42,7 @@ export function outfitPrice(world: WorldState, data: GameData, planetId: string,
   return discountedPrice(world, data, planetId, data.outfits[outfitId]?.price ?? 0);
 }
 
-/** Whether the outfit can be bought here. Checks run notSold, gone, locked, standing, rank, noLauncher (ammo), max, space, credits (maps: notSold, nothingToReveal, credits). */
+/** Whether the outfit can be bought here. Checks run notSold, gone, locked, standing, rank, hull, noLauncher (ammo) or noBay (fighters), max, space, credits (maps: notSold, nothingToReveal, credits). */
 export function outfitBuyCheck(world: WorldState, data: GameData, planetId: string, outfitId: string): BuyCheck {
   const def = data.outfits[outfitId];
   if (!def || !sells(planetId, def, data)) return { ok: false, reason: 'notSold' };
@@ -53,7 +56,11 @@ export function outfitBuyCheck(world: WorldState, data: GameData, planetId: stri
     const inRange = systemsWithin(data, system, def.effect.mapJumps, world.flags);
     if (inRange.every((id) => known.has(id))) return { ok: false, reason: 'nothingToReveal' };
   } else {
-    if (def.category === 'ammo') {
+    if (def.hulls && !def.hulls.includes(data.ships[world.shipId]?.hull)) return { ok: false, reason: 'hull' };
+    if (def.category === 'fighter') {
+      if (!baysOf(world.outfits, data).some((b) => b.def.effect.fighter === outfitId)) return { ok: false, reason: 'noBay' };
+      if ((world.outfits[outfitId] ?? 0) >= fighterCap(world.outfits, outfitId, data)) return { ok: false, reason: 'max' };
+    } else if (def.category === 'ammo') {
       if (!weaponsOf(world.outfits, data).launchers.some((l) => l.def.effect.ammo === outfitId)) return { ok: false, reason: 'noLauncher' };
       if ((world.outfits[outfitId] ?? 0) >= ammoCap(world.outfits, outfitId, data)) return { ok: false, reason: 'max' };
     } else if ((world.outfits[outfitId] ?? 0) >= def.max) return { ok: false, reason: 'max' };

@@ -108,6 +108,11 @@ is what boards and captures ships (and boarding costs lives). Named wingmen
 wait in certain bars once you have the kills: they fly in your group, rank up
 as they take ships down, and eject instead of dying.
 
+**Carriers and fighters.** Fit a fighter bay to a Bastion carrier and stock it
+with Wasp fighters. Press U (LAUNCH on a phone) to launch them and again to
+recall them; they fly with your escorts and dock when you leave the system.
+Other carriers launch fighters at you, too.
+
 **Sound, music and the jump.** A jump plays out like Escape Velocity's: the
 ship turns, the engines charge, it burns as the stars stretch, a flash, and it
 streaks into the next system (press J again, or SKIP on a phone, to skip ahead).
