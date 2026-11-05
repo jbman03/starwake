@@ -190,6 +190,14 @@ normally go to them. Each is easy to change (most are numbers in `data/*.json`):
     a 25% chance per arrival, ejects when disabled, and is finished after 4 defeats, getting a
     tougher hull each time. Rewards 5 000 / 10 000 / 20 000 cr and 50 000 cr at the end.
 13. **Default keys:** U for fighters (L is Land; I stays escort orders).
+14. **Phone LAUNCH shares ORDER's row** (half width each when both show), so the rail needs no new slot.
+15. **Fighters out count as escorts present**: the ORDER button shows and the sidebar's Escorts line counts them.
+16. **The nemesis ejects only when disabled by the pilot's side to count a duel**; a patrol that disables him just
+    sends him away until his cooldown ends (no reward). He vanishes without a special effect.
+17. **The nemesis spawns 700 px away** (inside the raider engage range of 900 px), never beside a story ship.
+18. **Wingmen talk in HUD messages only** (takedown lines, rank-ups, ejecting); their join and return lines show on
+    the planet screen.
+19. **Local e2e runs** use the preinstalled headless shell with video off; CI (one worker, 60 s timeouts) is the gate.
 
 ## 10. Out of scope
 
