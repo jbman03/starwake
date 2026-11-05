@@ -20,10 +20,13 @@ async function fitFighters(page: Page): Promise<void> {
   const shop = page.getByTestId('outfitter');
   await expect(shop).toBeVisible();
   const bay = shop.locator('[data-item="fighter-bay"]');
+  // The grid is paged: turn pages with the real Next button until the bay shows.
+  for (let i = 0; i < 4 && (await bay.count()) === 0; i++) await shop.getByRole('button', { name: /^Next/ }).click();
   await bay.click();
   await page.keyboard.press('KeyB');
   await expect(bay.locator('.sw-shop-badge')).toHaveText('1');
   const wasp = shop.locator('[data-item="wasp-fighter"]');
+  for (let i = 0; i < 4 && (await wasp.count()) === 0; i++) await shop.getByRole('button', { name: /^Next/ }).click();
   await wasp.click();
   for (let i = 1; i <= 4; i++) {
     await page.keyboard.press('KeyB');
