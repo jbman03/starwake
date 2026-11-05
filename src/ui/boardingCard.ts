@@ -73,7 +73,7 @@ export function showBoardingCard(ctx: UiContext, controller: Controller): void {
     const view = controller.boardingView();
     if (!view) return close();
     title.textContent = 'Boarding';
-    text.textContent = view.shipLabel;
+    text.textContent = `${view.shipLabel} — ${view.crewLine}`;
     choices.replaceChildren(
       ...entriesOf(view).map((e, i) => {
         const b = button(e.used ? `${e.label} — done` : e.label, () => choose(i), { hotkey: hotkeyFor(bindings, CHOICE_ACTIONS[i]), disabled: e.used || e.blocked !== null });

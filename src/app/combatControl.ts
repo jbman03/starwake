@@ -1,6 +1,7 @@
 import type { GameData } from '../data/schemas';
 import type { ActionId } from '../input/actions';
 import { angerGovernment, isHostileToPlayer, newBattle, stepBattle, type Battle, type BattleEvent } from '../sim/battle';
+import { crewAfterCapture, crewLossText } from '../sim/crew';
 import {
   boardingCrime,
   canBoard,
@@ -81,6 +82,8 @@ export type BoardingChoice = 'credits' | 'cargo' | 'ammo' | 'capture' | 'command
 /** What the boarding card shows. */
 export interface BoardingView {
   shipLabel: string;
+  /** "Your crew 4 · hers 6": capture odds come from these. */
+  crewLine: string;
   stage: 'loot' | 'captured';
   rows: { id: 'credits' | 'cargo' | 'ammo' | 'capture'; label: string; blocked: string | null; used: boolean }[];
   commandBlocked: string | null;
@@ -247,6 +250,7 @@ export class CombatControl {
     const check = canTakeCommand(world, this.data, npc);
     return {
       shipLabel: `${npc.name} (${this.data.ships[npc.shipId].name})`,
+      crewLine: `Your crew ${world.crew} · hers ${this.data.ships[npc.shipId].crew}`,
       stage: s.stage,
       rows: [
         { id: 'credits', label: `Take credits (${s.loot.credits} cr)`, blocked: s.loot.credits <= 0 ? 'Nothing aboard' : null, used: s.used.has('credits') || s.tried },
@@ -282,12 +286,14 @@ export class CombatControl {
       s.tried = true;
       if (!captureSucceeds(world, this.data, npc)) {
         s.failed = true;
-        return keep(world, ['The crew drives your party off.']);
+        const hurt = crewAfterCapture(world, this.data, false);
+        return keep(hurt.world, ['The crew drives your party off.', ...(hurt.lost ? [crewLossText(hurt.lost)] : [])]);
       }
       s.stage = 'captured';
-      const a = angerGovernment(boardingCrime(world, this.data, npc, 'destroy'), this.battle, npc, true);
+      const won = crewAfterCapture(world, this.data, true);
+      const a = angerGovernment(boardingCrime(won.world, this.data, npc, 'destroy'), this.battle, npc, true);
       this.battle = a.battle;
-      const messages = ['Your party takes the bridge. The ship is yours.'];
+      const messages = ['Your party takes the bridge. The ship is yours.', ...(won.lost ? [crewLossText(won.lost)] : [])];
       if (a.angered) messages.push(`The ${governmentShortName(npc.government, this.data)} will remember that.`);
       return keep(a.world, messages);
     }

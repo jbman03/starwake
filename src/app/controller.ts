@@ -1,4 +1,4 @@
-import type { EncounterDef, GameData, StoryMissionDef } from '../data/schemas';
+import type { EncounterDef, GameData, StoryMissionDef, WingmanDef } from '../data/schemas';
 import type { Guide } from '../guide/guide';
 import { ACTION_GROUP, type ActionGroup, type ActionId } from '../input/actions';
 import { KeyboardSource } from '../input/keyboard';
@@ -6,6 +6,8 @@ import { TouchSource } from '../input/touch';
 import { pilotFromWorld, worldFromPilot, type PilotSave } from '../save/pilot';
 import { hasPod, podRescue } from '../sim/death';
 import { dismissEscort, escortLosses, hireEscort, hireOffers, landEscorts, nextOrder, ORDER_LABEL, repairCost, repairEscorts, sellEscortPrize, type EscortOffer } from '../sim/escorts';
+import { crewHire, hireCrew } from '../sim/crew';
+import { creditWingmen, ejectWingmen, recruitWingman, returnWingmen, wingmanOffer } from '../sim/wingmen';
 import { escortsJump, presentEscorts, syncEscorts, withEscorts, withoutEscorts } from '../sim/escortNpcs';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
@@ -456,6 +458,33 @@ export class Controller {
     if ('error' in r) return { ok: false, error: r.error };
     this.world = r.world;
     return { ok: true, paid: r.paid };
+  }
+
+  /** The wingman waiting at this port's bar, or null (also when not landed). */
+  wingmanOffer(): WingmanDef | null {
+    return this.landedPlanetId ? wingmanOffer(this.world, this.data, this.landedPlanetId) : null;
+  }
+
+  recruitWingman(wingmanId: string): { ok: true; escort: Escort; line: string } | { ok: false; error: 'full' | 'short' | 'gone' } {
+    if (!this.landedPlanetId) return { ok: false, error: 'gone' };
+    const r = recruitWingman(this.world, this.data, this.landedPlanetId, wingmanId);
+    if ('error' in r) return { ok: false, error: r.error };
+    this.world = r.world;
+    return { ok: true, escort: r.escort, line: r.line };
+  }
+
+  /** Hands to hire to fill the crew, and the cost; none away from a bar (or when not landed). */
+  crewForHire(): { count: number; cost: number } {
+    const p = this.landedPlanetId ? this.data.planets[this.landedPlanetId] : undefined;
+    return p && p.services.includes('bar') ? crewHire(this.world, this.data) : { count: 0, cost: 0 };
+  }
+
+  hireCrew(): { ok: true; count: number; paid: number } | { ok: false; error: 'full' | 'short' } {
+    if (this.crewForHire().count <= 0) return { ok: false, error: 'full' };
+    const r = hireCrew(this.world, this.data);
+    if ('error' in r) return { ok: false, error: r.error };
+    this.world = r.world;
+    return { ok: true, count: r.count, paid: r.paid };
   }
 
   /** What mending every escort would cost (0 when not landed). */
@@ -958,7 +987,10 @@ export class Controller {
     if (!this.flying || this.fx?.kind === 'land' || this.world.jump || this.traffic.systemId !== this.world.systemId) return;
     const before = this.traffic;
     const r = this.combat.tick(this.world, this.traffic, input, dt);
-    const losses = escortLosses(this.creditKills(r.world, before, r.events), before, r.events);
+    // Wingmen count their takedowns and eject when shot down; other escorts lost are gone.
+    const credited = creditWingmen(this.creditKills(r.world, before, r.events), this.data, r.events);
+    const ejected = ejectWingmen(credited.world, this.data, r.events);
+    const losses = escortLosses(ejected.world, before, r.events);
     this.world = losses.world;
     this.traffic = r.traffic;
     this.checkDemands();
@@ -968,7 +1000,7 @@ export class Controller {
       this.emit({ type: 'destroyed' });
     }
     const said = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
-    said.push(...losses.messages);
+    said.push(...credited.messages, ...ejected.messages, ...losses.messages);
     // Disabled, then calm: say so once each, with how to call the tow.
     const disabled = this.combat.playerDisabled() && !this.combat.battle.playerDestroyed;
     const calm = this.combat.disabledCalm();
@@ -1668,8 +1700,9 @@ export class Controller {
     this.world = syncEscorts(this.world, this.data, this.traffic);
     this.traffic = withoutEscorts(this.traffic);
     const escorts = landEscorts(this.world, this.data);
-    this.world = escorts.world;
-    this.notices.push(...escorts.notices);
+    const back = returnWingmen(escorts.world, this.data);
+    this.world = back.world;
+    this.notices.push(...escorts.notices, ...back.notices);
     // Pay lands in the world first so the autosave below includes it.
     const done = completeAt(this.world, this.data, planetId);
     if (done.completed.length > 0) {

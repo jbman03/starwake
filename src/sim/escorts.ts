@@ -170,12 +170,12 @@ export function sellEscortPrize(
   return { world: { ...dismissEscort(world, id), credits: world.credits + paid }, paid };
 }
 
-/** One day's wages, in list order. An escort that can't be paid starts leaving (and draws no more). */
+/** One day's wages, in list order. An escort that can't be paid starts leaving (and draws no more). A wingman who is down draws none. */
 export function payWages(world: WorldState, data: GameData): WorldState {
   void data;
   let credits = world.credits;
   const escorts = world.escorts.map((e) => {
-    if (!e.hired || e.leaving || e.wage <= 0) return e;
+    if (!e.hired || e.leaving || e.wage <= 0 || e.downUntilDay !== undefined) return e;
     if (credits >= e.wage) {
       credits -= e.wage;
       return e;
@@ -197,9 +197,9 @@ export function landEscorts(world: WorldState, data: GameData): { world: WorldSt
   return { world: { ...world, escorts }, notices };
 }
 
-/** Cost of mending every escort to full armor. */
+/** Cost of mending every escort to full armor. A wingman who is down gets a new ship instead, so costs nothing here. */
 export function repairCost(world: WorldState, data: GameData): number {
-  const missing = world.escorts.reduce((n, e) => n + Math.max(0, escortMaxArmor(data, e) - e.armor), 0);
+  const missing = world.escorts.reduce((n, e) => (e.downUntilDay !== undefined ? n : n + Math.max(0, escortMaxArmor(data, e) - e.armor)), 0);
   return Math.round(data.escorts.repairPerArmor * missing);
 }
 
@@ -208,21 +208,24 @@ export function repairEscorts(world: WorldState, data: GameData): { world: World
   if (paid <= 0) return { error: 'none' };
   if (world.credits < paid) return { error: 'short' };
   return {
-    world: { ...world, credits: world.credits - paid, escorts: world.escorts.map((e) => ({ ...e, armor: escortMaxArmor(data, e) })) },
+    world: { ...world, credits: world.credits - paid, escorts: world.escorts.map((e) => (e.downUntilDay !== undefined ? e : { ...e, armor: escortMaxArmor(data, e) })) },
     paid,
   };
 }
 
-/** Escorts destroyed in a battle tick (escort NPCs in `before`) leave the list: '<name> is destroyed.' A disabled one stays. */
+/**
+ * Escorts destroyed in a battle tick (escort NPCs in `before`) leave the list: '<name> is destroyed.' A disabled
+ * one stays, and so does a wingman who ejected (`ejectWingmen` runs first and marks them down).
+ */
 export function escortLosses(world: WorldState, before: Traffic, events: readonly BattleEvent[]): { world: WorldState; messages: string[] } {
   const lost = new Set<string>();
   for (const ev of events) {
     if (ev.type === 'destroyed' && before.npcs.some((n) => n.id === ev.id && n.role === 'escort')) lost.add(ev.id);
   }
-  const gone = world.escorts.filter((e) => lost.has(e.id));
+  const gone = world.escorts.filter((e) => lost.has(e.id) && e.downUntilDay === undefined);
   if (gone.length === 0) return { world, messages: [] };
   return {
-    world: { ...world, escorts: world.escorts.filter((e) => !lost.has(e.id)) },
+    world: { ...world, escorts: world.escorts.filter((e) => !gone.includes(e)) },
     messages: gone.map((e) => `${e.name} is destroyed.`),
   };
 }

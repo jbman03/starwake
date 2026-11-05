@@ -25,6 +25,7 @@ import {
 import { faceInput } from './assists';
 import { escortAi, type EscortView } from './escortAi';
 import { escortSlot } from './escortNpcs';
+import { damageMulOf } from './wingmen';
 import { commitCrime, huntingGovernments } from './law';
 import { addPoints } from './ranks';
 import { stepShip } from './flight';
@@ -62,9 +63,9 @@ export type BattleEvent =
   /** `outfitId` is the gun, beam or launcher that fired, so each weapon can sound its own. */
   | { type: 'shot'; ownerId: string; kind: ShotKind | 'beam'; outfitId: string }
   | { type: 'hit'; targetId: string; shield: boolean; pos: Vec2 }
-  /** `byEscort` is set (true) when one of the player's escorts did it. */
-  | { type: 'disabled'; id: string; byPlayer: boolean; byEscort?: boolean }
-  | { type: 'destroyed'; id: string; byPlayer: boolean; byEscort?: boolean; pos: Vec2 }
+  /** `byEscort` is set (true) when one of the player's escorts did it, and `escortId` names that escort. */
+  | { type: 'disabled'; id: string; byPlayer: boolean; byEscort?: boolean; escortId?: string }
+  | { type: 'destroyed'; id: string; byPlayer: boolean; byEscort?: boolean; escortId?: string; pos: Vec2 }
   | { type: 'playerDisabled' }
   | { type: 'playerDestroyed'; pos: Vec2 }
   | { type: 'lowArmor' }
@@ -486,7 +487,9 @@ export function stepBattle(
     }
     const n = byId.get(h.targetId);
     if (!n || dead.has(n.id)) continue;
-    const r = applyDamage(n.hull, h.damage, now);
+    // A wingman's rank sharpens their shots (cycle 6 part 2).
+    const mul = byEscort ? damageMulOf(data, world.escorts.find((e) => e.id === h.ownerId)) : 1;
+    const r = applyDamage(n.hull, h.damage * mul, now);
     let updated: Npc = { ...n, hull: r.hull, aggro: n.aggro.includes(h.ownerId) ? n.aggro : [...n.aggro, h.ownerId] };
     // A raider shot while it waits on its demand stops waiting and fights (the controller closes its hail as refused).
     if (updated.demand) updated = { ...updated, demand: false, engaged: true };
@@ -506,7 +509,7 @@ export function stepBattle(
         events.push({ type: 'angered', government: n.government });
       }
     }
-    const by = byEscort ? { byPlayer, byEscort } : { byPlayer };
+    const by = byEscort ? { byPlayer, byEscort, escortId: h.ownerId } : { byPlayer };
     if (r.disabledNow) events.push({ type: 'disabled', id: n.id, ...by });
     if (r.destroyed) {
       events.push({ type: 'destroyed', id: n.id, ...by, pos: h.pos });
