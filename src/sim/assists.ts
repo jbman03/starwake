@@ -41,11 +41,13 @@ export function autopilotInput(
   if (d < arrivalRadius && speed < arriveSpeed) {
     return { input: { thrust: false, turn: 0, targetHeading: ship.heading }, arrived: true };
   }
-  // Safety factor 0.7 (brief: 0.9) - 0.9 overshot because turn-around time is not modelled.
-  const vMag = Math.min(
-    def.maxSpeed,
-    Math.sqrt(2 * def.acceleration * Math.max(d - arrivalRadius * 0.5, 0)) * 0.7,
-  );
+  // The fastest approach that can still stop in time: it must turn round (half a turn at turnRate) and then
+  // brake, so v·tTurn + v²/2a = d. Solved for v; tTurn = 0 gives the old √(2ad). Safety factor 0.7 (brief: 0.9).
+  // Without the turn term a slow-turning hull (the Bastion) overshot and circled its planet.
+  const tTurn = Math.PI / ((def.turnRate * Math.PI) / 180);
+  const dEff = Math.max(d - arrivalRadius * 0.5, 0);
+  const a = def.acceleration;
+  const vMag = Math.min(def.maxSpeed, a * (Math.sqrt(tTurn * tTurn + (2 * dEff) / a) - tTurn) * 0.7);
   const dv = sub(scale(norm(toDest), vMag), ship.vel);
   const targetHeading = angleOf(dv);
   const thrust = len(dv) > 5 && Math.abs(wrap(targetHeading - ship.heading)) < ALIGN;

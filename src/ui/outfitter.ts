@@ -1,6 +1,8 @@
 import type { GameData, OutfitDef } from '../data/schemas';
 import { OUTFIT_BLOCK_TEXT, outfitPrice, outfitSellCheck, type OutfitBlock } from '../sim/outfitter';
 import { worldStats } from '../sim/shipStats';
+import { fighterCap } from '../sim/fighters';
+import { ammoCap } from '../sim/weapons';
 import { discountPct, rankBlockText } from '../sim/ranks';
 import { governmentShortName, standingBlockText } from '../sim/standing';
 import { governmentOf, outfitStock } from '../sim/stock';
@@ -58,7 +60,9 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
       ? standingBlockText(def.requiresStanding, data)
       : reason === 'rank' && def.requiresRank
         ? rankBlockText(def.requiresRank, data)
-        : OUTFIT_BLOCK_TEXT[reason];
+        : reason === 'max' && def.category === 'fighter'
+          ? 'Your fighter bays are full.'
+          : OUTFIT_BLOCK_TEXT[reason];
 
   /** The price charged, with the list price and discount noted when a rank discount applies. */
   const priceText = (def: OutfitDef): string => {
@@ -91,7 +95,8 @@ export function showOutfitter(ctx: UiContext, planetId: string, onClose: () => v
       const rows: [string, string][] = [
         ['Effect', effectText(def, data.config.fuelPerJump, data)],
         ['Space', `${def.space} t`],
-        ['Max', isMap ? 'One-time' : String(def.max)],
+        // Ammo and fighters: what this ship's launchers or bays can hold, not the per-mount figure (playtest bug 19).
+        ['Max', isMap ? 'One-time' : def.category === 'fighter' ? String(fighterCap(w.outfits, def.id, data)) : def.category === 'ammo' ? String(ammoCap(w.outfits, def.id, data)) : String(def.max)],
         ['Fitted', isMap ? '-' : String(owned)],
         ['Price', priceText(def)],
       ];

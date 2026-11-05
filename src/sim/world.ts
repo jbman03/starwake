@@ -113,7 +113,10 @@ export function advanceDays(world: WorldState, data: GameData, n: number): { wor
     w = { ...w, day: w.day + 1 };
     w = economyDay(w, data);
     w = decayHeat(w, data, 1);
+    const unpaid = new Set(w.escorts.filter((e) => e.leaving).map((e) => e.id));
     w = payWages(w, data);
+    // Say so the day a wage goes unpaid, not only at the next landing (playtest bug 4).
+    for (const e of w.escorts) if (e.leaving && !unpaid.has(e.id)) events.push({ type: 'message', text: `You can't pay ${e.name}'s wage. They will leave at your next landing.` });
     const day = w.day;
     w = { ...w, takenOffers: w.takenOffers.filter((id) => Number(id.split(':').slice(-2)[0]) >= day) };
     const overdue = failOverdue(w);

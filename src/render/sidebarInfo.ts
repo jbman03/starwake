@@ -58,6 +58,7 @@ export function sidebarInfo(
   const status = gov ? legalStatus(world, data, gov) : 'clean';
   const ship = targetedNpc(traffic);
   const escorts = traffic ? presentEscorts(traffic).length : 0;
+  const away = world.escorts.filter((e) => e.waiting || e.downUntilDay !== undefined).length;
   const ammo = secondaryAmmo(world, data, battle?.secondary ?? null);
   return {
     shields: stats.shields,
@@ -66,7 +67,9 @@ export function sidebarInfo(
     jumps: fuelJumps(world, data),
     nav: next === undefined ? 'No course' : `${data.systems[next]?.name ?? next} · ${n} ${n === 1 ? 'jump' : 'jumps'}`,
     law: { text: `Law: ${LEGAL_LABEL[status]}`, color: LEGAL_COLOR[status] },
-    escorts: escorts > 0 ? `Escorts: ${escorts} · ${ORDER_LABEL[world.escortOrder]}` : null,
+    // Escorts left behind (waiting for a landing) or recovering wingmen still show, so none seems to vanish (playtest bugs 4, 13).
+    escorts:
+      escorts + away > 0 ? `Escorts: ${escorts}${away > 0 ? ` (+${away} away)` : ''} · ${ORDER_LABEL[world.escortOrder]}` : null,
     secondary: ammo ? `${ammo.name} ×${ammo.count}` : 'None',
     hull: playerHull(world, data, battle),
     targetHull: ship && !site ? { ...hullBars(ship.hull), disabled: ship.hull.disabled } : null,

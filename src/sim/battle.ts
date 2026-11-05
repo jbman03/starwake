@@ -438,7 +438,8 @@ export function stepBattle(
       const me = combatantOf(n, data);
       const others = all.filter((c) => c.id !== n.id);
       const mine = n.fighter?.carrierId === PLAYER_ID;
-      // A recalled fighter flies straight home: its slot is the player, it fights nothing.
+      // A recalled fighter flies straight home: its slot is the player, it fights nothing. Otherwise its arc starts
+      // outside the carrier's own hull, so the Wasps are not hidden under it (playtest bug 12).
       const home = mine && battle.recall;
       const none = new Set<string>();
       const view: EscortView = {
@@ -447,7 +448,7 @@ export function stepBattle(
         slot: home
           ? world.ship.pos
           : mine
-            ? escortSlot(world.ship, fighterIds.indexOf(n.id), fighterIds.length, fleet.fighterDistance)
+            ? escortSlot(world.ship, fighterIds.indexOf(n.id), fighterIds.length, fleet.fighterDistance + data.ships[world.shipId].radius * 1.4)
             : escortSlot(world.ship, escortIds.indexOf(n.id), escortIds.length, data.escorts.followDistance),
         order: home ? 'follow' : world.escortOrder,
         playerTargetId: home ? null : traffic.targetId,

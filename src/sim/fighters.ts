@@ -29,11 +29,11 @@ export function fighterCap(outfits: Record<string, number>, fighterId: string, d
   return f.max * baysOf(outfits, data).reduce((n, b) => n + (b.def.effect.fighter === fighterId ? b.count : 0), 0);
 }
 
-/** Fighters docked aboard: those of a kind some fitted bay launches. */
+/** Fighters docked aboard: those of a kind some fitted bay launches, never more than the bays hold. */
 export function dockedCount(outfits: Record<string, number>, data: GameData): number {
   const kinds = new Set(baysOf(outfits, data).map((b) => b.def.effect.fighter));
   let n = 0;
-  for (const k of kinds) n += outfits[k] ?? 0;
+  for (const k of kinds) n += Math.min(outfits[k] ?? 0, fighterCap(outfits, k, data));
   return n;
 }
 

@@ -263,3 +263,15 @@ describe('escortLosses', () => {
     expect(r.messages).toEqual([]);
   });
 });
+
+describe('playtest bug 4: an unpaid escort is announced the day it happens', () => {
+  it('advanceDays says the escort will leave', async () => {
+    const { advanceDays, newWorld } = await import('./world');
+    const { testData } = await import('../data/testData');
+    const d = testData();
+    const w = { ...newWorld(d, 2), credits: 0, escorts: [{ id: 'esc-1', name: 'Odile Frayne', shipId: 'scout', outfits: {}, armor: 30, fuel: 3, hired: true, wage: 175 }] };
+    const r = advanceDays(w, d, 1);
+    expect(r.world.escorts[0].leaving).toBe(true);
+    expect(r.events).toContainEqual({ type: 'message', text: "You can't pay Odile Frayne's wage. They will leave at your next landing." });
+  });
+});

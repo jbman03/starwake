@@ -3,6 +3,7 @@ import { cargoUsed } from './cargo';
 import { discountedPrice, rankMet, standingGateMet } from './ranks';
 import { hasFlag, setFlag } from './story';
 import { shipStock } from './stock';
+import { npcLoadout } from './weapons';
 import type { WorldState } from './types';
 
 export type ShipBlock = 'credits' | 'cargo' | 'passengers' | 'owned' | 'gone' | 'notSold' | 'locked' | 'standing' | 'rank';
@@ -83,7 +84,18 @@ export function shipQuote(world: WorldState, data: GameData, planetId: string, s
   return result({ ok: true });
 }
 
-/** Trades in the current ship and outfits for a new bare hull with a full tank. Unchanged world when blocked. */
+/**
+ * What a hull leaves the yard with: the guns, turrets, beams, launchers and ammo of its standard fit (its NPC
+ * loadout). Bays and fighters are bought separately. Playtest bug 6: a 450 000 cr Bastion came with no guns.
+ */
+export function yardFit(data: GameData, shipId: string): Record<string, number> {
+  const armed = new Set(['gun', 'turret', 'beam', 'launcher', 'ammo']);
+  const def = data.ships[shipId];
+  if (!def) return {};
+  return Object.fromEntries(Object.entries(npcLoadout(def)).filter(([id]) => armed.has(data.outfits[id]?.category ?? '')));
+}
+
+/** Trades in the current ship and outfits for a new hull, fitted with its standard guns (yardFit), with a full tank. Unchanged world when blocked. */
 export function buyShip(
   world: WorldState,
   data: GameData,
@@ -98,7 +110,7 @@ export function buyShip(
       ...bought,
       shipId,
       shipName: data.ships[shipId].name,
-      outfits: {},
+      outfits: yardFit(data, shipId),
       crew: data.ships[shipId].crew, // the yard crews her
       credits: world.credits - quote.net,
       ship: { ...world.ship, fuel: data.ships[shipId].fuelCapacity },

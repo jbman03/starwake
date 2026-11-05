@@ -11,7 +11,7 @@ import { ammoCap, weaponsOf } from './weapons';
 import { baysOf, fighterCap } from './fighters';
 
 export type OutfitBlock = 'credits' | 'space' | 'max' | 'notSold' | 'nothingToReveal' | 'standing' | 'rank' | 'gone' | 'locked' | 'noLauncher' | 'noBay' | 'hull';
-export type SellBlock = 'notOwned' | 'cargoWouldNotFit' | 'notSellable';
+export type SellBlock = 'notOwned' | 'cargoWouldNotFit' | 'notSellable' | 'fightersAboard';
 
 export type BuyCheck = { ok: true } | { ok: false; reason: OutfitBlock };
 export type SellCheck = { ok: true; refund: number; fuelLost: number } | { ok: false; reason: SellBlock };
@@ -35,6 +35,7 @@ export const OUTFIT_BLOCK_TEXT: Record<OutfitBlock | SellBlock, string> = {
   notOwned: 'You do not have one fitted.',
   cargoWouldNotFit: 'Your hold would be too full without it.',
   notSellable: 'Charts cannot be sold back.',
+  fightersAboard: 'Sell some fighters first: the other bays have no room for them.',
 };
 
 /** What one costs at the port: the list price less the port's rank discount, never below 0 (the list price if unknown). */
@@ -102,6 +103,11 @@ export function outfitSellCheck(world: WorldState, data: GameData, outfitId: str
   if ((world.outfits[outfitId] ?? 0) <= 0) return { ok: false, reason: 'notOwned' };
   const after = shipStats(world.shipId, without(world.outfits, outfitId), data);
   if (cargoUsed(world) > after.cargo) return { ok: false, reason: 'cargoWouldNotFit' };
+  // A bay can't go while its fighters would have nowhere to dock (playtest bug 1).
+  if (def.category === 'bay') {
+    const kind = def.effect.fighter;
+    if ((world.outfits[kind] ?? 0) > fighterCap(without(world.outfits, outfitId), kind, data)) return { ok: false, reason: 'fightersAboard' };
+  }
   return {
     ok: true,
     refund: Math.floor(def.price * SELL_REFUND),
