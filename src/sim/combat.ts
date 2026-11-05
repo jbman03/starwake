@@ -24,7 +24,8 @@ export interface Hull { shields: number; armor: number; maxShields: number; maxA
 export interface Combatant { id: string; government: string; ship: ShipState; radius: number; hull: Hull; outfits: Record<string, number> }
 export type ShotKind = 'bolt' | 'rocket' | 'seeker';
 export interface Projectile { id: number; ownerId: string; targetId: string | null; kind: ShotKind; pos: Vec2; vel: Vec2; damage: number; ttl: number; turnRate: number }
-export interface BeamShot { ownerId: string; from: Vec2; to: Vec2; hitId: string | null }
+/** `power` (0-1) is the beam's charge as it fired, for drawing it dimmer as it drains. */
+export interface BeamShot { ownerId: string; from: Vec2; to: Vec2; hitId: string | null; power?: number }
 export interface DamageResult { hull: Hull; shieldHit: boolean; disabledNow: boolean; destroyed: boolean }
 
 export function fullHull(maxShields: number, maxArmor: number): Hull {

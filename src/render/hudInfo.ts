@@ -1,4 +1,6 @@
 /** HUD text and colors, free of Phaser so the HTML touch HUD (src/ui/rails.ts) can share it. */
+import { weaponsOf } from '../sim/weapons';
+import { PLAYER_ID } from '../sim/combat';
 import type { GameData } from '../data/schemas';
 import { cargoFree } from '../sim/cargo';
 import { fuelText, jumpsOf } from '../sim/fuel';
@@ -54,6 +56,12 @@ export function secondaryAmmo(world: WorldState, data: GameData, secondary: stri
 }
 
 /** The phone label under MSL: the ammo's first word and count ("Seeker 6"), or a dash with no launcher. */
+/** "Beam 64%": the player's beam power, or null without a beam fitted. Beams never run out; they weaken. */
+export function beamPowerText(world: WorldState, data: GameData, battle: Pick<Battle, 'beamPower'> | null): string | null {
+  if (weaponsOf(world.outfits, data).beams.length === 0) return null;
+  return `Beam ${Math.round((battle?.beamPower[PLAYER_ID] ?? 1) * 100)}%`;
+}
+
 export function secondaryShort(world: WorldState, data: GameData, secondary: string | null): string {
   const a = secondaryAmmo(world, data, secondary);
   return a ? `${a.name.split(' ')[0]} ${a.count}` : '—';

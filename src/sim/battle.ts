@@ -47,6 +47,8 @@ export interface Battle {
   beams: BeamShot[];
   /** `${ownerId}:${outfitId}` -> seconds until the next shot. */
   cooldowns: Record<string, number>;
+  /** Beam power (0-1) by ship id; an absent id is fully charged. */
+  beamPower: Record<string, number>;
   /** The selected launcher outfit id. */
   secondary: string | null;
   /** Governments hostile to the player this visit. */
@@ -98,6 +100,7 @@ export function newBattle(world: WorldState, data: GameData): Battle {
     projectiles: [],
     beams: [],
     cooldowns: {},
+    beamPower: {},
     secondary: loadedLaunchers(world.outfits, data)[0] ?? null,
     angry: [],
     hunted: huntingGovernments(world, data),
@@ -222,6 +225,9 @@ interface Tick {
   hits: Hit[];
   events: BattleEvent[];
   prevBeamOwners: Set<string>;
+  /** Beam power this tick (copied from the battle); ships that fired a beam this tick. */
+  beamPower: Record<string, number>;
+  beamFired: Set<string>;
   seed: number;
   dt: number;
 }
@@ -259,11 +265,17 @@ function firePrimary(
     t.cooldowns[key] = (t.cooldowns[key] ?? 0) + 1 / def.effect.rate;
     t.events.push({ type: 'shot', ownerId: c.id, kind: 'bolt', outfitId: def.id });
   }
-  if (!on.beams) return;
+  if (!on.beams || w.beams.length === 0) return;
+  // Beams never run dry: they draw on power that drains as they fire, and a drained beam still deals minPower.
+  const cfg = data.combat.beams;
+  const power = t.beamPower[c.id] ?? 1;
+  const strength = cfg.minPower + (1 - cfg.minPower) * power;
+  t.beamPower[c.id] = Math.max(0, power - cfg.drainPerSec * t.dt);
+  t.beamFired.add(c.id);
   for (const { def, count } of w.beams) {
     const r = beamTrace(c.ship.pos, c.ship.heading, def.effect.range, victims);
-    t.beams.push({ ownerId: c.id, from: { ...c.ship.pos }, to: r.to, hitId: r.hitId });
-    if (r.hitId) t.hits.push({ ownerId: c.id, targetId: r.hitId, damage: def.effect.dps * count * t.dt, pos: r.to });
+    t.beams.push({ ownerId: c.id, from: { ...c.ship.pos }, to: r.to, hitId: r.hitId, power });
+    if (r.hitId) t.hits.push({ ownerId: c.id, targetId: r.hitId, damage: def.effect.dps * count * t.dt * strength, pos: r.to });
     if (!t.prevBeamOwners.has(c.id)) t.events.push({ type: 'shot', ownerId: c.id, kind: 'beam', outfitId: def.id });
     t.prevBeamOwners.add(c.id);
   }
@@ -307,6 +319,16 @@ function fireAt(t: Tick, c: Combatant, target: Combatant | null, fire: boolean, 
   return spent;
 }
 
+/** Beams that rested this tick recharge; a full one is dropped from the record. */
+function rechargeBeams(t: Tick, data: GameData, dt: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [id, p] of Object.entries(t.beamPower)) {
+    const next = t.beamFired.has(id) ? p : Math.min(1, p + data.combat.beams.rechargePerSec * dt);
+    if (next < 1) out[id] = next;
+  }
+  return out;
+}
+
 /** The nearest point on the system's jump boundary, outward from the centre through the ship. */
 function fleePoint(ship: ShipState, jumpDistance: number): Vec2 {
   const d = norm(sub(ship.pos, SYSTEM_CENTER));
@@ -332,6 +354,8 @@ export function stepBattle(
     hits: [],
     events,
     prevBeamOwners: new Set(b.beams.map((x) => x.ownerId)),
+    beamPower: { ...b.beamPower },
+    beamFired: new Set(),
     seed: world.seed,
     dt,
   };
@@ -630,7 +654,7 @@ export function stepBattle(
   const nextWorld: WorldState = { ...lawWorld, outfits, stats, standing };
   const hunted = lawWorld === world ? battle.hunted : huntingGovernments(nextWorld, data);
   return {
-    battle: { ...battle, player: playerHull, playerDestroyed: playerDead, projectiles: survivors, beams: t.beams, cooldowns: t.cooldowns, angry, hunted, playerAggro, nextShotId: t.nextShotId },
+    battle: { ...battle, player: playerHull, playerDestroyed: playerDead, projectiles: survivors, beams: t.beams, cooldowns: t.cooldowns, beamPower: rechargeBeams(t, data, dt), angry, hunted, playerAggro, nextShotId: t.nextShotId },
     traffic: { ...traffic, npcs: finalNpcs, targetId: traffic.targetId && dead.has(traffic.targetId) ? null : traffic.targetId },
     world: nextWorld,
     events,
