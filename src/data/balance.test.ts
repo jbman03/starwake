@@ -12,7 +12,8 @@ import ships from '../../data/ships.json';
 
 type S = (typeof ships)[number];
 const by = (role: string) => ships.find((s) => s.role === role) as S;
-const others = (role: string) => ships.filter((s) => s.role !== role);
+// Fighters (the Wasp) are a carrier's craft, never bought, so the shipyard comparisons leave them out.
+const others = (role: string) => ships.filter((s) => s.role !== role && s.role !== 'fighter');
 
 describe('ship balance', () => {
   it('hold sizes are all distinct', () => {
