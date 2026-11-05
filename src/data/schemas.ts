@@ -386,6 +386,56 @@ export const EscortsSchema = z
   .refine((e) => e.names.length >= e.maxOffers, { message: 'needs at least maxOffers names', path: ['names'] });
 export type EscortsDef = z.infer<typeof EscortsSchema>;
 
+const share = z.number().min(0).max(1);
+
+const WingmanSchema = z
+  .object({
+    id,
+    name: z.string().min(1),
+    shipId: id, // checked against ships.json
+    homePort: id, // a port with a bar, checked against planets.json
+    requiresKills: z.number().int().nonnegative(), // kills needed before they wait at the bar
+    fee: z.number().int().nonnegative(), // paid once to recruit
+    wage: z.number().int().nonnegative(), // cr per day, as for a hired escort
+    bio: z.string().min(1),
+    lines: z
+      .object({
+        join: z.string().min(1),
+        takedown: z.array(z.string().min(1)).min(1),
+        eject: z.string().min(1),
+        back: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+
+/** Fleet tunables (cycle 6 part 2): crew, wingmen. */
+export const FleetSchema = z
+  .object({
+    crew: z
+      .object({
+        hireCost: z.number().int().nonnegative(), // cr per crew member hired
+        failLoss: share, // share of the crew lost on a failed capture (rounded up)
+        winLoss: share, // share lost on a successful capture (rounded down)
+        minCrew: z.number().int().min(1), // crew never drops below this
+      })
+      .strict(),
+    wingmen: z
+      .object({
+        recoverDays: z.number().int().min(1), // days a wingman needs after ejecting
+        ranks: z
+          .array(z.object({ name: z.string().min(1), takedowns: z.number().int().nonnegative(), damageBonus: z.number().min(0) }).strict())
+          .min(1)
+          .refine((r) => r[0].takedowns === 0, { message: 'the first rank starts at 0 takedowns' })
+          .refine((r) => r.every((x, i) => i === 0 || x.takedowns > r[i - 1].takedowns), { message: 'rank takedowns must rise' }),
+        pilots: z.array(WingmanSchema).refine((a) => new Set(a.map((w) => w.id)).size === a.length, { message: 'duplicate wingman id' }),
+      })
+      .strict(),
+  })
+  .strict();
+export type FleetDef = z.infer<typeof FleetSchema>;
+export type WingmanDef = FleetDef['wingmen']['pilots'][number];
+
 const PerkSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('title') }).strict(),
   z.object({ kind: z.literal('discount'), pct: z.number().positive().max(100) }).strict(),
@@ -694,4 +744,5 @@ export interface GameData {
   law: LawDef;
   escorts: EscortsDef;
   factions: Record<string, FactionDef>;
+  fleet: FleetDef;
 }

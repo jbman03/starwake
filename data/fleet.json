@@ -1,0 +1,83 @@
+{
+  "crew": {
+    "hireCost": 150,
+    "failLoss": 0.25,
+    "winLoss": 0.1,
+    "minCrew": 1
+  },
+  "wingmen": {
+    "recoverDays": 3,
+    "ranks": [
+      { "name": "Green", "takedowns": 0, "damageBonus": 0 },
+      { "name": "Seasoned", "takedowns": 3, "damageBonus": 0.1 },
+      { "name": "Veteran", "takedowns": 8, "damageBonus": 0.2 },
+      { "name": "Ace", "takedowns": 15, "damageBonus": 0.35 }
+    ],
+    "pilots": [
+      {
+        "id": "wren",
+        "name": "Wren Halloway",
+        "shipId": "kestrel",
+        "homePort": "vanterre",
+        "requiresKills": 0,
+        "fee": 12000,
+        "wage": 300,
+        "bio": "A Concord flight-school washout who turned out to fly better than her instructors. She wants a captain who goes places, and she will tell you so.",
+        "lines": {
+          "join": "Wren Halloway straps in. \"Try to keep up, captain.\"",
+          "takedown": ["Got one!", "That's mine.", "Splash one. Next?", "Easy, easy."],
+          "eject": "I'm out! I'm out! Pick me up at a port!",
+          "back": "Wren Halloway is back in a fresh Kestrel, and annoyed about the last one."
+        }
+      },
+      {
+        "id": "juno",
+        "name": "Juno Marsh",
+        "shipId": "warden",
+        "homePort": "brannock-deeps",
+        "requiresKills": 3,
+        "fee": 30000,
+        "wage": 700,
+        "bio": "Ex-Reach militia, retired twice and bored both times. She flies a patched-up Warden and talks to it more than to people.",
+        "lines": {
+          "join": "Juno Marsh pats her console. \"Right then, old girl. Work.\"",
+          "takedown": ["Down you go.", "Steady, steady... there.", "One less.", "That's for the Reach."],
+          "eject": "She's breaking up! Punching out!",
+          "back": "Juno Marsh is back, in a Warden she swears is the same one."
+        }
+      },
+      {
+        "id": "tamsin",
+        "name": "Tamsin Reyes",
+        "shipId": "courier",
+        "homePort": "lastlight-beacon",
+        "requiresKills": 6,
+        "fee": 8000,
+        "wage": 150,
+        "bio": "A rim courier who has outrun every raider in the dark lanes, and remembers each by name. Cheap, quick, and very hard to hit.",
+        "lines": {
+          "join": "Tamsin Reyes grins over the comm. \"Fast is a kind of armour, you know.\"",
+          "takedown": ["Ha! Too slow.", "Caught you napping.", "Tag, you're out.", "That one owed me money."],
+          "eject": "Okay, not fast enough! Ejecting!",
+          "back": "Tamsin Reyes is back with a new Courier and a story about the old one."
+        }
+      },
+      {
+        "id": "silas",
+        "name": "Silas Crowe",
+        "shipId": "warden",
+        "homePort": "reeds-anchor",
+        "requiresKills": 10,
+        "fee": 40000,
+        "wage": 900,
+        "bio": "Nobody in the Unlit asks where Silas Crowe learned to fight. He doesn't drink, doesn't smile, and doesn't miss.",
+        "lines": {
+          "join": "Silas Crowe nods once. That is all you get.",
+          "takedown": ["Target down.", "Confirmed.", "Next.", "Clean."],
+          "eject": "Hull's gone. Ejecting.",
+          "back": "Silas Crowe returns without a word, in a new Warden."
+        }
+      }
+    ]
+  }
+}
