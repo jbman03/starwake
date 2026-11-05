@@ -403,4 +403,11 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    *Saves:* v8 (`escorts`, `escortOrder`; older saves load with none and Follow, a corrupt entry is dropped).
    *Test hook:* `combatState` NPCs carry `pos` and `aggro`, and `captureWillSucceed(npcId)` reads the
    capture roll. Carriers' fighters are still to come.
+11. **Crew and wingmen (cycle 6, part 2A)** — spec `2026-11-05-starwake-cycle6-fleet-design.md`.
+   *Crew (`src/sim/crew.ts`):* `WorldState.crew` (0 to the hull's `crew`, its complement) sets capture odds;
+   captures cost `failLoss`/`winLoss` of it; a Hire crew row at any bar fills the complement.
+   *Wingmen (`src/sim/wingmen.ts`):* named pilots in `data/fleet.json` wait at their home bar once the pilot has
+   `requiresKills`; recruited, they are escorts with `wingmanId` and `takedowns` (counted on disables via the
+   battle's `escortId`), ranked for a damage bonus, and eject (`downUntilDay`) instead of being lost.
+   *Saves:* v9 (`crew`, wingman fields on escorts).
 Later: bounty hunters, smuggling missions, rank-locked faction story chains, more regions.

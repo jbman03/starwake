@@ -72,8 +72,12 @@ describe('lootOf', () => {
 describe('captureOdds', () => {
   it('shuttle vs mule = 0.17; warden vs kestrel = 0.85; floor 0.05', () => {
     expect(captureOdds(base, data, npc('mule'))).toBe(0.17);
-    expect(captureOdds({ ...base, shipId: 'warden' }, data, npc('kestrel'))).toBe(0.85);
+    expect(captureOdds({ ...base, shipId: 'warden', crew: 20 }, data, npc('kestrel'))).toBe(0.85);
     expect(captureOdds(base, data, npc('bastion'))).toBe(0.05);
+  });
+  it('counts the crew aboard, not the hull complement', () => {
+    expect(captureOdds({ ...base, shipId: 'warden', crew: 4 }, data, npc('kestrel'))).toBe(0.5);
+    expect(captureOdds({ ...base, shipId: 'warden', crew: 0 }, data, npc('kestrel'))).toBe(0.05);
   });
   it('succeeds deterministically', () => {
     const n = npc('mule');

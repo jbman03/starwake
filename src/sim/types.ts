@@ -116,6 +116,8 @@ export interface WorldState {
   escorts: Escort[];
   /** What the group is told to do. */
   escortOrder: EscortOrder;
+  /** Crew aboard the pilot's ship, 0 to the hull's complement (its `crew`). */
+  crew: number;
 }
 
 export type EscortOrder = 'follow' | 'attack' | 'hold' | 'defend';
@@ -135,6 +137,12 @@ export interface Escort {
   waiting?: true;
   /** Will leave at the next port (wages unpaid). */
   leaving?: true;
+  /** A wingman (data/fleet.json `wingmen.pilots` id); absent for a hired pilot or kept capture. */
+  wingmanId?: string;
+  /** Ships this wingman has disabled; their rank comes from it. */
+  takedowns?: number;
+  /** A wingman who ejected: recovering until this day, then back at the next landing. */
+  downUntilDay?: number;
 }
 
 export type SimEvent =

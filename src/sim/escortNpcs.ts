@@ -52,9 +52,9 @@ export function withoutEscorts(t: Traffic): Traffic {
   return { ...t, npcs: t.npcs.filter((n) => n.role !== 'escort') };
 }
 
-/** Drop every escort NPC, then spawn each escort that is not waiting on the arc behind `around`, at rest. */
+/** Drop every escort NPC, then spawn each escort that is not waiting (or a wingman who is down) on the arc behind `around`, at rest. */
 export function withEscorts(t: Traffic, world: WorldState, data: GameData, around: { pos: Vec2; heading: number }): Traffic {
-  const going = world.escorts.filter((e) => !e.waiting);
+  const going = world.escorts.filter((e) => !e.waiting && e.downUntilDay === undefined);
   const lead: ShipState = { pos: around.pos, vel: { x: 0, y: 0 }, heading: around.heading, fuel: 0 };
   const spawned = going.map((e, i) => escortNpc(e, data, { pos: escortSlot(lead, i, going.length, data.escorts.followDistance), heading: around.heading }));
   const rest = withoutEscorts(t);
@@ -81,7 +81,7 @@ export function escortsJump(world: WorldState, data: GameData, t: Traffic): Worl
   const synced = syncEscorts(world, data, t);
   const byId = new Map(presentEscorts(t).map((n) => [n.id, n]));
   const escorts = synced.escorts.map((e): Escort => {
-    if (e.waiting) return e;
+    if (e.waiting || e.downUntilDay !== undefined) return e;
     const n = byId.get(e.id);
     const disabled = n ? n.hull.disabled : e.armor < DISABLE_FRACTION * escortMaxArmor(data, e);
     return disabled || e.fuel <= 0 ? { ...e, waiting: true } : { ...e, fuel: e.fuel - 1 };

@@ -99,6 +99,7 @@ export function buyShip(
       shipId,
       shipName: data.ships[shipId].name,
       outfits: {},
+      crew: data.ships[shipId].crew, // the yard crews her
       credits: world.credits - quote.net,
       ship: { ...world.ship, fuel: data.ships[shipId].fuelCapacity },
     },

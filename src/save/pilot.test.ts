@@ -105,9 +105,10 @@ describe('pilot', () => {
     const up = upgradeSave(JSON.parse(JSON.stringify(v2)));
     expect(up.version).toBe(CURRENT_SAVE_VERSION);
     expect(up.outfits).toEqual({ 'light-blaster': 1 }); // the v5 -> v6 step arms a bare shuttle
-    expect(up).toEqual({ ...v3, shipName: '' }); // migration writes an empty name = use the hull name
+    expect(up).toEqual({ ...v3, shipName: '', crew: -1 }); // migration writes an empty name = use the hull name, and -1 = a full crew
     const w = worldFromPilot(up, data);
     expect(w.outfits).toEqual({ 'light-blaster': 1 });
+    expect(w.crew).toBe(data.ships.shuttle.crew);
     expect(w.cargo).toEqual({ food: 3 });
     expect(w.missions).toEqual([mission]);
   });
@@ -141,9 +142,9 @@ describe('pilot', () => {
     );
   });
 
-  it('a version-9 save -> futureVersion', () => {
+  it('a version-10 save -> futureVersion', () => {
     const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
-    expect(() => upgradeSave({ ...p, version: 9 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
+    expect(() => upgradeSave({ ...p, version: 10 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
   });
 
   it('migration 3 -> 4 fills the story fields; shipName starts empty', () => {
@@ -329,7 +330,7 @@ describe('save v7', () => {
 
   it('a v6 save migrates to v7 with empty law and ranks', () => {
     const up = upgradeSave(v6Of());
-    expect(up).toMatchObject({ version: 8, law: {}, ranks: {} });
+    expect(up).toMatchObject({ version: 9, law: {}, ranks: {} });
     const w = worldFromPilot(up, data);
     expect(w.law).toEqual({});
     expect(w.ranks).toEqual({});
@@ -340,7 +341,7 @@ describe('save v7', () => {
       version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
       planetId: start, gameTimeSec: 0, savedAt: '2026-01-01T00:00:00.000Z',
     });
-    expect(p).toMatchObject({ version: 8, law: {}, ranks: {}, escorts: [], escortOrder: 'follow' });
+    expect(p).toMatchObject({ version: 9, law: {}, ranks: {}, escorts: [], escortOrder: 'follow' });
   });
 
   it('corrupt heat clamps to 0–100 and negative points to 0 on load', () => {
@@ -379,7 +380,7 @@ describe('save v7', () => {
   it('a v7 save whose law or ranks is missing, null or an array still loads as empty', () => {
     for (const bad of [undefined, null, [], [1, 2], 'x', 7]) {
       const up = upgradeSave({ ...v6Of(), version: 7, law: bad, ranks: bad });
-      expect(up).toMatchObject({ version: 8, law: {}, ranks: {} });
+      expect(up).toMatchObject({ version: 9, law: {}, ranks: {} });
     }
     const { law: _l, ranks: _r, ...rest } = { ...v6Of(), version: 7, law: 1, ranks: 1 };
     expect(upgradeSave(rest)).toMatchObject({ law: {}, ranks: {} });
@@ -406,7 +407,7 @@ describe('save v8', () => {
 
   it('a v7 save migrates to v8 with no escorts and order follow', () => {
     const up = upgradeSave(v7Of());
-    expect(up).toMatchObject({ version: 8, escorts: [], escortOrder: 'follow' });
+    expect(up).toMatchObject({ version: 9, escorts: [], escortOrder: 'follow' });
     const w = worldFromPilot(up, data);
     expect(w.escorts).toEqual([]);
     expect(w.escortOrder).toBe('follow');
@@ -417,7 +418,7 @@ describe('save v8', () => {
       version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
       planetId: start, gameTimeSec: 0, savedAt: '2026-01-01T00:00:00.000Z',
     });
-    expect(p).toMatchObject({ version: 8, escorts: [], escortOrder: 'follow' });
+    expect(p).toMatchObject({ version: 9, escorts: [], escortOrder: 'follow' });
   });
 
   it('newWorld starts with no escorts and order follow', () => {
@@ -511,5 +512,50 @@ describe('save v8', () => {
   it("escortOrder 'charge' loads as follow", () => {
     expect(load([], { escortOrder: 'charge' }).escortOrder).toBe('follow');
     expect(load([], { escortOrder: 'defend' }).escortOrder).toBe('defend');
+  });
+});
+
+describe('save v9', () => {
+  const v8Of = (over: Record<string, unknown> = {}) => {
+    const { crew: _c, ...rest } = pilotFromWorld(newWorld(data, 5), start, { id: 'a', name: 'A' });
+    return JSON.parse(JSON.stringify({ ...rest, version: 8, ...over }));
+  };
+  const v9 = (over: Record<string, unknown>) => ({ ...v8Of(), version: 9, ...over });
+  const wing = (over: Record<string, unknown> = {}) => ({
+    id: 'esc-1', name: 'Wren Halloway', shipId: 'kestrel', outfits: {}, armor: 20, fuel: 2, hired: true, wage: 300, wingmanId: 'wren', takedowns: 4, ...over,
+  });
+
+  it('a v8 save migrates to v9 with a full crew', () => {
+    const up = upgradeSave(v8Of({ shipId: 'warden' }));
+    expect(up).toMatchObject({ version: 9, crew: -1 });
+    expect(worldFromPilot(up, data).crew).toBe(data.ships.warden.crew);
+  });
+
+  it('crew round-trips, clamps to the complement, and a corrupt value loads as full', () => {
+    const w = { ...newWorld(data, 5), crew: 1 };
+    expect(worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data).crew).toBe(1);
+    const cap = data.ships.shuttle.crew;
+    expect(worldFromPilot(upgradeSave(v9({ crew: 99 })), data).crew).toBe(cap);
+    expect(worldFromPilot(upgradeSave(v9({ crew: 'x' })), data).crew).toBe(cap);
+    expect(worldFromPilot(upgradeSave(v9({ crew: null })), data).crew).toBe(cap);
+    expect(worldFromPilot(upgradeSave(v9({ crew: 1.7 })), data).crew).toBe(1);
+  });
+
+  it('a wingman round-trips with takedowns and recovery', () => {
+    const w = { ...newWorld(data, 5), escorts: [{ ...wing(), downUntilDay: 12 } as never] };
+    const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
+    expect(back.escorts[0]).toMatchObject({ wingmanId: 'wren', takedowns: 4, downUntilDay: 12 });
+  });
+
+  it('an unknown or repeated wingman loads as a plain escort; bad takedowns become 0', () => {
+    const w = worldFromPilot(upgradeSave(v9({ escorts: [wing(), wing({ id: 'esc-2' }), wing({ id: 'esc-3', wingmanId: 'ghost', downUntilDay: 3 }), wing({ id: 'esc-4', wingmanId: 'juno', takedowns: 'x' })] })), data);
+    expect(w.escorts.map((e) => e.wingmanId)).toEqual(['wren', undefined, undefined]);
+    expect(w.escorts[1].downUntilDay).toBeUndefined();
+    expect(w.escorts[2].downUntilDay).toBeUndefined();
+  });
+
+  it('bad takedowns on a known wingman become 0', () => {
+    const w = worldFromPilot(upgradeSave(v9({ escorts: [wing({ takedowns: -4 })] })), data);
+    expect(w.escorts[0].takedowns).toBe(0);
   });
 });

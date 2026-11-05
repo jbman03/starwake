@@ -63,6 +63,7 @@ export function podRescue(world: WorldState, data: GameData): { world: WorldStat
     ...w,
     shipId: startShipId,
     outfits,
+    crew: data.ships[startShipId].crew,
     cargo: {},
     missions,
     shipName: '',

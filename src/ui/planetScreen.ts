@@ -3,6 +3,8 @@ import { formatDate } from '../sim/calendar';
 import { cargoFree } from '../sim/cargo';
 import { fineFor, legalStatus } from '../sim/law';
 import { escortMaxArmor, hireRefusal, prizeValueOf } from '../sim/escorts';
+import { crewCap } from '../sim/crew';
+import { wingmanDef, wingmanRank } from '../sim/wingmen';
 import { governmentShortName } from '../sim/standing';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import type { RefuelQuote } from '../sim/rules';
@@ -113,7 +115,9 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   const dismiss = async (e: Escort) => {
     const ok = await confirmDialog(ctx.root, {
       title: `Dismiss ${e.name}?`,
-      message: e.hired
+      message: wingmanDef(data, e)
+        ? `${e.name} goes home to ${data.planets[wingmanDef(data, e)!.homePort]?.name ?? 'their bar'}. You can recruit them again there, but their takedowns start over and the fee is not refunded.`
+        : e.hired
         ? `${e.name} leaves your service for good. The hiring fee is not refunded.`
         : `The ship is lost for good. Sell as prize pays ${formatCredits(prizeValueOf(data, e.shipId))} instead.`,
       confirm: 'Dismiss',
@@ -127,6 +131,18 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   const sell = (id: string) => {
     const r = controller.sellEscort(id);
     if (r.ok) setStatus(`Sold the prize for ${formatCredits(r.paid)}.`);
+    render();
+  };
+  const recruit = (wingmanId: string) => {
+    const r = controller.recruitWingman(wingmanId);
+    if (r.ok) setStatus(r.line);
+    else setStatus(hireRefusal(data, r.error), true);
+    render();
+  };
+  const hireCrew = () => {
+    const r = controller.hireCrew();
+    if (r.ok) setStatus(`Hired ${r.count} crew for ${formatCredits(r.paid)}.`);
+    else if (r.error === 'short') setStatus('Not enough credits.', true);
     render();
   };
   const repairAll = () => {
@@ -171,6 +187,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       creditsNode,
       el('div', { class: 'sw-stat', text: fuelText(jumpsOf(w.ship.fuel, data.config.fuelPerJump)) }),
       el('div', { class: 'sw-stat', text: `Cargo: ${cargoFree(w, data)}/${worldStats(w, data).cargo} t` }),
+      el('div', { class: 'sw-stat', text: `Crew: ${w.crew}/${crewCap(w, data)}`, attrs: { 'data-testid': 'crew-stat' } }),
     );
     const q = controller.refuelQuote();
     const canRefuel = !!q && q.units > 0;
@@ -214,6 +231,32 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
             ),
           ])
         : null;
+    const crewOffer = controller.crewForHire();
+    const crewRow =
+      crewOffer.count > 0
+        ? el('div', { class: 'sw-escort-row', attrs: { 'data-testid': 'hire-crew' } }, [
+            el('span', { text: `Crew ${w.crew}/${crewCap(w, data)} · ${formatCredits(data.fleet.crew.hireCost)} each` }),
+            button(`Hire ${crewOffer.count} (${formatCredits(crewOffer.cost)})`, hireCrew),
+          ])
+        : null;
+    const wing = controller.wingmanOffer();
+    const wingList = wing
+      ? el('section', { class: 'sw-escort-list', attrs: { 'data-testid': 'wingman-offer', 'aria-label': 'Wingman' } }, [
+          el('h3', { class: 'sw-hotkey-group-title', text: 'Wingman' }),
+          el('div', { class: 'sw-escort-row', attrs: { 'data-wingman': wing.id } }, [
+            el('span', { text: `${wing.name} — ${data.ships[wing.shipId]?.name ?? wing.shipId} · fee ${formatCredits(wing.fee)} · ${formatCredits(wing.wage)}/day` }),
+            el('span', { class: 'sw-reason', text: wing.bio }),
+            button('Recruit', () => recruit(wing.id)),
+          ]),
+        ])
+      : null;
+    /** "Wingman · Seasoned (4)", "ejected, back from 12 Mar 3207", or the wage / kept capture. */
+    const escortNote = (e: Escort): string => {
+      const pay = e.hired ? `${formatCredits(e.wage)}/day` : 'kept capture';
+      if (!wingmanDef(data, e)) return pay;
+      const rank = `Wingman · ${wingmanRank(data, e.takedowns ?? 0).name} (${e.takedowns ?? 0})`;
+      return e.downUntilDay !== undefined ? `${rank} · ejected, back from ${formatDate(e.downUntilDay, data.config)}` : `${rank} · ${pay}`;
+    };
     const repair = controller.escortRepairCost();
     const escortList =
       w.escorts.length > 0
@@ -222,7 +265,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
             ...w.escorts.map((e) =>
               el('div', { class: 'sw-escort-row', attrs: { 'data-escort': e.id } }, [
                 el('span', {
-                  text: `${e.name} — ${data.ships[e.shipId]?.name ?? e.shipId} · armor ${Math.round(e.armor)}/${Math.round(escortMaxArmor(data, e))} · ${e.hired ? `${formatCredits(e.wage)}/day` : 'kept capture'}`,
+                  text: `${e.name} — ${data.ships[e.shipId]?.name ?? e.shipId} · armor ${Math.round(e.armor)}/${Math.round(escortMaxArmor(data, e))} · ${escortNote(e)}`,
                 }),
                 button('Dismiss', () => void dismiss(e)),
                 e.hired ? null : button(`Sell as prize (${formatCredits(prizeValueOf(data, e.shipId))})`, () => sell(e.id)),
@@ -243,6 +286,8 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       ...[exchangeBtn, missionsBtn, shipyardBtn, outfitterBtn, barBtn, refuelBtn].filter((b) => b !== null),
       ...(reason ? [reason] : []),
       ...fineRows,
+      ...(crewRow ? [crewRow] : []),
+      ...(wingList ? [wingList] : []),
       ...(hireList ? [hireList] : []),
       ...(escortList ? [escortList] : []),
       logBtn,

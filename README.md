@@ -103,6 +103,11 @@ land with you. Press I (the ORDER button on a phone) to step their order:
 Follow, Attack your target, Hold, or Return fire. They take damage in flight;
 mend them with Repair all on the planet screen. Unpaid hires leave.
 
+**Crew and wingmen.** Your ship carries a crew, hired at any bar, and the crew
+is what boards and captures ships (and boarding costs lives). Named wingmen
+wait in certain bars once you have the kills: they fly in your group, rank up
+as they take ships down, and eject instead of dying.
+
 **Sound, music and the jump.** A jump plays out like Escape Velocity's: the
 ship turns, the engines charge, it burns as the stars stretch, a flash, and it
 streaks into the next system (press J again, or SKIP on a phone, to skip ahead).

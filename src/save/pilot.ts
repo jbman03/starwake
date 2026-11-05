@@ -7,7 +7,7 @@ import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 8;
+export const CURRENT_SAVE_VERSION = 9;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -73,6 +73,10 @@ interface SavedEscort {
   hired: boolean;
   wage: number;
   leaving: boolean;
+  // v9: wingman fields; worldFromPilot drops them when the wingman is unknown.
+  wingmanId?: string;
+  takedowns?: number;
+  downUntilDay?: number;
 }
 
 function fixEscort(e: Record<string, unknown>): SavedEscort {
@@ -90,11 +94,14 @@ function fixEscort(e: Record<string, unknown>): SavedEscort {
     hired: e.hired === true,
     wage: Math.max(0, num(e.wage)),
     leaving: e.leaving === true,
+    ...(typeof e.wingmanId === 'string' && e.wingmanId ? { wingmanId: e.wingmanId } : {}),
+    ...(e.takedowns !== undefined ? { takedowns: Math.max(0, Math.floor(num(e.takedowns))) } : {}),
+    ...(typeof e.downUntilDay === 'number' && Number.isFinite(e.downUntilDay) ? { downUntilDay: Math.max(0, Math.floor(e.downUntilDay)) } : {}),
   };
 }
 
 export const PilotSaveSchema = z.object({
-  version: z.literal(8),
+  version: z.literal(9),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -158,6 +165,11 @@ export const PilotSaveSchema = z.object({
     )
     .catch([]),
   escortOrder: z.enum(ESCORT_ORDERS).catch('follow'),
+  // v9: crew aboard. -1 (a migrated save, or a corrupt value) means a full complement; worldFromPilot resolves it.
+  crew: z
+    .unknown()
+    .transform((v) => (typeof v === 'number' && Number.isFinite(v) ? v : -1))
+    .catch(-1),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
@@ -243,6 +255,8 @@ export const migrations: Record<number, (s: any) => any> = {
   6: (s) => ({ ...s, version: 7, law: {}, ranks: {} }),
   // v7 -> v8. Data-free: no escorts hired, the group follows.
   7: (s) => ({ ...s, version: 8, escorts: [], escortOrder: 'follow' }),
+  // v8 -> v9. Data-free: the crew is full (-1, resolved against the hull on load); no wingmen yet.
+  8: (s) => ({ ...s, version: 9, crew: -1 }),
 };
 
 export function upgradeSave(raw: unknown): PilotSave {
@@ -315,8 +329,11 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
       hired: e.hired,
       wage: e.wage,
       leaving: e.leaving === true,
+      ...(e.wingmanId ? { wingmanId: e.wingmanId, takedowns: e.takedowns ?? 0 } : {}),
+      ...(e.downUntilDay !== undefined ? { downUntilDay: e.downUntilDay } : {}),
     })),
     escortOrder: world.escortOrder,
+    crew: world.crew,
   };
 }
 
@@ -376,6 +393,8 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     ranks: Object.fromEntries(Object.entries(p.ranks).map(([g, r]) => [g, { ...r, points: Math.max(0, r.points) }])),
     escorts: escortsFromSave(p.escorts, data),
     escortOrder: p.escortOrder,
+    // -1 is a full complement (a migrated save); otherwise a whole number within the hull's berths.
+    crew: p.crew < 0 ? data.ships[p.shipId].crew : clamp(Math.floor(p.crew), 0, data.ships[p.shipId].crew),
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
 }
@@ -393,6 +412,13 @@ function escortsFromSave(saved: PilotSave['escorts'], data: GameData): Escort[] 
     while (ids.has(`esc-${n}`) || saved.some((e) => e.id === `esc-${n}`));
     return `esc-${n}`;
   };
+  const wingmen = new Set<string>();
+  // A known wingman, once: their takedowns and recovery come too. Otherwise the entry is a plain escort.
+  const wingmanFields = (s: SavedEscort): Pick<Escort, 'wingmanId' | 'takedowns' | 'downUntilDay'> => {
+    if (!s.wingmanId || wingmen.has(s.wingmanId) || !data.fleet.wingmen.pilots.some((w) => w.id === s.wingmanId)) return {};
+    wingmen.add(s.wingmanId);
+    return { wingmanId: s.wingmanId, takedowns: s.takedowns ?? 0, ...(s.downUntilDay !== undefined ? { downUntilDay: s.downUntilDay } : {}) };
+  };
   for (const s of saved) {
     const hull = data.ships[s.shipId];
     if (!hull) continue;
@@ -409,6 +435,7 @@ function escortsFromSave(saved: PilotSave['escorts'], data: GameData): Escort[] 
       hired: s.hired,
       wage: s.hired ? s.wage : 0,
       ...(s.leaving ? { leaving: true as const } : {}),
+      ...wingmanFields(s),
     });
   }
   return out.slice(0, data.escorts.maxEscorts);

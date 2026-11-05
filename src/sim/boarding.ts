@@ -66,7 +66,7 @@ export function boardingCrime(world: WorldState, data: GameData, npc: Npc, crime
 
 export function captureOdds(world: WorldState, data: GameData, npc: Npc): number {
   const b = data.combat.boarding;
-  const mine = data.ships[world.shipId].crew;
+  const mine = world.crew;
   const theirs = data.ships[npc.shipId].crew;
   const raw = (b.captureBase * mine) / theirs;
   return Math.round(Math.min(b.captureMax, Math.max(b.captureMin, raw)) * 100) / 100;
@@ -166,6 +166,7 @@ export function takeCommand(world: WorldState, data: GameData, npc: Npc): WorldS
     shipId: npc.shipId,
     outfits: { ...npc.outfits },
     shipName: npc.name,
+    crew: Math.min(world.crew, data.ships[npc.shipId].crew), // your crew moves across
     ship: { ...world.ship, fuel: Math.min(world.ship.fuel, her.fuelCapacity) },
     stats: { ...world.stats, captures: world.stats.captures + 1 },
   };

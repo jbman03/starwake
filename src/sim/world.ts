@@ -95,6 +95,7 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     ranks: {},
     escorts: [],
     escortOrder: 'follow',
+    crew: def.crew,
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
 }

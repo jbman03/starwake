@@ -468,6 +468,17 @@ describe('escorts in battle (cycle 6)', () => {
     expect(count(s, 'angered')).toBe(1);
   });
 
+  it('a ranked wingman\'s hits deal 1 + its rank bonus of normal damage; a plain escort\'s deal normal', () => {
+    const shot = (w: ReturnType<typeof concordWorld>) => {
+      const t = mkTraffic([mkNpc('r1', 'raiders', 300, 0, { hull: { ...hullAt(500), maxShields: 0, maxArmor: 500 } })]);
+      const s = tick(withShots(begin(w, t), bolt({ id: 1, ownerId: 'esc-1', pos: { x: 300, y: 0 }, damage: 20 })), IDLE);
+      return 500 - npc(s, 'r1').hull.armor;
+    };
+    const e = { id: 'esc-1', name: 'W', shipId: 'kestrel', outfits: {}, armor: 100, fuel: 1, hired: true, wage: 1 };
+    expect(shot({ ...concordWorld(), escorts: [e] })).toBeCloseTo(20);
+    expect(shot({ ...concordWorld(), escorts: [{ ...e, wingmanId: 'wren', takedowns: 8 }] })).toBeCloseTo(24);
+  });
+
   it('an escort\'s kill is not the player\'s: no kills, no killCounted, no rank point; byEscort on its events', () => {
     const t = mkTraffic([mkNpc('r1', 'raiders', 300, 0, { hull: hullAt(5) })]);
     let s = begin(concordWorld(), t);
@@ -479,7 +490,7 @@ describe('escorts in battle (cycle 6)', () => {
     expect(s.w.stats.kills).toBe(0);
     expect(s.w.ranks).toEqual({});
     expect(s.w.law).toEqual({});
-    expect(s.events.find((e) => e.type === 'disabled')).toEqual({ type: 'disabled', id: 'r1', byPlayer: false, byEscort: true });
+    expect(s.events.find((e) => e.type === 'disabled')).toEqual({ type: 'disabled', id: 'r1', byPlayer: false, byEscort: true, escortId: 'esc-1' });
     expect(s.events.find((e) => e.type === 'destroyed')).toMatchObject({ type: 'destroyed', id: 'r1', byPlayer: false, byEscort: true });
   });
 

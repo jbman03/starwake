@@ -16,6 +16,7 @@ import audio from '../../data/audio.json';
 import law from '../../data/law.json';
 import escorts from '../../data/escorts.json';
 import factions from '../../data/factions.json';
+import fleet from '../../data/fleet.json';
 import { parseGameData, DataError, loadGameData } from './load';
 import { SFX_IDS } from './schemas';
 import { sells } from '../sim/stock';
@@ -23,7 +24,7 @@ import { MOOD_IDS } from '../audio/moods';
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 const raw = () =>
-  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions }) as {
+  clone({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions, fleet }) as {
   ships: any[];
   systems: any[];
   planets: any[];
@@ -41,6 +42,7 @@ const raw = () =>
   law: any;
   escorts: any;
   factions: any;
+  fleet: any;
 };
 
 const port = (r: ReturnType<typeof raw>, id: string) => r.planets.find((p) => p.id === id);
@@ -1303,6 +1305,52 @@ describe('escorts.json', () => {
       const r = raw();
       mutate(r.escorts);
       expect(failure(r).file).toBe('escorts.json');
+    }
+  });
+});
+
+describe('fleet.json', () => {
+  const has = (e: DataError, text: string) => expect(e.issues.join('\n')).toContain(text);
+
+  it('loads the crew and wingmen tunables', () => {
+    const d = parseGameData(raw());
+    expect(d.fleet.crew.hireCost).toBeGreaterThan(0);
+    expect(d.fleet.wingmen.pilots.length).toBeGreaterThanOrEqual(1);
+    expect(d.fleet.wingmen.ranks[0].takedowns).toBe(0);
+  });
+
+  it('rejects an unknown wingman hull, a unique hull, an unknown home port and a port with no bar', () => {
+    const cases: [(r: any) => void, string][] = [
+      [(r) => (r.fleet.wingmen.pilots[0].shipId = 'nope'), 'wingmen.pilots.0.shipId'],
+      [(r) => (r.fleet.wingmen.pilots[0].shipId = 'patience'), 'wingmen.pilots.0.shipId'],
+      [(r) => (r.fleet.wingmen.pilots[1].homePort = 'nope'), 'wingmen.pilots.1.homePort'],
+      [(r) => (r.fleet.wingmen.pilots[1].homePort = 'the-midden'), 'wingmen.pilots.1.homePort'],
+    ];
+    for (const [mutate, at] of cases) {
+      const r = raw();
+      mutate(r);
+      const e = failure(r);
+      expect(e.file).toBe('fleet.json');
+      has(e, at);
+    }
+  });
+
+  it('rejects bad tunables, naming the file', () => {
+    const muts: ((x: any) => void)[] = [
+      (x) => (x.crew.hireCost = -1),
+      (x) => (x.crew.failLoss = 1.5),
+      (x) => (x.crew.minCrew = 0),
+      (x) => (x.wingmen.recoverDays = 0),
+      (x) => (x.wingmen.ranks[0].takedowns = 1),
+      (x) => (x.wingmen.ranks[2].takedowns = x.wingmen.ranks[1].takedowns),
+      (x) => x.wingmen.pilots.push({ ...x.wingmen.pilots[0] }),
+      (x) => (x.wingmen.pilots[0].lines.takedown = []),
+      (x) => (x.extra = 1),
+    ];
+    for (const mutate of muts) {
+      const r = raw();
+      mutate(r.fleet);
+      expect(failure(r).file).toBe('fleet.json');
     }
   });
 });
