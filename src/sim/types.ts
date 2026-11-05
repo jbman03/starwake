@@ -118,6 +118,8 @@ export interface WorldState {
   escortOrder: EscortOrder;
   /** Crew aboard the pilot's ship, 0 to the hull's complement (its `crew`). */
   crew: number;
+  /** The rival pilot's record: duels won, when he may next appear, and whether he is finished. */
+  nemesis: { defeats: number; nextDay: number; done: boolean };
 }
 
 export type EscortOrder = 'follow' | 'attack' | 'hold' | 'defend';

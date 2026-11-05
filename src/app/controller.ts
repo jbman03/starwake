@@ -9,6 +9,7 @@ import { dismissEscort, escortLosses, hireEscort, hireOffers, landEscorts, nextO
 import { crewHire, hireCrew } from '../sim/crew';
 import { creditWingmen, ejectWingmen, recruitWingman, returnWingmen, wingmanOffer } from '../sim/wingmen';
 import { dockedCount, dockFighters, FIGHTER_TEXT, fighterLosses, playerFighters } from '../sim/fighters';
+import { defeatNemesis, NEMESIS_ID, nemesisDue, nemesisPresent, nemesisWins, spawnNemesis } from '../sim/nemesis';
 import { escortsJump, presentEscorts, syncEscorts, withEscorts, withoutEscorts } from '../sim/escortNpcs';
 import { saveSettings, type Settings } from '../save/settings';
 import { nearestHostile, type Battle, type BattleEvent } from '../sim/battle';
@@ -542,6 +543,21 @@ export class Controller {
     return this.landedPlanetId ? 0 : presentEscorts(this.traffic).length;
   }
 
+  /** The rival jumps in near the ship and hails (also the test hook's way to force a duel). */
+  bringNemesis(): void {
+    const r = spawnNemesis(this.world, this.data, this.traffic, this.world.ship.pos);
+    this.traffic = r.traffic;
+    this.emit({ type: 'message', text: r.line });
+  }
+
+  /** Towed or rescued with the rival in the system: he gloats and stays away a while. */
+  private nemesisLoss(): void {
+    if (!nemesisPresent(this.traffic)) return;
+    const r = nemesisWins(this.world, this.data);
+    this.world = r.world;
+    this.notices.push(r.message);
+  }
+
   /** Leaving the system: the pilot's fighters dock (disabled ones are lost, and the HUD says so). */
   private dockFleet(): void {
     const d = dockFighters(this.world, this.data, this.traffic);
@@ -605,6 +621,7 @@ export class Controller {
     this.parkedSite = null;
     this.card = null;
     if (hasPod(this.world)) {
+      this.nemesisLoss();
       this.dockFleet();
       const r = podRescue(syncEscorts(this.world, this.data, this.traffic), this.data);
       this.world = r.world;
@@ -690,6 +707,7 @@ export class Controller {
   callTow(): boolean {
     if (!this.towDestination()) return false;
     // The escorts' state as they are towed along; the landing that follows rejoins every one.
+    this.nemesisLoss();
     this.dockFleet();
     const r = applyTow(syncEscorts(this.world, this.data, this.traffic), this.data, this.towOpts());
     this.world = r.world;
@@ -1012,6 +1030,13 @@ export class Controller {
     const losses = escortLosses(ejected.world, before, r.events);
     this.world = losses.world;
     this.traffic = r.traffic;
+    // The rival ejects when his ship is disabled; a duel won by the pilot's side counts.
+    const beaten = r.events.find((e) => e.type === 'disabled' && e.id === NEMESIS_ID);
+    const duel = beaten && beaten.type === 'disabled' ? defeatNemesis(this.world, this.data, this.traffic, beaten.byPlayer || beaten.byEscort === true) : null;
+    if (duel) {
+      this.world = duel.world;
+      this.traffic = duel.traffic;
+    }
     this.checkDemands();
     const lawSaid = this.checkLaw();
     if (r.lost) {
@@ -1021,6 +1046,7 @@ export class Controller {
     const said = r.events.flatMap((e) => (e.type === 'angered' ? [`The ${governmentShortName(e.government, this.data)} will remember that.`] : []));
     said.push(...credited.messages, ...ejected.messages, ...losses.messages, ...fighterLosses(before, r.events));
     for (const e of r.events) if (e.type === 'fighters') said.push(FIGHTER_TEXT[e.what]);
+    if (duel) said.push(...duel.messages);
     // Disabled, then calm: say so once each, with how to call the tow.
     const disabled = this.combat.playerDisabled() && !this.combat.battle.playerDestroyed;
     const calm = this.combat.disabledCalm();
@@ -1691,6 +1717,8 @@ export class Controller {
       if (e.type === 'arrived') {
         this.combat.reset(this.world, { keepHull: true }); // shots in flight stay behind in the old system; the damage comes along
         this.refreshStory();
+        // The rival may be waiting (never alongside a story ship).
+        if (!this.traffic.npcs.some((n) => n.hold) && nemesisDue(this.world, this.data, { guideActive: (this.guide?.current() ?? null) !== null, calm: this.calm })) this.bringNemesis();
         this.pending = this.rollPending();
         if (this.pending) this.world = { ...this.world, lastEncounterDay: this.world.day };
         this.emit(e);

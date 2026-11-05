@@ -96,6 +96,7 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     escorts: [],
     escortOrder: 'follow',
     crew: def.crew,
+    nemesis: { defeats: 0, nextDay: 0, done: false },
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
 }

@@ -114,8 +114,8 @@ NPC carriers launch fighters too.
 A recurring rival who hunts the pilot once they are known as a fighter.
 
 - **Data (`fleet.nemesis`):** `name`, `title`, `requiresKills` (10),
-  `chance` (0.25 on arrival in a system with no story ship), `cooldownDays` (6), `defeatsToEnd`
-  (4), `levels` (per defeat: `shipId`, extra `outfits`, `reward`), `lines` (`arrive[]`,
+  `chance` (0.25 on arrival in a system with no story ship), `cooldownDays` (6), `spawnDistance` (900 px); the number of duels
+  is the length of `levels` (4) (one per duel: `shipId`, extra `outfits`, `reward`), `lines` (`arrive[]`,
   `escape[]`, `final`), `finalFlag` (`nemesis-done`), `finalReward`.
 - **State.** `WorldState.nemesis: { defeats, nextDay, done }` (save v10, migration 9 → 10 adds
   `{ defeats: 0, nextDay: 0, done: false }`).
@@ -126,7 +126,7 @@ A recurring rival who hunts the pilot once they are known as a fighter.
   the HUD shows an `arrive` line as a hail ("<name>: …"). They ignore demands and never flee.
 - **Defeat.** Disabling the nemesis (by anyone on the player's side) makes them eject: the ship
   vanishes in a flash, the HUD shows an `escape` line, `defeats + 1`, `nextDay = day +
-  cooldownDays`, and the level's `reward` is paid. They can't be boarded. The `defeatsToEnd`-th
+  cooldownDays`, and the level's `reward` is paid. They can't be boarded. The last level's
   defeat is final: the `final` line, `finalReward`, `finalFlag` set, a captain's-log note, and
   `done = true`.
 - **Losing.** If the nemesis is in the system when the pilot is destroyed or towed, `nextDay`

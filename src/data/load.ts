@@ -540,6 +540,12 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
     if (!port) fleetIssues.push(fmt('fleet.json', `wingmen.pilots.${i}.homePort`, `unknown planet "${w.homePort}"`));
     else if (!port.services.includes('bar')) fleetIssues.push(fmt('fleet.json', `wingmen.pilots.${i}.homePort`, `"${w.homePort}" has no bar`));
   });
+  fleet.nemesis.levels.forEach((lv, i) => {
+    if (!(lv.shipId in ships)) fleetIssues.push(fmt('fleet.json', `nemesis.levels.${i}.shipId`, `unknown ship "${lv.shipId}"`));
+    else if (ships[lv.shipId].role === 'fighter') fleetIssues.push(fmt('fleet.json', `nemesis.levels.${i}.shipId`, `"${lv.shipId}" is a fighter`));
+    for (const oid of Object.keys(lv.outfits))
+      if (!(oid in outfits)) fleetIssues.push(fmt('fleet.json', `nemesis.levels.${i}.outfits.${oid}`, `unknown outfit "${oid}"`));
+  });
   if (fleetIssues.length) throw new DataError('fleet.json', fleetIssues);
 
   return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, escorts, factions, fleet };

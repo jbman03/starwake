@@ -35,6 +35,8 @@ export interface StarwakeTestHook {
   combatState: () => { player: Hull; secondary: string | null; npcs: { id: string; role: string; hull: Hull; hostile: boolean; pos: { x: number; y: number }; aggro: string[] }[] };
   /** Test-only: add an engaged raider (a `shipId` hull, default kestrel) 400 px ahead of the ship; returns its id. */
   spawnHostile: (shipId?: string) => string;
+  /** Test-only: bring the rival in now, as an arrival roll would (cycle 6 part 2C); returns his id. */
+  spawnNemesis: () => string;
   /**
    * Test-only: add a peaceful patrol of `gov` (default the system's government) 400 px ahead of the ship, inside the
    * scan and hail ranges; returns its id. The law's own rules then decide whether it scans or hails (spec §4.4, §5.2).
@@ -177,6 +179,10 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     forceEncounter: (id) => controller.forceEncounter(id),
     combatState,
     spawnHostile,
+    spawnNemesis: () => {
+      controller.bringNemesis();
+      return 'nemesis';
+    },
     spawnPatrol,
     disableTarget,
     captureWillSucceed,

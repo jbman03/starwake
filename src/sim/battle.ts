@@ -148,6 +148,7 @@ function aiSelfOf(n: Npc, me: Combatant, data: GameData): AiSelf {
     aggro: n.aggro,
     maxSpeed: data.ships[n.shipId].maxSpeed,
     fireRange: fireRangeOf(n.outfits, data),
+    ...(n.nemesis ? { noFlee: true } : {}),
   };
 }
 

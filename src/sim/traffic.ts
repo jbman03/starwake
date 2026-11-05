@@ -48,6 +48,8 @@ export interface Npc {
   missionId?: string;
   /** A carrier's fighter: the fighter outfit it docks back as, and its carrier's id (`player` for the pilot's). */
   fighter?: { outfitId: string; carrierId: string };
+  /** The pilot's rival (cycle 6 part 2C): never flees, ejects when disabled. */
+  nemesis?: true;
 }
 
 export interface TrafficOpts {

@@ -113,6 +113,10 @@ with Wasp fighters. Press U (LAUNCH on a phone) to launch them and again to
 recall them; they fly with your escorts and dock when you leave the system.
 Other carriers launch fighters at you, too.
 
+**A nemesis.** Make a name for yourself and a rival pilot starts hunting you.
+He jumps in now and then, ejects when you beat him, and comes back tougher,
+until you have beaten him four times.
+
 **Sound, music and the jump.** A jump plays out like Escape Velocity's: the
 ship turns, the engines charge, it burns as the stars stretch, a flash, and it
 streaks into the next system (press J again, or SKIP on a phone, to skip ahead).
