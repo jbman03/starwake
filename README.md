@@ -119,6 +119,13 @@ hidden search sites give a signal strength as you sweep, the exchange lists
 where a good sells high and can undo a trade, and the Fleet panel (E) shows
 where every escort and fighter is.
 
+**Plug-ins and the Starwake Editor.** Anyone can add ships, outfits, goods,
+systems, ports, encounters and story missions. Open the Starwake Editor
+(`editor.html`, or Plug-ins → Open the Editor on the main menu), copy a record
+from the game, change it and install it, or export a `.starwake.json` file to
+share. Players turn plug-ins on and off from the main menu's Plug-ins screen; a
+plug-in that would not load is refused, so the game itself always works.
+
 **A nemesis.** Make a name for yourself and a rival pilot starts hunting you.
 He jumps in now and then, ejects when you beat him, and comes back tougher,
 until you have beaten him four times.

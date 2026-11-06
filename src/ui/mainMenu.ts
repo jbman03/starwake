@@ -1,3 +1,4 @@
+import { showPluginsScreen } from './pluginsScreen';
 import { MSG_USED_BACKUP } from '../app/controller';
 import { SaveError, worldFromPilot, type PilotSave } from '../save/pilot';
 import type { GameData } from '../data/schemas';
@@ -240,6 +241,7 @@ export function showMainMenu(ctx: UiContext): void {
         button('Import pilot', () => file.click()),
         button('How to Play', openHowToPlay, { hotkey: hotkeyFor(controller.settings.bindings, 'menuHowToPlay') }),
         button('Settings', () => showSettings(ctx, { mode: ctx.inputMode.mode, onClose: () => showMainMenu(ctx) })),
+        button('Plug-ins', () => showPluginsScreen(ctx, () => showMainMenu(ctx))),
       ]),
       list,
       status,

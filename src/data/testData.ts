@@ -16,10 +16,15 @@ import fleet from '../../data/fleet.json';
 import planets from '../../data/planets.json';
 import ships from '../../data/ships.json';
 import systems from '../../data/systems.json';
-import { parseGameData } from './load';
+import { parseGameData, type RawGameData } from './load';
 import type { GameData } from './schemas';
 
 let cached: GameData | null = null;
+
+/** The shipped data files, raw and unvalidated (a fresh deep copy each call). For tests. */
+export function testRaw(): RawGameData {
+  return JSON.parse(JSON.stringify({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions, fleet })) as RawGameData;
+}
 
 /** The shipped game data, parsed once and shared. For tests; treat it as read-only. */
 export function testData(): GameData {
