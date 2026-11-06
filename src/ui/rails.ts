@@ -270,7 +270,9 @@ export function mountRails(opts: RailsOptions): Rails {
     }, TARGET_HOLD_MS);
   });
   targetBtn.addEventListener('pointerup', () => endTarget(true));
-  for (const type of ['pointercancel', 'lostpointercapture'] as const) targetBtn.addEventListener(type, () => endTarget(false));
+  // Only a real cancel ends the hold: a lost capture (some phones drop it mid-press) must not swallow the
+  // nearest-hostile hold (phone playtest bug 1).
+  targetBtn.addEventListener('pointercancel', () => endTarget(false));
   const missile = holdButton('missile', 'MSL', 'fireSecondary', 'Fire missile');
   // The selected launcher and its ammo, under MSL; tapping it picks the next launcher.
   const secondary = el('button', {

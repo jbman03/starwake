@@ -54,7 +54,8 @@ const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe('pageSize', () => {
   it('is 3x2 on a phone and 4x3 on a desktop', () => {
-    expect(pageSize(844, 390)).toEqual({ cols: 3, rows: 2 });
+    expect(pageSize(844, 390)).toEqual({ cols: 4, rows: 2 });
+    expect(pageSize(667, 375)).toEqual({ cols: 3, rows: 2 });
     expect(pageSize(1280, 800)).toEqual({ cols: 4, rows: 3 });
   });
 });

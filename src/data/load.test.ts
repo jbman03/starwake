@@ -356,8 +356,8 @@ describe('galaxy content', () => {
   });
 
   it('fringe ports charge more for fuel than core ports', () => {
-    expect(d.planets['tallow-rock'].fuelPrice).toBe(5);
-    expect(d.planets['little-wren'].fuelPrice).toBe(4);
+    expect(d.planets['tallow-rock'].fuelPrice).toBe(4);
+    expect(d.planets['little-wren'].fuelPrice).toBe(3);
     expect(d.planets.halcyon.fuelPrice).toBe(2);
   });
 

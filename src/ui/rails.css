@@ -79,6 +79,11 @@ html, body, #ui { touch-action: manipulation; }
 .sw-bar-shield { background: #4aa8ff; }
 .sw-bar-armor { background: #c9a24a; }
 .sw-rail-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A narrow portrait view without the rotate prompt (e.g. a touch screen with a fine pointer): HUD lines wrap
+   rather than cut off (phone playtest bug 7). */
+@media (orientation: portrait) and (max-width: 500px) {
+  .sw-rail-line, .sw-rail-sys { white-space: normal; overflow-wrap: anywhere; }
+}
 .sw-rail-dim { color: #b8c4d2; }
 /* The course line may wrap to a second line rather than cut off the jump count. */
 .sw-rail-course { color: #9fe7a0; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }

@@ -31,9 +31,11 @@ export interface ShopOpts {
   selected?: string;
 }
 
-/** Tiles per page: 4x3 on desktop, 3x2 on a phone (short or narrow viewport). */
+/** Tiles per page: 4x3 on desktop, 4x2 on a wide, short phone in landscape, 3x2 on anything narrower (phone playtest bug 10). */
 export function pageSize(width: number, height: number): { cols: number; rows: number } {
-  return height < 500 || width < 640 ? { cols: 3, rows: 2 } : { cols: 4, rows: 3 };
+  if (width < 640) return { cols: 3, rows: 2 };
+  if (height < 500) return width >= 760 ? { cols: 4, rows: 2 } : { cols: 3, rows: 2 };
+  return { cols: 4, rows: 3 };
 }
 
 /**

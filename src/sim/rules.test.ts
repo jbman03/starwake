@@ -85,7 +85,7 @@ describe('refuelQuote', () => {
     expect(refuelQuote(100, shuttle.fuelCapacity, h, 0)).toEqual({ units: 0, cost: 0, reason: 'noCredits' });
   });
   it('quotes fuel at a fringe port', () => {
-    expect(refuelQuote(100, shuttle.fuelCapacity, data.planets['tallow-rock'], 10000)).toEqual({ units: 200, cost: 1000 });
+    expect(refuelQuote(100, shuttle.fuelCapacity, data.planets['tallow-rock'], 10000)).toEqual({ units: 200, cost: 800 });
   });
   it('quotes whole units and whole credits for a fractional tank', () => {
     const q = refuelQuote(287.3333, shuttle.fuelCapacity, h, 10000);

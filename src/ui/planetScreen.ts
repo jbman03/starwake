@@ -204,7 +204,9 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       ? button('Outfitter', openOutfitter, { hotkey: hotkeyFor(bindings, 'openOutfitter') })
       : null;
     const barBtn = services.has('bar') ? button('Spaceport Bar', openBar, { hotkey: hotkeyFor(bindings, 'openBar') }) : null;
-    const refuelBtn = button(canRefuel ? `Refuel — ${formatCredits(q.cost)}` : 'Refuel', refuel, {
+    // The price per jump too, so a dear fringe port shows it (phone playtest bug 6).
+    const perJump = formatCredits(Math.round(planet.fuelPrice * data.config.fuelPerJump));
+    const refuelBtn = button(canRefuel ? `Refuel — ${formatCredits(q.cost)} (${perJump}/jump)` : 'Refuel', refuel, {
       hotkey: hotkeyFor(bindings, 'refuel'),
       disabled: !canRefuel,
     });
@@ -281,7 +283,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
         : null;
     const logBtn = button('Mission Log', openMissionLog, { hotkey: hotkeyFor(bindings, 'missionLog') });
     const helpBtn = button('How to Play', openHowToPlay, { hotkey: hotkeyFor(bindings, 'howToPlay') });
-    const leaveBtn = button('Leave', leave, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'leave') });
+    const leaveBtn = button('Leave', leave, { class: 'sw-btn-primary sw-leave', hotkey: hotkeyFor(bindings, 'leave') });
     actions.replaceChildren(
       ...[exchangeBtn, missionsBtn, shipyardBtn, outfitterBtn, barBtn, refuelBtn].filter((b) => b !== null),
       ...(reason ? [reason] : []),

@@ -84,7 +84,7 @@ describe('planet screen', () => {
 
   it('Halcyon offers every service, in order, with hotkey chips, plus date and cargo', async () => {
     const { root } = await setup(1000, 150);
-    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Outfitter', 'Spaceport Bar', 'Refuel — 300 cr', 'Mission Log', 'How to Play', 'Leave']);
+    expect(labels(root)).toEqual(['Commodity Exchange', 'Mission Computer', 'Outfitter', 'Spaceport Bar', 'Refuel — 300 cr (200 cr/jump)', 'Mission Log', 'How to Play', 'Leave']);
     const chips = [...root.querySelectorAll('.sw-actions .sw-key')].map((k) => k.textContent);
     expect(chips).toEqual(['C', 'M', 'O', 'B', 'R', 'K', 'H', 'L']);
     expect(root.textContent).toContain('1 Mar 3207');
@@ -93,7 +93,7 @@ describe('planet screen', () => {
 
   it('a former fuel-less port (Tallow Rock) now offers Refuel', async () => {
     const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'tallow-rock');
-    expect(labels(root)).toContain('Refuel — 750 cr');
+    expect(labels(root)).toContain('Refuel — 600 cr (400 cr/jump)'); // fringe fuel eased (phone playtest)
     expect(find(root, 'Refuel').disabled).toBe(false);
   });
 

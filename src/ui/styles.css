@@ -31,7 +31,8 @@
 /* Keep the heading and the stats row clear of the corner button. */
 .sw-panel:has(> .sw-map-corner) > :is(.sw-title, .sw-stats, .sw-ex-stats) { padding-right: 148px; }
 /* Phones: no keyboard, so no key chip (the other buttons drop theirs on short screens too). */
-@media (max-height: 500px), (pointer: coarse) { .sw-map-corner .sw-key { display: none; } }
+@media (max-height: 500px), (pointer: coarse) { .sw-map-corner :root[data-input='touch'] .sw-key { display: none; }
+.sw-key { display: none; } }
 /* margin:auto centers the panel but lets a too-tall one scroll instead of clipping its top. */
 .sw-screen > .sw-panel { margin: auto; }
 .sw-overlay { background: rgba(2, 4, 8, 0.62); }
@@ -155,8 +156,10 @@
 .sw-planet-lists { display: flex; flex-direction: column; gap: 8px; max-height: 34vh; overflow-y: auto; padding-right: 4px; }
 .sw-stats { padding: 10px 12px; border: 1px solid var(--sw-border); border-radius: 3px; background: var(--sw-panel-2); font-size: 15px; line-height: 1.6; }
 
-/* Phone landscape: short screens get a tighter planet screen. */
+/* Phone landscape: short screens get a tighter planet screen. Leave sticks to the bottom of the view while the
+   screen scrolls, so it is never below the fold (phone playtest bug 3). */
 @media (max-height: 500px) {
+  .sw-planet-screen .sw-leave { position: sticky; bottom: 8px; z-index: 3; box-shadow: 0 -6px 12px rgba(0, 0, 0, 0.6); }
   .sw-planet-frame { gap: 12px; padding: 12px; }
   .sw-planet-picture { width: min(200px, 26vw, 70vh); }
   .sw-planet-desc { font-size: 14px; line-height: 1.4; }
@@ -318,6 +321,14 @@
 .sw-htp .sw-reason { margin: 0 0 6px; }
 .sw-htp .sw-tabs { flex-wrap: wrap; flex-shrink: 0; }
 .sw-htp .sw-tabs > .sw-tab { flex: 1 1 auto; }
+/* Short screens (phone landscape): one scrolling row of tabs and tighter spacing, so the text gets the height
+   (phone playtest bug 9: only two lines showed at 375 px). */
+@media (max-height: 500px) {
+  .sw-htp .sw-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .sw-htp .sw-tabs > .sw-tab { flex: 0 0 auto; min-height: 36px; padding: 4px 10px; }
+  .sw-htp .sw-title { margin: 0 0 4px; font-size: 18px; }
+  .sw-htp-p { font-size: 14px; line-height: 1.35; }
+}
 
 /* Fatal screens (crash, bad data) and the update banner live on <body>, above everything. */
 .sw-fatal {

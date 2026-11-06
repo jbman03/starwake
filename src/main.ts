@@ -48,6 +48,10 @@ async function boot(): Promise<void> {
   controller.store = store;
   installTestHook(controller, data, store);
   const inputMode = new InputMode(window, () => settings.bindings);
+  // The page knows the input mode, so touch play hides keyboard hotkey chips (phone playtest bug 8).
+  const markInput = (mode: string) => (document.documentElement.dataset.input = mode);
+  markInput(inputMode.mode);
+  inputMode.onChange(markInput);
 
   // Sound: the audio context wakes on the first key or tap; events play their effects.
   const mixer = new Mixer(() => settings);
