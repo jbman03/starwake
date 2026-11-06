@@ -172,7 +172,7 @@ test.describe('desktop', () => {
     await dieInFlight(page);
     const card = page.getByTestId('destroyed-card');
     await expect(card).toBeVisible({ timeout: 20_000 });
-    await expect(card).toContainText('Your ship is lost.');
+    await expect(card).toContainText('You had no escape pod.');
     await card.getByTestId('destroyed-continue').click();
     await expect(page.getByTestId('planet-screen')).toBeVisible();
     await expect(page.getByTestId('planet-screen')).toContainText('Halcyon');

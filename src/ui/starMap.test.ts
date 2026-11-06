@@ -9,7 +9,7 @@ import type { Mission, WorldState } from '../sim/types';
 import { accept } from '../sim/missions';
 import { newWorld } from '../sim/world';
 import type { UiContext } from './context';
-import { mapModel, PAD, routeSummary, showStarMap, systemDetails, visibleSystemCount } from './starMap';
+import { mapModel, PAD, PAD_X, routeSummary, showStarMap, systemDetails, visibleSystemCount } from './starMap';
 
 const data = testData();
 const world = (): WorldState => newWorld(data, 1);
@@ -298,12 +298,12 @@ describe('showStarMap', () => {
     const { root } = setup(undefined, undefined, { preview: { systemId: 'tessaly', label: 'Mission: x' } });
     const [x, y, w, h] = root.querySelector('svg')!.getAttribute('viewBox')!.split(' ').map(Number);
     const at = data.systems.tessaly.mapPos;
-    const all = Object.values(data.systems).filter((q) => !q.hidden);
+    const all = Object.values(data.systems); // the whole galaxy frames the map, hidden systems included
     const xs = all.map((q) => q.mapPos.x);
     const ys = all.map((q) => q.mapPos.y);
-    const bx = Math.min(...xs) - PAD;
+    const bx = Math.min(...xs) - PAD_X;
     const by = Math.min(...ys) - PAD;
-    const bw = Math.max(...xs) + PAD - bx;
+    const bw = Math.max(...xs) + PAD_X - bx;
     const bh = Math.max(...ys) + PAD - by;
     expect(w).toBeCloseTo(bw / 2, 6); // zoom 2
     expect(h).toBeCloseTo(bh / 2, 6);

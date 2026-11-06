@@ -529,6 +529,9 @@ const SpawnSchema = z
     maxHostileRaiders: z.number().int().nonnegative(),
     raiderHulls: z.record(z.string(), z.number().positive()), // ship id -> weight
     patrolHulls: z.array(z.string()).min(1),
+    // A green pilot (fewer kills than greenKills) meets only raider hulls up to greenRaiderTier, and every raider hails first.
+    greenKills: z.number().int().nonnegative(),
+    greenRaiderTier: z.number().int().min(1).max(5),
   })
   .strict();
 

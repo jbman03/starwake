@@ -44,7 +44,8 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
     ...Object.keys(controller.world.cargo).filter((id) => data.commodities[id] && outlawed(id)),
   ];
   const bindings = controller.settings.bindings;
-  let selected = goods[0] ?? '';
+  // Open on a good in the hold, if any, so Sell all sells what you carry (playtest bug 18); else the first row.
+  let selected = goods.find((g) => (controller.world.cargo[g] ?? 0) > 0) ?? goods[0] ?? '';
   let shiftHeld = false;
 
   const close = () => {

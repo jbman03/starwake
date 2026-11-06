@@ -23,7 +23,7 @@ export function showDestroyedCard(ctx: UiContext, view: { pod: boolean }): void 
       el('h1', { class: 'sw-title', text: 'Ship destroyed' }),
       el('div', { class: 'sw-enc-body' }, [
         el('p', { class: 'sw-enc-text', text: 'Your ship is destroyed.' }),
-        el('p', { class: 'sw-enc-text', text: view.pod ? 'Your escape pod got you clear.' : 'Your ship is lost.' }),
+        el('p', { class: 'sw-enc-text', text: view.pod ? 'Your escape pod got you clear.' : 'You had no escape pod.' }),
       ]),
       el('div', { class: 'sw-ex-actions' }, [primary]),
     ]),

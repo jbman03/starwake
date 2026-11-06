@@ -17,6 +17,8 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 export const UNKNOWN_COLOR = '#5a6472';
 /** Map units of empty space around the outermost systems at minimum zoom. */
 export const PAD = 100;
+/** Wider at the sides: a name drawn beside an edge system needs the room. */
+export const PAD_X = 160;
 const MAX_ZOOM = 4;
 const PREVIEW_ZOOM = 2;
 const ZOOM_STEP = 1.5;
@@ -180,10 +182,12 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
   };
 
   // ---- view box: zoom and pan ---------------------------------------------
-  const all = visibleSystems(data, controller.world.flags);
-  const bx = Math.min(...all.map((s) => s.mapPos.x)) - PAD;
+  // The frame is the whole galaxy (hidden systems included, though they are not drawn), so a lane opening never
+  // re-lays the map out under the pilot's finger; the side padding leaves room for edge labels (playtest bug 14).
+  const all = Object.values(data.systems);
+  const bx = Math.min(...all.map((s) => s.mapPos.x)) - PAD_X;
   const by = Math.min(...all.map((s) => s.mapPos.y)) - PAD;
-  const bw = Math.max(...all.map((s) => s.mapPos.x)) + PAD - bx;
+  const bw = Math.max(...all.map((s) => s.mapPos.x)) + PAD_X - bx;
   const bh = Math.max(...all.map((s) => s.mapPos.y)) + PAD - by;
   const view = { cx: bx + bw / 2, cy: by + bh / 2, z: 1 };
 

@@ -51,6 +51,7 @@ export const PHONE_CONTROLS: Record<ActionId, string> = {
   interact: 'Answer hail, or the Scan, Search or Open site button',
   escortOrder: 'ORDER button (with escorts)',
   launchFighters: 'LAUNCH button (with a fighter bay)',
+  prevTarget: 'TGT button (steps forward only)',
   openExchange: 'Tap the button',
   openMissions: 'Tap the button',
   openShipyard: 'Tap the button',
@@ -117,7 +118,7 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
     case 'flying':
       return [
         { heading: 'Steer and brake', text: `${k('thrust')} thrusts, ${k('turnLeft')} and ${k('turnRight')} turn, ${k('reverse')} reverses. ${k('autoStop')} turns you around and brakes to a stop. On a phone, push the stick to fly and tap STOP to brake.` },
-        { heading: 'Targets', text: `${k('nextTarget')} cycles through the ships in the system, then the planets and stations; ${k('faceTarget')} turns you to face the target. Click or tap a ship or planet to target it. A targeted ship's name, faction, hull and role show on the target line. ${k('autopilot')} flies to the targeted planet, or out to the jump point when nothing is targeted; press it again, or any steering key, to take over.` },
+        { heading: 'Targets', text: `${k('nextTarget')} cycles through the ships in the system, then the planets and stations (${k('prevTarget')} steps back); ${k('faceTarget')} turns you to face the target. Click or tap a ship or planet to target it. A targeted ship's name, faction, hull and role show on the target line. ${k('autopilot')} flies to the targeted planet, or out to the jump point when nothing is targeted; press it again, or any steering key, to take over.` },
         { heading: 'Other ships', text: 'The galaxy is busy. Ships jump in, land, take off and pass through, and the busy core sees more of them than the quiet fringe. Most are traders going about their business. Raiders, mostly out on the fringe, attack or demand a toll; patrols fight raiders, and anyone who angers them.' },
         { heading: 'Hails and sites', text: `Now and then a ship hails you on the radio, or a white diamond appears in space, on the view and the radar. ${k('interact')} answers a hail. To open a site, fly close and slow, then press ${k('interact')}. On a phone, the bottom button changes to Answer hail or Open site. An encounter is a short card: press ${k('encounterChoice1')}, ${k('encounterChoice2')} or ${k('encounterChoice3')} to choose, then Done (or Esc) to carry on.` },
         { heading: 'Weapons', text: `${k('firePrimary')} fires your guns and ${k('fireSecondary')} fires the selected launcher; ${k('cycleSecondary')} picks the next launcher. ${k('nearestHostile')} targets the nearest hostile ship. On a phone, hold FIRE or MSL. Beams never run out: they draw on power (shown as Beam %), which drains while you fire and recharges when you stop, and a drained beam still hits at ${Math.round(data.combat.beams.minPower * 100)}% strength.` },

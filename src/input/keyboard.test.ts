@@ -81,13 +81,23 @@ describe('KeyboardSource', () => {
     expect(src.poll('planet').pressed.has('leave')).toBe(false);
   });
 
-  it('drains unbound taps so they never show up later', () => {
+  it('an unused tap survives one poll (for the screen underneath) and is gone after two', () => {
     const { src, key } = setup();
     key('keydown', 'KeyL');
     key('keyup', 'KeyL');
     src.poll('menus');
+    src.poll('menus');
     expect(src.poll('planet').pressed.has('leave')).toBe(false);
     expect(src.poll('flight').pressed.size).toBe(0);
+  });
+
+  it('a key hit in the same frame as the one closing a dialog reaches the next screen (playtest bug 10)', () => {
+    const { src, key } = setup();
+    key('keydown', 'Escape');
+    key('keydown', 'KeyN');
+    expect(src.poll('menus').pressed.has('back')).toBe(true);
+    expect(src.poll('flight').pressed.has('map')).toBe(true);
+    expect(src.poll('flight').pressed.has('map')).toBe(false); // spent
   });
 
   it('polls several groups at once', () => {

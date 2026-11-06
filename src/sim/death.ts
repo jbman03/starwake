@@ -44,19 +44,34 @@ export function podRescue(world: WorldState, data: GameData): { world: WorldStat
   const planet = data.planets[planetId];
   const messages = [`Your escape pod reaches ${planet.name}.`];
 
+  const { startShipId, startOutfits } = data.config;
+  // Story cargo and passengers ride the pod when the starter ship has room for them (playtest: a rescue that
+  // failed a story step sent the pilot seven jumps back); what does not fit is lost, and the giver offers it again.
+  const room = shipStats(startShipId, startOutfits, data);
+  let tons = 0;
+  let pax = 0;
+  const kept = new Set<string>();
   let w: WorldState = world;
   for (const a of world.story.active) {
     const kind = currentStep(w, data, a.id)?.kind;
-    if (kind === 'deliver' || kind === 'ferry') {
-      w = returnToGiver(w, data, a.id);
-      messages.push(`${data.story[a.id].title}: the cargo or passengers are lost. ${data.story[a.id].giver.name} will talk to you again.`);
+    if (kind !== 'deliver' && kind !== 'ferry') continue;
+    const held = w.missions.filter((m) => m.typeId === STORY_TYPE && m.id.startsWith(`${STORY_TYPE}:${a.id}:`));
+    const t = held.reduce((n, m) => n + m.tons, 0);
+    const p = held.reduce((n, m) => n + m.passengers, 0);
+    if (tons + t <= room.cargo && pax + p <= room.passengers) {
+      tons += t;
+      pax += p;
+      for (const m of held) kept.add(m.id);
+      messages.push(`${data.story[a.id].title}: the ${p > 0 ? 'passengers make' : 'cargo makes'} it into the pod with you.`);
+      continue;
     }
+    w = returnToGiver(w, data, a.id);
+    messages.push(`${data.story[a.id].title}: the cargo or passengers are lost. ${data.story[a.id].giver.name} will talk to you again.`);
   }
   const lost = jobMissions(w).filter((m) => m.tons > 0 || m.passengers > 0);
   for (const m of lost) messages.push(`Job lost: ${m.title}`);
-  const missions = w.missions.filter((m) => m.typeId !== STORY_TYPE && !lost.includes(m));
+  const missions = w.missions.filter((m) => (m.typeId === STORY_TYPE ? kept.has(m.id) : !lost.includes(m)));
 
-  const { startShipId, startOutfits } = data.config;
   const outfits = { ...startOutfits };
   const map = revealOnArrival(w.known, w.seen, data, planet.systemId, w.flags);
   w = {

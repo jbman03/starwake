@@ -408,6 +408,8 @@ export class Controller {
   /** Depart from the planet we're landed on, with no target selected, and resume flight. */
   leavePlanet(): void {
     if (!this.landedPlanetId) return;
+    // Save before take-off too, so purchases, refuels and jobs taken here survive a reload (playtest bug 11).
+    this.autosave();
     this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
     if (this.traffic.systemId !== this.world.systemId) this.traffic = this.freshTraffic(this.world);
     this.traffic = withEscorts(this.traffic, this.world, this.data, this.world.ship); // the group takes off around the parked ship
@@ -972,9 +974,10 @@ export class Controller {
       this.queued.clear();
       // A disabled ship can't answer a hail or open a site (the context button offers nothing either).
       if (pressed.delete('interact') && !this.combat.playerDisabled() && this.openEncounter()) return;
-      if (pressed.delete('nextTarget')) {
-        // Tab walks sites, then ships, then planets (the sim's own planet-only cycle is not used from here).
-        const pick = cycleTarget(this.world, this.data, this.traffic, this.targetSites(), this.targetedSite()?.id ?? null);
+      const back = pressed.delete('prevTarget');
+      if (pressed.delete('nextTarget') || back) {
+        // Tab walks sites, then ships, then planets (the sim's own planet-only cycle is not used from here); T walks back.
+        const pick = cycleTarget(this.world, this.data, this.traffic, this.targetSites(), this.targetedSite()?.id ?? null, back);
         this.traffic = { ...this.traffic, targetId: pick.shipId };
         this.world = { ...this.world, targetPlanetId: pick.planetId };
         this.targetSiteId = pick.siteId;
@@ -1473,7 +1476,8 @@ export class Controller {
     }
     if (this.storyMeet) return this.openCard('story');
     if (p?.kind === 'site' || story) {
-      this.emit({ type: 'message', text: 'Move closer to the site and slow down to open it.' });
+      // Name the controls (playtest bug 15): target it, fly there, then open it.
+      this.emit({ type: 'message', text: 'Move closer to the site and slow down to open it: {nextTarget} targets it and {autopilot} flies you beside it.' });
     }
     return false;
   }
@@ -1558,7 +1562,8 @@ export class Controller {
       text: `${p.npcName}, a raider, has you in its sights. "Pay ${credits} cr or dump ${tons} t of cargo, or we attack."`,
       choices: [
         { label: `Pay ${credits} cr`, blocked: this.world.credits >= credits ? null : 'Not enough credits' },
-        { label: cargo ? `Dump ${cargo.tons} t of ${spans ? `${good} and more` : good}` : `Dump ${tons} t of cargo`, blocked: cargo ? null : 'Hold is empty' },
+        // Mission cargo can't be dumped; say so rather than call a full hold empty (playtest bug 21).
+        { label: cargo ? `Dump ${cargo.tons} t of ${spans ? `${good} and more` : good}` : `Dump ${tons} t of cargo`, blocked: cargo ? null : this.world.missions.some((m) => m.tons > 0) ? 'Only mission cargo aboard' : 'Hold is empty' },
         { label: 'Refuse', blocked: null },
       ],
     };

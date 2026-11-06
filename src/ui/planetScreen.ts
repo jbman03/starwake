@@ -286,10 +286,11 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       ...[exchangeBtn, missionsBtn, shipyardBtn, outfitterBtn, barBtn, refuelBtn].filter((b) => b !== null),
       ...(reason ? [reason] : []),
       ...fineRows,
-      ...(crewRow ? [crewRow] : []),
-      ...(wingList ? [wingList] : []),
-      ...(hireList ? [hireList] : []),
-      ...(escortList ? [escortList] : []),
+      // Crew, wingman and escort lists scroll in their own box, so Leave is never pushed off screen (playtest bug 22).
+      ...(() => {
+        const lists = [crewRow, wingList, hireList, escortList].filter((x) => x !== null);
+        return lists.length ? [el('div', { class: 'sw-planet-lists', attrs: { 'data-testid': 'planet-lists' } }, lists)] : [];
+      })(),
       logBtn,
       helpBtn,
       leaveBtn,

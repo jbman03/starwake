@@ -42,7 +42,7 @@ describe('pilotCard', () => {
 
   it('an empty ship name shows the hull name', () => {
     const hull = data.ships[newWorld(data, 5).shipId].name;
-    expect(pilotCard(save({ shipName: '' }), data).shipLine).toBe(`${hull} — ${hull}`);
+    expect(pilotCard(save({ shipName: '' }), data).shipLine).toBe(hull);
   });
 
   it('hidden systems are excluded from the total until the lane flag is set', () => {

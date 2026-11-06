@@ -324,8 +324,9 @@ describe('Controller', () => {
     run(c, LANDING_FX_SEC + 0.05);
     expect(c.landedPlanetId).toBe('halcyon');
     await c.lastSave;
-    expect(saved).toHaveLength(1);
-    expect(saved[0]).toMatchObject({ id: 'p1', name: 'Ava', planetId: 'halcyon', systemId: 'calder' });
+    // One save on take-off (playtest bug 11), one on landing.
+    expect(saved).toHaveLength(2);
+    expect(saved[1]).toMatchObject({ id: 'p1', name: 'Ava', planetId: 'halcyon', systemId: 'calder' });
     expect(events).toContainEqual({ type: 'saved', ok: true });
   });
 
@@ -574,10 +575,13 @@ describe('Controller landing and take-off effects', () => {
     c.beginSession(c.world, { id: 'p1', name: 'Ava' }, 'halcyon');
     c.leavePlanet();
     run(c, LANDING_FX_SEC + 0.05);
+    await c.lastSave; // the take-off save
+    saved.length = 0;
     events.length = 0;
     c.doContextAction();
     run(c, LANDING_FX_SEC - 0.1);
     expect(events.some((e) => e.type === 'landed')).toBe(false);
+    expect(saved).toHaveLength(0); // landing work (its save) waits for the landing
     expect(c.landedPlanetId).toBeNull();
     expect(c.isFlying).toBe(true);
     const mid = c.view().landingT;
@@ -756,7 +760,7 @@ describe('Controller trade, missions and routes', () => {
       c.update(1 / 60);
     };
 
-    it('Tab cycles ships nearest first, then planets, then none', async () => {
+    it('Tab cycles ships in arrival order, then planets, then none', async () => {
       const { c, data, target } = await setup();
       const ports = Object.values(data.planets).filter((p) => p.systemId === c.world.systemId).length;
       expect(ports).toBeGreaterThanOrEqual(2);
@@ -774,7 +778,7 @@ describe('Controller trade, missions and routes', () => {
         seen.push(c.traffic.targetId ?? c.world.targetPlanetId ?? 'none');
         if (c.traffic.targetId) expect(c.world.targetPlanetId).toBeNull();
       }
-      expect(seen.slice(0, 2)).toEqual(['near', 'far']);
+      expect(seen.slice(0, 2)).toEqual(['far', 'near']);
       expect(c.data.planets[seen[2]]).toBeDefined();
       expect(seen[2 + ports]).toBe('none');
       expect(c.traffic.targetId).toBeNull();
@@ -1076,7 +1080,7 @@ describe('Controller story steps in flight', () => {
       expect(c.targetSites().map((s) => s.label)).toEqual(['Cache']);
     });
 
-    it('the pending encounter site is targetable too, sites nearest first', async () => {
+    it('the pending encounter site is targetable too, the sites in a fixed order', async () => {
       const { c, target } = await flying(scan);
       const enc = Object.values(c.data.encounters).find((e) => e.kind === 'site')!;
       park(c, 0, 0);
@@ -1089,7 +1093,7 @@ describe('Controller story steps in flight', () => {
       press(c, target, 'Tab');
       const second = c.targetedSite()!;
       expect(second.id).not.toBe(first.id);
-      expect(Math.hypot(first.pos.x, first.pos.y)).toBeLessThanOrEqual(Math.hypot(second.pos.x, second.pos.y));
+      expect([first.label, second.label]).toEqual(labels);
     });
 
     it('autopilot with a site targeted flies beside it and stops, ready to scan', async () => {

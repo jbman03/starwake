@@ -43,8 +43,11 @@ export const siteStepHint = (find: boolean, touch = false): string =>
     ? "It's out in space, not at a port: fly around the system until it shows on the radar, then target it ({nextTarget}), fly beside it slowly and press {interact}."
     : "It's out in space, not at a port: target it ({nextTarget}), fly beside it slowly, then press {interact}.";
 
+/** "The Dead lantern", but "Pell Darrow's courier" as it is: a possessive or a label with its own article takes no "The" (playtest bug 24). */
+export const theLabel = (label: string): string => (/^(the|a|an) /i.test(label) || /'s\b/.test(label) ? label : `The ${label}`);
+
 /** Shown on the planet screen when a port is landed at in the system of a story scan or find step (`hidden`: a find site not yet seen). */
 export const siteNoticeText = (label: string, hidden = false): string =>
   hidden
-    ? `The ${label} is out in space, not at this port. Fly around the system until it shows on the radar, then target it with {nextTarget}.`
-    : `The ${label} is out in space, not at this port. Target it with {nextTarget} and fly beside it.`;
+    ? `${theLabel(label)} is out in space, not at this port. Fly around the system until it shows on the radar, then target it with {nextTarget}.`
+    : `${theLabel(label)} is out in space, not at this port. Target it with {nextTarget} and fly beside it.`;

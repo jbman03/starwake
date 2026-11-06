@@ -24,7 +24,10 @@ async function setup(opts: { pod?: boolean; save?: boolean } = {}) {
   c.beginSession({ ...w, credits: 1234, outfits: { ...w.outfits, ...(opts.pod ? { [POD_ID]: 1 } : {}) } }, { id: 'p', name: 'P' }, 'halcyon');
   c.store = store;
   if (opts.save !== false) await c.save();
+  // Leaving autosaves; "no save" is a store that kept nothing (as when that save failed).
+  if (opts.save === false) c.store = null;
   c.leavePlanet();
+  if (opts.save === false) c.store = store;
   const root = document.createElement('div');
   document.body.append(root);
   const calls: string[] = [];
@@ -119,7 +122,7 @@ describe('destroyed card', () => {
     destroy();
     expect(c.deathView()).toEqual({ pod: false });
     showDestroyedCard(ctx, c.deathView()!);
-    expect(root.textContent).toContain('Your ship is lost.');
+    expect(root.textContent).toContain('You had no escape pod.');
     btn(/Load last save/).click();
     await new Promise((r) => setTimeout(r, 20));
     expect(c.world.credits).toBe(1234);

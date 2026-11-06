@@ -20,7 +20,8 @@ export type Assist =
   | { kind: 'reverse' }
   | { kind: 'autoStop' }
   | { kind: 'face' }
-  | { kind: 'autopilot'; dest: AutopilotDest; autoLand: boolean };
+  /** `thenJump`: flying out to jump; the jump starts by itself once the ship is clear of the star. */
+  | { kind: 'autopilot'; dest: AutopilotDest; autoLand: boolean; thenJump?: true };
 
 export type Level = 'low' | 'med' | 'high';
 
