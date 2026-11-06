@@ -1341,6 +1341,11 @@ export class Controller {
       this.emit({ type: 'message', text: 'Combat training stopped: the drone is gone. Start it again from the pause menu.' });
       return;
     }
+    // The wreck drifted out of reach before boarding: back to flying beside it.
+    if (t.step === 3 && this.boardingView() === null && !done[2]()) {
+      this.training = { ...t, step: 2 };
+      return;
+    }
     if (t.step < done.length && done[t.step]()) {
       this.training = { ...t, step: t.step + 1 };
       if (this.training.step === done.length) {
@@ -1437,7 +1442,7 @@ export class Controller {
     if (this.traffic.systemId !== sys) return; // the reseed that follows calls this again
     // Story ships left over from a finished step go; the current one stays where it is.
     // A bounty target holds too, and so does a patrol waiting on its law hail.
-    const stale = (n: { id: string; hold?: Vec2; missionId?: string }) => n.hold !== undefined && n.missionId === undefined && n.id !== meet?.npcId && !this.lawHolds.has(n.id);
+    const stale = (n: { id: string; hold?: Vec2; missionId?: string; training?: true }) => n.hold !== undefined && n.missionId === undefined && !n.training && n.id !== meet?.npcId && !this.lawHolds.has(n.id);
     let t = this.traffic;
     if (t.npcs.some(stale)) {
       const target = t.npcs.find((n) => n.id === t.targetId);

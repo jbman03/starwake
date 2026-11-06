@@ -23,11 +23,18 @@ test('combat training from the pause menu: target, fire, fly beside, board, take
     await page.waitForTimeout(80);
     await page.keyboard.up('Space');
   });
-  await expect.poll(() => page.evaluate(() => window.__starwake!.hudObjective!())).toContain('fly beside');
-  await page.keyboard.press('KeyG');
-  await expect.poll(() => page.evaluate(() => window.__starwake!.controller.training?.step), { timeout: 40_000 }).toBe(3);
-  await page.keyboard.press('KeyB');
-  await expect(page.getByTestId('boarding-card')).toBeVisible();
+  // Disabled: fly beside it (G) and board (B), following the objective as a player would: the wreck can drift
+  // out of reach, and training then asks to fly beside it again.
+  await expect.poll(() => page.evaluate(() => window.__starwake!.controller.training?.step), { timeout: 20_000 }).toBeGreaterThanOrEqual(2);
+  await expect
+    .poll(async () => {
+      if ((await page.getByTestId('boarding-card').count()) > 0) return true;
+      const objective = (await page.evaluate(() => window.__starwake!.hudObjective!())) ?? '';
+      if (objective.includes('fly beside') && (await page.evaluate(() => window.__starwake!.world().assist.kind)) !== 'autopilot') await page.keyboard.press('KeyG');
+      else if (objective.includes('board it')) await page.keyboard.press('KeyB');
+      return false;
+    }, { timeout: 60_000, intervals: [250] })
+    .toBe(true);
   await page.keyboard.press('Digit5');
   await expect(page.getByRole('button', { name: /Take everything — done/ })).toBeVisible();
   await page.keyboard.press('Escape');

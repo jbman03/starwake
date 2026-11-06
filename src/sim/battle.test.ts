@@ -570,3 +570,14 @@ describe('beam power (beams never run out, they weaken)', () => {
     expect(s.b.beamPower.player).toBeUndefined(); // full again
   });
 });
+
+describe('the combat training drone', () => {
+  it('is never destroyed: a hit on the disabled drone leaves it disabled', () => {
+    const withShots = (x: Sim, ...projectiles: Projectile[]): Sim => ({ ...x, b: { ...x.b, projectiles } });
+    const t = mkTraffic([mkNpc('d1', 'raiders', 300, 0, { training: true, killCounted: true, hull: { ...hullAt(1), disabled: true } })]);
+    const s = tick(withShots(begin(mkWorld({ systemId: 'vesk' }), t), bolt({ id: 1, ownerId: 'player', pos: { x: 300, y: 0 }, damage: 50 })), IDLE);
+    expect(npc(s, 'd1')).toBeDefined();
+    expect(npc(s, 'd1').hull.disabled).toBe(true);
+    expect(s.events.some((e) => e.type === 'destroyed')).toBe(false);
+  });
+});

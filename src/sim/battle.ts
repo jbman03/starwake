@@ -615,7 +615,9 @@ export function stepBattle(
     if (!n || dead.has(n.id)) continue;
     // A wingman's rank sharpens their shots (cycle 6 part 2).
     const mul = byEscort ? damageMulOf(data, world.escorts.find((e) => e.id === h.ownerId)) : 1;
-    const r = applyDamage(n.hull, h.damage * mul, now);
+    const hit = applyDamage(n.hull, h.damage * mul, now);
+    // Combat training's drone can't be shot to pieces: once disabled it stays, ready to board.
+    const r = n.training && hit.destroyed ? { ...hit, destroyed: false, hull: { ...hit.hull, armor: 0 } } : hit;
     let updated: Npc = { ...n, hull: r.hull, aggro: n.aggro.includes(h.ownerId) ? n.aggro : [...n.aggro, h.ownerId] };
     // A raider shot while it waits on its demand stops waiting and fights (the controller closes its hail as refused).
     if (updated.demand) updated = { ...updated, demand: false, engaged: true };
