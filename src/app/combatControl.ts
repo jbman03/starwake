@@ -519,6 +519,18 @@ export function hostileAhead(world: WorldState, traffic: Traffic, data: GameData
 }
 
 /**
+ * Combat training's drone: an unarmed shuttle-hull raider SPAWN_AHEAD px ahead, engaged so traffic leaves it be.
+ * It never flees, never counts as a kill and carries nothing worth a crime (raiders keep no law).
+ */
+export function trainingDrone(world: WorldState, traffic: Traffic, data: GameData): { traffic: Traffic; id: string } {
+  const r = shipAhead(world, traffic, data, { shipId: data.config.startShipId, prefix: 'training-drone', name: 'Training drone', government: RAIDERS, role: 'raider', engaged: true });
+  return {
+    id: r.id,
+    traffic: { ...r.traffic, npcs: r.traffic.npcs.map((n) => (n.id === r.id ? { ...n, name: 'Training drone', outfits: {}, killCounted: true, training: true as const, aggro: [] } : n)) },
+  };
+}
+
+/**
  * Test support: a peaceful patrol of `gov` (default the system's government) in a `shipId` hull,
  * SPAWN_AHEAD px ahead of the ship and at rest, on a pass-through errand. It is inside the scan and
  * hail ranges, so the law's own rules decide whether it scans the hold or hails the pilot.

@@ -69,6 +69,14 @@ export function showPauseMenu(ctx: UiContext): void {
       : null,
     button('Mission Log', () => showMissionLog(ctx, () => showPauseMenu(ctx))),
     button('Fleet', () => showFleetPanel(ctx, () => showPauseMenu(ctx))),
+    // Combat training (playtest: the guide teaches only trading): a drone to shoot and board, step by step.
+    ...(ctx.controller.landedPlanetId === null && !ctx.controller.training
+      ? [button('Combat training', () => {
+          ctx.unmount();
+          ctx.controller.startFlight();
+          ctx.controller.startTraining();
+        })]
+      : []),
     button('How to Play', openHowToPlay, { hotkey: hotkeyFor(controller.settings.bindings, 'menuHowToPlay') }),
     button('Settings', () => showSettings(ctx, { mode: ctx.inputMode.mode, onClose: () => showPauseMenu(ctx) })),
     button('Export pilot', exportCurrent),

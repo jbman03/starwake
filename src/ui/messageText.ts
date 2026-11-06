@@ -13,5 +13,15 @@ export function formatMessage(text: string, keyLabel: (a: ActionId) => string | 
     .replace(/\{nextTarget\}/g, touch ? 'the TGT button' : keyLabel('nextTarget') ?? 'the next-target key')
     .replace(/\{interact\}/g, touch ? 'the bottom button' : keyLabel('interact') ?? 'the interact key')
     .replace(/\{map\}/g, touch ? ' (tap Map)' : map ? ` (${map})` : '')
-    .replace(/\{callTow\}/g, touch ? 'tap CALL TOW' : `${pause ? `press ${pause}` : 'open the pause menu'}, then Call for tow`);
+    .replace(/\{callTow\}/g, touch ? 'tap CALL TOW' : `${pause ? `press ${pause}` : 'open the pause menu'}, then Call for tow`)
+    // Any other action token: the key's label, or its phone control (combat training names several).
+    .replace(/\{(\w+)\}/g, (m, id: string) => (touch ? TOUCH_WORDS[id] : keyLabel(id as ActionId)) ?? m);
 }
+
+/** Phone wording for actions that sim messages name by token. */
+const TOUCH_WORDS: Record<string, string> = {
+  nearestHostile: 'hold TGT',
+  firePrimary: 'FIRE',
+  board: 'BOARD',
+  encounterChoice5: 'Take everything',
+};

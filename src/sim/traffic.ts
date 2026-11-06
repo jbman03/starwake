@@ -50,6 +50,8 @@ export interface Npc {
   fighter?: { outfitId: string; carrierId: string };
   /** The pilot's rival (cycle 6 part 2C): never flees, ejects when disabled. */
   nemesis?: true;
+  /** Combat training's unarmed drone: never flees, never counts as a kill. */
+  training?: true;
 }
 
 export interface TrafficOpts {

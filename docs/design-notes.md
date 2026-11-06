@@ -420,4 +420,8 @@ Sources (public write-ups, paraphrased): [Wikipedia: EV Override](https://en.wik
    roll per arrival (`nemesisDue`), the rival (NPC id `nemesis`, a raider that never flees) jumps in on the hull for
    his level. Disabling him is a duel won (`defeatNemesis`: reward, `cooldownDays` away; the last level is final:
    bonus, `finalFlag`, a log note); a tow or rescue with him present lets him gloat. Saves: v10 (`nemesis`).
+Playtest improvements (2026-11-06, `2026-11-06-starwake-playtest-fixes.md`): map danger (`dangerOf`), find-site
+signal (`signalOf`), sale hints (`sellsHighAt`), exchange Undo, a story `escort` outcome (Corrin lends Hal Brennan
+after Low Tide), the Fleet panel (E), boarding by autopilot with hull-to-hull range and Take everything, and combat
+training (an unarmed `training` drone, steps in `TRAINING_STEPS`).
 Later: bounty hunters, smuggling missions, rank-locked faction story chains, more regions.

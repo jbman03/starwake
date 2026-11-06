@@ -2523,3 +2523,41 @@ describe('G flies beside a disabled target (playtest: boarding redesign)', () =>
     expect(c.combat.boardable(c.world, c.traffic)).not.toBeNull();
   });
 });
+
+describe('combat training (playtest: the guide teaches only trading)', () => {
+  it('walks target, fire, fly beside, board and take everything, then says it is done', async () => {
+    const { c, target, events } = await setup();
+    c.startFlight();
+    c.update(1 / 60);
+    c.traffic = { ...c.traffic, nextSpawnSec: 1e9, npcs: [] };
+    expect(c.startTraining()).toBe(true);
+    const id = c.training!.droneId;
+    const key = (code: string) => {
+      target.dispatchEvent(keyEvent('keydown', code));
+      target.dispatchEvent(keyEvent('keyup', code));
+      c.update(0.1);
+    };
+    expect(c.objectiveText()).toContain('to target the drone');
+    key('KeyR');
+    expect(c.traffic.targetId).toBe(id);
+    c.update(0.1);
+    expect(c.objectiveText()).toContain('to fire');
+    // Disable it (the shooting is covered elsewhere); kills are not counted for the drone.
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === id ? { ...n, hull: { ...n.hull, armor: 1, disabled: true } } : n)) };
+    c.update(0.1);
+    expect(c.objectiveText()).toContain('fly beside');
+    key('KeyG');
+    for (let i = 0; i < 60 * 60 && c.training?.step === 2; i++) c.update(1 / 60);
+    expect(c.objectiveText()).toContain('to board it');
+    expect(c.board()).toBe(true);
+    c.update(0.1);
+    expect(c.boardChoose('all')).not.toBeNull();
+    c.leaveBoarding();
+    c.startFlight();
+    c.update(0.1);
+    expect(c.training).toBeNull();
+    expect(c.traffic.npcs.some((n) => n.id === id)).toBe(false);
+    expect(events.some((e) => e.type === 'message' && e.text.startsWith('Training done.'))).toBe(true);
+    expect(c.world.stats.kills).toBe(0);
+  });
+});
