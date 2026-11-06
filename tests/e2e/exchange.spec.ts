@@ -14,7 +14,7 @@ async function checkFits(page: Page): Promise<void> {
   expect(overflow.ex).toBeLessThanOrEqual(0);
   const buttons = page.getByTestId('exchange').locator('button:visible');
   const n = await buttons.count();
-  expect(n).toBe(6); // Buy 10, Sell 10, Buy max, Sell all, Done, corner Map
+  expect(n).toBe(7); // Buy 10, Sell 10, Buy max, Sell all, Undo, Done, corner Map
   for (let i = 0; i < n; i++) {
     const b = (await buttons.nth(i).boundingBox())!;
     const name = await buttons.nth(i).textContent();

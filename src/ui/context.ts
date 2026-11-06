@@ -1,3 +1,4 @@
+import { showFleetPanel } from './fleetPanel';
 import type { Controller } from '../app/controller';
 import type { ActionGroup, ActionId } from '../input/actions';
 import type { InputMode } from '../input/mode';
@@ -149,6 +150,7 @@ export function createUi(
   controller.on('menu', (e) => {
     if (e.action === 'pause') ctx.go.pause();
     else if (e.action === 'map') ctx.go.map();
+    else if (e.action === 'fleet') showFleetPanel(ctx, () => controller.startFlight());
     else showMissionLog(ctx, () => controller.startFlight()); // flight is paused, as for the map
   });
   return ctx;

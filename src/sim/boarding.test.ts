@@ -36,12 +36,14 @@ describe('combat.boarding data', () => {
 });
 
 describe('canBoard', () => {
-  it('needs disabled, 60 px and slow', () => {
+  it('needs disabled, within 60 px hull to hull, and slow', () => {
     const w = at(base, 0, 0);
     const n = npc('mule');
+    const gap = data.ships.mule.radius + data.ships[w.shipId].radius;
     expect(canBoard(w, data, n)).toBe(true);
     expect(canBoard(w, data, { ...n, hull: { ...n.hull, disabled: false } })).toBe(false);
-    expect(canBoard(w, data, { ...n, ship: { ...n.ship, pos: { x: 61, y: 0 } } })).toBe(false);
+    expect(canBoard(w, data, { ...n, ship: { ...n.ship, pos: { x: 60 + gap, y: 0 } } })).toBe(true);
+    expect(canBoard(w, data, { ...n, ship: { ...n.ship, pos: { x: 61 + gap, y: 0 } } })).toBe(false);
     expect(canBoard(at(w, 0, 0, 41, 0), data, n)).toBe(false);
     // relative speed, not absolute
     expect(canBoard(at(w, 0, 0, 200, 0), data, { ...n, ship: { ...n.ship, vel: { x: 200, y: 0 } } })).toBe(true);

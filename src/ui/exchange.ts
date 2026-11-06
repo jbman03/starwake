@@ -1,3 +1,4 @@
+import { sellsHighAt } from '../sim/economy';
 import { formatDate } from '../sim/calendar';
 import { cargoFree, maxBuy } from '../sim/cargo';
 import { displayLevel, localNews, outlawedAt, priceOf } from '../sim/economy';
@@ -67,21 +68,30 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
   const reasonText = (reason: keyof typeof EXCHANGE_REASON | 'outlawed') =>
     reason === 'outlawed' ? outlawedText(governmentShortName(gov, data)) : EXCHANGE_REASON[reason];
 
+  /** The world before the last trade made here, so Undo can put it back exactly (playtest: one misclick, 10 t of metal). */
+  let lastTrade: { before: typeof controller.world; text: string } | null = null;
+  let undoBtn: HTMLButtonElement | null = null;
+
   /** One trade of `n` tons (or all that fits); zero-result presses explain why. */
   const trade = (kind: 'buy' | 'sell', n: number | 'all') => {
     if (!selected) return;
     const name = data.commodities[selected].name;
+    const before = controller.world;
     if (kind === 'buy') {
       const want = n === 'all' ? Math.max(1, maxBuy(controller.world, data, portId, selected)) : n;
       const r = controller.buy(selected, want);
-      if (r.tons > 0) say(`Bought ${tons(r.tons)} of ${name} for ${formatCredits(r.cost)}.`);
-      else say(reasonText(r.reason ?? 'holdFull'), true);
+      if (r.tons > 0) {
+        say(`Bought ${tons(r.tons)} of ${name} for ${formatCredits(r.cost)}.`);
+        lastTrade = { before, text: `buying ${tons(r.tons)} of ${name}` };
+      } else say(reasonText(r.reason ?? 'holdFull'), true);
     } else {
       const held = controller.world.cargo[selected] ?? 0;
       const want = n === 'all' ? Math.max(1, held) : n;
       const r = controller.sell(selected, want);
-      if (r.tons > 0) say(`Sold ${tons(r.tons)} of ${name} for ${formatCredits(r.revenue)}.`);
-      else say(reasonText(r.reason ?? 'noneHeld'), true);
+      if (r.tons > 0) {
+        say(`Sold ${tons(r.tons)} of ${name} for ${formatCredits(r.revenue)}.`);
+        lastTrade = { before, text: `selling ${tons(r.tons)} of ${name}` };
+      } else say(reasonText(r.reason ?? 'noneHeld'), true);
     }
     render();
   };
@@ -125,8 +135,12 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
       }),
     );
     const sel = selected ? data.commodities[selected] : undefined;
-    detail.textContent = sel?.origin ? sel.description : '';
+    // Where this good is known to sell high, from the systems already charted (playtest: speculating blind).
+    const high = selected ? sellsHighAt(w, data, selected, portId) : [];
+    const hint = selected ? (high.length ? `Sells high at: ${high.join(', ')}.` : 'No port you have charted pays high for it yet.') : '';
+    detail.textContent = [sel?.origin ? sel.description : '', hint].filter(Boolean).join(' ');
     news.textContent = localNews(w, data, portId) ?? '';
+    if (undoBtn) undoBtn.disabled = lastTrade === null;
   }
 
   /** Buy/Sell button: click = 10 t (1 t with Shift), long press = 1 t. */
@@ -170,6 +184,16 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
   const sellBtn = tradeButton(`Sell ${STEP}`, 'sell', hotkeyFor(bindings, 'sellGoods'));
   const buyMax = button('Buy max', () => trade('buy', 'all'));
   const sellAll = button('Sell all', () => trade('sell', 'all'));
+  const undo = button('Undo', () => {
+    if (!lastTrade) return;
+    controller.world = lastTrade.before; // exactly as it was: credits, hold and market pressure
+    say(`Undid ${lastTrade.text}.`);
+    lastTrade = null;
+    render();
+  });
+  undo.dataset.testid = 'exchange-undo';
+  undoBtn = undo;
+  undo.disabled = true;
   const done = button('Done', close, { class: 'sw-btn-primary', hotkey: hotkeyFor(bindings, 'back') });
 
   const hint = guideCard(controller, ctx.root);
@@ -196,7 +220,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
       detail,
       message,
       hint.node,
-      el('div', { class: 'sw-ex-actions' }, [buyBtn.b, sellBtn.b, buyMax, sellAll, done]),
+      el('div', { class: 'sw-ex-actions' }, [buyBtn.b, sellBtn.b, buyMax, sellAll, undo, done]),
     ]),
   ]);
 

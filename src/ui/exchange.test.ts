@@ -249,3 +249,19 @@ it('a held good that a plug-in market lists but the government outlaws still get
   const { row } = await setup(100_000, { stims: 2 }, plugin);
   expect(row('stims').querySelector('.sw-ex-price')!.textContent).toBe('Not traded');
 });
+
+describe('Undo the last trade (playtest)', () => {
+  it('puts credits and the hold back exactly as they were', async () => {
+    const { c, root, state } = await setup();
+    const before = c.world;
+    const undo = root.querySelector('[data-testid="exchange-undo"]') as HTMLButtonElement;
+    expect(undo.disabled).toBe(true);
+    state.onPress!(new Set(['buyGoods']));
+    expect(c.world.credits).toBeLessThan(before.credits);
+    expect(undo.disabled).toBe(false);
+    undo.click();
+    expect(c.world).toBe(before);
+    expect(root.textContent).toContain('Undid buying');
+    expect(undo.disabled).toBe(true);
+  });
+});

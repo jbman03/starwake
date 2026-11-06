@@ -61,7 +61,7 @@
         { "type": "flag", "flag": "dimming-lane" },
         { "type": "reveal", "systems": ["gloam"] },
         { "type": "rumour", "text": "The Low Tide gave a bearing for a hidden lane from Oxbow into the Dimming. The first system out there is called Gloam." },
-        { "type": "message", "text": "The lane from Oxbow into the Dimming is now on your chart. Gloam is the first port of call." }
+        { "type": "message", "text": "The lane from Oxbow into the Dimming is now on your chart. Gloam is the first port of call." }, { "type": "escort", "shipId": "kestrel", "name": "Hal Brennan" }, { "type": "message", "text": "Word of the Dimming has reached Warden Corrin, who would rather not lose you to it. She lends you Hal Brennan and his Kestrel for the trip: no wage, just bring him back." }
       ],
       "combatLater": "A fight with the Low Tide if the bluff fails."
     },

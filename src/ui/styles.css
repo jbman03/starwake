@@ -206,6 +206,9 @@
 .sw-map-preview-label { margin: 0 0 6px; color: var(--sw-accent); font-weight: 600; }
 .sw-map-sys:focus-visible .sw-map-hit { stroke: var(--sw-accent); stroke-width: 1.5; }
 .sw-map-flag { fill: #ffd166; stroke: #ffd166; stroke-width: 1.5; stroke-linejoin: round; }
+.sw-map-danger { stroke-width: 1; stroke-linejoin: round; pointer-events: none; }
+.sw-map-danger-high { fill: #ff5d5d; stroke: #ff5d5d; }
+.sw-map-danger-med { fill: #f0a040; stroke: #f0a040; }
 .sw-map-name { fill: var(--sw-text); font: 13px var(--sw-font); text-anchor: middle; paint-order: stroke; stroke: #02040a; stroke-width: 3px; }
 .sw-sys-seen .sw-map-name { fill: var(--sw-dim); }
 

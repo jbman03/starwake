@@ -113,6 +113,12 @@ with Wasp fighters. Press U (LAUNCH on a phone) to launch them and again to
 recall them; they fly with your escorts and dock when you leave the system.
 Other carriers launch fighters at you, too.
 
+**Help for new pilots.** Combat training (pause menu) walks through a fight and
+a boarding against an unarmed drone. The star map rates each system's danger,
+hidden search sites give a signal strength as you sweep, the exchange lists
+where a good sells high and can undo a trade, and the Fleet panel (E) shows
+where every escort and fighter is.
+
 **A nemesis.** Make a name for yourself and a rival pilot starts hunting you.
 He jumps in now and then, ejects when you beat him, and comes back tougher,
 until you have beaten him four times.

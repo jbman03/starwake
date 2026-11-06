@@ -50,6 +50,8 @@ export interface Npc {
   fighter?: { outfitId: string; carrierId: string };
   /** The pilot's rival (cycle 6 part 2C): never flees, ejects when disabled. */
   nemesis?: true;
+  /** Combat training's unarmed drone: never flees, never counts as a kill. */
+  training?: true;
 }
 
 export interface TrafficOpts {
@@ -119,6 +121,15 @@ export function raiderChance(data: GameData, systemId: string, opts: TrafficOpts
   if (opts.clearBoost === systemId) return sp.clearBoost;
   const byGov = sp.raiderChance[data.systems[systemId].government] ?? 0;
   return isFringe(data, systemId) ? Math.max(byGov, sp.raiderChance.fringe ?? 0) : byGov;
+}
+
+export type Danger = 'low' | 'med' | 'high';
+export const DANGER_LABEL: Record<Danger, string> = { low: 'Low', med: 'Medium', high: 'High (raiders common)' };
+
+/** How likely raiders are here, for the star map (playtest: a day-3 pilot died one jump out with no warning). */
+export function dangerOf(data: GameData, systemId: string): Danger {
+  const c = raiderChance(data, systemId, { maxNpcs: 0, guideActive: false, startSystem: '' });
+  return c >= 0.3 ? 'high' : c >= 0.15 ? 'med' : 'low';
 }
 
 /** Chance that a spawn in this system is a patrol. */

@@ -50,8 +50,26 @@ target on T), 24 (copy slips).
 6. **Previous target key: T.**
 7. **The pod carries story cargo only if the starter ship could** (20 t, 4 berths).
 
-## Not done in this release (bigger than a fix; candidates for a later cycle)
+## Improvements (owner: "proceed" with the report's improvements)
 
-- A danger rating per system on the map; a loaner ship or escort for the Dimming leg.
-- A second guided flight (combat, tolls, the pod); a boarding redesign (fly-to and "take everything").
-- A Fleet panel; search aids for find sites (a shrinking ring); a best-known-sale hint; undo for trades.
+Shipped after the fixes, in tested merges:
+
+- **Map danger:** each charted system's info panel rates its danger (Low, Medium, High) from its raider chance;
+  a red or amber triangle marks raider-heavy systems.
+- **Find sites:** while a site is hidden, the objective line gives a signal (faint over 1 800 px, growing, strong
+  within 1 000 px), so a sweep has a warmer and a colder.
+- **Exchange:** each good lists charted ports that pay high for it; Undo takes back the last trade while the
+  exchange is open.
+- **The Dimming:** finishing Low Tide, Warden Corrin lends Hal Brennan and a Kestrel (no wage, not for sale). A
+  new story outcome, `escort`, lends a pilot; a full group means he stays behind.
+- **Fleet panel** (E, or the pause menu): every escort's status, fighters aboard and out, and the order.
+- **Boarding:** the autopilot key flies beside a targeted disabled ship; range is hull to hull; Take everything (5).
+- **Combat training** (pause menu, in flight): an unarmed drone and five objective steps; no kill is counted.
+
+More decisions to review:
+
+8. **Lent escort:** Corrin lends Hal Brennan when Low Tide completes (not a loaner ship), and keeps lending as
+   long as he survives; he is an escort like any other.
+9. **Fleet panel key: E.** **Take everything: 5** (Leave moves to Esc only, keeping keys 1-4 as they were).
+10. **Combat training is optional,** from the pause menu, not offered automatically.
+11. **Danger thresholds:** High at a 30% raider chance, Medium at 15%.

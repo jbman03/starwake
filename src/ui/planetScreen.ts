@@ -252,7 +252,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       : null;
     /** "Wingman · Seasoned (4)", "ejected, back from 12 Mar 3207", or the wage / kept capture. */
     const escortNote = (e: Escort): string => {
-      const pay = e.hired ? `${formatCredits(e.wage)}/day` : 'kept capture';
+      const pay = e.hired ? (e.wage > 0 ? `${formatCredits(e.wage)}/day` : 'on loan, no wage') : 'kept capture';
       if (!wingmanDef(data, e)) return pay;
       const rank = `Wingman · ${wingmanRank(data, e.takedowns ?? 0).name} (${e.takedowns ?? 0})`;
       return e.downUntilDay !== undefined ? `${rank} · ejected, back from ${formatDate(e.downUntilDay, data.config)}` : `${rank} · ${pay}`;

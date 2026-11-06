@@ -229,3 +229,22 @@ describe('survey rumour', () => {
     expect(hearsOn(['survey-rumour'])).toEqual([]);
   });
 });
+
+describe('sellsHighAt (playtest: a best-known-sale hint)', () => {
+  it('lists charted ports that pay high for a good, nearest first, never the port you stand at', async () => {
+    const { sellsHighAt } = await import('./economy');
+    const { testData } = await import('../data/testData');
+    const { newWorld } = await import('./world');
+    const d = testData();
+    const w = newWorld(d, 1);
+    const all = Object.values(d.planets).filter((p) => p.market?.food === 'high');
+    const names = sellsHighAt(w, d, 'food', 'halcyon', 99);
+    for (const n of names) {
+      const p = all.find((x) => x.name === n)!;
+      expect(p, n).toBeDefined();
+      expect(w.known).toContain(p.systemId);
+    }
+    expect(sellsHighAt({ ...w, known: [] }, d, 'food', 'halcyon')).toEqual([]);
+    expect(sellsHighAt(w, d, 'food', 'halcyon', 1).length).toBeLessThanOrEqual(1);
+  });
+});

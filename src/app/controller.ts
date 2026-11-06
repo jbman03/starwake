@@ -19,7 +19,7 @@ import { fineFor, payFines } from '../sim/law';
 import { paySalary, salaryNoticeText } from '../sim/ranks';
 import { governmentOf } from '../sim/stock';
 import type { MoodInput } from '../audio/moods';
-import { CombatControl, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
+import { CombatControl, trainingDrone, type BoardingChoice, type BoardingView, type DemandOffer } from './combatControl';
 import { answerLaw, illegalHeld, lawBribeCost, lawFine, refuseIsRun, type LawAnswer, type LawReason } from '../sim/contraband';
 import { PLAYER_ID } from '../sim/combat';
 import { lawCardView } from '../ui/lawCard';
@@ -137,7 +137,7 @@ export type ControllerEvent =
   /** Jobs finished by the landing that just happened; emitted before the autosave. */
   | { type: 'missionsCompleted'; missions: Mission[]; pay: number }
   /** A flight key asked for a menu; flight is already paused. */
-  | { type: 'menu'; action: 'pause' | 'map' | 'missionLog' }
+  | { type: 'menu'; action: 'pause' | 'map' | 'missionLog' | 'fleet' }
   /** Flight started or stopped (planet screen, menus, pause). */
   | { type: 'flying'; flying: boolean }
   /** Result of the autosave started by a landing. */
@@ -184,6 +184,17 @@ export interface PilotMeta {
 }
 
 export const MSG_USED_BACKUP = 'Your last save was damaged; loaded the previous one.';
+/** Combat training's objective lines, one per step; `{key}` tokens are filled with the pilot's keys. */
+export const TRAINING_STEPS = [
+  'Training: press {nearestHostile} to target the drone.',
+  'Training: hold {firePrimary} to fire until the drone is disabled.',
+  'Training: {autopilot} to fly beside the disabled drone.',
+  'Training: press {board} to board it.',
+  'Training: press {encounterChoice5} to take everything, then Esc to leave.',
+];
+export const TRAINING_DONE =
+  'Training done. Out there, raiders hail with a toll before they fight ({interact} answers; pay, dump cargo or refuse). An escape pod from the Outfitter saves you if your ship is destroyed.';
+
 /** Said once when the player's ship is disabled; `{callTow}` names the pause key, or CALL TOW on a phone. */
 export const MSG_DISABLED = 'Your ship is disabled. When no enemy is near, you can call a tow: {callTow}.';
 /** Said once when the disabled ship's wait is over and a tow can be called. */
@@ -533,6 +544,7 @@ export class Controller {
     if (!npc) return false;
     this.combat.startBoarding(this.world, this.traffic);
     this.pauseFlight();
+    this.tickTraining(); // flight is paused while the card is open, so training checks here too
     this.emit({ type: 'board', npcId: npc.id });
     return true;
   }
@@ -605,6 +617,7 @@ export class Controller {
   /** Close the boarding card (the UI resumes flight). */
   leaveBoarding(): void {
     this.combat.leaveBoarding();
+    this.tickTraining();
     this.checkContext();
   }
 
@@ -964,7 +977,9 @@ export class Controller {
           ? 'map'
           : polled.pressed.has('flightMissionLog')
             ? 'missionLog'
-            : null;
+            : polled.pressed.has('fleet')
+              ? 'fleet'
+              : null;
       if (menu) {
         this.pauseFlight();
         this.emit({ type: 'menu', action: menu });
@@ -988,9 +1003,14 @@ export class Controller {
       // The autopilot key flies to a targeted site (the sim's own autopilot only knows planets and the jump point).
       if (pressed.has('autopilot') && this.world.assist.kind !== 'autopilot') {
         const site = this.targetedSite();
+        // A disabled ship targeted: fly beside it and stop, ready to board (playtest: no autopilot to a wreck).
+        const wreck = site ? undefined : this.traffic.npcs.find((n) => n.id === this.traffic.targetId && n.hull.disabled);
         if (site) {
           pressed.delete('autopilot');
           this.world = autopilotToSite(this.world, site);
+        } else if (wreck) {
+          pressed.delete('autopilot');
+          this.world = autopilotToSite(this.world, { id: `board:${wreck.id}`, pos: { ...wreck.ship.pos }, label: wreck.name });
         }
       }
       const raw: FrameInput = touch.stick && !locked
@@ -1024,6 +1044,7 @@ export class Controller {
    * hyperspace: the arrival resets the battle, so a hit taken mid-jump would be undone (and the calm wait would run).
    */
   private stepCombat(input: FrameInput, dt: number): void {
+    this.tickTraining();
     if (!this.flying || this.fx?.kind === 'land' || this.world.jump || this.traffic.systemId !== this.world.systemId) return;
     const before = this.traffic;
     const r = this.combat.tick(this.world, this.traffic, input, dt);
@@ -1285,7 +1306,58 @@ export class Controller {
    * The story objective for the HUD, or null: a scan or find step whose site is in this system.
    * PC text may hold an `{interact}` token (once the site is reachable); callers fill it with formatMessage.
    */
+  // ---- combat training (playtest: the guide teaches only trading) ---------------
+
+  /** Combat training under way: the step reached and its drone. */
+  training: { step: number; droneId: string } | null = null;
+
+  /**
+   * Start combat training in flight: an unarmed drone appears ahead, and the objective line walks through
+   * targeting, firing, flying beside the wreck, boarding and Take everything. False when not flying.
+   */
+  startTraining(): boolean {
+    if (!this.flying || this.world.jump || this.landedPlanetId) return false;
+    const r = trainingDrone(this.world, this.traffic, this.data);
+    this.traffic = r.traffic;
+    this.training = { step: 0, droneId: r.id };
+    this.emit({ type: 'message', text: 'Combat training: a training drone is ahead. It cannot shoot back.' });
+    return true;
+  }
+
+  /** Advance combat training when its step is done; called every flight tick and when a boarding closes. */
+  private tickTraining(): void {
+    const t = this.training;
+    if (!t) return;
+    const drone = this.traffic.npcs.find((n) => n.id === t.droneId);
+    const done = [
+      () => this.traffic.targetId === t.droneId,
+      () => !!drone?.hull.disabled,
+      () => this.combat.boardable(this.world, this.traffic)?.id === t.droneId,
+      () => this.boardingView() !== null,
+      () => this.boardingView() === null,
+    ];
+    if (!drone && t.step < 4) {
+      this.training = null;
+      this.emit({ type: 'message', text: 'Combat training stopped: the drone is gone. Start it again from the pause menu.' });
+      return;
+    }
+    // The wreck drifted out of reach before boarding: back to flying beside it.
+    if (t.step === 3 && this.boardingView() === null && !done[2]()) {
+      this.training = { ...t, step: 2 };
+      return;
+    }
+    if (t.step < done.length && done[t.step]()) {
+      this.training = { ...t, step: t.step + 1 };
+      if (this.training.step === done.length) {
+        this.training = null;
+        this.traffic = { ...this.traffic, npcs: this.traffic.npcs.filter((n) => n.id !== t.droneId) };
+        this.emit({ type: 'message', text: TRAINING_DONE });
+      }
+    }
+  }
+
   objectiveText(touch = false): string | null {
+    if (this.training) return TRAINING_STEPS[this.training.step] ?? null;
     const s = this.storySite;
     if (!s) return null;
     const step = currentStep(this.world, this.data, s.missionId);
@@ -1297,6 +1369,8 @@ export class Controller {
       systemName: this.data.systems[this.world.systemId]?.name ?? this.world.systemId,
       distance: visible ? dist(this.world.ship.pos, s.pos) : null,
       reachable: visible !== null && siteReachable(this.world, s.pos),
+      // Still hidden: a signal strength from the true distance, so the sweep has a warmer and a colder.
+      ...(visible ? {} : { hiddenDistance: dist(this.world.ship.pos, s.pos) }),
     }, touch);
   }
 
@@ -1368,7 +1442,7 @@ export class Controller {
     if (this.traffic.systemId !== sys) return; // the reseed that follows calls this again
     // Story ships left over from a finished step go; the current one stays where it is.
     // A bounty target holds too, and so does a patrol waiting on its law hail.
-    const stale = (n: { id: string; hold?: Vec2; missionId?: string }) => n.hold !== undefined && n.missionId === undefined && n.id !== meet?.npcId && !this.lawHolds.has(n.id);
+    const stale = (n: { id: string; hold?: Vec2; missionId?: string; training?: true }) => n.hold !== undefined && n.missionId === undefined && !n.training && n.id !== meet?.npcId && !this.lawHolds.has(n.id);
     let t = this.traffic;
     if (t.npcs.some(stale)) {
       const target = t.npcs.find((n) => n.id === t.targetId);
@@ -1711,6 +1785,7 @@ export class Controller {
         this.prevShip = this.world.ship; // no interpolation across systems
         // Escorts with fuel come along and arrive around where the arrive phase leaves the ship; the rest wait.
         this.dockFleet();
+        this.training = null; // the drone stays behind in the old system
         const wasWaiting = new Set(this.world.escorts.filter((e) => e.waiting).map((e) => e.id));
         this.world = escortsJump(this.world, this.data, this.traffic);
         // An escort left behind says so (playtest bug 13): it rejoins at the next landing.
@@ -1756,6 +1831,7 @@ export class Controller {
     this.alpha = 0;
     // Escorts land too (also on load): their flight damage is kept, unpaid ones leave, the rest refuel and rejoin.
     this.dockFleet();
+    this.training = null;
     this.world = syncEscorts(this.world, this.data, this.traffic);
     this.traffic = withoutEscorts(this.traffic);
     const escorts = landEscorts(this.world, this.data);

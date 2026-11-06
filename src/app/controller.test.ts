@@ -1155,7 +1155,12 @@ describe('Controller story steps in flight', () => {
       const f = await flying(find);
       const fs = f.c.storySite!;
       park(f.c, fs.pos.x + 900, fs.pos.y);
-      expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache');
+      expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache · signal strong');
+      park(f.c, fs.pos.x + 1500, fs.pos.y);
+      expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache · signal growing');
+      park(f.c, fs.pos.x + 2500, fs.pos.y);
+      expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache · signal faint');
+      expect(f.c.objectiveText(true)).toBe('Search Calder · signal faint');
       park(f.c, fs.pos.x + 500, fs.pos.y);
       expect(f.c.objectiveText()).toBe('Objective: search the Cache — out in space, 500 px');
       park(c, site.pos.x + 641, site.pos.y);
@@ -2497,5 +2502,62 @@ describe('escort orders', () => {
     takeOff(c);
     expect(c.cycleEscortOrder()).toBe('attack');
     expect(c.world.escortOrder).toBe('attack');
+  });
+});
+
+describe('G flies beside a disabled target (playtest: boarding redesign)', () => {
+  it('autopilots to the wreck and stops there, then it can be boarded', async () => {
+    const { c, target } = await setup();
+    c.startFlight();
+    c.update(1 / 60);
+    const n0 = c.traffic.npcs[0];
+    const pos = { x: c.world.ship.pos.x + 700, y: c.world.ship.pos.y };
+    const wreck = { ...n0, id: 'wreck', engaged: false, ship: { ...n0.ship, pos, vel: { x: 0, y: 0 } }, hull: { ...n0.hull, armor: 1, disabled: true } };
+    c.traffic = { ...c.traffic, nextSpawnSec: 1e9, npcs: [wreck], targetId: 'wreck' };
+    target.dispatchEvent(keyEvent('keydown', 'KeyG'));
+    target.dispatchEvent(keyEvent('keyup', 'KeyG'));
+    c.update(0.1);
+    expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'site', label: wreck.name } });
+    for (let i = 0; i < 60 * 60 && c.world.assist.kind === 'autopilot'; i++) c.update(1 / 60);
+    expect(c.world.assist.kind).toBe('none');
+    expect(c.combat.boardable(c.world, c.traffic)).not.toBeNull();
+  });
+});
+
+describe('combat training (playtest: the guide teaches only trading)', () => {
+  it('walks target, fire, fly beside, board and take everything, then says it is done', async () => {
+    const { c, target, events } = await setup();
+    c.startFlight();
+    c.update(1 / 60);
+    c.traffic = { ...c.traffic, nextSpawnSec: 1e9, npcs: [] };
+    expect(c.startTraining()).toBe(true);
+    const id = c.training!.droneId;
+    const key = (code: string) => {
+      target.dispatchEvent(keyEvent('keydown', code));
+      target.dispatchEvent(keyEvent('keyup', code));
+      c.update(0.1);
+    };
+    expect(c.objectiveText()).toContain('to target the drone');
+    key('KeyR');
+    expect(c.traffic.targetId).toBe(id);
+    c.update(0.1);
+    expect(c.objectiveText()).toContain('to fire');
+    // Disable it (the shooting is covered elsewhere); kills are not counted for the drone.
+    c.traffic = { ...c.traffic, npcs: c.traffic.npcs.map((n) => (n.id === id ? { ...n, hull: { ...n.hull, armor: 1, disabled: true } } : n)) };
+    c.update(0.1);
+    expect(c.objectiveText()).toContain('fly beside');
+    key('KeyG');
+    for (let i = 0; i < 60 * 60 && c.training?.step === 2; i++) c.update(1 / 60);
+    expect(c.objectiveText()).toContain('to board it');
+    expect(c.board()).toBe(true);
+    c.update(0.1);
+    expect(c.boardChoose('all')).not.toBeNull();
+    c.leaveBoarding();
+    c.startFlight();
+    c.update(0.1);
+    expect(c.training).toBeNull();
+    expect(c.traffic.npcs.some((n) => n.id === id)).toBe(false);
+    expect(events.some((e) => e.type === 'message' && e.text.startsWith('Training done.'))).toBe(true);
+    expect(c.world.stats.kills).toBe(0);
   });
 });
