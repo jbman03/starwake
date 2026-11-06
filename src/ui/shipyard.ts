@@ -1,6 +1,6 @@
 import { jumpsOf } from '../sim/fuel';
 import type { ShipDef } from '../data/schemas';
-import { SHIP_BLOCK_TEXT, shipHidden, type ShipBlock } from '../sim/shipyard';
+import { SHIP_BLOCK_TEXT, shipHidden, yardFit, type ShipBlock } from '../sim/shipyard';
 import { discountPct, rankBlockText } from '../sim/ranks';
 import { governmentOf } from '../sim/stock';
 import { governmentShortName, standingBlockText } from '../sim/standing';
@@ -28,6 +28,11 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
         : SHIP_BLOCK_TEXT[reason];
 
   /** The price charged, with the list price and discount noted when a rank discount applies. */
+  /** "2× Maul Blaster, Pivot Turret", or "No weapons". */
+  const fitText = (shipId: string): string => {
+    const parts = Object.entries(yardFit(data, shipId)).map(([id, n]) => `${n > 1 ? `${n}× ` : ''}${data.outfits[id]?.name ?? id}`);
+    return parts.length ? parts.join(', ') : 'No weapons';
+  };
   const priceText = (list: number, charged: number): string => {
     const pct = discountPct(controller.world, data, planetId);
     return pct > 0 && charged !== list
@@ -81,6 +86,7 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
               ['Outfit space', `${def.outfitSpace} t`],
               ['Speed', String(def.maxSpeed)],
               ['Turn', `${def.turnRate}°/s`],
+              ['Comes with', fitText(def.id)],
               ['Price', priceText(q.listPrice, q.price)],
               ['Trade-in', formatCredits(q.tradeIn)],
               ['Net cost', formatCredits(q.net)],

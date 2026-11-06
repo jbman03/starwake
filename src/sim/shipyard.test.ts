@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testData } from '../data/testData';
 import { standingBlockText } from './standing';
-import { buyShip, shipHidden, shipQuote, SHIP_BLOCK_TEXT, tradeInValue } from './shipyard';
+import { yardFit, buyShip, shipHidden, shipQuote, SHIP_BLOCK_TEXT, tradeInValue } from './shipyard';
 import type { Mission, WorldState } from './types';
 import { newWorld } from './world';
 
@@ -28,12 +28,13 @@ describe('shipQuote / buyShip', () => {
     expect(q).toMatchObject({ price: 45000, tradeIn: 7500, net: 37500, check: { ok: true } });
   });
 
-  it('buys: new hull, no outfits, full fuel, credits reduced by net', () => {
+  it('buys: new hull with its standard guns only, full fuel, credits reduced by net', () => {
     const w = base({ outfits: { 'cargo-pod': 2 } });
     const r = buyShip(w, data, PORT, 'mule');
     expect(r.quote.check).toEqual({ ok: true });
     expect(r.world.shipId).toBe('mule');
-    expect(r.world.outfits).toEqual({});
+    // The old ship's cargo pods go with the trade-in; the mule leaves the yard with its standard light blasters.
+    expect(r.world.outfits).toEqual({ 'light-blaster': 2 });
     expect(r.world.ship.fuel).toBe(data.ships.mule.fuelCapacity);
     expect(r.world.credits).toBe(100000 - (45000 - 9500));
   });
@@ -157,5 +158,18 @@ describe('locked hull teasers', () => {
     expect(data.ships.freewind.teaser).toBeUndefined();
     expect(SHIP_BLOCK_TEXT.locked).toBe('Not offered to you yet.');
     expect(SHIP_BLOCK_TEXT.locked).not.toMatch(/survey/i);
+  });
+});
+
+describe('yardFit (playtest bug 6: shipyard hulls came unarmed)', () => {
+  it('every shipyard hull but the unarmed ones leaves with guns; bays and fighters are never included', () => {
+    expect(yardFit(data, 'bastion')).toEqual({ 'heavy-blaster': 2, 'pivot-turret': 2 });
+    expect(yardFit(data, 'kestrel')).toEqual({ 'rapid-cannon': 2, 'rocket-rack': 1, rocket: 8 });
+    for (const def of Object.values(data.ships)) {
+      if (def.role === 'fighter') continue;
+      const fit = yardFit(data, def.id);
+      expect(Object.keys(fit).some((id) => ['bay', 'fighter'].includes(data.outfits[id].category)), def.id).toBe(false);
+      expect(Object.values(fit).length, def.id).toBeGreaterThan(0);
+    }
   });
 });

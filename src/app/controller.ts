@@ -1706,7 +1706,11 @@ export class Controller {
         this.prevShip = this.world.ship; // no interpolation across systems
         // Escorts with fuel come along and arrive around where the arrive phase leaves the ship; the rest wait.
         this.dockFleet();
+        const wasWaiting = new Set(this.world.escorts.filter((e) => e.waiting).map((e) => e.id));
         this.world = escortsJump(this.world, this.data, this.traffic);
+        // An escort left behind says so (playtest bug 13): it rejoins at the next landing.
+        const left = this.world.escorts.filter((e) => e.waiting && !wasWaiting.has(e.id));
+        if (left.length) this.emit({ type: 'message', text: `${left.map((e) => e.name).join(' and ')} ${left.length === 1 ? 'stays' : 'stay'} behind (no fuel, or disabled) and ${left.length === 1 ? 'rejoins' : 'rejoin'} you at your next landing.` });
         const end = { pos: jumpEndPos(this.world, this.data), heading: this.world.ship.heading };
         this.traffic = withEscorts(this.freshTraffic(this.world), this.world, this.data, end);
       }

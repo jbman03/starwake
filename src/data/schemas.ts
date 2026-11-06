@@ -591,6 +591,14 @@ export const CombatSchema = z
     bounty: BountySchema,
     missions: CombatMissionsSchema,
     tow: TowSchema,
+    // Beams run on power, not ammo: firing drains it, resting recharges it, and damage falls with it to a floor.
+    beams: z
+      .object({
+        drainPerSec: z.number().positive(), // power (0-1) used per second of firing
+        rechargePerSec: z.number().positive(), // power regained per second not firing
+        minPower: z.number().min(0).max(1), // share of full damage a drained beam still deals
+      })
+      .strict(),
   })
   .strict();
 export type CombatDef = z.infer<typeof CombatSchema>;

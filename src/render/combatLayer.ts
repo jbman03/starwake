@@ -135,9 +135,11 @@ export class CombatLayer {
       const off = b.ownerId === PLAYER_ID ? player.offset : { x: 0, y: 0 };
       const c = shotColor(b.ownerId);
       const x0 = b.from.x + off.x, y0 = b.from.y + off.y, x1 = b.to.x + off.x, y1 = b.to.y + off.y;
-      glow.lineStyle(7, c, 0.25);
+      // A draining beam thins and dims with its power (never below the floor it still hits with).
+      const p = 0.4 + 0.6 * (b.power ?? 1);
+      glow.lineStyle(3 + 4 * p, c, 0.25 * p);
       glow.lineBetween(x0, y0, x1, y1);
-      g.lineStyle(2, c, 0.95);
+      g.lineStyle(1 + p, c, 0.95 * p);
       g.lineBetween(x0, y0, x1, y1);
     }
 

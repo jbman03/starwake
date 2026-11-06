@@ -126,3 +126,18 @@ describe('outfitter', () => {
     expect(outfitBuyCheck({ ...carrierWorld(), ...rich }, data, 'vanterre', 'wasp-fighter')).toEqual({ ok: false, reason: 'max' });
   });
 });
+
+describe('playtest bugs 1, 2 and 19', () => {
+  it('a bay cannot be sold while the other bays have no room for its fighters', async () => {
+    const { outfitSellCheck } = await import('./outfitter');
+    expect(outfitSellCheck(carrierWorld({ outfits: { 'fighter-bay': 2, 'wasp-fighter': 8 } }), data, 'fighter-bay')).toEqual({ ok: false, reason: 'fightersAboard' });
+    expect(outfitSellCheck(carrierWorld({ outfits: { 'fighter-bay': 2, 'wasp-fighter': 4 } }), data, 'fighter-bay').ok).toBe(true);
+  });
+
+  it('fighters beyond the bays room never count as docked, so they never launch', () => {
+    expect(dockedCount({ 'fighter-bay': 1, 'wasp-fighter': 8 }, data)).toBe(4);
+    let s = tick(begin(carrierWorld({ outfits: { 'fighter-bay': 1, 'wasp-fighter': 8 } })), LAUNCH);
+    s = tick(s, IDLE, 10 * 60);
+    expect(fighters(s)).toHaveLength(4);
+  });
+});

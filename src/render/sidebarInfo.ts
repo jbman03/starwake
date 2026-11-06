@@ -12,7 +12,7 @@ import type { Battle } from '../sim/battle';
 import { hullBars } from './combatFx';
 import { presentEscorts } from '../sim/escortNpcs';
 import { ORDER_LABEL } from '../sim/escorts';
-import { ESCORT_COLOR, fuelJumps, playerHull, secondaryAmmo, siteTargetText } from './hudInfo';
+import { beamPowerText, ESCORT_COLOR, fuelJumps, playerHull, secondaryAmmo, siteTargetText } from './hudInfo';
 
 /** World distance from the radar's centre to its edge (same as the touch rail radar). */
 export const RADAR_RANGE = 2500;
@@ -58,6 +58,7 @@ export function sidebarInfo(
   const status = gov ? legalStatus(world, data, gov) : 'clean';
   const ship = targetedNpc(traffic);
   const escorts = traffic ? presentEscorts(traffic).length : 0;
+  const away = world.escorts.filter((e) => e.waiting || e.downUntilDay !== undefined).length;
   const ammo = secondaryAmmo(world, data, battle?.secondary ?? null);
   return {
     shields: stats.shields,
@@ -66,8 +67,10 @@ export function sidebarInfo(
     jumps: fuelJumps(world, data),
     nav: next === undefined ? 'No course' : `${data.systems[next]?.name ?? next} · ${n} ${n === 1 ? 'jump' : 'jumps'}`,
     law: { text: `Law: ${LEGAL_LABEL[status]}`, color: LEGAL_COLOR[status] },
-    escorts: escorts > 0 ? `Escorts: ${escorts} · ${ORDER_LABEL[world.escortOrder]}` : null,
-    secondary: ammo ? `${ammo.name} ×${ammo.count}` : 'None',
+    // Escorts left behind (waiting for a landing) or recovering wingmen still show, so none seems to vanish (playtest bugs 4, 13).
+    escorts:
+      escorts + away > 0 ? `Escorts: ${escorts}${away > 0 ? ` (+${away} away)` : ''} · ${ORDER_LABEL[world.escortOrder]}` : null,
+    secondary: [ammo ? `${ammo.name} ×${ammo.count}` : 'None', beamPowerText(world, data, battle ?? null)].filter(Boolean).join(' · '),
     hull: playerHull(world, data, battle),
     targetHull: ship && !site ? { ...hullBars(ship.hull), disabled: ship.hull.disabled } : null,
     target: site ? siteTargetText(site, world.ship.pos) : ship ? npcLabel(ship, data) : hasTarget ? t.name : null,

@@ -547,3 +547,26 @@ describe('escorts in battle (cycle 6)', () => {
     expect(s.b.playerAggro).toEqual(['r9']);
   });
 });
+
+describe('beam power (beams never run out, they weaken)', () => {
+  const beamWorld = () => mkWorld({ systemId: 'vesk', outfits: { 'lance-beam': 1 } });
+  it('firing drains power and damage falls toward the floor; resting recharges it', () => {
+    const cfg = data.combat.beams;
+    const t = mkTraffic([mkNpc('r1', 'raiders', 100, 0, { hull: { ...fullHull(0, 1e6), maxArmor: 1e6 } })]);
+    const dps = (data.outfits['lance-beam'] as { effect: { dps: number } }).effect.dps;
+    let s = begin(beamWorld(), t);
+    s = tick(s, FIRE);
+    const first = 1e6 - npc(s, 'r1').hull.armor;
+    expect(first).toBeCloseTo(dps * DT, 3);
+    // Pin the target in the beam's line (hit, it would turn and run).
+    const pin = (x: Sim): Sim => ({ ...x, t: { ...x.t, npcs: x.t.npcs.map((n) => ({ ...n, ship: { ...n.ship, pos: { x: 100, y: 0 }, vel: { x: 0, y: 0 } } })) } });
+    for (let i = 0; i < Math.ceil(60 / cfg.drainPerSec) + 60; i++) s = tick(pin(s), FIRE); // well past empty
+    expect(s.b.beamPower.player).toBe(0);
+    s = pin(s);
+    const before = npc(s, 'r1').hull.armor;
+    s = tick(s, FIRE);
+    expect(before - npc(s, 'r1').hull.armor).toBeCloseTo(dps * DT * cfg.minPower, 3); // still hits, weakly
+    s = tick(s, IDLE, Math.ceil(60 / cfg.rechargePerSec) + 5);
+    expect(s.b.beamPower.player).toBeUndefined(); // full again
+  });
+});

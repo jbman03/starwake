@@ -5,7 +5,7 @@ import type { ActionId } from '../input/actions';
 import type { InputMode } from '../input/mode';
 import { getInsets } from '../input/insets';
 import { computeLayout, railMetrics, stickFromOffset, type Insets, type Layout, type Rect } from '../input/touch';
-import { hudInfo, routeBannerText, secondaryShort } from '../render/hudInfo';
+import { beamPowerText, hudInfo, routeBannerText, secondaryShort } from '../render/hudInfo';
 import { radarBlips } from '../render/sidebarInfo';
 import type { ContextAction } from '../sim/context';
 import { ORDER_LABEL } from '../sim/escorts';
@@ -461,7 +461,8 @@ export function mountRails(opts: RailsOptions): Rails {
     armorFill.style.width = `${Math.round(info.hull.armor * 100)}%`;
     const orderLabel = `Escort orders (now ${ORDER_LABEL[world.escortOrder]})`;
     if (orderBtn.getAttribute('aria-label') !== orderLabel) orderBtn.setAttribute('aria-label', orderLabel);
-    const weapon = secondaryShort(world, data, battle.secondary);
+    const beam = beamPowerText(world, data, battle);
+    const weapon = beam ? `${secondaryShort(world, data, battle.secondary)} · ${beam.replace('Beam ', 'B ')}` : secondaryShort(world, data, battle.secondary);
     if (secondary.textContent !== weapon) {
       secondary.textContent = weapon;
       secondary.setAttribute('aria-label', `Next launcher (now ${weapon === '—' ? 'none' : weapon})`);
