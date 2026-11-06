@@ -275,3 +275,23 @@ describe('playtest bug 4: an unpaid escort is announced the day it happens', () 
     expect(r.events).toContainEqual({ type: 'message', text: "You can't pay Odile Frayne's wage. They will leave at your next landing." });
   });
 });
+
+describe('a lent escort (playtest: the first Dimming trip)', () => {
+  it('Low Tide lends Hal Brennan in a Kestrel: full, unpaid, not for sale; a full group means he stays behind', async () => {
+    const { applyOutcomes } = await import('./encounters');
+    const { testData } = await import('../data/testData');
+    const { newWorld } = await import('./world');
+    const { sellEscortPrize } = await import('./escorts');
+    const d = testData();
+    const o = d.story['m3-low-tide'].onComplete.filter((x) => x.type === 'escort');
+    expect(o).toEqual([{ type: 'escort', shipId: 'kestrel', name: 'Hal Brennan' }]);
+    const r = applyOutcomes(newWorld(d, 1), d, o, 'story:m3', { npcName: '' });
+    expect(r.world.escorts).toHaveLength(1);
+    expect(r.world.escorts[0]).toMatchObject({ name: 'Hal Brennan', shipId: 'kestrel', hired: true, wage: 0 });
+    expect(sellEscortPrize(r.world, d, r.world.escorts[0].id)).toEqual({ error: 'hired' });
+    const full = { ...newWorld(d, 1), escorts: [1, 2, 3].map((n) => ({ id: `esc-${n}`, name: `E${n}`, shipId: 'courier', outfits: {}, armor: 40, fuel: 1, hired: true, wage: 1 })) };
+    const f = applyOutcomes(full, d, o, 'story:m3', { npcName: '' });
+    expect(f.world.escorts).toHaveLength(3);
+    expect(f.messages).toEqual(['Your group is full, so Hal Brennan stays behind.']);
+  });
+});

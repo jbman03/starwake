@@ -1,5 +1,6 @@
 import type { GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
+import { dangerOf, DANGER_LABEL, type Danger } from '../sim/traffic';
 import { fuelCheck, lanesOf, routeBetween, systemOpen, visibleSystems } from '../sim/galaxy';
 import { missionSystem } from '../sim/combatMissions';
 import { jobMissions } from '../sim/missions';
@@ -38,6 +39,8 @@ export interface MapNode {
   current: boolean;
   /** A mission's (job or story step) destination is in this system. */
   flag: boolean;
+  /** Raider danger, shown for known and seen systems (null when unknown). */
+  danger: Danger | null;
 }
 
 export interface MapModel {
@@ -68,6 +71,7 @@ export function mapModel(world: WorldState, data: GameData): MapModel {
       y: s.mapPos.y,
       current: s.id === world.systemId,
       flag: flagged.has(s.id),
+      danger: state === 'unknown' ? null : dangerOf(data, s.id),
     };
   });
   const lanes: [string, string][] = [];
@@ -126,7 +130,8 @@ export function systemDetails(id: string, world: WorldState, data: GameData): Sy
   const state = stateOf(world, id);
   if (!sys || state === 'unknown') return { title: 'Unexplored', rows: [] };
   const government = { label: 'Government', value: data.governments[sys.government]?.name ?? sys.government };
-  if (state === 'seen') return { title: sys.name, rows: [government, { label: 'Details', value: 'Not yet visited' }] };
+  const danger = { label: 'Danger', value: DANGER_LABEL[dangerOf(data, id)] };
+  if (state === 'seen') return { title: sys.name, rows: [government, danger, { label: 'Details', value: 'Not yet visited' }] };
 
   const ports = Object.values(data.planets).filter((p) => p.systemId === id);
   const goods = new Set<string>();
@@ -139,6 +144,7 @@ export function systemDetails(id: string, world: WorldState, data: GameData): Sy
     title: sys.name,
     rows: [
       government,
+      danger,
       { label: 'Goods', value: listOr([...goods].map((g) => data.commodities[g]?.name ?? g)) },
       {
         label: 'Services',
@@ -374,6 +380,8 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
         if (n.state !== 'unknown') dot.style.stroke = n.color;
         g.append(dot);
         if (n.flag) g.append(svg('path', { d: 'M8 -8 V-24 L19 -19.5 L8 -15', class: 'sw-map-flag' }));
+        // A small warning triangle beside raider-heavy systems (red: high, amber: medium).
+        if (n.danger === 'high' || n.danger === 'med') g.append(svg('path', { d: 'M-15 6 L-9 -4 L-3 6 Z', class: `sw-map-danger sw-map-danger-${n.danger}` }));
         if (n.name !== null) g.append(svg('text', { y: -16, class: 'sw-map-name' }, n.name));
         g.addEventListener('click', () => select(n.id));
         g.addEventListener('keydown', (e) => {

@@ -137,10 +137,10 @@ describe('systemDetails', () => {
     expect(JSON.stringify(d)).not.toContain('Skerry');
   });
 
-  it('gives only the name and government for a seen system', () => {
+  it('gives only the name, government and danger for a seen system', () => {
     const d = systemDetails('vesk', world(), data);
     expect(d.title).toBe('Vesk');
-    expect(d.rows.map((r) => r.label)).toEqual(['Government', 'Details']);
+    expect(d.rows.map((r) => r.label)).toEqual(['Government', 'Danger', 'Details']);
   });
 });
 
@@ -317,5 +317,18 @@ describe('showStarMap', () => {
     const unknown = mapModel(world(), data).nodes.find((n) => n.state === 'unknown')!;
     const { sys } = setup(undefined, undefined, { preview: { systemId: unknown.id, label: 'Mission: x' } });
     expect(sys(unknown.id).classList.contains('sw-map-preview')).toBe(true);
+  });
+});
+
+describe('danger on the map (playtest)', () => {
+  it('rates systems by raider chance and shows it for charted systems only', async () => {
+    const { dangerOf } = await import('../sim/traffic');
+    const d = testData();
+    expect(dangerOf(d, 'calder')).toBe('low');
+    const fringe = Object.values(d.systems).find((s) => s.government === 'unlit')!;
+    expect(dangerOf(d, fringe.id)).toBe('high');
+    const w = newWorld(d, 1);
+    const m = mapModel(w, d);
+    for (const n of m.nodes) expect(n.danger === null).toBe(n.state === 'unknown');
   });
 });

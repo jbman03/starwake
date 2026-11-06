@@ -139,3 +139,18 @@ export function rumor(world: WorldState, data: GameData, portId: string): string
   const state = tpl?.effect === 'surplus' ? 'flooded with' : 'short of';
   return `Traders say ${data.planets[e.portId].name} is ${state} ${good}.`;
 }
+
+/**
+ * Ports in charted (visited) systems whose market pays high for a good, nearest system first by hops, up to `max`
+ * (playtest: speculating blind lost money). The port the pilot stands at is left out.
+ */
+export function sellsHighAt(world: WorldState, data: GameData, goodId: string, hereId: string, max = 3): string[] {
+  const known = new Set(world.known);
+  return Object.values(data.planets)
+    .filter((p) => p.id !== hereId && known.has(p.systemId) && p.market?.[goodId] === 'high')
+    .map((p) => ({ p, hops: hopDistance(data, world.systemId, p.systemId, world.flags) }))
+    .sort((a, b) => a.hops - b.hops || a.p.name.localeCompare(b.p.name))
+    .slice(0, max)
+    .map(({ p }) => p.name);
+}
+

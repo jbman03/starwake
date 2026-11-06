@@ -218,6 +218,8 @@ export const OutcomeSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('message'), text: z.string().min(1) }),
   z.object({ type: z.literal('standing'), government: id, level: StandingLevelSchema }),
   z.object({ type: z.literal('unlock'), flag: id }),
+  // A pilot lent to the group: full armor and fuel, the hull's guns, no wage, never sold as a prize.
+  z.object({ type: z.literal('escort'), shipId: id, name: z.string().min(1) }),
 ]);
 
 const EncounterChoiceSchema = z.object({

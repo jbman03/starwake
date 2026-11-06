@@ -1155,7 +1155,12 @@ describe('Controller story steps in flight', () => {
       const f = await flying(find);
       const fs = f.c.storySite!;
       park(f.c, fs.pos.x + 900, fs.pos.y);
-      expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache');
+      expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache · signal strong');
+      park(f.c, fs.pos.x + 1500, fs.pos.y);
+      expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache · signal growing');
+      park(f.c, fs.pos.x + 2500, fs.pos.y);
+      expect(f.c.objectiveText()).toBe('Objective: search Calder for the Cache · signal faint');
+      expect(f.c.objectiveText(true)).toBe('Search Calder · signal faint');
       park(f.c, fs.pos.x + 500, fs.pos.y);
       expect(f.c.objectiveText()).toBe('Objective: search the Cache — out in space, 500 px');
       park(c, site.pos.x + 641, site.pos.y);

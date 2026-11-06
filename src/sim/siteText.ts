@@ -17,18 +17,24 @@ export function siteTargetText(site: SiteTarget, from: Vec2): string {
  * Phone (`touch`): short enough for two rail lines: "Scan Dead lantern · 640 px", "Tap Scan",
  * "Search Skerry for the Cache".
  */
+/** A hidden find site's signal, from how far away it really is: warmer or colder as the pilot sweeps (playtest). */
+export function signalOf(distance: number): 'strong' | 'growing' | 'faint' {
+  return distance <= 1000 ? 'strong' : distance <= 1800 ? 'growing' : 'faint';
+}
+
 export function objectiveText(
-  o: { kind: 'scan' | 'find'; label: string; systemName: string; distance: number | null; reachable?: boolean },
+  o: { kind: 'scan' | 'find'; label: string; systemName: string; distance: number | null; reachable?: boolean; hiddenDistance?: number },
   touch = false,
 ): string {
   const verb = o.kind === 'find' ? 'search' : 'scan';
   const Verb = o.kind === 'find' ? 'Search' : 'Scan';
+  const signal = o.distance === null && o.hiddenDistance !== undefined ? ` · signal ${signalOf(o.hiddenDistance)}` : '';
   if (touch) {
-    if (o.distance === null) return `${Verb} ${o.systemName} for the ${o.label}`;
+    if (o.distance === null) return signal ? `${Verb} ${o.systemName}${signal}` : `${Verb} ${o.systemName} for the ${o.label}`;
     if (o.reachable) return `Tap ${Verb}`;
     return `${Verb} ${o.label} · ${roundDistance(o.distance)} px`;
   }
-  if (o.distance === null) return `Objective: ${verb} ${o.systemName} for the ${o.label}`;
+  if (o.distance === null) return `Objective: ${verb} ${o.systemName} for the ${o.label}${signal}`;
   if (o.reachable) return `Objective: ${verb} the ${o.label} — press {interact} to ${verb}`;
   return `Objective: ${verb} the ${o.label} — out in space, ${roundDistance(o.distance)} px`;
 }

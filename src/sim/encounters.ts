@@ -1,3 +1,4 @@
+import { lendEscort } from './escorts';
 import type { EncounterDef, GameData, Outcome } from '../data/schemas';
 import { cargoFree } from './cargo';
 import { HIDDEN_LANE_FLAG, hopDistance, revealOnArrival, revealWithin } from './galaxy';
@@ -235,6 +236,12 @@ export function applyOutcomes(
       case 'unlock':
         w = setFlag(w, o.flag);
         break;
+      case 'escort': {
+        const lent = lendEscort(w, data, o.shipId, o.name);
+        if (lent) w = lent;
+        else messages.push(`Your group is full, so ${o.name} stays behind.`);
+        break;
+      }
     }
   };
   outcomes.forEach(apply);

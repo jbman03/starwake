@@ -229,3 +229,24 @@ export function escortLosses(world: WorldState, before: Traffic, events: readonl
     messages: gone.map((e) => `${e.name} is destroyed.`),
   };
 }
+
+/**
+ * A pilot lent by a story giver (playtest: the first trip into the Dimming was a near-certain loss in a shuttle):
+ * full armor and fuel, the hull's own guns, no wage. Hired, so never sold as a prize. Null when the group is full.
+ */
+export function lendEscort(world: WorldState, data: GameData, shipId: string, name: string): WorldState | null {
+  if (world.escorts.length >= data.escorts.maxEscorts || !data.ships[shipId]) return null;
+  const outfits = { ...npcLoadout(data.ships[shipId]) };
+  const escort: Escort = {
+    id: nextEscortId(world.escorts),
+    name,
+    shipId,
+    outfits,
+    armor: escortMaxArmor(data, { shipId, outfits }),
+    fuel: escortMaxFuel(data, { shipId, outfits }),
+    hired: true,
+    wage: 0,
+  };
+  return { ...world, escorts: [...world.escorts, escort] };
+}
+

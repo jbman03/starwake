@@ -121,6 +121,15 @@ export function raiderChance(data: GameData, systemId: string, opts: TrafficOpts
   return isFringe(data, systemId) ? Math.max(byGov, sp.raiderChance.fringe ?? 0) : byGov;
 }
 
+export type Danger = 'low' | 'med' | 'high';
+export const DANGER_LABEL: Record<Danger, string> = { low: 'Low', med: 'Medium', high: 'High (raiders common)' };
+
+/** How likely raiders are here, for the star map (playtest: a day-3 pilot died one jump out with no warning). */
+export function dangerOf(data: GameData, systemId: string): Danger {
+  const c = raiderChance(data, systemId, { maxNpcs: 0, guideActive: false, startSystem: '' });
+  return c >= 0.3 ? 'high' : c >= 0.15 ? 'med' : 'low';
+}
+
 /** Chance that a spawn in this system is a patrol. */
 export const patrolChance = (data: GameData, systemId: string): number => data.combat.spawn.patrolChance[data.systems[systemId].government] ?? 0;
 

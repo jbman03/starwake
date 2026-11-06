@@ -108,7 +108,7 @@ interface Refs {
   governments: Record<string, unknown>;
   commodities: Record<string, unknown>;
   missionTypes: Record<string, unknown>;
-  ships: Record<string, { unique?: boolean }>;
+  ships: Record<string, { unique?: boolean; role?: string }>;
 }
 
 /** Reference checks for one outcome; pushes a path-tagged issue for each unknown id. */
@@ -122,6 +122,8 @@ function checkOutcome(issues: string[], file: string, at: string, o: Outcome, r:
     for (const sid of o.systems ?? []) if (!(sid in r.systems)) issues.push(fmt(file, at, `unknown system "${sid}"`));
   if (o.type === 'standing' && !(o.government in r.governments))
     issues.push(fmt(file, at, `unknown government "${o.government}"`));
+  if (o.type === 'escort' && (!(o.shipId in r.ships) || r.ships[o.shipId].unique || r.ships[o.shipId].role === 'fighter'))
+    issues.push(fmt(file, at, `"${o.shipId}" is not a ship an escort can fly`));
 }
 
 function checkChoices(issues: string[], file: string, at: string, choices: { needs?: { cargo?: { good: string } } }[], r: Refs): void {

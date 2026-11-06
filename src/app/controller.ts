@@ -1297,6 +1297,8 @@ export class Controller {
       systemName: this.data.systems[this.world.systemId]?.name ?? this.world.systemId,
       distance: visible ? dist(this.world.ship.pos, s.pos) : null,
       reachable: visible !== null && siteReachable(this.world, s.pos),
+      // Still hidden: a signal strength from the true distance, so the sweep has a warmer and a colder.
+      ...(visible ? {} : { hiddenDistance: dist(this.world.ship.pos, s.pos) }),
     }, touch);
   }
 
