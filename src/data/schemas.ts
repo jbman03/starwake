@@ -565,6 +565,8 @@ const DemandSchema = z
   .object({
     creditsFraction: chance, // of the pilot's credits
     minCredits: z.number().int().nonnegative(),
+    maxCredits: z.number().int().nonnegative(), // the most a toll asks, however rich the pilot
+    graceDays: z.number().int().nonnegative(), // after a toll is paid, raiders let the pilot pass this many days
     cargoTons: z.number().positive(),
     lapseSec: z.number().positive(), // flight seconds before an unanswered demand turns into an attack
     chance, // of a new raider hailing first

@@ -38,3 +38,12 @@ describe('raider demands', () => {
     expect(dumpCargo(w, demandTerms(w, data))).toBeNull();
   });
 });
+
+describe('toll cap (phone playtest bug 4)', () => {
+  it('a rich pilot pays at most maxCredits; a poor one at least minCredits', () => {
+    const d = testData();
+    const w = newWorld(d, 1);
+    expect(demandTerms({ ...w, credits: 1_000_000 }, d).credits).toBe(d.combat.demand.maxCredits);
+    expect(demandTerms({ ...w, credits: 10 }, d).credits).toBe(d.combat.demand.minCredits);
+  });
+});

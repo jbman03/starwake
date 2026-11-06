@@ -43,6 +43,10 @@ export function showShipyard(ctx: UiContext, planetId: string, onClose: () => vo
   const items = (): ShopItem[] =>
     shipStock(planetId, data)
       .filter((def) => !shipHidden(controller.world, def))
+      // A one-off reward hull that is now open comes first, so it is never buried on a later page (phone playtest bug 10).
+      .map((def, i) => ({ def, i, first: !!def.unique && (() => { const c = controller.shipQuote(def.id).check; return c.ok || (c.reason !== 'locked' && c.reason !== 'standing' && c.reason !== 'rank' && c.reason !== 'gone'); })() }))
+      .sort((a, b) => Number(b.first) - Number(a.first) || a.i - b.i)
+      .map(({ def }) => def)
       .map((def) => {
       const q = controller.shipQuote(def.id);
       const w = controller.world;

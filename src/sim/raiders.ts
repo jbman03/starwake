@@ -11,7 +11,8 @@ export interface DemandTerms {
 /** The demand for this pilot: a share of credits (at least the minimum) or the dearest tons of cargo. */
 export function demandTerms(world: WorldState, data: GameData): DemandTerms {
   const d = data.combat.demand;
-  const credits = Math.round(Math.max(d.minCredits, d.creditsFraction * world.credits) / 10) * 10;
+  // A share of the purse, but never more than maxCredits: a rich pilot paid 2,690 cr a pass (phone playtest bug 4).
+  const credits = Math.round(Math.min(d.maxCredits, Math.max(d.minCredits, d.creditsFraction * world.credits)) / 10) * 10;
   const goods = Object.entries(world.cargo)
     .filter(([id, t]) => t > 0 && data.commodities[id])
     .sort((a, b) => data.commodities[b[0]].basePrice - data.commodities[a[0]].basePrice || a[0].localeCompare(b[0]));

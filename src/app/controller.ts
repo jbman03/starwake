@@ -1,3 +1,4 @@
+import { isFinalStep } from '../guide/guide';
 import type { EncounterDef, GameData, StoryMissionDef, WingmanDef } from '../data/schemas';
 import type { Guide } from '../guide/guide';
 import { ACTION_GROUP, type ActionGroup, type ActionId } from '../input/actions';
@@ -660,10 +661,16 @@ export class Controller {
   }
 
   /** Target the nearest hostile ship, dropping any planet or site target; false (no change) when there is none. */
-  targetNearestHostile(): boolean {
+  /** Target the nearest hostile and say who it is, or that none is near (phone playtest bug 1: no feedback). */
+  targetNearestHostile(quiet = false): boolean {
     const id = nearestHostile(this.world, this.traffic, this.combat.battle);
-    if (!id) return false;
+    if (!id) {
+      if (!quiet) this.emit({ type: 'message', text: 'No hostile ship nearby.' });
+      return false;
+    }
     this.targetShip(id);
+    const n = this.traffic.npcs.find((x) => x.id === id);
+    if (!quiet && n) this.emit({ type: 'message', text: `Targeting the nearest hostile: ${n.name}.` });
     return true;
   }
 
@@ -999,6 +1006,9 @@ export class Controller {
       }
       if (pressed.delete('escortOrder')) this.cycleEscortOrder();
       if (pressed.delete('nearestHostile')) this.targetNearestHostile();
+      // Touch: FIRE with nothing targeted locks onto the nearest hostile, so the guns' assist can aim (phone
+      // playtest bug 2: a phone pilot had no way to aim at an attacker).
+      if (touch.actions.has('firePrimary') && !this.traffic.targetId && !this.targetedSite()) this.targetNearestHostile(true);
       if (pressed.delete('board')) this.board();
       // The autopilot key flies to a targeted site (the sim's own autopilot only knows planets and the jump point).
       if (pressed.has('autopilot') && this.world.assist.kind !== 'autopilot') {
@@ -1114,6 +1124,13 @@ export class Controller {
     const d = this.combat.checkDemands(this.world, this.traffic, busy);
     this.traffic = d.traffic;
     if (!d.offer) return;
+    // Paid lately: word travels, and the raider lets the pilot pass (phone playtest bug 5: tolled again next system).
+    if (this.tollPaidDay !== null && this.world.day - this.tollPaidDay <= this.data.combat.demand.graceDays) {
+      const id = d.offer.npcId;
+      this.traffic = { ...this.traffic, npcs: this.traffic.npcs.map((n) => (n.id === id ? { ...n, demand: false, peaceful: true } : n)) };
+      this.emit({ type: 'message', text: `${d.offer.npcName} lets you pass: word is you have paid your way lately.` });
+      return;
+    }
     if (law) this.combat.requeueLaw({ npcId: law.npcId, npcName: law.npcName, gov: law.gov, reason: law.reason });
     this.pending = { kind: 'demand', ...d.offer, expiresSec: this.data.combat.demand.lapseSec };
     this.emit({ type: 'sfx', sfx: 'hail' });
@@ -1132,6 +1149,7 @@ export class Controller {
     if (!offer) return null;
     const r = this.combat.resolveDemand(this.world, this.traffic, offer, answer);
     if (!r) return null;
+    if (answer !== 'refuse') this.tollPaidDay = this.world.day;
     this.world = r.world;
     this.traffic = r.traffic;
     this.pending = null;
@@ -1307,6 +1325,9 @@ export class Controller {
    * PC text may hold an `{interact}` token (once the site is reachable); callers fill it with formatMessage.
    */
   // ---- combat training (playtest: the guide teaches only trading) ---------------
+
+  /** The day the pilot last paid (or dumped cargo for) a toll; raiders let them pass for `graceDays` after. Session only. */
+  private tollPaidDay: number | null = null;
 
   /** Combat training under way: the step reached and its drone. */
   training: { step: number; droneId: string } | null = null;
@@ -1832,6 +1853,9 @@ export class Controller {
     // Escorts land too (also on load): their flight damage is kept, unpaid ones leave, the rest refuel and rejoin.
     this.dockFleet();
     this.training = null;
+    // The guide's "Nice trade" card was reached at an earlier landing: it goes now, so it never crowds a planet
+    // screen (phone playtest bug 11).
+    if (this.guide && isFinalStep(this.guide.current())) this.guide.skip();
     this.world = syncEscorts(this.world, this.data, this.traffic);
     this.traffic = withoutEscorts(this.traffic);
     const escorts = landEscorts(this.world, this.data);

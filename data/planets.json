@@ -124,7 +124,7 @@
     "description": "A cooperative station where every dock, bunk and bolt belongs to someone in particular. Pilots who mind their manners are made welcome; the rest are made to sweep."
   },
   {
-    "id": "little-wren", "name": "Little Wren", "systemId": "wrenhold", "pos": { "x": 200, "y": -1100 }, "radius": 34, "techTier": 2, "fuelPrice": 4, "kind": "planet",
+    "id": "little-wren", "name": "Little Wren", "systemId": "wrenhold", "pos": { "x": 200, "y": -1100 }, "radius": 34, "techTier": 2, "fuelPrice": 3, "kind": "planet",
     "services": ["exchange", "bar"], "market": { "food": "low", "metal": "med" },
     "description": "A small moon of allotments and fish ponds that keeps the capital fed. The only fuel pump is a hand crank behind the pond sheds, and the price reflects the arm work."
   },
@@ -168,7 +168,7 @@
     "description": "A flat, shining world of salt pans and shrimp farms. The locals are cheerful, sunburned and permanently short of boots."
   },
   {
-    "id": "heron-station", "name": "Heron Station", "systemId": "saltmarsh", "pos": { "x": -550, "y": -650 }, "radius": 24, "techTier": 2, "fuelPrice": 4, "kind": "station",
+    "id": "heron-station", "name": "Heron Station", "systemId": "saltmarsh", "pos": { "x": -550, "y": -650 }, "radius": 24, "techTier": 2, "fuelPrice": 3, "kind": "station",
     "services": ["missions", "bar"],
     "description": "A spindly survey post on long legs of scaffold. Its keeper posts odd jobs on a corkboard and pays in cash, mostly on time."
   },
@@ -185,62 +185,62 @@
   },
 
   {
-    "id": "tallow-rock", "name": "Tallow Rock", "systemId": "vesk", "pos": { "x": -600, "y": -700 }, "radius": 40, "techTier": 1, "fuelPrice": 5, "kind": "planet",
+    "id": "tallow-rock", "name": "Tallow Rock", "systemId": "vesk", "pos": { "x": -600, "y": -700 }, "radius": 40, "techTier": 1, "fuelPrice": 4, "kind": "planet",
     "services": ["exchange"], "market": { "food": "high", "medical": "high", "glowmoss": "low" },
     "description": "A pale, wind-scoured rock where hardy settlers render lichen into candle wax and call it a living."
   },
   {
-    "id": "vesk-outpost", "name": "Vesk Outpost", "systemId": "vesk", "pos": { "x": 850, "y": 350 }, "radius": 26, "techTier": 1, "fuelPrice": 5, "kind": "station",
+    "id": "vesk-outpost", "name": "Vesk Outpost", "systemId": "vesk", "pos": { "x": 850, "y": 350 }, "radius": 26, "techTier": 1, "fuelPrice": 4, "kind": "station",
     "services": ["missions"],
     "description": "A lonely relay at the edge of the charts. The porch light is always on, and the pilot on duty is always glad to see you."
   },
 
   {
-    "id": "mirren-hollow", "name": "Mirren Hollow", "systemId": "mirren", "pos": { "x": 450, "y": 500 }, "radius": 44, "techTier": 1, "fuelPrice": 5, "kind": "planet",
+    "id": "mirren-hollow", "name": "Mirren Hollow", "systemId": "mirren", "pos": { "x": 450, "y": 500 }, "radius": 44, "techTier": 1, "fuelPrice": 4, "kind": "planet",
     "services": ["exchange", "missions"], "market": { "medical": "low", "equipment": "high", "industrial": "high", "luxury": "med" },
     "description": "A boggy world of stilt houses and herb gardens, where the healers are better than the roofs. Fuel comes by barge and sells dear, so the locals burn peat and let visitors pay the difference."
   },
 
   {
-    "id": "lastlight-beacon", "name": "Lastlight Beacon", "systemId": "lastlight", "pos": { "x": -400, "y": 300 }, "radius": 30, "techTier": 2, "fuelPrice": 5, "kind": "station",
+    "id": "lastlight-beacon", "name": "Lastlight Beacon", "systemId": "lastlight", "pos": { "x": -400, "y": 300 }, "radius": 30, "techTier": 2, "fuelPrice": 4, "kind": "station",
     "hub": true, "services": ["exchange", "missions", "shipyard", "outfitter", "bar"], "market": { "food": "high", "equipment": "high", "metal": "med", "stims": "high" },
     "description": "A lighthouse at the bottom of the charts, kept by a family who have never once let it go out. Their fuel is dear, and their soup is free."
   },
 
   {
-    "id": "brackwater", "name": "Brackwater", "systemId": "brackwater", "pos": { "x": 550, "y": -300 }, "radius": 48, "techTier": 1, "fuelPrice": 4, "kind": "planet",
+    "id": "brackwater", "name": "Brackwater", "systemId": "brackwater", "pos": { "x": 550, "y": -300 }, "radius": 48, "techTier": 1, "fuelPrice": 3, "kind": "planet",
     "services": ["exchange", "outfitter"], "market": { "metal": "low", "food": "high", "luxury": "high", "copperwine": "high", "stims": "low", "relics": "low" },
     "description": "A drowned world of tin-roofed rafts lashed into floating towns. The scrap-divers bring up hull metal by the ton and spend it on anything that reminds them of land."
   },
   {
-    "id": "the-midden", "name": "The Midden", "systemId": "brackwater", "pos": { "x": -700, "y": 650 }, "radius": 30, "techTier": 1, "fuelPrice": 5, "kind": "station",
+    "id": "the-midden", "name": "The Midden", "systemId": "brackwater", "pos": { "x": -700, "y": 650 }, "radius": 30, "techTier": 1, "fuelPrice": 4, "kind": "station",
     "services": [], "dumpSite": true,
     "description": "A wrecked freighter that the whole fringe uses as a rubbish tip. Somebody lives aboard, but they only come out to count the bags."
   },
 
   {
-    "id": "skerry-light", "name": "Skerry Light", "systemId": "skerry", "pos": { "x": -450, "y": 450 }, "radius": 28, "techTier": 2, "fuelPrice": 5, "kind": "station",
+    "id": "skerry-light", "name": "Skerry Light", "systemId": "skerry", "pos": { "x": -450, "y": 450 }, "radius": 28, "techTier": 2, "fuelPrice": 4, "kind": "station",
     "services": ["exchange", "missions", "outfitter", "bar"], "market": { "food": "high", "medical": "high", "emberwool": "high", "relics": "high" },
     "description": "A cold, bright station at the very rim, where the heaters run all year and never quite win. Its keepers trade for anything warm, edible or both."
   },
   {
-    "id": "gull-rock", "name": "Gull Rock", "systemId": "skerry", "pos": { "x": 700, "y": -500 }, "radius": 36, "techTier": 1, "fuelPrice": 5, "kind": "planet",
+    "id": "gull-rock", "name": "Gull Rock", "systemId": "skerry", "pos": { "x": 700, "y": -500 }, "radius": 36, "techTier": 1, "fuelPrice": 4, "kind": "planet",
     "services": [],
     "description": "A bare stack of black stone with one abandoned hut on top. The hut's door is unlocked, and someone keeps leaving the kettle full."
   },
   {
-    "id": "quiet-shoal", "name": "Quiet Shoal", "systemId": "hushwater", "pos": { "x": 300, "y": -350 }, "radius": 34, "techTier": 1, "fuelPrice": 6, "kind": "planet",
+    "id": "quiet-shoal", "name": "Quiet Shoal", "systemId": "hushwater", "pos": { "x": 300, "y": -350 }, "radius": 34, "techTier": 1, "fuelPrice": 5, "kind": "planet",
     "services": ["exchange"], "market": { "stillwater-pearl": "low", "food": "high", "medical": "high" },
     "description": "A pale, flat little world ringed by tide pools that never freeze and never quite boil. The few families here keep their voices low, as if the water were listening."
   },
 
   {
-    "id": "cairn-rest", "name": "Cairn Rest", "systemId": "gloam", "pos": { "x": -420, "y": 380 }, "radius": 42, "techTier": 1, "fuelPrice": 6, "kind": "planet",
+    "id": "cairn-rest", "name": "Cairn Rest", "systemId": "gloam", "pos": { "x": -420, "y": 380 }, "radius": 42, "techTier": 1, "fuelPrice": 5, "kind": "planet",
     "services": ["exchange", "bar"], "market": { "food": "high", "medical": "high", "metal": "med", "stims": "low", "gunparts": "low" },
     "description": "A low grey world where travellers stack a stone on the cairn at the landing field before they leave. The cairn is taller than the control hut, and nobody remembers who started it."
   },
   {
-    "id": "slagwater", "name": "Slagwater", "systemId": "sootfall", "pos": { "x": 520, "y": -300 }, "radius": 30, "techTier": 2, "fuelPrice": 5, "kind": "station",
+    "id": "slagwater", "name": "Slagwater", "systemId": "sootfall", "pos": { "x": 520, "y": -300 }, "radius": 30, "techTier": 2, "fuelPrice": 4, "kind": "station",
     "services": ["exchange", "bar"], "market": { "industrial": "high", "equipment": "high", "food": "med", "stims": "high" },
     "description": "A smelting ring that burns its furnaces low to save the dark. The air inside tastes of hot iron and the crew speak in whispers, out of habit."
   },
@@ -251,12 +251,12 @@
     "description": "The largest holding in the Dimming, built around a tug anchor older than the lanes. Ama Reed speaks for the settlers from the end of its long table, and every ship in the Dimming is mended here sooner or later."
   },
   {
-    "id": "greywake", "name": "Greywake", "systemId": "hollowmere", "pos": { "x": -300, "y": -450 }, "radius": 36, "techTier": 1, "fuelPrice": 6, "kind": "planet",
+    "id": "greywake", "name": "Greywake", "systemId": "hollowmere", "pos": { "x": -300, "y": -450 }, "radius": 36, "techTier": 1, "fuelPrice": 5, "kind": "planet",
     "services": ["exchange", "bar"], "market": { "food": "high", "industrial": "med", "medical": "high", "gunparts": "high" },
     "description": "A hushed farming world under a permanent haze. The fields are tended by lamplight, and the harvest is brought in by people who remember when the sky had a lantern in it."
   },
   {
-    "id": "cullet-yard", "name": "Cullet Yard", "systemId": "lowlight", "pos": { "x": 450, "y": 300 }, "radius": 34, "techTier": 2, "fuelPrice": 5, "kind": "planet",
+    "id": "cullet-yard", "name": "Cullet Yard", "systemId": "lowlight", "pos": { "x": 450, "y": 300 }, "radius": 34, "techTier": 2, "fuelPrice": 4, "kind": "planet",
     "services": ["exchange", "bar"], "market": { "dimglass": "low", "metal": "med", "food": "med" },
     "description": "A glassworks town stacked on a scarred plateau, where the slag of old lantern-glass is raked into grey heaps. Nobody asks what the glassmakers used to make here."
   }
