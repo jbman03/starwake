@@ -77,7 +77,7 @@ const allowed = (s: ReadonlySet<ActionId>): Set<ActionId> => new Set([...s].filt
 /** The player is out of the fight for this long (s) before the Destroyed card. */
 export const DESTROYED_DELAY_SEC = 2;
 
-export type BoardingChoice = 'credits' | 'cargo' | 'ammo' | 'capture' | 'command' | 'prize' | 'keep' | 'leave';
+export type BoardingChoice = 'all' | 'credits' | 'cargo' | 'ammo' | 'capture' | 'command' | 'prize' | 'keep' | 'leave';
 
 /** What the boarding card shows. */
 export interface BoardingView {
@@ -85,7 +85,7 @@ export interface BoardingView {
   /** "Your crew 4 · hers 6": capture odds come from these. */
   crewLine: string;
   stage: 'loot' | 'captured';
-  rows: { id: 'credits' | 'cargo' | 'ammo' | 'capture'; label: string; blocked: string | null; used: boolean }[];
+  rows: { id: 'all' | 'credits' | 'cargo' | 'ammo' | 'capture'; label: string; blocked: string | null; used: boolean }[];
   commandBlocked: string | null;
   /** Why Keep as escort can't be chosen ('Your group is full (3 escorts)'), or null. */
   keepBlocked: string | null;
@@ -257,6 +257,13 @@ export class CombatControl {
         { id: 'cargo', label: `Take cargo (${cargoT} t)`, blocked: cargoT <= 0 ? 'No cargo aboard' : null, used: s.used.has('cargo') || s.tried },
         { id: 'ammo', label: `Take ammo (${ammoN})`, blocked: ammoN <= 0 ? 'No ammo aboard' : null, used: s.used.has('ammo') || s.tried },
         { id: 'capture', label: `Attempt capture (${Math.round(captureOdds(world, this.data, npc) * 100)}%)`, blocked: null, used: done },
+        // One press for every take still open (playtest: boarding took about eight decisions).
+        {
+          id: 'all',
+          label: 'Take everything',
+          blocked: s.loot.credits <= 0 && cargoT <= 0 && ammoN <= 0 ? 'Nothing aboard' : null,
+          used: s.tried || (['credits', 'cargo', 'ammo'] as const).every((k) => s.used.has(k) || (k === 'credits' ? s.loot.credits <= 0 : k === 'cargo' ? cargoT <= 0 : ammoN <= 0)),
+        },
       ],
       commandBlocked: check.ok ? null : COMMAND_BLOCK_TEXT[check.reason],
       keepBlocked: world.escorts.length >= this.data.escorts.maxEscorts ? `Your group is full (${this.data.escorts.maxEscorts} escorts)` : null,
@@ -272,6 +279,22 @@ export class CombatControl {
     const rows = this.boardingView(world, traffic)?.rows ?? [];
     const keep = (w: WorldState, messages: string[]) => ({ world: w, traffic, messages, ended: false });
     if (s.stage === 'loot') {
+      if (choice === 'all') {
+        const row = rows.find((r) => r.id === 'all');
+        if (!row || row.used || row.blocked || s.tried) return null;
+        let w = world;
+        const said: string[] = [];
+        const first = s.used.size === 0;
+        for (const k of ['credits', 'cargo', 'ammo'] as const) {
+          if (s.used.has(k) || rows.find((r) => r.id === k)?.blocked) continue;
+          const t = k === 'credits' ? takeCredits(w, s.left) : k === 'cargo' ? takeCargo(w, this.data, s.left) : takeAmmo(w, this.data, s.left);
+          w = t.world;
+          s.left = t.loot;
+          s.used.add(k);
+          said.push(t.text);
+        }
+        return keep(first ? boardingCrime(w, this.data, npc, 'board') : w, said);
+      }
       if (choice === 'credits' || choice === 'cargo' || choice === 'ammo') {
         const row = rows.find((r) => r.id === choice);
         if (!row || row.used || row.blocked || s.tried) return null;

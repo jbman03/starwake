@@ -2504,3 +2504,22 @@ describe('escort orders', () => {
     expect(c.world.escortOrder).toBe('attack');
   });
 });
+
+describe('G flies beside a disabled target (playtest: boarding redesign)', () => {
+  it('autopilots to the wreck and stops there, then it can be boarded', async () => {
+    const { c, target } = await setup();
+    c.startFlight();
+    c.update(1 / 60);
+    const n0 = c.traffic.npcs[0];
+    const pos = { x: c.world.ship.pos.x + 700, y: c.world.ship.pos.y };
+    const wreck = { ...n0, id: 'wreck', engaged: false, ship: { ...n0.ship, pos, vel: { x: 0, y: 0 } }, hull: { ...n0.hull, armor: 1, disabled: true } };
+    c.traffic = { ...c.traffic, nextSpawnSec: 1e9, npcs: [wreck], targetId: 'wreck' };
+    target.dispatchEvent(keyEvent('keydown', 'KeyG'));
+    target.dispatchEvent(keyEvent('keyup', 'KeyG'));
+    c.update(0.1);
+    expect(c.world.assist).toMatchObject({ kind: 'autopilot', dest: { type: 'site', label: wreck.name } });
+    for (let i = 0; i < 60 * 60 && c.world.assist.kind === 'autopilot'; i++) c.update(1 / 60);
+    expect(c.world.assist.kind).toBe('none');
+    expect(c.combat.boardable(c.world, c.traffic)).not.toBeNull();
+  });
+});

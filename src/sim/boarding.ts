@@ -18,11 +18,12 @@ export interface Loot {
 
 const round10 = (n: number): number => Math.round(n / 10) * 10;
 
-/** Disabled, close and slow relative to the player. */
+/** Disabled, close (hull to hull, so big ships can board too) and slow relative to the player. */
 export function canBoard(world: WorldState, data: GameData, npc: Npc): boolean {
   const b = data.combat.boarding;
   if (!npc.hull.disabled) return false;
-  const d = Math.hypot(npc.ship.pos.x - world.ship.pos.x, npc.ship.pos.y - world.ship.pos.y);
+  const gap = (data.ships[npc.shipId]?.radius ?? 0) + (data.ships[world.shipId]?.radius ?? 0);
+  const d = Math.max(0, Math.hypot(npc.ship.pos.x - world.ship.pos.x, npc.ship.pos.y - world.ship.pos.y) - gap);
   const rel = Math.hypot(npc.ship.vel.x - world.ship.vel.x, npc.ship.vel.y - world.ship.vel.y);
   return d <= b.range && rel <= b.maxSpeed;
 }

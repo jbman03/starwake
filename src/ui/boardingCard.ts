@@ -76,7 +76,7 @@ export function showBoardingCard(ctx: UiContext, controller: Controller): void {
     text.textContent = `${view.shipLabel} — ${view.crewLine}`;
     choices.replaceChildren(
       ...entriesOf(view).map((e, i) => {
-        const b = button(e.used ? `${e.label} — done` : e.label, () => choose(i), { hotkey: hotkeyFor(bindings, CHOICE_ACTIONS[i]), disabled: e.used || e.blocked !== null });
+        const b = button(e.used ? `${e.label} — done` : e.label, () => choose(i), { hotkey: CHOICE_ACTIONS[i] ? hotkeyFor(bindings, CHOICE_ACTIONS[i]) : undefined, disabled: e.used || e.blocked !== null });
         b.dataset.testid = 'boarding-choice';
         return el('div', { class: 'sw-enc-choice' }, [
           b,

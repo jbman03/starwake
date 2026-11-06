@@ -137,7 +137,7 @@ export type ControllerEvent =
   /** Jobs finished by the landing that just happened; emitted before the autosave. */
   | { type: 'missionsCompleted'; missions: Mission[]; pay: number }
   /** A flight key asked for a menu; flight is already paused. */
-  | { type: 'menu'; action: 'pause' | 'map' | 'missionLog' }
+  | { type: 'menu'; action: 'pause' | 'map' | 'missionLog' | 'fleet' }
   /** Flight started or stopped (planet screen, menus, pause). */
   | { type: 'flying'; flying: boolean }
   /** Result of the autosave started by a landing. */
@@ -964,7 +964,9 @@ export class Controller {
           ? 'map'
           : polled.pressed.has('flightMissionLog')
             ? 'missionLog'
-            : null;
+            : polled.pressed.has('fleet')
+              ? 'fleet'
+              : null;
       if (menu) {
         this.pauseFlight();
         this.emit({ type: 'menu', action: menu });
@@ -988,9 +990,14 @@ export class Controller {
       // The autopilot key flies to a targeted site (the sim's own autopilot only knows planets and the jump point).
       if (pressed.has('autopilot') && this.world.assist.kind !== 'autopilot') {
         const site = this.targetedSite();
+        // A disabled ship targeted: fly beside it and stop, ready to board (playtest: no autopilot to a wreck).
+        const wreck = site ? undefined : this.traffic.npcs.find((n) => n.id === this.traffic.targetId && n.hull.disabled);
         if (site) {
           pressed.delete('autopilot');
           this.world = autopilotToSite(this.world, site);
+        } else if (wreck) {
+          pressed.delete('autopilot');
+          this.world = autopilotToSite(this.world, { id: `board:${wreck.id}`, pos: { ...wreck.ship.pos }, label: wreck.name });
         }
       }
       const raw: FrameInput = touch.stick && !locked

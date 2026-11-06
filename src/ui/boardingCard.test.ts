@@ -81,7 +81,8 @@ describe('boarding card', () => {
     expect(btn(/Attempt capture \(\d+%\)/)).toBeTruthy();
     const keys = [...root.querySelectorAll('[data-testid="boarding-choice"] .sw-key')].map((k) => k.textContent);
     expect(keys).toEqual(['1', '2', '3', '4', '5']);
-    expect(btn(/Leave/).querySelector('.sw-key')?.textContent).toBe('5');
+    expect(btn(/Take everything/).querySelector('.sw-key')?.textContent).toBe('5');
+    expect(btn(/Leave/).querySelector('.sw-key')).toBeNull(); // Esc leaves
   });
 
   it('take cargo with hotkey 2, then leave resumes flight', async () => {
@@ -96,7 +97,7 @@ describe('boarding card', () => {
     press('encounterChoice2');
     expect(held()).toBe(gained);
     expect(root.querySelector('[data-testid="boarding-card"]')).not.toBeNull();
-    press('encounterChoice5'); // Leave
+    press('back'); // Leave (5 is now Take everything)
     expect(c.isFlying).toBe(true);
     expect(root.querySelector('[data-testid="boarding-card"]')).toBeNull();
   });
@@ -110,7 +111,7 @@ describe('boarding card', () => {
     expect(credits).toBeGreaterThan(before);
     press('encounterChoice1');
     expect(c.world.credits).toBe(credits);
-    expect(c.boardingView()!.rows.map((r) => r.id)).toEqual(['credits', 'cargo', 'ammo', 'capture']);
+    expect(c.boardingView()!.rows.map((r) => r.id)).toEqual(['credits', 'cargo', 'ammo', 'capture', 'all']);
     press('back');
     expect(c.isFlying).toBe(true);
   });
@@ -263,3 +264,17 @@ describe('boarding card: keep as escort', () => {
     expect(c.world.stats.captures).toBe(1);
   });
 });
+
+describe('Take everything (playtest: boarding took about eight decisions)', () => {
+  it('takes credits, cargo and ammo in one press, as one boarding', async () => {
+    const { c, open, press, btn } = await setup({ shipId: 'mule', trader: true });
+    open();
+    const credits = c.world.credits;
+    press('encounterChoice5');
+    expect(c.world.credits).toBeGreaterThan(credits);
+    expect(Object.values(c.world.cargo).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
+    expect(btn(/Take everything/).disabled).toBe(true);
+    expect(btn(/Take credits/).disabled).toBe(true);
+  });
+});
+
