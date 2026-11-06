@@ -129,8 +129,8 @@ export const STEPS: readonly StepDef[] = [
     id: 'close-missions',
     text: (c) =>
       touch(c)
-        ? 'Jobs pay on arrival. Take one, or tap Done.'
-        : `Jobs pay when you land at their destination. Accept one if you like, then close (${c.key('back')}).`,
+        ? 'Hold full: take a passenger job, or Done.'
+        : `Jobs pay when you land at their destination. Your hold is full, but a passenger job still fits. Accept one if you like, then close (${c.key('back')}).`,
     done: (s) => s.screen !== 'missions',
   },
   {

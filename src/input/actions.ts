@@ -23,6 +23,7 @@ export const ACTION_IDS = [
   'interact',
   'escortOrder',
   'launchFighters',
+  'prevTarget',
   // planet
   'openExchange',
   'openMissions',
@@ -79,6 +80,7 @@ export const ACTION_GROUP: Record<ActionId, ActionGroup> = {
   interact: 'flight',
   escortOrder: 'flight',
   launchFighters: 'flight',
+  prevTarget: 'flight',
   openExchange: 'planet',
   openMissions: 'planet',
   openShipyard: 'planet',
@@ -127,6 +129,7 @@ export const ACTION_LABEL: Record<ActionId, string> = {
   interact: 'Answer hail / open site',
   escortOrder: 'Escort orders',
   launchFighters: 'Launch / recall fighters',
+  prevTarget: 'Previous target',
   openExchange: 'Commodity exchange',
   openMissions: 'Mission computer',
   openShipyard: 'Shipyard',

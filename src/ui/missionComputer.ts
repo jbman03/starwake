@@ -66,7 +66,8 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
     if (!offer) return;
     const r = controller.acceptMission(offer.offerId);
     if (r.ok) say(`Accepted: ${offer.title}`);
-    else say(ACCEPT_REASON[r.reason], true);
+    // The reason line under the job already says why; don't print it a second time (playtest bug 20).
+    else say(reason.textContent === ACCEPT_REASON[r.reason] ? '' : ACCEPT_REASON[r.reason], true);
     render(); // the taken job drops out; the same index is now the next job
   }
 

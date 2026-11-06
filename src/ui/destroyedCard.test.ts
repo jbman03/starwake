@@ -122,7 +122,7 @@ describe('destroyed card', () => {
     destroy();
     expect(c.deathView()).toEqual({ pod: false });
     showDestroyedCard(ctx, c.deathView()!);
-    expect(root.textContent).toContain('Your ship is lost.');
+    expect(root.textContent).toContain('You had no escape pod.');
     btn(/Load last save/).click();
     await new Promise((r) => setTimeout(r, 20));
     expect(c.world.credits).toBe(1234);

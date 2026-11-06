@@ -52,7 +52,7 @@
             "choices": [
               { "label": "Pay 5,000 cr", "needs": { "credits": 5000 }, "outcomes": [{ "type": "credits", "n": -5000 }, { "type": "message", "text": "Mags counts the credits twice and sends a bearing: a hidden lane out of Oxbow, deep into the dark." }] },
               { "label": "Trade 10 t of food", "needs": { "cargo": { "good": "food", "tons": 10 } }, "outcomes": [{ "type": "cargo", "good": "food", "tons": -10 }, { "type": "message", "text": "Ten tons of food go across, and Mags sends a bearing with a happy sigh. Her crew have been eating tinned beans for weeks." }] },
-              { "label": "Bluff: you already know", "needs": { "cargo": { "good": "food", "tons": 1 } }, "outcomes": [{ "type": "message", "text": "You mention the cargo in your hold, as if it were a prelude to something. Mags squints, laughs, and sends the bearing anyway." }] }
+              { "label": "Bluff (show the food in your hold)", "needs": { "cargo": { "good": "food", "tons": 1 } }, "outcomes": [{ "type": "message", "text": "You mention the cargo in your hold, as if it were a prelude to something. Mags squints, laughs, and sends the bearing anyway." }] }
             ]
           }
         }
@@ -70,7 +70,7 @@
       "giver": { "name": "Ama Reed", "title": "Speaker of the Unlit Holdings" },
       "offer": { "where": "hail", "systems": ["gloam"], "requires": ["dimming-lane"] },
       "text": "A calm voice comes over the channel as you cross out of the charts. This is Ama Reed, speaker for the Unlit Holdings, and she knows exactly why you are here. Someone is stripping the old lanterns just beyond Gloam, and she would rather you saw it for yourself than heard it from a Concord report.",
-      "acceptText": "Reed marks a stripped-lantern field on your chart and wishes you luck, in the voice of someone who has said it too often. A man named Bram Kettle is working there, and he is not a villain. Be ready for his crew to be less polite.",
+      "acceptText": "Reed tells you the stripped-lantern field is somewhere in Gloam, off the charts, and wishes you luck, in the voice of someone who has said it too often. A man named Bram Kettle is working there, and he is not a villain. Be ready for his crew to be less polite.",
       "declinable": false,
       "steps": [
         { "kind": "go", "system": "gloam", "text": "Make your way into Gloam, past the edge of the charts." },

@@ -69,7 +69,7 @@ export function pilotCard(save: PilotSave, data: GameData): PilotCard {
   const seen = new Set(known.filter((id) => visible.has(id)));
   return {
     name: save.name,
-    shipLine: `${ship} — ${hull}`,
+    shipLine: ship === hull ? hull : `${ship} — ${hull}`, // an unnamed ship shows its hull once (playtest bug 24)
     credits: formatCredits(save.credits),
     netWorth: formatCredits(netWorth(save, data)),
     date: formatDate(save.day, data.config),

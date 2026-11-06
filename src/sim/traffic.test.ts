@@ -510,3 +510,32 @@ describe('cycleTarget is stable as ships move (playtest bug 9)', () => {
     expect(visited).toHaveLength(all.length);
   });
 });
+
+describe('Previous target (playtest bug 23)', () => {
+  it('walks the same fixed order backwards, through nothing', () => {
+    const d = testData();
+    const w: WorldState = { ...newWorld(d, 9), systemId: 'tessaly', targetPlanetId: null };
+    const t: Traffic = { ...seedTraffic(w, d, o(8)), targetId: null };
+    const fwd: string[] = [];
+    let tt = t;
+    let ww = w;
+    for (let i = 0; i < 30; i++) {
+      const p = cycleTarget(ww, d, tt);
+      if (!p.shipId && !p.planetId) break;
+      fwd.push(p.shipId ?? p.planetId!);
+      tt = { ...tt, targetId: p.shipId };
+      ww = { ...ww, targetPlanetId: p.planetId };
+    }
+    const back: string[] = [];
+    tt = t;
+    ww = w;
+    for (let i = 0; i < 30; i++) {
+      const p = cycleTarget(ww, d, tt, [], null, true);
+      if (!p.shipId && !p.planetId) break;
+      back.push(p.shipId ?? p.planetId!);
+      tt = { ...tt, targetId: p.shipId };
+      ww = { ...ww, targetPlanetId: p.planetId };
+    }
+    expect(back).toEqual([...fwd].reverse());
+  });
+});

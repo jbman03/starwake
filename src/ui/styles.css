@@ -152,6 +152,7 @@
 .sw-tier { color: var(--sw-accent); }
 .sw-planet-desc { margin: 0; font-size: 16px; line-height: 1.5; color: #c9d3de; }
 .sw-planet-side { display: flex; flex-direction: column; gap: 12px; }
+.sw-planet-lists { display: flex; flex-direction: column; gap: 8px; max-height: 34vh; overflow-y: auto; padding-right: 4px; }
 .sw-stats { padding: 10px 12px; border: 1px solid var(--sw-border); border-radius: 3px; background: var(--sw-panel-2); font-size: 15px; line-height: 1.6; }
 
 /* Phone landscape: short screens get a tighter planet screen. */

@@ -420,7 +420,7 @@ export interface TargetPick {
  * first. The order never re-sorts as the ship moves, so Tab never skips anything (playtest bug 9); the nearest
  * hostile has its own key. `siteId` is the site targeted now, if any.
  */
-export function cycleTarget(world: WorldState, data: GameData, t: Traffic, sites: readonly SiteTarget[] = [], siteId: string | null = null): TargetPick {
+export function cycleTarget(world: WorldState, data: GameData, t: Traffic, sites: readonly SiteTarget[] = [], siteId: string | null = null, back = false): TargetPick {
   const ships = t.npcs.filter(isTargetable);
   const planets = Object.values(data.planets)
     .filter((p) => p.systemId === world.systemId)
@@ -433,5 +433,8 @@ export function cycleTarget(world: WorldState, data: GameData, t: Traffic, sites
   const idx = order.findIndex((o) =>
     siteId ? o.siteId === siteId : t.targetId ? o.shipId === t.targetId : o.planetId !== null && o.planetId === world.targetPlanetId,
   );
-  return idx + 1 < order.length ? order[idx + 1] : { shipId: null, planetId: null, siteId: null };
+  const none = { shipId: null, planetId: null, siteId: null };
+  // Backward (Previous target): from nothing to the last, and from the first back to nothing.
+  if (back) return idx < 0 ? (order[order.length - 1] ?? none) : idx > 0 ? order[idx - 1] : none;
+  return idx + 1 < order.length ? order[idx + 1] : none;
 }
