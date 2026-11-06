@@ -325,7 +325,7 @@
    (phone playtest bug 9: only two lines showed at 375 px). */
 @media (max-height: 500px) {
   .sw-htp .sw-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .sw-htp .sw-tabs > .sw-tab { flex: 0 0 auto; min-height: 36px; padding: 4px 10px; }
+  .sw-htp .sw-tabs > .sw-tab { flex: 0 0 auto; min-height: 44px; padding: 4px 10px; }
   .sw-htp .sw-title { margin: 0 0 4px; font-size: 18px; }
   .sw-htp-p { font-size: 14px; line-height: 1.35; }
 }
