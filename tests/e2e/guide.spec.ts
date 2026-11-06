@@ -145,7 +145,7 @@ test.describe('desktop', () => {
     expect(errors).toEqual([]);
   });
 
-  test('a reload mid-guide resumes honestly: the unsaved purchase rewinds to Buy; Skip guide asks first', async ({ page }) => {
+  test('a reload mid-guide resumes honestly: the purchase saved on take-off keeps its step; Skip guide asks first', async ({ page }) => {
     test.setTimeout(90_000);
     const errors = trackErrors(page);
     await newPilot(page, 'Resumer', true);
@@ -173,17 +173,17 @@ test.describe('desktop', () => {
     await page.getByRole('button', { name: 'Load' }).click();
     await expect(page.getByTestId('planet-screen')).toBeVisible();
     await expect(page.getByRole('dialog')).toHaveCount(0); // resumed silently, no offer
-    // The pilot was last saved before the purchase (saves happen on landing): the hold is empty
-    // again at Halcyon, so the guide rewinds to the Buy step instead of claiming a sale later.
-    expect(await page.evaluate((g) => window.__starwake!.world().cargo[g] ?? 0, good)).toBe(0);
-    expect(await step(page)).toBe(2);
+    // Leaving Halcyon saved the pilot (playtest bug 11: saves only on landing undid purchases), so the 20 t
+    // bought there survive the reload and the guide resumes where the hold says it is: set the course.
+    expect(await page.evaluate((g) => window.__starwake!.world().cargo[g] ?? 0, good)).toBe(20);
+    expect(await step(page)).toBe(7);
     expect(await page.evaluate(() => window.__starwake!.controller.guide!.target())).toEqual(before);
-    expect(await screenHint(page)).toBe(`Open the exchange (C) and buy 20 t of ${goodName}.`);
+    expect(await screenHint(page)).toContain('set a course to');
 
     await page.getByTestId('guide-skip').click();
     const dialog = page.getByRole('dialog', { name: 'Skip the guide?' });
     await dialog.getByRole('button', { name: 'Cancel' }).click();
-    expect(await step(page)).toBe(2);
+    expect(await step(page)).toBe(7);
     await page.getByTestId('guide-skip').click();
     await dialog.getByRole('button', { name: 'Skip guide' }).click();
     await expect(page.locator('[data-testid="guide-hint"]:visible')).toHaveCount(0);
