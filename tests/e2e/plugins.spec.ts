@@ -45,6 +45,10 @@ test('the Editor: copy a ship, change it, see problems live, install it, and it 
   await expect(page.getByTestId('editor')).toContainText('Starwake Editor');
   await page.getByTestId('editor-copy-from').selectOption('kestrel');
   await expect(page.locator('[data-record="kestrel-2"]')).toBeVisible();
+  // The form edits simple fields; the name change shows in the record list.
+  await page.getByTestId('editor-form').locator('[data-field="name"]').fill('Form Kestrel');
+  await expect(page.locator('[data-record="kestrel-2"]')).toContainText('Form Kestrel');
+  await page.locator('[data-view="json"]').click();
   const json = page.getByTestId('editor-json');
   const rec = JSON.parse(await json.inputValue()) as Record<string, unknown>;
 
@@ -69,3 +73,18 @@ test('the Editor: copy a ship, change it, see problems live, install it, and it 
   await expect.poll(() => page.evaluate(() => window.__starwake?.data.ships['editor-hawk']?.name ?? null)).toBe('Editor Hawk');
   expect(errors).toEqual([]);
 });
+
+test('the Editor opens the sample plug-in, and its map draws a lane', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/editor.html');
+  await page.getByRole('button', { name: 'Load the sample' }).click();
+  await expect(page.getByTestId('editor-status')).toContainText('Opened the sample');
+  await expect(page.getByTestId('editor-issues')).toContainText('this plug-in would load');
+  const map = page.getByTestId('editor-map');
+  await expect(map.locator('[data-system="thornwick"]')).toBeVisible();
+  // Thornwick is selected: clicking Vesk adds a lane both ways.
+  await map.locator('[data-system="vesk"]').click();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('starwake-editor-draft')!).data.systems.find((s: { id: string }) => s.id === 'thornwick').links)).toContain('vesk');
+  expect(errors).toEqual([]);
+});
+

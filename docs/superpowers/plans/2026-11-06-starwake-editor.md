@@ -32,6 +32,6 @@
 
 ## Part C — forms, map, guide, sample
 
-- [ ] C1 Form views for ships, outfits, commodities, encounters (JSON stays available).
-- [ ] C2 Map view for systems (drag to place, click to link).
-- [ ] C3 Guide (How to Play tab + README section), `public/plugins/sample.starwake.json`, e2e.
+- [x] C1 Form views for ships, outfits, commodities, encounters (JSON stays available).
+- [x] C2 Map view for systems (drag to place, click to link).
+- [x] C3 Guide (How to Play tab + README section), `public/plugins/sample.starwake.json`, e2e.

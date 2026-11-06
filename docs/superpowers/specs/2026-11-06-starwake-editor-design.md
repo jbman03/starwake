@@ -89,5 +89,9 @@ in the Editor make a ship, install it and find it in the game.
 3. **Changes apply on restart**, not live.
 4. **The Editor is its own page** in the same site, not a screen inside the game.
 5. **Sharing is by file** (export and import); there is no online gallery.
-6. **Parts A and B shipped as one merge,** so the Plug-ins screen's "Open the Editor" never pointed at a missing page.
-7. **The Editor edits records as JSON** in Part B (with live checks naming the file and field); forms come in Part C.
+6. **Parts A, B and C shipped as one merge,** so the Plug-ins screen's "Open the Editor" never pointed at a missing page.
+7. **Forms are generated from the record** (numbers, text, on/off, dropdowns for references and fixed choices);
+   lists and nested parts stay in the JSON view. No per-type hand-made forms, so every record type gets one.
+8. **The map edits systems only:** click empty space to place the selected system, click another to toggle a lane
+   (both records change; a game system is copied into the plug-in first).
+9. **The sample plug-in** ("Sample: Thornwick") is a new system off Skerry with a port, a ship and an outfit.

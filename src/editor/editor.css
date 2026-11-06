@@ -18,3 +18,13 @@ body { overflow: auto; }
 .sw-ed-json { min-height: 46vh; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; line-height: 1.4; resize: vertical; }
 .sw-ed-issues { margin: 0; padding-left: 18px; color: #ffb4a8; font-size: 13px; max-height: 24vh; overflow-y: auto; }
 .sw-ed-issues .sw-ed-ok { color: #9fe7a0; list-style: none; margin-left: -18px; }
+.sw-ed-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 12px; }
+.sw-ed-form textarea { min-height: 60px; }
+.sw-ed-map { width: 100%; height: min(60vh, 560px); background: #03050b; border: 1px solid #24324a; border-radius: 3px; cursor: crosshair; }
+.sw-ed-lane { stroke: #2a3a55; stroke-width: 4; }
+.sw-ed-lane-mine { stroke: #7fd4ff; }
+.sw-ed-sys circle { fill: #1a2433; stroke: #4a5d78; stroke-width: 3; }
+.sw-ed-sys text { fill: #9fb0c3; font-size: 26px; text-anchor: middle; pointer-events: none; }
+.sw-ed-sys-mine circle { fill: #2f5d7a; stroke: #7fd4ff; }
+.sw-ed-sys-on circle { stroke: #ffd166; stroke-width: 6; }
+.sw-ed-sys { cursor: pointer; }

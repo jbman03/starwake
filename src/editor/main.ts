@@ -4,6 +4,8 @@ import { loadRawGameData, type RawGameData } from '../data/load';
 import { LIST_KEYS, readPlugin, type ListKey, type Plugin } from '../plugins/format';
 import { PluginStore } from '../plugins/store';
 import { button, el } from '../ui/dom';
+import { recordForm } from './form';
+import { placeSystem, systemMap, toggleLane } from './mapView';
 import { baseRecords, copyOf, loadDraft, newDraft, problems, recordsOf, removeRecord, saveDraft, TYPE_LABEL, upsert, type Rec } from './model';
 
 /**
@@ -34,6 +36,10 @@ async function start(root: HTMLElement): Promise<void> {
   const records = el('div', { class: 'sw-ed-records', attrs: { 'data-testid': 'editor-records' } });
   const json = el('textarea', { class: 'sw-ed-json', attrs: { spellcheck: 'false', 'aria-label': 'Record JSON', 'data-testid': 'editor-json' } });
   const jsonError = el('p', { class: 'sw-reason sw-ex-bad', attrs: { 'data-testid': 'editor-json-error' } });
+  const formBox = el('div', { class: 'sw-ed-formbox' });
+  const mapBox = el('section', { class: 'sw-ed-mapbox' });
+  let view: 'form' | 'json' = 'form';
+  const viewBtns = el('div', { class: 'sw-ed-types' });
   const copyFrom = el('select', { class: 'sw-ed-select', attrs: { 'aria-label': 'Copy a record', 'data-testid': 'editor-copy-from' } });
 
   const field = (label: string, key: 'id' | 'name' | 'version' | 'author' | 'description') => {
@@ -109,6 +115,51 @@ async function start(root: HTMLElement): Promise<void> {
     json.value = rec ? JSON.stringify(rec, null, 2) : '';
     json.disabled = !rec;
     jsonError.textContent = '';
+    // Form view: the record's simple fields; JSON view: the whole record (spec §6).
+    formBox.replaceChildren(...(rec ? [recordForm(type, rec, raw, draft, (next) => edit(next))] : []));
+    formBox.hidden = view !== 'form' || !rec;
+    json.hidden = view !== 'json';
+    renderMap();
+    viewBtns.replaceChildren(
+      ...(['form', 'json'] as const).map((v) => {
+        const b = button(v === 'form' ? 'Form' : 'JSON', () => {
+          view = v;
+          renderJson();
+        }, { class: v === view ? 'sw-tab sw-tab-active' : 'sw-tab' });
+        b.dataset.view = v;
+        return b;
+      }),
+    );
+  }
+
+  /** Systems only: the map, where a click places the selected system or links it to another (spec §6). */
+  function renderMap(): void {
+    mapBox.hidden = type !== 'systems';
+    if (type !== 'systems') return mapBox.replaceChildren();
+    const mine = recordsOf(draft, 'systems').some((r) => r.id === selected);
+    mapBox.replaceChildren(
+      el('h3', { class: 'sw-hotkey-group-title', text: 'Map' }),
+      el('p', { class: 'sw-reason', text: mine ? `Click empty space to move ${selected}; click another system to add or remove a lane to it.` : 'Select one of your systems (copy one first) to place it and draw its lanes.' }),
+      systemMap(raw, draft, mine ? selected : null, {
+        move: (at) => {
+          draft = placeSystem(draft, selected!, at);
+          changed();
+          renderJson();
+        },
+        link: (other) => {
+          draft = toggleLane(raw, draft, selected!, other);
+          changed();
+          renderJson();
+        },
+      }),
+    );
+  }
+
+  /** A record changed in the form: keep the draft and the checks current without rebuilding the form (focus stays). */
+  function edit(next: Rec): void {
+    draft = upsert(draft, type, next, selected ?? next.id);
+    selected = next.id;
+    changed();
   }
 
   function renderAll(): void {
@@ -188,6 +239,24 @@ async function start(root: HTMLElement): Promise<void> {
       (err: unknown) => say(`Couldn't install it: ${err instanceof Error ? err.message : String(err)}`, true),
     );
   }, { class: 'sw-btn-primary' });
+  const sample = button('Load the sample', () => {
+    if (recordsOf(draft, type).length || draft.id !== 'my-plugin') {
+      if (!window.confirm('Open the sample plug-in? The current one is replaced unless you exported it.')) return;
+    }
+    void fetch('./plugins/sample.starwake.json')
+      .then((r) => r.text())
+      .then((text) => {
+        const r = readPlugin(text);
+        if (!r.ok) return say('The sample could not be read.', true);
+        draft = r.plugin;
+        type = 'systems';
+        selected = 'thornwick';
+        resetDetails();
+        changed();
+        renderJson();
+        say('Opened the sample: a system, a port, a ship and an outfit. Look through each type to see how they fit.');
+      }, () => say('The sample could not be loaded (offline?).', true));
+  });
   const fresh = button('New plug-in', () => {
     if (!window.confirm('Start a new plug-in? The current one is lost unless you exported it.')) return;
     draft = newDraft();
@@ -204,14 +273,25 @@ async function start(root: HTMLElement): Promise<void> {
         el('a', { class: 'sw-ed-link', text: 'Back to the game', attrs: { href: './' } }),
       ]),
       el('p', { class: 'sw-planet-desc', text: 'Make a plug-in: copy a ship, port or story from the game, change it, and install it or export it to share. Records with a new id are added; one with the id of a game record replaces it.' }),
+      el('details', { class: 'sw-ed-help' }, [
+        el('summary', { text: 'How it works' }),
+        el('ul', {}, [
+          el('li', { text: 'Pick a type (Ships, Ports, Systems…), then copy a record from the game with the dropdown. Give it a new id and name.' }),
+          el('li', { text: 'Edit it in the Form, or in JSON for lists and nested parts. Problems show below as you type, naming the file and field.' }),
+          el('li', { text: 'Systems: the map places your system (click empty space) and draws lanes (click another system). Lanes go both ways.' }),
+          el('li', { text: 'A port needs a system that exists; a shop item needs a port that can sell it. Load the sample to see a complete small plug-in.' }),
+          el('li', { text: 'Install in the game puts it on the Plug-ins screen, turned on: restart the game to play with it. Export saves a file to share.' }),
+        ]),
+      ]),
       details,
       types,
       el('div', { class: 'sw-ed-main' }, [
         el('section', { class: 'sw-ed-list' }, [records, copyFrom, del]),
-        el('section', { class: 'sw-ed-edit' }, [json, jsonError, el('h3', { class: 'sw-hotkey-group-title', text: 'Problems' }), issuesBox]),
+        el('section', { class: 'sw-ed-edit' }, [viewBtns, formBox, json, jsonError, el('h3', { class: 'sw-hotkey-group-title', text: 'Problems' }), issuesBox]),
       ]),
+      mapBox,
       status,
-      el('div', { class: 'sw-actions sw-actions-row' }, [installBtn, exportBtn, button('Import file', () => file.click()), fresh]),
+      el('div', { class: 'sw-actions sw-actions-row' }, [installBtn, exportBtn, button('Import file', () => file.click()), sample, fresh]),
       file,
     ]),
   );
