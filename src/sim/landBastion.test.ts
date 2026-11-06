@@ -19,7 +19,7 @@ function landTime(shipId: string, from: { x: number; y: number }, vel = { x: 0, 
 }
 
 describe('pressing L flies a slow carrier in and lands (playtest bug 3)', () => {
-  for (const shipId of ['bastion', 'ironback', 'shuttle', 'kestrel'])
+  for (const shipId of Object.values(data.ships).filter((d) => d.role !== 'fighter').map((d) => d.id))
     it(shipId, () => {
       for (const [from, vel] of [[{ x: 1200, y: 0 }, { x: 0, y: 0 }], [{ x: 600, y: 600 }, { x: 0, y: -200 }], [{ x: -300, y: 50 }, { x: 150, y: 0 }]] as const)
         expect(landTime(shipId, from, vel), `${shipId} from ${JSON.stringify(from)}`).toBeLessThan(45);
