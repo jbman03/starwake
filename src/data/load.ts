@@ -553,10 +553,18 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, escorts, factions, fleet };
 }
 
+/** The raw payloads, one per data file, before validation. */
+export type RawGameData = Record<(typeof KEYS)[number], unknown>;
+
 /** Loads and validates the bundled data. `override` swaps raw payloads (used by test flags). */
 export async function loadGameData(
   override: Partial<Record<(typeof KEYS)[number], unknown>> = {},
 ): Promise<GameData> {
+  return parseGameData({ ...(await loadRawGameData()), ...override });
+}
+
+/** The bundled data files as they are, unvalidated (plug-ins are applied to this). */
+export async function loadRawGameData(): Promise<RawGameData> {
   const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions, fleet] =
     await Promise.all([
       import('../../data/ships.json'),
@@ -578,7 +586,7 @@ export async function loadGameData(
       import('../../data/factions.json'),
       import('../../data/fleet.json'),
     ]);
-  return parseGameData({
+  return {
     ships: ships.default,
     systems: systems.default,
     planets: planets.default,
@@ -597,6 +605,5 @@ export async function loadGameData(
     escorts: escorts.default,
     factions: factions.default,
     fleet: fleet.default,
-    ...override,
-  });
+  };
 }

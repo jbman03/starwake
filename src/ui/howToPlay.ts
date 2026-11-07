@@ -131,6 +131,7 @@ export function tabText(tab: Exclude<HowToPlayTab, 'controls'>, bindings: Bindin
         { heading: 'Combat jobs', text: 'Concord and Free Reach ports post bounties (find a named ship, disable or destroy her) and clear-the-lanes jobs (disable or destroy a number of raiders in a system), but only for a pilot with a gun. Come back to the port to be paid.' },
         { heading: 'Landing', text: `Target a planet or station, fly close, slow right down, then press ${k('land')}. On a phone, tap the planet or the LAND ON button.` },
         { heading: 'Sound and music', text: `Quiet ambient music follows what you are doing: docked, flying the core or the fringe, jumping or fighting. Settings → General has separate Music and Effects sliders. ${k('toggleSound')} mutes everything, music included, and turns it back on; the Mute sound box in Settings → General does the same.` },
+        { heading: 'Plug-ins', text: 'Plug-ins add ships, outfits, goods, ports, encounters and stories made by other players. On the main menu, Plug-ins imports a .starwake.json file and turns plug-ins on or off (restart to apply). Open the Editor there to make your own: copy something from the game, change it, then install it or export it to share.' },
         { heading: 'Pause', text: `${k('pause')} pauses the game and opens the pause menu, where you can save, change settings or quit.` },
       ];
     case 'trade':

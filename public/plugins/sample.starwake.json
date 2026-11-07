@@ -1,0 +1,117 @@
+{
+  "format": "starwake-plugin",
+  "formatVersion": 1,
+  "id": "sample-thornwick",
+  "name": "Sample: Thornwick",
+  "version": "1.0.0",
+  "author": "Starwake",
+  "description": "A small example: a new system with a port, a ship and an outfit. Open it in the Editor to see how a plug-in is put together.",
+  "data": {
+    "systems": [
+      {
+        "id": "thornwick",
+        "name": "Thornwick",
+        "mapPos": {
+          "x": 710,
+          "y": 490
+        },
+        "jumpDistance": 1800,
+        "government": "independent",
+        "links": [
+          "skerry"
+        ],
+        "starRadius": 90
+      },
+      {
+        "id": "skerry",
+        "name": "Skerry",
+        "mapPos": {
+          "x": 530,
+          "y": 340
+        },
+        "jumpDistance": 1600,
+        "government": "independent",
+        "links": [
+          "redwater",
+          "brackwater",
+          "thornwick"
+        ],
+        "hiddenLinks": [
+          "hushwater"
+        ],
+        "starRadius": 70
+      }
+    ],
+    "planets": [
+      {
+        "id": "thornwick-landing",
+        "name": "Thornwick Landing",
+        "systemId": "thornwick",
+        "pos": {
+          "x": 500,
+          "y": -300
+        },
+        "radius": 28,
+        "techTier": 2,
+        "fuelPrice": 4,
+        "kind": "station",
+        "services": [
+          "exchange",
+          "missions",
+          "outfitter",
+          "bar"
+        ],
+        "market": {
+          "food": "high",
+          "medical": "high",
+          "emberwool": "high",
+          "relics": "high"
+        },
+        "description": "A sample port from the Starwake sample plug-in: a ring of salvaged hulls bolted round a fuel tank, where traders trade stories as much as cargo."
+      }
+    ],
+    "ships": [
+      {
+        "id": "tern",
+        "name": "Tern Skiff",
+        "role": "courier",
+        "hull": "dart",
+        "techTier": 2,
+        "price": 26000,
+        "turnRate": 220,
+        "acceleration": 230,
+        "maxSpeed": 400,
+        "fuelCapacity": 500,
+        "radius": 12,
+        "cargo": 14,
+        "passengers": 2,
+        "shields": 70,
+        "armor": 40,
+        "outfitSpace": 12,
+        "description": "The sample plug-in's ship: a light, cheap runner for pilots who would rather be quick than armoured.",
+        "crew": 3,
+        "loadout": {
+          "light-blaster": 2
+        }
+      }
+    ],
+    "outfits": [
+      {
+        "id": "thorn-plating",
+        "name": "Thorn Plating",
+        "description": "Sample plug-in plating, hammered out of old hull and sold only at Thornwick Landing.",
+        "category": "armor",
+        "price": 3000,
+        "techTier": 2,
+        "space": 5,
+        "max": 6,
+        "effect": {
+          "armor": 25
+        },
+        "soldAt": [
+          "thornwick-landing"
+        ]
+      }
+    ]
+  }
+}

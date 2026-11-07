@@ -11,6 +11,8 @@ export default defineConfig({
   base: './',
   server: { port, strictPort: true },
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  // Two pages: the game, and the Starwake Editor beside it (editor spec §5).
+  build: { rollupOptions: { input: { main: 'index.html', editor: 'editor.html' } } },
   plugins: [
     VitePWA({
       registerType: 'prompt',

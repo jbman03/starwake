@@ -8,7 +8,9 @@ import { WakeLockManager, vibrateIfEnabled, type WakeLockApi } from './app/devic
 import { installTestHook, testFlags } from './app/testHook';
 import { createUpdateGate } from './app/updateGate';
 import { installZoomBlock, restoreViewport, type GuardWindow } from './app/viewportGuard';
-import { DataError, loadGameData } from './data/load';
+import { DataError } from './data/load';
+import { bootData } from './plugins/boot';
+import { PluginStore } from './plugins/store';
 import { InputMode } from './input/mode';
 import { createGame, planetImages, whenGameReady } from './render/game';
 import { loadSettings } from './save/settings';
@@ -40,7 +42,9 @@ async function registerPwa(onNeedRefresh: () => void, restartRef: { run: (() => 
 async function boot(): Promise<void> {
   const flags = testFlags();
   if (flags.crash) throw new Error('Test crash (?crash=1)');
-  const data = await loadGameData(flags.dataOverride);
+  // The base data plus the enabled plug-ins; a plug-in that doesn't load never stops the game (editor spec §3).
+  const plugins = new PluginStore();
+  const { data } = await bootData(plugins, flags.dataOverride);
   const settings = loadSettings();
   const controller = new Controller(data, settings, window);
   controller.calm = flags.calm === true;

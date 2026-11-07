@@ -153,7 +153,8 @@ first big upgrade as a milestone. It needs to come soon enough (we aim for rough
 5. **Recurring named pilots** in unique ships (cycle 4+). *Done (cycle 6): wingmen and the nemesis.*
 6. **Story-gated region** (galaxy growth): a hidden area opened by a mission chain.
 7. **Ship naming** (cycle 3, shown on the pilot card).
-8. **Mod / plug-in loader** (later): extra JSON data packs.
+8. **Mod / plug-in loader**: extra JSON data packs. *Done (2026-11-06): plug-ins (`src/plugins/`) and the Starwake
+   Editor (`editor.html`, `src/editor/`); see `2026-11-06-starwake-editor-design.md`.*
 9. **Escape pod** (cycle 4, combat).
 
 ## Fun review (2026-10-20)
