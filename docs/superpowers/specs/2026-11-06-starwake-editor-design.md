@@ -95,3 +95,6 @@ in the Editor make a ship, install it and find it in the game.
 8. **The map edits systems only:** click empty space to place the selected system, click another to toggle a lane
    (both records change; a game system is copied into the plug-in first).
 9. **The sample plug-in** ("Sample: Thornwick") is a new system off Skerry with a port, a ship and an outfit.
+10. **The Editor Guide is a standalone page** (`editor-guide.html`), precached for offline use and linked from the
+    Editor's header and How it works panel, the Plug-ins screen, How to Play and the README. It walks through six
+    tasks start to finish rather than documenting every field.

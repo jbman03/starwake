@@ -125,6 +125,10 @@ systems, ports, encounters and story missions. Open the Starwake Editor
 from the game, change it and install it, or export a `.starwake.json` file to
 share. Players turn plug-ins on and off from the main menu's Plug-ins screen; a
 plug-in that would not load is refused, so the game itself always works.
+New to it? The [Editor Guide](public/editor-guide.html) (`editor-guide.html`
+on the site, linked from the Editor and the Plug-ins screen) walks through a
+first ship, a new system and port, an outfit, a good, an encounter and a story
+mission, with a field reference and fixes for every problem message.
 
 **A nemesis.** Make a name for yourself and a rival pilot starts hunting you.
 He jumps in now and then, ejects when you beat him, and comes back tougher,

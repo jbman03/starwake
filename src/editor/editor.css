@@ -1,7 +1,8 @@
 /* Starwake Editor page (editor spec §5): the game's look, laid out for a desk. */
 body { overflow: auto; }
 .sw-ed { max-width: 1200px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.sw-ed-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.sw-ed-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; }
+.sw-ed-head h1 { margin-right: auto; }
 .sw-ed-link { color: var(--sw-accent, #7fd4ff); }
 .sw-ed-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 12px; }
 .sw-ed-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #9fb0c3; }

@@ -88,3 +88,16 @@ test('the Editor opens the sample plug-in, and its map draws a lane', async ({ p
   expect(errors).toEqual([]);
 });
 
+
+test('the Editor links to its guide, and every section of the guide is there', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/editor.html');
+  const link = page.getByTestId('editor-guide-link');
+  await expect(link).toHaveAttribute('href', './editor-guide.html');
+  await page.goto('/editor-guide.html');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Starwake Editor Guide');
+  const targets = await page.locator('nav a').evaluateAll((as) => as.map((a) => a.getAttribute('href')!));
+  expect(targets.length).toBeGreaterThanOrEqual(10);
+  for (const t of targets) await expect(page.locator(t)).toHaveCount(1);
+  expect(errors).toEqual([]);
+});

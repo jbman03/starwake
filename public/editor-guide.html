@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#05070f" />
+    <title>Starwake Editor Guide</title>
+    <style>
+      :root { --bg: #05070f; --panel: #0b1220; --line: #24324a; --text: #dfe6ee; --dim: #9fb0c3; --accent: #7fd4ff; --good: #9fe7a0; --warn: #ffd166; --bad: #ffb4a8; }
+      html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+      main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+      h1 { font-size: 30px; letter-spacing: 0.04em; margin: 0 0 4px; }
+      h2 { font-size: 22px; margin: 40px 0 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+      h3 { font-size: 17px; margin: 24px 0 6px; color: var(--accent); }
+      p, li { color: #c9d3de; }
+      a { color: var(--accent); }
+      code, kbd { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font: 14px ui-monospace, Menlo, Consolas, monospace; color: var(--text); }
+      pre { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; overflow-x: auto; font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+      ol li, ul li { margin: 4px 0; }
+      .lead { color: var(--dim); font-size: 17px; }
+      .nav { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 16px 0; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; font-size: 15px; }
+      .tip { border-left: 3px solid var(--good); padding: 6px 12px; background: #0b1a14; margin: 12px 0; }
+      .warn { border-left: 3px solid var(--warn); padding: 6px 12px; background: #1d1808; margin: 12px 0; }
+      table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 14px; }
+      th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+      th { color: var(--dim); font-weight: 600; }
+      td:first-child { white-space: nowrap; }
+      .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="top">
+        <h1>Starwake Editor Guide</h1>
+        <span><a href="./editor.html">Open the Editor</a> · <a href="./">Back to the game</a></span>
+      </div>
+      <p class="lead">How to make your own ships, outfits, goods, star systems, ports, encounters and story missions, try them in the game, and share them. No coding needed.</p>
+
+      <nav class="nav" aria-label="Contents">
+        <a href="#idea">1. The idea</a>
+        <a href="#tour">2. A tour of the Editor</a>
+        <a href="#ship">3. Your first ship</a>
+        <a href="#system">4. A new system and port</a>
+        <a href="#outfit">5. An outfit</a>
+        <a href="#good">6. A trade good</a>
+        <a href="#encounter">7. An encounter</a>
+        <a href="#story">8. A story mission</a>
+        <a href="#fields">9. Field reference</a>
+        <a href="#problems">10. Problems and fixes</a>
+        <a href="#share">11. Testing and sharing</a>
+      </nav>
+
+      <h2 id="idea">1. The idea</h2>
+      <p>Everything in Starwake (every ship, port, system and story) is a <b>record</b>: a small block of named values with an <b>id</b>. A <b>plug-in</b> is a file holding records of your own:</p>
+      <ul>
+        <li>A record with a <b>new id</b> is <b>added</b> to the game.</li>
+        <li>A record with the <b>id of a game record</b> <b>replaces</b> it, which is how you change something that already exists. For example, you can give the Kestrel more armor, or add a lane to an existing system.</li>
+      </ul>
+      <p>You never start from nothing. You <b>copy</b> a record from the game that is close to what you want, then change it. The Editor checks your work as you type, and won't let you install a plug-in that would not load. The game itself always keeps working.</p>
+      <div class="tip"><b>Quickest start:</b> open the Editor and press <b>Load the sample</b>. It is a complete small plug-in: a system called Thornwick, its port, a ship and an outfit. Click through each type to see how they fit together.</div>
+
+      <h2 id="tour">2. A tour of the Editor</h2>
+      <p>Open it from the game's main menu (<b>Plug-ins → Open the Editor</b>) or go to <code>editor.html</code> next to the game. From top to bottom:</p>
+      <ol>
+        <li><b>Details</b>: your plug-in's <b>Id</b> (lowercase letters, digits and dashes, like <code>rimward-traders</code>), <b>Name</b>, <b>Version</b>, <b>Author</b> and <b>Description</b>. Players see these on their Plug-ins screen.</li>
+        <li><b>Record types</b>: Ships, Outfits, Goods, Systems, Ports, Governments, Market events, Mission types, Encounters and Story missions. The number in brackets is how many of that type your plug-in has.</li>
+        <li><b>Your records</b> (left): the records of the chosen type. Click one to edit it.
+          <ul>
+            <li><b>Copy a … from the game</b>: a dropdown of every game record of that type. Picking one copies it into your plug-in with a new id, such as <code>kestrel-2</code>.</li>
+            <li><b>Delete record</b>: removes the selected record from your plug-in. The game's own record is not affected.</li>
+          </ul>
+        </li>
+        <li><b>Form / JSON</b> (right): two ways to edit the selected record.
+          <ul>
+            <li><b>Form</b> gives every simple value its own box. Numbers, text and on/off are plain fields, and anything that names another record (a system, government, ship, port or good) is a dropdown.</li>
+            <li><b>JSON</b> shows the whole record as text. Lists and nested parts, such as a port's market, a ship's loadout or a story's steps, are edited there.</li>
+          </ul>
+        </li>
+        <li><b>Problems</b>: updated as you type. Each line names the file and the field, for example <code>ships.json: hawk.maxSpeed: Too small</code>. When it says <span style="color:var(--good)">No problems: this plug-in would load</span>, you are done.</li>
+        <li><b>Map</b> (Systems only): every star system and lane. Your systems are drawn bright blue.</li>
+        <li><b>Buttons</b>:
+          <ul>
+            <li><b>Install in the game</b>: puts the plug-in on the game's Plug-ins screen, turned on.</li>
+            <li><b>Export file</b>: saves <code>your-id.starwake.json</code> to share.</li>
+            <li><b>Import file</b>: opens a plug-in file to keep editing it.</li>
+            <li><b>Load the sample</b>: opens the sample plug-in.</li>
+            <li><b>New plug-in</b>: starts over.</li>
+          </ul>
+        </li>
+      </ol>
+      <div class="tip">Your work is kept in this browser automatically, so you can close the tab and come back. To move it to another device, or as a backup, use <b>Export file</b>.</div>
+
+      <h2 id="ship">3. Walkthrough: your first ship</h2>
+      <ol>
+        <li>Open the Editor. In <b>Details</b>, set the Id to <code>my-first-pack</code> and the Name to <code>My First Pack</code>.</li>
+        <li>Click <b>Ships</b>. In <b>Copy a ship from the game…</b>, choose <code>kestrel</code>. A record <code>kestrel-2</code> appears and opens in the Form.</li>
+        <li>In the Form, change:
+          <ul>
+            <li><code>id</code> to <code>hawk</code>. Every id must be unique in the whole game.</li>
+            <li><code>name</code> to <code>Hawk Interceptor</code>.</li>
+            <li><code>price</code> to <code>82000</code>, <code>maxSpeed</code> to <code>480</code> and <code>armor</code> to <code>120</code>.</li>
+            <li><code>description</code> to a sentence or two of your own.</li>
+          </ul>
+        </li>
+        <li>Check <b>Problems</b>. It should say <i>No problems</i>. If not, see <a href="#problems">Problems and fixes</a>.</li>
+        <li>Press <b>Install in the game</b>, then reload the game.</li>
+        <li>Find the ship: the copied Kestrel is sold by Concord shipyards (<code>soldBy: ["concord"]</code>), so land at a Concord port with a shipyard, such as Vanterre in Tessaly. The Hawk is in the list.</li>
+      </ol>
+      <div class="tip">To sell your ship somewhere else, edit <code>soldBy</code> (governments) or add <code>soldAt</code> (a list of port ids) in the JSON view. With neither, any shipyard whose tech tier is at least the ship's <code>techTier</code> sells it.</div>
+
+      <h2 id="system">4. Walkthrough: a new star system with a port</h2>
+      <p>A system needs a place on the map, lanes to its neighbours, and usually a port. Here is how to add <b>Hollowmere Reach</b> next to Skerry.</p>
+      <ol>
+        <li>Click <b>Systems</b> and copy <code>skerry</code>. You get <code>skerry-2</code>, already selected.</li>
+        <li>In the Form, set:
+          <ul>
+            <li><code>id</code> to <code>hollowmere-reach</code> and <code>name</code> to <code>Hollowmere Reach</code>.</li>
+            <li><code>government</code> to the faction that owns it (for example <code>independent</code>).</li>
+            <li><code>jumpDistance</code> (how far from the star you must fly before jumping, 1500–2200 is usual) and <code>starRadius</code> (the star's size).</li>
+          </ul>
+        </li>
+        <li>In the JSON view, empty its lanes: <code>"links": []</code>. A copy would otherwise claim Skerry's lanes.</li>
+        <li><b>Place it</b>: on the <b>Map</b>, with your system selected, click an empty spot near Skerry. The system moves there.</li>
+        <li><b>Add a lane</b>: click <b>Skerry</b> on the map. A bright lane appears. Lanes run both ways in the game, so the Editor also copies Skerry into your plug-in with the new lane added. Click Skerry again to remove the lane.</li>
+        <li>Click <b>Ports</b> and copy <code>skerry-light</code>. Set:
+          <ul>
+            <li><code>id</code> to <code>hollowmere-dock</code> and <code>name</code> to <code>Hollowmere Dock</code>.</li>
+            <li><code>systemId</code> to <code>hollowmere-reach</code>, from the dropdown.</li>
+            <li><code>techTier</code> to a value from 1 to 5. It decides what the shops can sell.</li>
+            <li><code>fuelPrice</code> to the cost per unit (core worlds are about 2, the fringe 3–5).</li>
+            <li><code>kind</code> to <code>planet</code> or <code>station</code>, and a <code>description</code>.</li>
+          </ul>
+        </li>
+        <li>In the JSON view, check:
+          <ul>
+            <li><code>pos</code>: where the port sits in the system, about 300–900 from the centre.</li>
+            <li><code>services</code>: any of <code>exchange</code>, <code>missions</code>, <code>shipyard</code>, <code>outfitter</code> and <code>bar</code>.</li>
+            <li><code>market</code>: which goods it trades and at what level, <code>low</code> (cheap), <code>med</code> or <code>high</code> (pays well).</li>
+          </ul>
+        </li>
+        <li>When Problems says <i>No problems</i>, install it and reload. Open the star map: Hollowmere Reach is next to Skerry.</li>
+      </ol>
+      <div class="warn">A copied port keeps flags such as <code>hub</code> or <code>dumpSite</code>. Delete them in the JSON if your port shouldn't be a tech hub or a garbage-run destination.</div>
+
+      <h2 id="outfit">5. Walkthrough: an outfit sold only at your port</h2>
+      <ol>
+        <li>Click <b>Outfits</b> and copy something of the right kind:
+          <ul>
+            <li><code>armor-plate</code> for armor, or <code>shield-booster</code> for shields.</li>
+            <li><code>light-blaster</code> for a gun, or <code>lance-beam</code> for a beam.</li>
+            <li><code>cargo-pod</code> for hold space, or <code>fuel-tank</code> for fuel.</li>
+          </ul>
+        </li>
+        <li>Set its <code>id</code>, <code>name</code>, <code>price</code> and <code>description</code>, plus these:
+          <ul>
+            <li><code>space</code>: tons of outfit space it uses.</li>
+            <li><code>max</code>: how many one ship can fit.</li>
+            <li><code>techTier</code>: the lowest port tier that can sell it.</li>
+          </ul>
+        </li>
+        <li>In the JSON view, change the <code>effect</code>. Armor has <code>{"armor": 60}</code>, and a gun has damage, rate, speed and range. Keep the same keys as the outfit you copied. The <code>category</code> decides which keys an effect needs.</li>
+        <li>To sell it only at your port, add <code>"soldAt": ["hollowmere-dock"]</code>, remove any <code>soldBy</code>, and make sure that port has an <code>outfitter</code>.</li>
+      </ol>
+
+      <h2 id="good">6. Walkthrough: a new trade good</h2>
+      <ol>
+        <li>Click <b>Goods</b> and copy <code>food</code>. Set:
+          <ul>
+            <li><code>id</code> (for example <code>saltglass</code>), <code>name</code> and <code>description</code>.</li>
+            <li><code>basePrice</code>: the middle price, in credits per ton.</li>
+          </ul>
+        </li>
+        <li>A good is only traded where a port lists it. Edit two or more ports (copy game ports to change them) and add your good to their <code>market</code> in the JSON view:
+          <ul>
+            <li><code>"saltglass": "low"</code> where it is made and cheap.</li>
+            <li><code>"saltglass": "high"</code> where it sells well.</li>
+          </ul>
+        </li>
+        <li>Optional:
+          <ul>
+            <li><code>"origin": "a-port-id"</code> makes it a unique good from one port.</li>
+            <li><code>"illegalIn": ["concord"]</code> makes it contraband in that government's space.</li>
+          </ul>
+        </li>
+      </ol>
+      <div class="tip">Replacing a game port (same id) to add your good to its market is fine. Your copy replaces the game's port while your plug-in is on.</div>
+
+      <h2 id="encounter">7. Walkthrough: an in-flight encounter</h2>
+      <p>Encounters are the short cards that pop up between landings: a hail, or a site floating in space.</p>
+      <ol>
+        <li>Click <b>Encounters</b> and copy <code>stranded-passenger</code>.</li>
+        <li>Set:
+          <ul>
+            <li><code>id</code>, plus the <code>title</code> and <code>text</code> shown on the card. The text can use <code>{ship}</code>, <code>{system}</code> and <code>{pilot}</code>.</li>
+            <li><code>kind</code>: <code>hail</code> (a radio call) or <code>site</code> (something in space to fly to).</li>
+            <li><code>weight</code>: how often it comes up compared with the others (most are 5–10).</li>
+          </ul>
+        </li>
+        <li>In the JSON view, edit <code>choices</code>, one to three buttons. Each has a <code>label</code> and a list of <code>outcomes</code>:
+          <ul>
+            <li><code>{"type":"credits","n":500}</code> (a negative number takes credits away).</li>
+            <li><code>{"type":"cargo","good":"food","tons":5}</code> (negative hands cargo over).</li>
+            <li><code>{"type":"fuel","n":100}</code>.</li>
+            <li><code>{"type":"message","text":"..."}</code>, the line shown after the choice.</li>
+            <li><code>{"type":"rumour","text":"..."}</code>, a note in the Mission Log.</li>
+            <li><code>{"type":"reveal","systems":["id"]}</code>, which charts systems on the map.</li>
+            <li><code>{"type":"mission","missionType":"ferry"}</code>, which hands the pilot a job.</li>
+            <li><code>{"type":"flag","flag":"my-flag"}</code>, which remembers something for later stories.</li>
+            <li><code>{"type":"standing","government":"concord","level":"friend"}</code>.</li>
+          </ul>
+        </li>
+        <li>Optional:
+          <ul>
+            <li>A choice can need something first: <code>"needs": {"credits": 200}</code>, or <code>{"cargo": {"good":"food","tons":1}}</code>, or <code>{"flag": "x"}</code>.</li>
+            <li><code>"when"</code> limits where and when the encounter appears: <code>minDay</code>, <code>governments</code>, <code>systems</code>, <code>tiers</code>, <code>requiresFlag</code> and <code>notFlag</code>.</li>
+            <li><code>"once": true</code> means it happens only once.</li>
+          </ul>
+        </li>
+      </ol>
+
+      <h2 id="story">8. Walkthrough: a story mission</h2>
+      <p>Story missions are offered in a bar or by a hail, run in steps, and pay out at the end. The best place to start is a side mission, such as <code>s1-missing-courier</code>.</p>
+      <ol>
+        <li>Click <b>Story missions</b> and copy <code>s1-missing-courier</code>. Set:
+          <ul>
+            <li><code>id</code> and <code>title</code>.</li>
+            <li><code>arc</code>: keep <code>side</code>. The <code>main</code>, <code>concord</code> and <code>reach</code> arcs belong to the game's own storyline.</li>
+            <li><code>chain</code>: a short name of your own.</li>
+            <li><code>declinable</code>: <code>true</code>.</li>
+          </ul>
+        </li>
+        <li>In JSON, set the <b>giver</b> (<code>name</code> and <code>title</code>), and where it is <b>offered</b>:
+          <ul>
+            <li><code>"offer": {"where": "bar", "ports": ["hollowmere-dock"]}</code>.</li>
+            <li>Optional: <code>minDay</code>, <code>requires</code> (flags the pilot must have), <code>notFlags</code> and <code>standing</code>.</li>
+          </ul>
+        </li>
+        <li>Write the <code>text</code> (the offer, as the giver tells it) and the <code>acceptText</code> (what they say when the pilot takes it).</li>
+        <li>Write the <b>steps</b>. Each step has a <code>kind</code> and a <code>text</code> for the Mission Log:
+          <ul>
+            <li><code>go</code>: fly to a <code>system</code>.</li>
+            <li><code>land</code>: land at a <code>planet</code> (a port id).</li>
+            <li><code>deliver</code>: carry <code>cargo</code> (<code>{"name","tons"}</code>) to a <code>planet</code>, optionally within <code>deadlineDays</code>.</li>
+            <li><code>ferry</code>: carry <code>passengers</code> to a <code>planet</code>.</li>
+            <li><code>scan</code> or <code>find</code>: a <code>site</code> (<code>{"label"}</code>) in a <code>system</code>. A find site stays hidden until the pilot is near.</li>
+            <li><code>meet</code>: a <code>ship</code> (<code>{"name","shipId","government"}</code>) hails the pilot in a <code>system</code>, with a <code>card</code> of choices like an encounter.</li>
+          </ul>
+        </li>
+        <li>Set <code>onComplete</code>, the outcomes when it's done (usually credits, a message, and a flag that a later mission can <code>require</code>). Optionally set <code>onFail</code> as well.</li>
+      </ol>
+      <div class="tip">To make a story with several missions, have each mission's <code>onComplete</code> set a flag, and make the next mission's offer <code>require</code> that flag. That is how the game's own arcs are built.</div>
+
+      <h2 id="fields">9. Field reference</h2>
+      <h3>Ships</h3>
+      <table>
+        <tr><th>Field</th><th>Meaning</th></tr>
+        <tr><td>id, name, description</td><td>Unique id; what players see.</td></tr>
+        <tr><td>role</td><td>What kind of ship it is (starter, courier, scout, freighter, heavyFreighter, liner, interceptor, corvette, trader, carrier); traffic uses it.</td></tr>
+        <tr><td>hull</td><td>Its silhouette: pod, dart, wedge, hauler, liner, carrier or fighter.</td></tr>
+        <tr><td>price, techTier</td><td>Cost in credits; the lowest shipyard tier (1–5) that sells it.</td></tr>
+        <tr><td>turnRate, acceleration, maxSpeed</td><td>Degrees per second; how quickly it speeds up; top speed.</td></tr>
+        <tr><td>shields, armor</td><td>How much damage it takes; shields recharge, armor doesn't.</td></tr>
+        <tr><td>cargo, passengers, fuelCapacity</td><td>Hold tons; berths; fuel units (100 a jump).</td></tr>
+        <tr><td>outfitSpace, crew, radius</td><td>Tons for outfits; crew complement; size on screen.</td></tr>
+        <tr><td>loadout</td><td>The guns it comes with (outfit id → count).</td></tr>
+        <tr><td>soldBy, soldAt, unique</td><td>Governments or ports that sell it; sold only once.</td></tr>
+      </table>
+      <h3>Systems and ports</h3>
+      <table>
+        <tr><th>Field</th><th>Meaning</th></tr>
+        <tr><td>mapPos</td><td>Its place on the star map (use the Map to set it).</td></tr>
+        <tr><td>links</td><td>Lanes to neighbouring systems (use the Map; both ends must list each other).</td></tr>
+        <tr><td>government</td><td>Who owns it: concord, free-reach, independent, unlit (or one you add).</td></tr>
+        <tr><td>jumpDistance, starRadius, hazards</td><td>How far out a jump can start; the star's size; notes shown on the map.</td></tr>
+        <tr><td>systemId, pos, radius</td><td>A port's system, its position in that system, and its size.</td></tr>
+        <tr><td>techTier, fuelPrice, kind, services</td><td>Shop tier 1–5; cost per fuel unit; planet or station; what it offers.</td></tr>
+        <tr><td>market</td><td>Goods traded and their price level (low, med, high).</td></tr>
+      </table>
+      <h3>Outfits and goods</h3>
+      <table>
+        <tr><th>Field</th><th>Meaning</th></tr>
+        <tr><td>category, effect</td><td>What the outfit is and what it does (keep the effect keys of what you copied).</td></tr>
+        <tr><td>space, max, price, techTier</td><td>Tons used; most per ship; cost; lowest port tier.</td></tr>
+        <tr><td>basePrice</td><td>A good's middle price per ton.</td></tr>
+        <tr><td>origin, illegalIn</td><td>A good made at one port only; governments that outlaw it.</td></tr>
+      </table>
+
+      <h2 id="problems">10. Problems and how to fix them</h2>
+      <table>
+        <tr><th>The Problems list says…</th><th>What to do</th></tr>
+        <tr><td>…: Too small / Too big / Invalid input</td><td>That field's value is out of range or the wrong kind (text where a number goes). Check the field it names.</td></tr>
+        <tr><td>unknown system "…" / unknown planet "…"</td><td>A reference names an id that doesn't exist. Pick it from the Form's dropdown, or add that record too.</td></tr>
+        <tr><td>no port sells this</td><td>No shipyard or outfitter can sell it: lower its <code>techTier</code>, fix <code>soldBy</code>/<code>soldAt</code>, or give your port the right service.</td></tr>
+        <tr><td>not sold at any "…" hub</td><td>Items with <code>soldBy</code> must be sold at one of that government's tech hubs too; remove <code>soldBy</code> or use <code>soldAt</code>.</td></tr>
+        <tr><td>links / lane problems</td><td>Each lane must be listed on both systems: use the Map to add lanes and it does both ends.</td></tr>
+        <tr><td>startShipId must be the lowest-priced ship</td><td>A ship cheaper than the starter shuttle (10,000 cr) is not allowed; raise its price.</td></tr>
+        <tr><td>A record is an object with an "id".</td><td>The JSON lost its <code>"id"</code> line or its outer <code>{ }</code>; put it back.</td></tr>
+        <tr><td>Not valid JSON yet</td><td>A missing comma, quote or bracket in the JSON view. The message gives the position.</td></tr>
+      </table>
+
+      <h2 id="share">11. Testing and sharing</h2>
+      <ol>
+        <li><b>Test:</b> press <b>Install in the game</b> and reload the game. On the main menu, <b>Plug-ins</b> lists it as <i>Active</i>. Start a new pilot or load one and go and find your work.</li>
+        <li><b>Change and retest:</b> edit in the Editor, press <b>Install in the game</b> again (it updates in place) and reload the game.</li>
+        <li><b>Turn it off:</b> on the Plug-ins screen, <b>Turn off</b> then <b>Restart now</b>. Note that a pilot who bought your ship can't load while your plug-in is off.</li>
+        <li><b>Share:</b> press <b>Export file</b> and send the <code>.starwake.json</code> file. Others open <b>Plug-ins → Import plug-in</b> in the game. A file that wouldn't load is refused with the reason.</li>
+        <li><b>Several plug-ins:</b> they load in the order installed; if two change the same record, the later one wins.</li>
+      </ol>
+      <div class="warn">Plug-ins can add and replace records, but they can't delete the game's records or change its rules (combat, law, prices and so on). That keeps every plug-in safe to try.</div>
+      <p><a href="./editor.html">Open the Editor</a> · <a href="./">Back to the game</a></p>
+    </main>
+  </body>
+</html>

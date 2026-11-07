@@ -7,6 +7,8 @@ import { button, confirmDialog, el } from './dom';
 
 /** Where the Starwake Editor lives, next to the game. */
 export const EDITOR_URL = './editor.html';
+/** The step-by-step guide to the Editor. */
+export const GUIDE_URL = './editor-guide.html';
 
 /** The status line for one installed plug-in, from what this session booted with. */
 export function pluginStatus(p: StoredPlugin, active: readonly string[], problems: Record<string, string[]>): string {
@@ -113,6 +115,7 @@ export function showPluginsScreen(ctx: UiContext, onClose: () => void, store: Pl
       el('div', { class: 'sw-actions sw-actions-row' }, [
         button('Import plug-in', () => file.click(), { class: 'sw-btn-primary' }),
         button('Open the Editor', () => window.open(EDITOR_URL, '_blank')),
+        button('Editor guide', () => window.open(GUIDE_URL, '_blank')),
         restart,
         button('Back', close),
       ]),
