@@ -8,6 +8,9 @@ import { recordForm } from './form';
 import { placeSystem, systemMap, toggleLane } from './mapView';
 import { baseRecords, copyOf, loadDraft, newDraft, problems, recordsOf, removeRecord, saveDraft, TYPE_LABEL, upsert, type Rec } from './model';
 
+/** The step-by-step guide, next to the Editor. */
+const GUIDE_URL = './editor-guide.html';
+
 /**
  * The Starwake Editor (editor spec §5): the plug-in's details, its record types, the records of the chosen type,
  * and the selected record as JSON with live checks. Export downloads the file, Import opens one, Install puts it
@@ -270,6 +273,7 @@ async function start(root: HTMLElement): Promise<void> {
     el('div', { class: 'sw-ed' }, [
       el('header', { class: 'sw-ed-head' }, [
         el('h1', { class: 'sw-title', text: 'Starwake Editor' }),
+        el('a', { class: 'sw-ed-link', text: 'Guide: how to use the Editor', attrs: { href: GUIDE_URL, target: '_blank', 'data-testid': 'editor-guide-link' } }),
         el('a', { class: 'sw-ed-link', text: 'Back to the game', attrs: { href: './' } }),
       ]),
       el('p', { class: 'sw-planet-desc', text: 'Make a plug-in: copy a ship, port or story from the game, change it, and install it or export it to share. Records with a new id are added; one with the id of a game record replaces it.' }),
@@ -282,6 +286,7 @@ async function start(root: HTMLElement): Promise<void> {
           el('li', { text: 'A port needs a system that exists; a shop item needs a port that can sell it. Load the sample to see a complete small plug-in.' }),
           el('li', { text: 'Install in the game puts it on the Plug-ins screen, turned on: restart the game to play with it. Export saves a file to share.' }),
         ]),
+        el('a', { text: 'Read the full step-by-step guide', attrs: { href: GUIDE_URL, target: '_blank' } }),
       ]),
       details,
       types,
