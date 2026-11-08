@@ -159,7 +159,7 @@ describe('story walk-through', () => {
  * Credits a pilot holds after the whole walk: 15,000 (M1-M4) + the arc + 45,000 (S1-S8), less the 5,000 the Concord
  * pilot pays at M3. Concord arc 61,000; Reach arc 68,000 (the R3 advance is repaid in full, so it nets to R3's 12,000).
  */
-const EXPECTED_CREDITS = { concord: 116000, reach: 128000 } as const;
+const EXPECTED_CREDITS = { concord: 157000, reach: 169000 } as const; // +41,000 net from the Fathoms chain
 
 const ARC = {
   concord: {
@@ -236,7 +236,7 @@ describe('full story walk-through, one pilot per side', () => {
       }
       expect(w.story.active).toEqual([]);
       expect(w.story.failed).toEqual([]);
-      for (const f of ['folio-unlocked', 'house-rack-unlocked', 'cold-hold-unlocked', 'keepers-lens-unlocked']) expect(w.flags, f).toContain(f);
+      for (const f of ['folio-unlocked', 'house-rack-unlocked', 'cold-hold-unlocked', 'keepers-lens-unlocked', 'longlamp-charts-unlocked']) expect(w.flags, f).toContain(f);
       expect(Math.abs(w.credits - EXPECTED_CREDITS[side]), `final credits ${w.credits}`).toBeLessThanOrEqual(2000);
       expect(shipQuote({ ...w, credits: 999999 }, data, arc.port, arc.hull).check).toEqual({ ok: true });
     });

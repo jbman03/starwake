@@ -25,6 +25,7 @@
       "free-reach": 0.2,
       "independent": 0.3,
       "unlit": 0.4,
+      "tideward": 0.25,
       "fringe": 0.4
     },
     "patrolChance": {

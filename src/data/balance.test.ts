@@ -121,7 +121,7 @@ describe('story pay', () => {
 
   it('every story mission pays within 2x the best trade loop per jump', () => {
     const loop = bestLoopPerJump(world, data, data.config.startShipId);
-    const flags = ['dimming-lane', 'hushwater-lane']; // every lane open
+    const flags = ['dimming-lane', 'hushwater-lane', 'longlamp-lane']; // every lane open
     const over: string[] = [];
     const left = new Map<string, string>(); // where the last mission of each arc or chain left the pilot
     for (const d of missions) {

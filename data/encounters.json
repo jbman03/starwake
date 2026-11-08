@@ -128,5 +128,204 @@
       { "label": "Buy a Stillwater Pearl (600 cr)", "needs": { "credits": 600, "cargoSpace": 1 }, "outcomes": [{ "type": "credits", "n": -600 }, { "type": "cargo", "good": "stillwater-pearl", "tons": 1 }] },
       { "label": "Wave and move on", "outcomes": [{ "type": "message", "text": "She dips a hand in the water as you go, which you take as courtesy." }] }
     ]
+  },
+  {
+    "id": "tideward-hauler",
+    "kind": "hail",
+    "weight": 8,
+    "once": true,
+    "title": "An ice-hauler's word",
+    "text": "{ship}, a Tideward ice-hauler, is riding low with a hold full of rime ice. Her skipper hails to ask if the lanes ahead are quiet, then stays on the channel to talk about home.",
+    "when": {
+      "systems": [
+        "lastlight",
+        "brackwater",
+        "vesk",
+        "dunmore",
+        "saltmarsh"
+      ]
+    },
+    "choices": [
+      {
+        "label": "Ask about the Fathoms",
+        "outcomes": [
+          {
+            "type": "reveal",
+            "systems": [
+              "sounding",
+              "brinewell",
+              "undertow"
+            ]
+          },
+          {
+            "type": "rumour",
+            "text": "A Tideward skipper said the Fathoms lie south of Lastlight and Brackwater: ice, salvage and a guild that pays its debts. Sounding is the way in."
+          },
+          {
+            "type": "message",
+            "text": "The skipper sends you her soundings: the lanes south of Lastlight and Brackwater, into the Fathoms. \"Ask for work at Sounding Line,\" she says. \"Tell them the Gannet's Daughter sent you.\""
+          }
+        ]
+      },
+      {
+        "label": "Wish her a safe run",
+        "outcomes": [
+          {
+            "type": "message",
+            "text": "She rings a little bell over the channel, which seems to be how the Guild says goodbye."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "calving-berg",
+    "kind": "site",
+    "weight": 8,
+    "title": "A calving iceberg",
+    "text": "A drifting iceberg the size of a station is splitting slowly in two, shedding clean blocks of ice into the dark.",
+    "when": {
+      "governments": [
+        "tideward"
+      ]
+    },
+    "choices": [
+      {
+        "label": "Scoop up the loose blocks",
+        "needs": {
+          "cargoSpace": 6
+        },
+        "outcomes": [
+          {
+            "type": "cargo",
+            "good": "rime-ice",
+            "tons": 6
+          },
+          {
+            "type": "message",
+            "text": "Six tons of clean rime ice, free for the taking. The berg groans behind you as you pull away."
+          }
+        ]
+      },
+      {
+        "label": "Keep clear",
+        "outcomes": [
+          {
+            "type": "message",
+            "text": "You give the berg a wide berth. A minute later a slab the size of your ship drifts through the space you were in."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "diver-in-the-drift",
+    "kind": "site",
+    "weight": 6,
+    "title": "A diver's beacon",
+    "text": "A Guild diver's beacon is pulsing in the drift. Its owner is clinging to a block of ice, air low and very glad to see you.",
+    "when": {
+      "systems": [
+        "brinewell",
+        "undertow",
+        "rimeshelf",
+        "fathom",
+        "driftmark",
+        "glimmer",
+        "kelpford",
+        "coldharbour"
+      ]
+    },
+    "choices": [
+      {
+        "label": "Pick up the diver",
+        "outcomes": [
+          {
+            "type": "credits",
+            "n": 800
+          },
+          {
+            "type": "standing",
+            "government": "tideward",
+            "level": "friend"
+          },
+          {
+            "type": "message",
+            "text": "The diver tumbles through your lock, half frozen, and insists on paying you 800 cr from a waterproof purse. \"The Guild will hear about this,\" she says, and means it kindly."
+          }
+        ]
+      },
+      {
+        "label": "Radio the Guild and move on",
+        "outcomes": [
+          {
+            "type": "message",
+            "text": "You pass on the beacon's position. A Guild cutter acknowledges, curtly, and you are left with the feeling you should have stopped."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "wreckers-toll",
+    "kind": "hail",
+    "weight": 7,
+    "title": "Wreckers' toll",
+    "text": "{ship} sits across the lane with its guns out. \"This is a salvage claim,\" says a cheerful voice, \"and you're floating in it. Fifty credits a ton, or we start salvaging you.\"",
+    "when": {
+      "systems": [
+        "gullwing",
+        "driftmark",
+        "glimmer",
+        "kelpford"
+      ]
+    },
+    "choices": [
+      {
+        "label": "Pay 600 cr",
+        "needs": {
+          "credits": 600
+        },
+        "outcomes": [
+          {
+            "type": "credits",
+            "n": -600
+          },
+          {
+            "type": "message",
+            "text": "The wreckers count the credits and wave you through with great politeness."
+          }
+        ]
+      },
+      {
+        "label": "Hand over 5 t of rime ice",
+        "needs": {
+          "cargo": {
+            "good": "rime-ice",
+            "tons": 5
+          }
+        },
+        "outcomes": [
+          {
+            "type": "cargo",
+            "good": "rime-ice",
+            "tons": -5
+          },
+          {
+            "type": "message",
+            "text": "Five tons of ice change hands. The wreckers seem genuinely pleased; it is hot work, salvage."
+          }
+        ]
+      },
+      {
+        "label": "Call their bluff",
+        "outcomes": [
+          {
+            "type": "message",
+            "text": "You tell them the Guild knows where you are. After a long pause the voice says \"fair enough\" and the ship drifts out of your way."
+          }
+        ]
+      }
+    ]
   }
 ]

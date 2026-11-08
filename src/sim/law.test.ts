@@ -221,7 +221,7 @@ describe('tow when hunted', () => {
     expect(towDestination(stranded({}), noVesk)).toBe('halcyon');
     expect(towDestination(stranded({ concord: 60 }), noVesk)).toBe('mirren-hollow');
     // Hunted by every government in reach: the tow goes to the nearest port anyway (calder's, one hop).
-    const everywhere = { ...stranded({ concord: 100, 'free-reach': 100, independent: 100 }), credits: 10000 };
+    const everywhere = { ...stranded({ concord: 100, 'free-reach': 100, independent: 100, tideward: 100 }), credits: 10000 };
     expect(towDestination(everywhere, noVesk)).toBe('halcyon');
     expect(towDestination(everywhere, noVesk, { disabled: true })).toBe('halcyon');
     const r = applyTow(everywhere, noVesk);
@@ -247,7 +247,7 @@ describe('tow when hunted', () => {
     const id = towDestination(stranded({ concord: 60 }, 'calder'), data);
     expect(id).toBe('vesk-outpost'); // vesk, the first lane from calder; the port nearest its center
     // Every port in reach hunts: towed to the nearest port here, into custody.
-    expect(towDestination(stranded({ concord: 100, 'free-reach': 100, independent: 100 }, 'calder'), data)).toBe('halcyon');
+    expect(towDestination(stranded({ concord: 100, 'free-reach': 100, independent: 100, tideward: 100 }, 'calder'), data)).toBe('halcyon');
     expect(towDestination(withHeat({ concord: 100 }, { systemId: 'calder' }), data)).toBeNull(); // fuelled, not disabled
   });
   it('disabled beside a refusing port: the tow skips it', () => {
@@ -255,7 +255,7 @@ describe('tow when hunted', () => {
     expect(towDestination(near({}), data, { disabled: true })).toBe('merrow');
     expect(data.systems[data.planets[towDestination(near({ concord: 60 }), data, { disabled: true })!].systemId].government).not.toBe('concord');
     // Hunted everywhere: the port nearest the ship, as with a clean record.
-    expect(towDestination(near({ concord: 100, 'free-reach': 100, independent: 100 }), data, { disabled: true })).toBe('merrow');
+    expect(towDestination(near({ concord: 100, 'free-reach': 100, independent: 100, tideward: 100 }), data, { disabled: true })).toBe('merrow');
   });
 });
 

@@ -1626,7 +1626,7 @@ describe('combat in flight', () => {
     expect(said).toEqual([MSG_DISABLED, MSG_TOW_READY]);
   });
 
-  const huntedEverywhere = { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 } };
+  const huntedEverywhere = { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 }, tideward: { heat: 100 } };
 
   it('a land attempt at a port that hunts the pilot is refused with a message, by key or tap', async () => {
     const { c, target } = await flying();

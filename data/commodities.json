@@ -20,5 +20,7 @@
   { "id": "relics", "name": "Dimming Relics", "basePrice": 900, "illegalIn": ["concord", "unlit"],
     "description": "Scorched fittings and cracked lamp-cores pulled from the worlds that went dark. The Unlit call it grave-robbing and Concord calls it evidence tampering. Collectors elsewhere pay well." },
   { "id": "gunparts", "name": "Weapon Parts", "basePrice": 750, "illegalIn": ["concord", "independent"],
-    "description": "Barrels, feed-springs and firing pins, sold by the crate with no questions asked. The settlements want fewer guns on the rim, and Concord wants an accounting of every one." }
+    "description": "Barrels, feed-springs and firing pins, sold by the crate with no questions asked. The settlements want fewer guns on the rim, and Concord wants an accounting of every one." },
+  {"id": "rime-ice", "name": "Rime Ice", "basePrice": 150, "description": "Clean ice cut from the Fathoms' glaciers, packed in sawdust and sold by the block to worlds without water of their own."},
+  {"id": "tidesilk", "name": "Kelpford Tidesilk", "basePrice": 820, "origin": "kelpford-landing", "description": "A cloth spun from kelp fibre that shimmers like moving water. Only the weavers of Kelpford know the trick of it."}
 ]

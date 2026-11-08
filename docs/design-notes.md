@@ -425,4 +425,7 @@ Playtest improvements (2026-11-06, `2026-11-06-starwake-playtest-fixes.md`): map
 signal (`signalOf`), sale hints (`sellsHighAt`), exchange Undo, a story `escort` outcome (Corrin lends Hal Brennan
 after Low Tide), the Fleet panel (E), boarding by autopilot with hull-to-hull range and Take everything, and combat
 training (an unarmed `training` drone, steps in `TRAINING_STEPS`).
+The Fathoms (2026-11-08, `2026-11-08-starwake-the-fathoms.md`): a southern region in data only: 11 systems (Longlamp
+hidden behind `longlamp-lane`), the Tideward Guild (`tideward`) with ranks and hub Tidehall, two goods, two hulls, four
+outfits, four encounters and the six-mission "Longlamp" side chain. The galaxy is now 41 systems and 61 ports.
 Later: bounty hunters, smuggling missions, rank-locked faction story chains, more regions.
