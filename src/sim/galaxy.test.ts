@@ -121,7 +121,7 @@ describe('the Dimming', () => {
       }
     });
     it('visibleSystemCount excludes all nine, and hopDistance is Infinity', () => {
-      expect(visibleSystemCount(data, [])).toBe(total - 10);
+      expect(visibleSystemCount(data, [])).toBe(total - 11); // the Dimming (9), Hushwater and Longlamp
       expect(hopDistance(data, 'oxbow', 'gloam', [])).toBe(Infinity);
     });
   });
@@ -135,7 +135,7 @@ describe('the Dimming', () => {
     it('reveals and counts the region', () => {
       expect(revealOnArrival([], [], data, 'oxbow', open).seen).toContain('gloam');
       expect(revealWithin([], [], data, 'oxbow', 1, open).known).toContain('gloam');
-      expect(visibleSystemCount(data, open)).toBe(total - 1);
+      expect(visibleSystemCount(data, open)).toBe(total - 2);
       const m = mapModel({ ...world, flags: open, known: [...world.known, 'oxbow', 'gloam'] }, data);
       expect(m.nodes.some((n) => n.id === 'gloam')).toBe(true);
     });
@@ -145,7 +145,7 @@ describe('the Dimming', () => {
       const f = ['hushwater-lane'];
       expect(lanesOf(data, 'oxbow', f)).not.toContain('gloam');
       expect(hopDistance(data, 'oxbow', 'gloam', f)).toBe(Infinity);
-      expect(visibleSystemCount(data, f)).toBe(total - 9);
+      expect(visibleSystemCount(data, f)).toBe(total - 10);
     });
     it('dimming-lane alone does not open Hushwater', () => {
       expect(lanesOf(data, 'skerry', open)).not.toContain('hushwater');

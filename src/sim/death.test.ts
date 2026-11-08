@@ -30,7 +30,7 @@ describe('rescuePort', () => {
     expect(port).toBeTruthy();
   });
   it('falls back to the start planet', () => {
-    const w = { ...base(), standing: { concord: 'cool' as const, 'free-reach': 'cool' as const, independent: 'cool' as const, unlit: 'cool' as const } };
+    const w = { ...base(), standing: { concord: 'cool' as const, 'free-reach': 'cool' as const, independent: 'cool' as const, unlit: 'cool' as const, tideward: 'cool' as const } };
     expect(rescuePort(w, real)).toBe(real.config.startPlanetId);
   });
   it('skips ports whose government hunts the pilot while another is in reach', () => {
@@ -42,7 +42,7 @@ describe('rescuePort', () => {
 describe('podRescue', () => {
   it('pod rescue to a hunting start planet applies custody', () => {
     // Hunted by the Concord and cool with everyone else: the start planet (halcyon, Concord) hunts the pilot.
-    const standing = { 'free-reach': 'cool' as const, independent: 'cool' as const, unlit: 'cool' as const };
+    const standing = { 'free-reach': 'cool' as const, independent: 'cool' as const, unlit: 'cool' as const, tideward: 'cool' as const };
     const w: WorldState = { ...base(), standing, credits: 1500, law: { concord: { heat: 100 } }, outfits: { [POD_ID]: 1 } };
     const r = podRescue(w, real);
     expect(r.planetId).toBe(real.config.startPlanetId);
@@ -51,7 +51,7 @@ describe('podRescue', () => {
     expect(r.world.law.concord.heat).toBe(real.law.thresholds.wanted - 1);
   });
   it('hunted by every port in reach, the start planet included: the pod reaches the start planet and custody follows', () => {
-    const law = { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 }, unlit: { heat: 100 } };
+    const law = { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 }, unlit: { heat: 100 }, tideward: { heat: 100 } };
     const w: WorldState = { ...base(), systemId: 'wrenhold', credits: 10000, law, outfits: { [POD_ID]: 1 } };
     const r = podRescue(w, real);
     expect(r.planetId).toBe(real.config.startPlanetId);

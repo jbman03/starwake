@@ -186,5 +186,51 @@
     "rivals": [
       "concord"
     ]
+  },
+  "tideward": {
+    "ranks": [
+      {
+        "title": "Deckhand",
+        "points": 10,
+        "perk": {
+          "kind": "title"
+        }
+      },
+      {
+        "title": "Diver",
+        "points": 30,
+        "perk": {
+          "kind": "discount",
+          "pct": 5
+        }
+      },
+      {
+        "title": "Tidewright",
+        "points": 70,
+        "perk": {
+          "kind": "salary",
+          "cr": 150
+        }
+      },
+      {
+        "title": "Harbourmaster",
+        "points": 150,
+        "perk": {
+          "kind": "unlock",
+          "missionPayPct": 10
+        }
+      },
+      {
+        "title": "Fathomkeeper",
+        "points": 300,
+        "perk": {
+          "kind": "discountSalary",
+          "pct": 10,
+          "cr": 400
+        }
+      }
+    ],
+    "hub": "tidehall",
+    "rivals": []
   }
 }

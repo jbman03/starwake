@@ -43,10 +43,11 @@ describe('hidden systems on the map', () => {
   });
   it('counts hidden systems only once the lane is open', () => {
     const total = Object.keys(data.systems).length;
-    expect(visibleSystemCount(data, [])).toBe(total - 10);
-    expect(visibleSystemCount(data, ['hushwater-lane'])).toBe(total - 9);
-    expect(visibleSystemCount(data, ['dimming-lane'])).toBe(total - 1);
-    expect(visibleSystemCount(data, ['hushwater-lane', 'dimming-lane'])).toBe(total);
+    expect(visibleSystemCount(data, [])).toBe(total - 11); // the Dimming (9), Hushwater and Longlamp
+    expect(visibleSystemCount(data, ['hushwater-lane'])).toBe(total - 10);
+    expect(visibleSystemCount(data, ['dimming-lane'])).toBe(total - 2);
+    expect(visibleSystemCount(data, ['dimming-lane', 'hushwater-lane', 'longlamp-lane'])).toBe(total);
+    expect(visibleSystemCount(data, ['hushwater-lane', 'dimming-lane'])).toBe(total - 1);
   });
 });
 

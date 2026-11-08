@@ -273,7 +273,7 @@ describe('pause menu and dialogs', () => {
     c.leavePlanet();
     for (let i = 0; i < 30; i++) c.update(1 / 60);
     c.traffic = { ...c.traffic, npcs: [], nextSpawnSec: 1e9 };
-    c.world = { ...c.world, law: { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 } }, ship: { ...c.world.ship, pos: { x: 3000, y: 0 }, fuel: 0 } };
+    c.world = { ...c.world, law: { concord: { heat: 100 }, 'free-reach': { heat: 100 }, independent: { heat: 100 }, tideward: { heat: 100 } }, ship: { ...c.world.ship, pos: { x: 3000, y: 0 }, fuel: 0 } };
     showPauseMenu(ctx);
     expect(root.querySelector('[data-testid="pause-tow-note"]')).toBeNull();
     const towBtn = [...root.querySelectorAll('button')].find((b) => b.textContent?.includes('Call for tow'));

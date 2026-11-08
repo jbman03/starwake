@@ -1280,6 +1280,390 @@
           "text": "Vey and Reed sign the compact, and the hall roars and heckles in the same breath. The Reach pays you 12,000 cr, and its yards offer to fit you a Freewind runner."
         }
       ]
+    },
+    {
+      "id": "f1-soundings",
+      "arc": "side",
+      "chain": "longlamp",
+      "title": "Soundings",
+      "giver": {
+        "name": "Ysolde Marrick",
+        "title": "Tideward survey diver"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "sounding-line"
+        ]
+      },
+      "declinable": true,
+      "text": "A broad woman with frost-scarred hands is sorting depth buoys on the bar like a card player laying out a hand. Ysolde Marrick dives for the Tideward Guild, and the Guild's soundings are a season out of date. She needs the new buoys at Tidehall, in Fathom, before the next drift season moves the ice again.",
+      "acceptText": "Marrick slides four tons of buoys across in a net bag and tells you to keep them upright. Tidehall is the big planet in Fathom, two jumps south. \"Listen for the tide-bell,\" she says. \"It rings for every ship that comes home.\"",
+      "steps": [
+        {
+          "kind": "deliver",
+          "planet": "tidehall",
+          "cargo": {
+            "name": "Depth buoys",
+            "tons": 4
+          },
+          "text": "Deliver the depth buoys to Tidehall, in Fathom."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 6000
+        },
+        {
+          "type": "flag",
+          "flag": "fathoms-1"
+        },
+        {
+          "type": "reveal",
+          "systems": [
+            "fathom",
+            "rimeshelf",
+            "glimmer"
+          ]
+        },
+        {
+          "type": "message",
+          "text": "The tide-bell rings as you land. A Guild clerk signs for the buoys, pays you 6,000 cr and writes your ship's name in a ledger with a lot of other names in it. Marrick has left word: there's more work at Tidehall, if you want it."
+        }
+      ]
+    },
+    {
+      "id": "f2-cold-water",
+      "arc": "side",
+      "chain": "longlamp",
+      "title": "Cold Water",
+      "giver": {
+        "name": "Ysolde Marrick",
+        "title": "Tideward survey diver"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "tidehall"
+        ],
+        "requires": [
+          "fathoms-1"
+        ]
+      },
+      "declinable": true,
+      "text": "Marrick has a new buoy reading spread across the table: something large and regular under the ice off Rimeshelf, where nothing large and regular should be. She wants it scanned from close range, and she wants the readings taken to the old lighthouse keeper at Coldharbour, who knows the Fathoms' wrecks better than any chart.",
+      "acceptText": "\"Go slow near the shelf,\" Marrick says. \"The ice moves when you aren't looking at it.\" Rimeshelf is one jump from Fathom; Coldharbour is out past Brinewell.",
+      "steps": [
+        {
+          "kind": "scan",
+          "system": "rimeshelf",
+          "site": {
+            "label": "Shape under the ice"
+          },
+          "text": "Scan the shape under the ice at Rimeshelf."
+        },
+        {
+          "kind": "land",
+          "planet": "coldharbour",
+          "text": "Take the readings to the lighthouse keeper at Coldharbour."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 8000
+        },
+        {
+          "type": "flag",
+          "flag": "fathoms-2"
+        },
+        {
+          "type": "rumour",
+          "text": "The lighthouse keeper at Coldharbour says the shape under Rimeshelf is a lifeboat from a colony ark, the Longlamp, lost before the lanes were charted."
+        },
+        {
+          "type": "message",
+          "text": "The keeper, a tiny old man named Absalom Pike, reads your scan and sits down very suddenly. \"That's a lifeboat,\" he says, \"off the Longlamp. My grandmother swore the ark was real.\" He pays you 8,000 cr for the readings and asks you to come back."
+        }
+      ]
+    },
+    {
+      "id": "f3-weavers-passage",
+      "arc": "side",
+      "chain": "longlamp",
+      "title": "The Weavers' Passage",
+      "giver": {
+        "name": "Absalom Pike",
+        "title": "Keeper of the Coldharbour light"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "coldharbour"
+        ],
+        "requires": [
+          "fathoms-2"
+        ]
+      },
+      "declinable": true,
+      "text": "Pike has an old song about the Longlamp, and the only people who still sing all of it are the weavers of Kelpford. Three of their elders are here for the fish market and need passage home. Pike thinks that if you bring them home, they might sing you the verse about where the ark went down.",
+      "acceptText": "Three elderly weavers board with a great deal of luggage and opinions about your galley. Kelpford is one jump on from Coldharbour. They would like to be home within a week.",
+      "steps": [
+        {
+          "kind": "ferry",
+          "planet": "kelpford-landing",
+          "passengers": 3,
+          "deadlineDays": 7,
+          "text": "Take the three weavers home to Kelpford Landing."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 6000
+        },
+        {
+          "type": "flag",
+          "flag": "fathoms-3"
+        },
+        {
+          "type": "rumour",
+          "text": "The Kelpford weavers' song says the Longlamp \"sleeps beneath the glimmer, where the lamp below the ice is burning.\" Glimmer is the southernmost Guild system."
+        },
+        {
+          "type": "message",
+          "text": "At the landing the weavers sing the whole song for you, all forty verses. The last one says the Longlamp sleeps \"beneath the glimmer, where the lamp below the ice is burning.\" They pay you 6,000 cr, and the eldest ties a scrap of tidesilk to your console for luck."
+        }
+      ],
+      "onFail": [
+        {
+          "type": "message",
+          "text": "The weavers get home late and cross. They sing you nothing, and Pike will have to find another way to the song."
+        }
+      ]
+    },
+    {
+      "id": "f4-wreckers-claim",
+      "arc": "side",
+      "chain": "longlamp",
+      "title": "Wreckers' Claim",
+      "giver": {
+        "name": "Ysolde Marrick",
+        "title": "Tideward survey diver"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "tidehall",
+          "kelpford-landing"
+        ],
+        "requires": [
+          "fathoms-3"
+        ]
+      },
+      "declinable": true,
+      "text": "Word of the song has got out. A wrecker captain called Juno Sallow has filed a salvage claim on everything south of Glimmer and is telling anyone who listens that the Longlamp is hers. Marrick wants you to find Sallow at Gullwing and persuade her otherwise, one way or another.",
+      "acceptText": "\"Sallow is a crook,\" Marrick says, \"but she's a crook who likes a bargain. Don't start shooting unless she does.\" Gullwing is out past Driftmark, at the edge of the Guild's charts.",
+      "steps": [
+        {
+          "kind": "meet",
+          "system": "gullwing",
+          "ship": {
+            "name": "Knucklebone",
+            "shipId": "mule",
+            "government": "independent"
+          },
+          "card": {
+            "title": "The Knucklebone",
+            "text": "Juno Sallow answers the hail with her boots on the console and a mug in her hand. \"The ark is mine,\" she says pleasantly. \"I filed first. But I'm a reasonable woman, and everything has a price.\"",
+            "choices": [
+              {
+                "label": "Buy her claim for 6,000 cr",
+                "needs": {
+                  "credits": 6000
+                },
+                "outcomes": [
+                  {
+                    "type": "credits",
+                    "n": -6000
+                  },
+                  {
+                    "type": "message",
+                    "text": "Sallow signs the claim over without reading it and wishes you joy of a frozen wreck."
+                  }
+                ]
+              },
+              {
+                "label": "Offer her a share of the salvage",
+                "outcomes": [
+                  {
+                    "type": "flag",
+                    "flag": "sallow-partner"
+                  },
+                  {
+                    "type": "message",
+                    "text": "Sallow laughs and agrees to a tenth share. \"I'll be watching,\" she says, and somehow it sounds friendly."
+                  }
+                ]
+              },
+              {
+                "label": "Tell her the Guild is coming",
+                "outcomes": [
+                  {
+                    "type": "message",
+                    "text": "You mention the Guild cutters and the tide-bell. Sallow sighs, tears her claim in half on camera, and asks you to tell Marrick she said hello."
+                  }
+                ]
+              }
+            ]
+          },
+          "text": "Find Juno Sallow's ship, the Knucklebone, at Gullwing."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 9000
+        },
+        {
+          "type": "flag",
+          "flag": "fathoms-4"
+        },
+        {
+          "type": "message",
+          "text": "Marrick is delighted. She pays you 9,000 cr from the Guild's purse and tells you to go and find the lamp under the ice at Glimmer."
+        }
+      ],
+      "combatLater": "A fight with the Knucklebone if Sallow will not deal."
+    },
+    {
+      "id": "f5-under-the-glimmer",
+      "arc": "side",
+      "chain": "longlamp",
+      "title": "Under the Glimmer",
+      "giver": {
+        "name": "Ysolde Marrick",
+        "title": "Tideward survey diver"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "glimmerlight",
+          "tidehall"
+        ],
+        "requires": [
+          "fathoms-4"
+        ]
+      },
+      "declinable": true,
+      "text": "Marrick has come south to Glimmer herself, and is drinking with the settlers who live above the light under the ice. Somewhere out in the system is the Longlamp's old marker buoy, and with it the bearing to the ark. Nobody has ever found it, but nobody has ever looked with the weavers' song in hand.",
+      "acceptText": "\"The buoy will be dark,\" Marrick says, \"and small, and cold. Fly slowly and look closely.\"",
+      "steps": [
+        {
+          "kind": "find",
+          "system": "glimmer",
+          "site": {
+            "label": "The Longlamp's marker buoy"
+          },
+          "text": "Find the Longlamp's marker buoy somewhere in Glimmer."
+        },
+        {
+          "kind": "land",
+          "planet": "glimmerlight",
+          "text": "Take the buoy's bearing to Marrick at Glimmerlight."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 6000
+        },
+        {
+          "type": "flag",
+          "flag": "fathoms-5"
+        },
+        {
+          "type": "flag",
+          "flag": "longlamp-lane"
+        },
+        {
+          "type": "reveal",
+          "systems": [
+            "longlamp"
+          ]
+        },
+        {
+          "type": "rumour",
+          "text": "The marker buoy gave a bearing for a hidden lane out of Glimmer to Longlamp, where the ark lies frozen in the ice."
+        },
+        {
+          "type": "message",
+          "text": "The buoy's bearing points to a hidden lane out of Glimmer, into a pocket of the deep that no chart shows. Marrick pays you 6,000 cr and marks the lane on your chart: Longlamp."
+        }
+      ]
+    },
+    {
+      "id": "f6-the-longlamp",
+      "arc": "side",
+      "chain": "longlamp",
+      "title": "The Longlamp",
+      "giver": {
+        "name": "Ysolde Marrick",
+        "title": "Tideward survey diver"
+      },
+      "offer": {
+        "where": "bar",
+        "ports": [
+          "glimmerlight"
+        ],
+        "requires": [
+          "fathoms-5",
+          "longlamp-lane"
+        ]
+      },
+      "declinable": true,
+      "text": "The lane is open, and Marrick wants to be the first diver aboard the Longlamp in five hundred years. She needs a pilot to get her there, wait while she goes in, and bring her and what she finds back to Tidehall, where the Guild will decide what to do with it.",
+      "acceptText": "Marrick climbs aboard with a diving suit, a lamp and a notebook. \"If I'm not back in an hour,\" she says, \"wait another hour.\"",
+      "steps": [
+        {
+          "kind": "land",
+          "planet": "the-longlamp",
+          "text": "Dock at the Longlamp, in Longlamp."
+        },
+        {
+          "kind": "land",
+          "planet": "tidehall",
+          "text": "Bring Marrick and the ark's charts home to Tidehall."
+        }
+      ],
+      "onComplete": [
+        {
+          "type": "credits",
+          "n": 12000
+        },
+        {
+          "type": "flag",
+          "flag": "fathoms-6"
+        },
+        {
+          "type": "flag",
+          "flag": "longlamp-charts-unlocked"
+        },
+        {
+          "type": "standing",
+          "government": "tideward",
+          "level": "friend"
+        },
+        {
+          "type": "rumour",
+          "text": "The Longlamp's charts are at Tidehall. The Guild has copies made for pilots who helped find the ark."
+        },
+        {
+          "type": "message",
+          "text": "The tide-bell rings for a long time when you land. Marrick carries the Longlamp's chart glass into the hall, and the Guild pays you 12,000 cr. A Guild cartographer will copy the ark's charts for you at Tidehall's outfitter: the first lanes anyone ever flew."
+        }
+      ]
     }
   ]
 }

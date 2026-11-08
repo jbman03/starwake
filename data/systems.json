@@ -18,8 +18,8 @@
 
   { "id": "vesk", "name": "Vesk", "mapPos": { "x": -260, "y": 360 }, "jumpDistance": 1800, "government": "independent", "links": ["calder", "mirren", "lastlight"], "starRadius": 90 },
   { "id": "mirren", "name": "Mirren", "mapPos": { "x": -490, "y": 300 }, "jumpDistance": 1600, "government": "independent", "links": ["vesk", "minster"], "starRadius": 80 },
-  { "id": "lastlight", "name": "Lastlight", "mapPos": { "x": -40, "y": 530 }, "jumpDistance": 1700, "government": "independent", "links": ["vesk", "dunmore", "brackwater"], "starRadius": 75 },
-  { "id": "brackwater", "name": "Brackwater", "mapPos": { "x": 280, "y": 490 }, "jumpDistance": 1700, "government": "independent", "links": ["lastlight", "saltmarsh", "skerry"], "starRadius": 85 },
+  { "id": "lastlight", "name": "Lastlight", "mapPos": { "x": -40, "y": 530 }, "jumpDistance": 1700, "government": "independent", "links": ["vesk", "dunmore", "brackwater", "sounding"], "starRadius": 75 },
+  { "id": "brackwater", "name": "Brackwater", "mapPos": { "x": 280, "y": 490 }, "jumpDistance": 1700, "government": "independent", "links": ["lastlight", "saltmarsh", "skerry", "undertow"], "starRadius": 85 },
   { "id": "skerry", "name": "Skerry", "mapPos": { "x": 530, "y": 340 }, "jumpDistance": 1600, "government": "independent", "links": ["redwater", "brackwater"], "hiddenLinks": ["hushwater"], "starRadius": 70 },
 
   { "id": "hushwater", "name": "Hushwater", "mapPos": { "x": 580, "y": 430 }, "jumpDistance": 1400, "government": "independent", "links": [], "hiddenLinks": ["skerry"], "hidden": true, "unlockFlag": "hushwater-lane", "traffic": [0, 0], "starRadius": 60 },
@@ -32,5 +32,16 @@
   { "id": "ebbing", "name": "Ebbing", "mapPos": { "x": 850, "y": 150 }, "jumpDistance": 1400, "government": "unlit", "links": ["candlewick", "sootfall", "vane"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 65 },
   { "id": "tarn", "name": "Tarn", "mapPos": { "x": 940, "y": -30 }, "jumpDistance": 1400, "government": "unlit", "links": ["candlewick", "lowlight", "vane"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 50 },
   { "id": "lowlight", "name": "Lowlight", "mapPos": { "x": 950, "y": -210 }, "jumpDistance": 1300, "government": "unlit", "links": ["hollowmere", "tarn"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 55 },
-  { "id": "vane", "name": "Vane", "mapPos": { "x": 945, "y": 110 }, "jumpDistance": 1300, "government": "unlit", "links": ["tarn", "ebbing"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 60 }
+  { "id": "vane", "name": "Vane", "mapPos": { "x": 945, "y": 110 }, "jumpDistance": 1300, "government": "unlit", "links": ["tarn", "ebbing"], "hidden": true, "unlockFlag": "dimming-lane", "starRadius": 60 },
+  {"id": "sounding", "name": "Sounding", "mapPos": {"x": -100, "y": 660}, "jumpDistance": 1700, "government": "independent", "links": ["lastlight", "brinewell", "undertow", "fathom"], "starRadius": 80},
+  {"id": "brinewell", "name": "Brinewell", "mapPos": {"x": -320, "y": 720}, "jumpDistance": 1800, "government": "tideward", "links": ["sounding", "rimeshelf", "coldharbour"], "starRadius": 95},
+  {"id": "undertow", "name": "Undertow", "mapPos": {"x": 150, "y": 700}, "jumpDistance": 1600, "government": "tideward", "links": ["sounding", "brackwater", "driftmark", "fathom"], "starRadius": 70},
+  {"id": "coldharbour", "name": "Coldharbour", "mapPos": {"x": -520, "y": 800}, "jumpDistance": 1900, "government": "tideward", "links": ["brinewell", "kelpford"], "starRadius": 110},
+  {"id": "rimeshelf", "name": "Rimeshelf", "mapPos": {"x": -200, "y": 830}, "jumpDistance": 1500, "government": "tideward", "links": ["brinewell", "fathom", "kelpford"], "starRadius": 65},
+  {"id": "fathom", "name": "Fathom", "mapPos": {"x": 40, "y": 850}, "jumpDistance": 2000, "government": "tideward", "links": ["sounding", "undertow", "rimeshelf", "glimmer"], "starRadius": 120},
+  {"id": "driftmark", "name": "Driftmark", "mapPos": {"x": 330, "y": 800}, "jumpDistance": 1700, "government": "tideward", "links": ["undertow", "gullwing"], "starRadius": 85},
+  {"id": "kelpford", "name": "Kelpford", "mapPos": {"x": -400, "y": 930}, "jumpDistance": 1600, "government": "independent", "links": ["coldharbour", "rimeshelf"], "starRadius": 75},
+  {"id": "glimmer", "name": "Glimmer", "mapPos": {"x": 220, "y": 930}, "jumpDistance": 1500, "government": "tideward", "links": ["fathom", "gullwing"], "hiddenLinks": ["longlamp"], "starRadius": 60},
+  {"id": "gullwing", "name": "Gullwing", "mapPos": {"x": 480, "y": 900}, "jumpDistance": 1400, "government": "independent", "links": ["driftmark", "glimmer"], "starRadius": 70},
+  {"id": "longlamp", "name": "Longlamp", "mapPos": {"x": 60, "y": 1010}, "jumpDistance": 1400, "government": "independent", "links": [], "hiddenLinks": ["glimmer"], "hidden": true, "unlockFlag": "longlamp-lane", "traffic": [0, 1], "starRadius": 55}
 ]

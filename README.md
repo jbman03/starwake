@@ -130,6 +130,12 @@ on the site, linked from the Editor and the Plug-ins screen) walks through a
 first ship, a new system and port, an outfit, a good, an encounter and a story
 mission, with a field reference and fixes for every problem message.
 
+**The Fathoms.** South of Lastlight and Brackwater lies a region of drifting
+ice and old wrecks, held by the Tideward Guild of divers and ice-cutters: eleven
+systems, the Guild's ranks and gear, Rime Ice and Kelpford Tidesilk to trade,
+and a six-mission story, "The Longlamp", that ends at a colony ark frozen in
+the ice. Ask for work at Sounding Line.
+
 **A nemesis.** Make a name for yourself and a rival pilot starts hunting you.
 He jumps in now and then, ejects when you beat him, and comes back tougher,
 until you have beaten him four times.

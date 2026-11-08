@@ -62,7 +62,7 @@ describe('game data', () => {
     const d = parseGameData(raw());
     expect(d.ships.shuttle.maxSpeed).toBe(300);
     expect(d.systems.calder.links[0]).toBe('vesk');
-    expect(Object.keys(d.systems)).toHaveLength(30);
+    expect(Object.keys(d.systems)).toHaveLength(41);
     expect(d.config.startPlanetId).toBe('halcyon');
   });
 
@@ -219,12 +219,13 @@ describe('galaxy content', () => {
     return out;
   }
 
-  it('has 30 systems: 7 concord, 8 free-reach, 6 independent (incl. hidden Hushwater), 9 unlit (the Dimming)', () => {
-    expect(systemList).toHaveLength(30);
+  it('has 41 systems: 7 concord, 8 free-reach, 10 independent (incl. hidden Hushwater and Longlamp), 9 unlit (the Dimming), 7 tideward (the Fathoms)', () => {
+    expect(systemList).toHaveLength(41);
+    expect(govOf('tideward')).toHaveLength(7);
     expect(govOf('unlit')).toHaveLength(9);
     expect(govOf('concord')).toHaveLength(7);
     expect(govOf('free-reach')).toHaveLength(8);
-    expect(govOf('independent')).toHaveLength(6);
+    expect(govOf('independent')).toHaveLength(10);
   });
 
   it('every system has 2-4 links and 0-4 ports', () => {
@@ -235,8 +236,8 @@ describe('galaxy content', () => {
     }
   });
 
-  it('tech tiers follow the owner: concord 3-5, free-reach 2-4, independent 1-2, unlit 1-3', () => {
-    const range: Record<string, [number, number]> = { concord: [3, 5], 'free-reach': [2, 4], independent: [1, 2], unlit: [1, 3] };
+  it('tech tiers follow the owner: concord 3-5, free-reach 2-4, independent 1-2, unlit 1-3, tideward 2-4', () => {
+    const range: Record<string, [number, number]> = { concord: [3, 5], 'free-reach': [2, 4], independent: [1, 2], unlit: [1, 3], tideward: [2, 4] };
     for (const p of ports) {
       const [lo, hi] = range[d.systems[p.systemId].government];
       expect(p.techTier, p.id).toBeGreaterThanOrEqual(lo);
@@ -244,7 +245,8 @@ describe('galaxy content', () => {
     }
   });
 
-  it('no two systems sit closer than 60 map units; charted ones fit within ±600 and the Dimming sits at x 650-950', () => {
+  it('no two systems sit closer than 60 map units; charted ones fit within ±600, the Dimming sits at x 650-950 and the Fathoms at y 640-1020', () => {
+    const fathoms = new Set(['sounding', 'brinewell', 'undertow', 'coldharbour', 'rimeshelf', 'fathom', 'driftmark', 'kelpford', 'glimmer', 'gullwing', 'longlamp']);
     for (const a of systemList) {
       if (a.government === 'unlit') {
         expect(a.mapPos.x, a.id).toBeGreaterThanOrEqual(650);
@@ -252,7 +254,10 @@ describe('galaxy content', () => {
       } else {
         expect(Math.abs(a.mapPos.x), a.id).toBeLessThanOrEqual(600);
       }
-      expect(Math.abs(a.mapPos.y), a.id).toBeLessThanOrEqual(600);
+      if (fathoms.has(a.id)) {
+        expect(a.mapPos.y, a.id).toBeGreaterThanOrEqual(640);
+        expect(a.mapPos.y, a.id).toBeLessThanOrEqual(1020);
+      } else expect(Math.abs(a.mapPos.y), a.id).toBeLessThanOrEqual(600);
       for (const b of systemList) {
         if (a.id >= b.id) continue;
         const gap = Math.hypot(a.mapPos.x - b.mapPos.x, a.mapPos.y - b.mapPos.y);
@@ -304,12 +309,13 @@ describe('galaxy content', () => {
     }
   });
 
-  it('three unique goods: low only at origin, high at 2-3 ports not next to the origin', () => {
+  it('four unique goods: low only at origin, high at 2-3 ports not next to the origin', () => {
     // Stillwater Pearl is Hushwater's own good (no lanes in, so no hop rules); it is covered separately.
     const uniques = Object.values(d.commodities).filter(
       (c) => c.origin && !d.systems[d.planets[c.origin].systemId].hidden,
     );
-    expect(uniques).toHaveLength(3);
+    expect(uniques).toHaveLength(4);
+    expect(d.commodities.tidesilk?.origin).toBe('kelpford-landing');
     expect(d.commodities.glowmoss?.origin).toBe('tallow-rock');
     expect(d.commodities.copperwine?.origin).toBe('halcyon');
     for (const u of uniques) {
@@ -321,7 +327,7 @@ describe('galaxy content', () => {
       const hops = hopsFrom(originSys);
       for (const p of listed) expect(hops.get(p.systemId)!, `${u.id} at ${p.id}`).toBeGreaterThanOrEqual(2);
     }
-    const third = uniques.find((u) => u.id !== 'glowmoss' && u.id !== 'copperwine')!;
+    const third = uniques.find((u) => !['glowmoss', 'copperwine', 'tidesilk'].includes(u.id))!;
     expect(d.systems[d.planets[third.origin!].systemId].government).toBe('free-reach');
   });
 
@@ -730,7 +736,7 @@ describe('shipped story data', () => {
   const d = parseGameData(raw());
   const missions = Object.values(d.story);
 
-  it('has the arc and all eight side chains', () => {
+  it('has the arc and all nine side chains', () => {
     expect(missions.filter((m) => m.arc === 'main').map((m) => m.id)).toEqual([
       'm1-lights-out',
       'm2-second-opinion',
@@ -749,6 +755,12 @@ describe('shipped story data', () => {
       's6-long-patience',
       's7-doctors-rounds',
       's8-last-lightkeeper',
+      'f1-soundings',
+      'f2-cold-water',
+      'f3-weavers-passage',
+      'f4-wreckers-claim',
+      'f5-under-the-glimmer',
+      'f6-the-longlamp',
     ]);
   });
 
@@ -1065,7 +1077,7 @@ describe('law.json, factions.json and contraband', () => {
       hailRange: 900, scanRange: 600, catchChance: 0.8, scramblerCut: 0.5, contrabandFine: 100,
     });
     expect(d.law.rankPoints).toEqual({ mission: 2, combatJob: 4, story: 5, raiderKill: 1 });
-    expect(Object.keys(d.factions).sort()).toEqual(['concord', 'free-reach', 'independent', 'unlit']);
+    expect(Object.keys(d.factions).sort()).toEqual(['concord', 'free-reach', 'independent', 'tideward', 'unlit']);
     for (const f of Object.values(d.factions)) {
       expect(f.ranks.map((r) => r.points)).toEqual([10, 30, 70, 150, 300]);
       expect(f.ranks.map((r) => r.perk.kind)).toEqual(['title', 'discount', 'salary', 'unlock', 'discountSalary']);

@@ -121,7 +121,7 @@ describe('story pay', () => {
 
   it('every story mission pays within 2x the best trade loop per jump', () => {
     const loop = bestLoopPerJump(world, data, data.config.startShipId);
-    const flags = ['dimming-lane', 'hushwater-lane']; // every lane open
+    const flags = ['dimming-lane', 'hushwater-lane', 'longlamp-lane']; // every lane open
     const over: string[] = [];
     const left = new Map<string, string>(); // where the last mission of each arc or chain left the pilot
     for (const d of missions) {
@@ -154,14 +154,14 @@ describe('combat job pay', () => {
   const data = testData();
   const ports = Object.values(data.planets).filter((p) => p.services.includes('missions'));
   const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
-  const pays = (typeId: string): number[] => {
-    const out: number[] = [];
-    for (let day = 0; day < 60; day++) {
-      const w = { ...newWorld(data, 1), day };
-      for (const p of ports) for (const o of offersAt(w, data, p.id)) if (o.typeId === typeId) out.push(o.pay);
-    }
-    return out;
-  };
+  // Every offer at every mission port over 60 days, generated once: the galaxy is big enough that doing it per
+  // test overran the 5 s test timeout on CI.
+  const all: { typeId: string; pay: number }[] = [];
+  for (let day = 0; day < 60; day++) {
+    const w = { ...newWorld(data, 1), day };
+    for (const p of ports) for (const o of offersAt(w, data, p.id)) all.push({ typeId: o.typeId, pay: o.pay });
+  }
+  const pays = (typeId: string): number[] => all.filter((o) => o.typeId === typeId).map((o) => o.pay);
   const rush = median(pays('rush'));
   const shipment = median(pays('shipment'));
 
