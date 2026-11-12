@@ -42,6 +42,12 @@ const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
  * Mission Log and Leave, with a Map button fixed in the corner. Hotkeys come from the `planet` binding group.
  */
 export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: string): void {
+  // A port the story has removed from the galaxy (a plug-in can do this to the port you stand at): take off.
+  if (!ctx.controller.data.planets[planetId]) {
+    ctx.controller.leavePlanet();
+    ctx.unmount();
+    return;
+  }
   const { controller } = ctx;
   const { data } = controller;
   const planet = data.planets[planetId];

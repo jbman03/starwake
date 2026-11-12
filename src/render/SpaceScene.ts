@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Controller } from '../app/controller';
-import type { SystemDef } from '../data/schemas';
+import type { GameData, SystemDef } from '../data/schemas';
 import type { InputMode } from '../input/mode';
 import { getInsets } from '../input/insets';
 import { pointerTypeOf, resolveShipPress } from '../input/pointer';
@@ -63,6 +63,8 @@ export class SpaceScene extends Phaser.Scene {
   /** Shots, beams, hits, explosions, sparks and the target's hull gauge. */
   private combat!: CombatLayer;
   private builtSystemId: string | null = null;
+  /** The data view the bodies were built from (the story can change it mid-system). */
+  private builtData: GameData | null = null;
   private unsubs: (() => void)[] = [];
   private viewport: Rect = { x: 0, y: 0, w: 0, h: 0 };
 
@@ -223,8 +225,10 @@ export class SpaceScene extends Phaser.Scene {
 
   /** Rebuild the star and planets for a system. */
   private buildSystem(systemId: string): void {
-    if (this.builtSystemId === systemId) return;
+    // Rebuilt for a new system, or when the story changes this one's galaxy (a station destroyed, a port opened).
+    if (this.builtSystemId === systemId && this.builtData === this.controller.data) return;
     this.builtSystemId = systemId;
+    this.builtData = this.controller.data;
     this.bodies.forEach((b) => b.destroy());
     this.bodies = [];
     const { data } = this.controller;
@@ -253,7 +257,7 @@ export class SpaceScene extends Phaser.Scene {
     const dt = this.game.loop.rawDelta / 1000;
     this.controller.update(dt);
     const { world, prevShip, alpha, data, landingT, thrusting } = this.controller.view();
-    if (world.systemId !== this.builtSystemId) this.buildSystem(world.systemId);
+    if (world.systemId !== this.builtSystemId || data !== this.builtData) this.buildSystem(world.systemId);
     this.applyLayout();
 
     // Interpolated ship position; camera stays centered on it.

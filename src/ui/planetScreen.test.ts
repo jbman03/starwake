@@ -112,6 +112,14 @@ describe('planet screen', () => {
     expect(c.world.story.active.map((a) => a.id)).toEqual(['dec-1']);
   });
 
+  it('review I2: a planet screen for a port the story has removed takes off instead of throwing', async () => {
+    const { c, ctx } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'merrow');
+    c.world = { ...c.world, galaxy: { governments: {}, destroyed: ['merrow'] } };
+    expect(() => showPlanetScreen(ctx, 'merrow')).not.toThrow();
+    expect(c.landedPlanetId).toBeNull();
+    expect(c.isFlying).toBe(true);
+  });
+
   it('a former fuel-less port (Tallow Rock) now offers Refuel', async () => {
     const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'tallow-rock');
     expect(labels(root)).toContain('Refuel — 600 cr (400 cr/jump)'); // fringe fuel eased (phone playtest)

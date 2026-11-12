@@ -415,7 +415,8 @@ export class Controller {
     // Fighters out in space count as aboard in a save.
     const p = pilotFromWorld(syncEscorts(dockFighters(this.world, this.data, this.traffic).world, this.data, this.traffic), this.lastPlanetId, this.pilot);
     // Saves are landed snapshots: keep the system consistent with the planet even after a jump.
-    return { ...p, systemId: this.data.planets[this.lastPlanetId].systemId };
+    // The base data: the port may have left the galaxy since (the story destroyed it) and the save still names it.
+    return { ...p, systemId: this.baseData.planets[this.lastPlanetId].systemId };
   }
 
   /** Save the pilot (a landed snapshot at the last planet). Rejects if the store fails. */
@@ -673,7 +674,8 @@ export class Controller {
     try {
       if (!id || !this.store?.load) throw new Error('no save');
       const { pilot, usedBackup } = await this.store.load(id);
-      this.beginSession(worldFromPilot(pilot, this.data), { id: pilot.id, name: pilot.name }, pilot.planetId);
+      // Checked against the base data: the save carries its own galaxy changes, not this session's.
+      this.beginSession(worldFromPilot(pilot, this.baseData), { id: pilot.id, name: pilot.name }, pilot.planetId);
       if (usedBackup) this.notices.push(MSG_USED_BACKUP);
       this.emit({ type: 'landed', planetId: pilot.planetId });
     } catch (err) {
@@ -725,6 +727,7 @@ export class Controller {
    */
   tapPlanet(id: string, pointerType: string = 'touch'): void {
     if (!this.flying || this.fx || this.world.jump) return;
+    if (!this.data.planets[id]) return; // gone from the galaxy (the story destroyed it) though the scene still drew it
     if (pointerType === 'mouse') {
       this.selectPlanet(id);
       return;

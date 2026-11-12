@@ -98,7 +98,8 @@ export function legacyLines(data: GameData, arcsDone: readonly string[]): string
 /** Title screen: pilot list (Load / Rename / Delete), New Pilot and Import. */
 export function showMainMenu(ctx: UiContext): void {
   const { controller, store, root } = ctx;
-  const { data } = controller;
+  // The base data, not the live view: that follows the last session's galaxy, and each save carries its own.
+  const data = controller.baseData;
   const list = el('ul', { class: 'sw-pilots', attrs: { 'aria-label': 'Pilots' } });
   const status = el('p', { class: 'sw-status', attrs: { 'aria-live': 'polite' } });
   const say = (text: string) => (status.textContent = text);

@@ -115,6 +115,44 @@ describe('Controller', () => {
     expect(recorded).toEqual([['navy']]);
   });
 
+  it('review I1: snapshot works when the last port has since been destroyed (the save keeps it, from the base data)', async () => {
+    const { c } = await setup();
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'merrow');
+    c.leavePlanet();
+    c.world = { ...c.world, galaxy: { governments: {}, destroyed: ['merrow'] } };
+    const snap = c.snapshot();
+    expect(snap?.planetId).toBe('merrow');
+    expect(snap?.systemId).toBe(c.baseData.planets.merrow.systemId);
+  });
+
+  it('review I3: a tap on a planet no longer in the galaxy does nothing', async () => {
+    const { c } = await setup();
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'halcyon');
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.1);
+    c.world = { ...c.world, galaxy: { governments: {}, destroyed: ['merrow'] } };
+    const before = c.world;
+    c.tapPlanet('merrow', 'touch');
+    run(c, 1);
+    expect(c.world.targetPlanetId).toBeNull();
+    expect(c.landedPlanetId).toBeNull();
+    expect(c.isFlying).toBe(true);
+    expect(c.world.assist.kind).toBe(before.assist.kind);
+  });
+
+  it('review C1: the in-session reload checks the save against the base data, so a pilot saved at a story-opened port loads', async () => {
+    const { c } = await setup();
+    const { pilotFromWorld } = await import('../save/pilot');
+    const w = { ...newWorld(c.data, 1), flags: ['navy-freehold'], systemId: 'hollis' };
+    const save = pilotFromWorld(w, 'freehold-light', { id: 'p', name: 'P' });
+    c.store = { save: async () => {}, load: async () => ({ pilot: save, usedBackup: false }) };
+    c.beginSession(newWorld(c.data, 2), { id: 'p', name: 'P' }, 'halcyon');
+    // Destroyed with no escape pod: the game reloads the last save.
+    (c as unknown as { combat: { battle: { playerDestroyed: boolean } } }).combat.battle.playerDestroyed = true;
+    await c.continueAfterDeath();
+    expect(c.landedPlanetId).toBe('freehold-light');
+  });
+
   it('thrust key builds speed', async () => {
     const { c, target } = await setup();
     c.startFlight();
