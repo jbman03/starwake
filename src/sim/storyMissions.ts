@@ -55,7 +55,7 @@ export function currentStep(world: WorldState, data: GameData, id: string): Stor
 }
 
 /** The offer conditions every mission shares, bar or hail: state, flags, day, standing and the one-at-a-time rules. */
-function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef): boolean {
+export function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef): boolean {
   const o = def.offer;
   const s = world.story;
   if (s.active.some((a) => a.id === def.id) || s.done.includes(def.id) || s.failed.includes(def.id)) return false;
@@ -73,7 +73,7 @@ function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef):
   return true;
 }
 
-function offerable(world: WorldState, data: GameData, def: StoryMissionDef, portId: string): boolean {
+export function offerable(world: WorldState, data: GameData, def: StoryMissionDef, portId: string): boolean {
   const port = data.planets[portId];
   const o = def.offer;
   if (!port || o.where !== 'bar') return false;

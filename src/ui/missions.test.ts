@@ -232,7 +232,7 @@ describe('mission log', () => {
   it('Show on map opens the map on the destination system; closing it brings the log back', async () => {
     const { ctx, state, data, btn, root } = await setup((w) => ({ ...w, missions: [job()] }));
     showMissionLog(ctx, () => {});
-    btn('Show on map').click();
+    [...root.querySelectorAll('button')].find((b) => b.querySelector('.sw-btn-label')?.textContent === 'Show on map' && !b.closest('.sw-leads'))!.click();
     expect(state.maps).toHaveLength(1);
     expect(state.maps[0].preview).toEqual({ systemId: data.planets.merrow.systemId, label: 'Mission: Deliver rations to Merrow' });
     state.maps[0].onClose!();

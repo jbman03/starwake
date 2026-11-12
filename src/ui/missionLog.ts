@@ -5,7 +5,8 @@ import { systemOpen } from '../sim/galaxy';
 import { combatTargetSystem, missionSystem } from '../sim/combatMissions';
 import { jobMissions, MAX_MISSIONS } from '../sim/missions';
 import { siteStepHint } from '../sim/siteText';
-import { nextLead, stepSystem } from '../sim/storyMissions';
+import { leads } from '../sim/leads';
+import { stepSystem } from '../sim/storyMissions';
 import { formatMessage } from './messageText';
 import type { UiContext } from './context';
 import { button, confirmDialog, dialogOpen, el, formatCredits, hotkeyFor } from './dom';
@@ -50,6 +51,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
   const list = el('div', { class: 'sw-mc-list', attrs: { role: 'listbox', 'aria-label': 'Active missions', 'data-testid': 'log-list' } });
   const detail = el('div', { class: 'sw-mc-detail', attrs: { 'data-testid': 'log-detail' } });
   const story = el('section', { class: 'sw-story', attrs: { 'data-testid': 'log-story' } });
+  const leadsBox = el('section', { class: 'sw-story sw-leads', attrs: { 'data-testid': 'log-leads' } });
   const notes = el('section', { class: 'sw-notes', attrs: { 'data-testid': 'log-notes' } });
   const reason = el('p', { class: 'sw-ex-message sw-ex-bad', attrs: { 'data-testid': 'log-reason', 'aria-live': 'polite' } });
 
@@ -100,13 +102,12 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     return `${step.text} ${formatMessage(siteStepHint(step.kind === 'find', ctx.inputMode.mode === 'touch'), key, ctx.inputMode.mode === 'touch')}`;
   }
 
-  /** The Story section: active missions, the next lead when none is active, and the finished ones. */
+  /** The Story section: active missions and the finished ones (the Leads section says where to go next). */
   function renderStory(): void {
     const w = controller.world;
     const defs = w.story.active.map((a) => ({ a, def: data.story[a.id] })).filter((x): x is { a: (typeof w.story.active)[number]; def: StoryMissionDef } => !!x.def);
-    const lead = defs.length === 0 ? nextLead(w, data) : null;
     const done = w.story.done.filter((id) => data.story[id]);
-    story.hidden = defs.length === 0 && !lead && done.length === 0;
+    story.hidden = defs.length === 0 && done.length === 0;
     if (story.hidden) {
       story.replaceChildren();
       return;
@@ -139,7 +140,6 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
           el('div', { class: 'sw-story-actions' }, [show, ...(def.arc === 'main' ? [] : [abandonBtnFor(def)])]),
         ]);
       }),
-      ...(lead ? [el('p', { class: 'sw-story-lead', text: `Next lead: ${lead.text}` })] : []),
       ...(done.length === 0
         ? []
         : [
@@ -170,8 +170,36 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
     render();
   }
 
+  /** Leads: one line per story thread, where its next step is and why, each with Show on map (cycle 7). */
+  function renderLeads(): void {
+    const ls = leads(controller.world, data);
+    leadsBox.hidden = ls.length === 0;
+    leadsBox.replaceChildren(
+      ...(ls.length === 0
+        ? []
+        : [
+            el('h2', { text: 'Leads' }),
+            ...ls.map((l) => {
+              const show = button('Show on map', () =>
+                ctx.go.map({
+                  preview: { systemId: l.systemId!, label: l.text },
+                  onClose: () => showMissionLog(ctx, onClose, { selectId: jobMissions(controller.world)[index]?.id }),
+                }),
+              );
+              show.disabled = !l.systemId;
+              return el('div', { class: `sw-lead sw-lead-${l.kind}` }, [
+                el('p', { class: 'sw-mc-desc', text: l.text }),
+                el('p', { class: 'sw-story-from', text: l.why }),
+                show,
+              ]);
+            }),
+          ]),
+    );
+  }
+
   function render(): void {
     const w = controller.world;
+    renderLeads();
     renderStory();
     const missions = jobMissions(w);
     index = Math.min(index, Math.max(0, missions.length - 1));
@@ -229,7 +257,7 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
   }
 
   const scroll = el('div', { class: 'sw-log-scroll', attrs: { tabindex: '0', 'aria-label': 'Mission log entries', 'data-testid': 'log-scroll' } }, [
-    el('div', { class: 'sw-mc-body' }, [el('div', { class: 'sw-mc-left' }, [story, list]), el('div', { class: 'sw-mc-side' }, [detail, reason])]),
+    el('div', { class: 'sw-mc-body' }, [el('div', { class: 'sw-mc-left' }, [leadsBox, story, list]), el('div', { class: 'sw-mc-side' }, [detail, reason])]),
     notes,
   ]);
 
