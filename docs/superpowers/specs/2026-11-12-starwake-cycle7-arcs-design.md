@@ -187,3 +187,16 @@ All systems and ports already exist. Ids are given as `system/port`.
 - **New hull, the Picket cutter**, is data-only with procedural art, so it is an original asset.
 - **The Editor's arc form** may wait until Part 2 if the Editor isn't schema-driven. Plug-ins can add arcs
   from Part 1.
+- **Made while building (Part 1):**
+  - **The final Navy mission pays 6,000 cr**, not 8,000. The existing balance test caps story pay at twice the
+    best trade loop per jump.
+  - **The Quartermaster's Ledger (N4) makes the Concord a friend.** The Picket cutter needs Concord friend, and
+    a Navy pilot had no other way to earn it.
+  - **The bar's one-line hint still suggests a single next contact.** The full Leads list lives in the Mission
+    Log, as compact rows: tap or Enter opens the map. A button for every lead pushed the phone log's buttons off
+    screen.
+  - **A decide card put off with "Not now" reopens at the next landing** there, not on reopening the planet
+    screen during the same visit.
+  - **Arcs in the Editor use its generic record editor** (JSON fields, like story missions). There is no
+    dedicated arc form.
+  - **New original names:** convoy master Bryn Arden, Captain Rook Danner and foreman Ilse Varga.
