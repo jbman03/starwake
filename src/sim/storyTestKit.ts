@@ -65,7 +65,8 @@ export function storyKit(data: GameData) {
         case 'find':
           w = run(w, { kind: 'site', missionId: id });
           break;
-        case 'meet': {
+        case 'meet':
+        case 'decide': {
           const want = picks[id];
           const choice = step.card.choices.find((c) => (want ? c.label.startsWith(want) : true));
           if (!choice) throw new Error(`${id}: no choice "${want}"`);

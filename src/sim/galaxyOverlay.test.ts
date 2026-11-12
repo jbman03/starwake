@@ -5,7 +5,9 @@ import { applyGalaxy } from './galaxyOverlay';
 import { legalStatus } from './law';
 import { newWorld } from './world';
 
-const data = testData();
+const shipped = testData();
+/** The shipped data without its story-opened ports (Freehold Light), so an untouched galaxy is the base itself. */
+const data = { ...shipped, planets: Object.fromEntries(Object.entries(shipped.planets).filter(([, p]) => !p.appearsFlag)) };
 const empty = { governments: {}, destroyed: [] };
 const NPC = { npcName: '' };
 
@@ -28,6 +30,11 @@ describe('applyGalaxy', () => {
     const open = applyGalaxy(withNew, { galaxy: empty, flags: ['opened'] });
     expect(open.planets['new-port']).toBeDefined();
   });
+  it('the shipped data hides Freehold Light until navy-freehold is set', () => {
+    expect(applyGalaxy(shipped, { galaxy: empty, flags: [] }).planets['freehold-light']).toBeUndefined();
+    expect(applyGalaxy(shipped, { galaxy: empty, flags: ['navy-freehold'] })).toBe(shipped);
+  });
+
   it('returns the same object for the same changes', () => {
     const g = { governments: { thistle: 'concord' }, destroyed: [] };
     expect(applyGalaxy(data, { galaxy: g, flags: [] })).toBe(applyGalaxy(data, { galaxy: { governments: { thistle: 'concord' }, destroyed: [] }, flags: ['unrelated'] }));

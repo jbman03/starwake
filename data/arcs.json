@@ -1,1 +1,36 @@
-{ "arcs": [] }
+{
+  "arcs": [
+    {
+      "id": "navy",
+      "title": "Concord Navy",
+      "government": "concord",
+      "blurb": "Hold the line for the Concord against the Free Reach.",
+      "entry": {
+        "mission": "n1-commission",
+        "lead": "Commander Idris Hale is recruiting at the Halcyon bar."
+      },
+      "ranks": [
+        {
+          "title": "Ensign",
+          "points": 0
+        },
+        {
+          "title": "Lieutenant",
+          "points": 20
+        },
+        {
+          "title": "Commander",
+          "points": 50
+        },
+        {
+          "title": "Captain",
+          "points": 90
+        }
+      ],
+      "legacy": {
+        "text": "Navy veteran: your old commander sends 5,000 cr to every new pilot.",
+        "credits": 5000
+      }
+    }
+  ]
+}
