@@ -1,5 +1,5 @@
 import { formatDate } from '../sim/calendar';
-import { berthsFree, cargoFree } from '../sim/cargo';
+import { berthsFree, cargoFree, cargoLabel } from '../sim/cargo';
 import { rumor, SURVEY_RUMOUR } from '../sim/economy';
 import { missionSystem } from '../sim/combatMissions';
 import { canAccept, jobMissions, MAX_MISSIONS, type MissionOffer } from '../sim/missions';
@@ -80,7 +80,7 @@ export function showMissionComputer(ctx: UiContext, portId: string, onClose: () 
     stats.replaceChildren(
       el('span', { text: formatDate(w.day, data.config) }),
       el('span', { text: `Credits: ${formatCredits(w.credits)}` }),
-      el('span', { text: `Cargo: ${cargoFree(w, data)}/${worldStats(w, data).cargo} t` }),
+      el('span', { text: `Cargo: ${cargoLabel(w, data)}` }),
       el('span', { text: `Berths: ${berthsFree(w, data)}/${worldStats(w, data).passengers}` }),
       el('span', { text: `Missions: ${jobMissions(w).length}/${MAX_MISSIONS}` }),
     );

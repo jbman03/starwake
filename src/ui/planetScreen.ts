@@ -1,6 +1,7 @@
+import { PORT_KIND_LABEL } from '../data/schemas';
 import type { ActionId } from '../input/actions';
 import { formatDate } from '../sim/calendar';
-import { cargoFree } from '../sim/cargo';
+import { cargoFree, cargoLabel } from '../sim/cargo';
 import { fineFor, legalStatus } from '../sim/law';
 import { escortMaxArmor, hireRefusal, prizeValueOf } from '../sim/escorts';
 import { crewCap } from '../sim/crew';
@@ -52,7 +53,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       : el('div', { class: 'sw-planet-placeholder', attrs: { role: 'img', 'aria-label': planet.name } }),
   ]);
 
-  const kind = planet.kind === 'station' ? 'Station' : 'Planet';
+  const kind = PORT_KIND_LABEL[planet.kind];
   const system = data.systems[planet.systemId]?.name ?? planet.systemId;
   const info = el('div', { class: 'sw-planet-info' }, [
     el('h1', { class: 'sw-planet-name', text: planet.name }),
@@ -154,6 +155,8 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   // The map returns here (a fresh planet screen) when it closes.
   const openMap = () => ctx.go.map({ onClose: () => ctx.go.planet(planetId) });
   const leave = () => {
+    // Hand the keyboard back to the game: no focused button survives into flight.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     controller.leavePlanet();
     ctx.unmount();
   };
@@ -186,7 +189,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       el('div', { class: 'sw-stat', text: formatDate(w.day, data.config) }),
       creditsNode,
       el('div', { class: 'sw-stat', text: fuelText(jumpsOf(w.ship.fuel, data.config.fuelPerJump)) }),
-      el('div', { class: 'sw-stat', text: `Cargo: ${cargoFree(w, data)}/${worldStats(w, data).cargo} t` }),
+      el('div', { class: 'sw-stat', text: `Cargo: ${cargoLabel(w, data)}` }),
       el('div', { class: 'sw-stat', text: `Crew: ${w.crew}/${crewCap(w, data)}`, attrs: { 'data-testid': 'crew-stat' } }),
     );
     const q = controller.refuelQuote();
@@ -284,7 +287,11 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     const logBtn = button('Mission Log', openMissionLog, { hotkey: hotkeyFor(bindings, 'missionLog') });
     const helpBtn = button('How to Play', openHowToPlay, { hotkey: hotkeyFor(bindings, 'howToPlay') });
     const leaveBtn = button('Leave', leave, { class: 'sw-btn-primary sw-leave', hotkey: hotkeyFor(bindings, 'leave') });
-    actions.replaceChildren(
+    // Leave sits under the list, not in it: on a short screen the list scrolls in its own box above Leave,
+    // so Leave never covers a row (Nov 12 playtest, 812×375: a sticky Leave hid Refuel and the rows below).
+    const list = el('div', { class: 'sw-actions-list', attrs: { 'data-testid': 'planet-actions-list' } });
+    actions.replaceChildren(list, leaveBtn);
+    list.replaceChildren(
       ...[exchangeBtn, missionsBtn, shipyardBtn, outfitterBtn, barBtn, refuelBtn].filter((b) => b !== null),
       ...(reason ? [reason] : []),
       ...fineRows,
@@ -295,7 +302,6 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       })(),
       logBtn,
       helpBtn,
-      leaveBtn,
     );
   }
   render();

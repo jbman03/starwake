@@ -31,7 +31,7 @@ test.describe('desktop', () => {
     const bar = page.getByTestId('bar');
     await expect(bar).toBeVisible();
     await expect(bar.getByTestId('bar-gossip')).toContainText('Gossip');
-    await expect(bar.getByTestId('bar-gossip')).toContainText('terraced orchards');
+    await expect(bar.getByTestId('bar-gossip')).not.toContainText('terraced orchards'); // gossip never repeats the port description
     expect(await page.evaluate(() => window.__starwake!.storyOffers().map((d) => d.id))).toEqual(['e2e-fixture']);
     await expect(bar.locator('.sw-mc-row')).toContainText('A Quiet Errand');
     await page.keyboard.press('Enter');

@@ -52,11 +52,11 @@ describe('hudInfo nextHop', () => {
 });
 
 describe('hudInfo credits and cargo', () => {
-  it('shows credits with a thousands separator and cargo free over hold size', () => {
+  it('shows credits with a thousands separator and cargo used over hold size', () => {
     const w = newWorld(data);
     const info = hudInfo({ ...w, credits: 9290 }, data);
     expect(info.credits).toBe('Credits: 9,290 cr');
-    expect(info.cargo).toBe(`Cargo: 20/${data.ships[w.shipId].cargo} t`);
+    expect(info.cargo).toBe(`Cargo: 0/${data.ships[w.shipId].cargo} t`);
     expect(hudInfo({ ...w, credits: -400, cargo: { ...w.cargo, [Object.keys(data.commodities)[0]]: 10 } }, data).cargo).toBe('Cargo: 10/20 t');
     expect(hudInfo({ ...w, credits: -400 }, data).credits).toBe('Credits: -400 cr');
   });

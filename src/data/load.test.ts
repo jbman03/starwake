@@ -1387,3 +1387,16 @@ describe('carriers and fighters data', () => {
     expect(d.ships.wasp.soldAt).toEqual([]);
   });
 });
+
+describe('port kinds match their descriptions (Nov 12 playtest: Pell read "Planet" but is a moon)', () => {
+  it('a port whose description calls it a moon is typed moon, and the reverse', () => {
+    const wrong = (planets as { id: string; kind: string; description: string }[])
+      .filter((p) => {
+        // "the size of a moon" is a comparison (Rime Shelf), not what the port is.
+        const isMoon = /\bmoon\b/i.test(p.description) && !/size of a moon/i.test(p.description);
+        return isMoon !== (p.kind === 'moon');
+      })
+      .map((p) => `${p.id} (${p.kind})`);
+    expect(wrong).toEqual([]);
+  });
+});

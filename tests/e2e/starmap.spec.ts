@@ -220,3 +220,39 @@ test.describe('phone (touch, landscape)', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test('at the default zoom every system label sits inside the map and clear of the zoom buttons (Nov 12 playtest: Quillon)', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = trackErrors(page);
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await newPilot(page, 'Labels');
+  for (const unlocked of [false, true]) {
+    await page.evaluate((all) => {
+      const h = window.__starwake!;
+      const systems = Object.values(h.data.systems);
+      const flags = all ? [...new Set(systems.flatMap((s) => (s.unlockFlag ? [s.unlockFlag] : [])))] : [];
+      h.controller.world = { ...h.controller.world, flags, known: systems.filter((s) => all || !s.hidden).map((s) => s.id) };
+    }, unlocked);
+    if (unlocked) await page.keyboard.press('KeyN'); // close and reopen so the newly opened systems are drawn
+    else await leavePlanet(page);
+    await page.keyboard.press('KeyN');
+    await expect(page.getByTestId('star-map')).toBeVisible();
+    for (const [width, height] of [[1024, 768], [1280, 720], [768, 1024], [390, 844], [667, 375], [844, 390]]) {
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(150);
+      const bad = await page.evaluate(() => {
+        const svg = document.querySelector('.sw-starmap-svg')!.getBoundingClientRect();
+        const zoom = document.querySelector('.sw-map-zoom')!.getBoundingClientRect();
+        return [...document.querySelectorAll('.sw-map-name')].flatMap((t) => {
+          const r = t.getBoundingClientRect();
+          const outside = r.left < svg.left || r.right > svg.right || r.top < svg.top || r.bottom > svg.bottom;
+          const underZoom = r.left < zoom.right && r.right > zoom.left && r.top < zoom.bottom && r.bottom > zoom.top;
+          return outside || underZoom ? [`${t.textContent}${outside ? ' outside' : ' under zoom'}`] : [];
+        });
+      });
+      expect(bad, `${width}x${height}, lanes ${unlocked ? 'open' : 'closed'}`).toEqual([]);
+    }
+    await page.setViewportSize({ width: 1024, height: 768 });
+  }
+  expect(errors).toEqual([]);
+});

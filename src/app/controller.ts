@@ -87,6 +87,8 @@ const SITE_MIN_DIST = 500;
 const SITE_SPREAD = 400;
 /** The landing shrink-and-fade before the planet screen opens (also the take-off, reversed). */
 export const LANDING_FX_SEC = 0.4;
+/** Presses that still open their screen during the take-off effect. */
+const TAKEOFF_MENU_KEYS: ReadonlySet<ActionId> = new Set<ActionId>(['pause', 'map', 'flightMissionLog', 'fleet']);
 
 /** The sound on entering each jump phase (spec §4.1): the wind-up whine, the deep whoosh, the softer arrival whoosh. */
 const JUMP_PHASE_SFX: Partial<Record<JumpPhase, 'jumpCharge' | 'jumpWhoosh' | 'jumpArrive'>> = {
@@ -699,7 +701,7 @@ export class Controller {
    * A planet was clicked or tapped. A mouse click only selects it (desktop players land with L).
    * A touch (or pen) tap selects it, then lands the way the context button does (lands at once
    * when close and slow, else autopilots there), taking over from any autopilot first so the
-   * tapped planet wins instead of the landing autopilot's "next planet" cycling.
+   * tapped planet wins over the one the autopilot was flying to.
    */
   tapPlanet(id: string, pointerType: string = 'touch'): void {
     if (!this.flying || this.fx || this.world.jump) return;
@@ -971,8 +973,10 @@ export class Controller {
         return;
       }
       if (locked) this.queued.clear();
+      // Take-off still lets the menu keys through (they only pause flight): an N pressed straight after Leave used
+      // to be dropped while G and J, pressed a moment later, worked (Nov 12 playtest).
       const polled = locked
-        ? { actions: new Set<ActionId>(), pressed: new Set<ActionId>() }
+        ? { actions: new Set<ActionId>(), pressed: new Set([...keys.pressed, ...touch.pressed].filter((a) => TAKEOFF_MENU_KEYS.has(a))) }
         : {
             actions: new Set([...keys.actions, ...touch.actions]),
             pressed: new Set([...keys.pressed, ...touch.pressed]),

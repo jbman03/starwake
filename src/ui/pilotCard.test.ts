@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
+import { loadGameData } from '../data/load';
 import { testData } from '../data/testData';
 import { pilotFromWorld } from '../save/pilot';
 import { formatDate } from '../sim/calendar';
@@ -51,6 +52,19 @@ describe('pilotCard', () => {
     const open = pilotCard(save({ flags: ['hushwater-lane'] }), data).explored.split('/')[1];
     expect(open).toBe(`${visibleSystemCount(data, ['hushwater-lane'])} systems`);
     expect(visibleSystemCount(data, ['hushwater-lane'])).toBeGreaterThan(visibleSystemCount(data, []));
+  });
+
+  it('the total comes from the data: every open system, each hidden one joining when its lane opens', async () => {
+    const real = await loadGameData();
+    const all = Object.values(real.systems);
+    const open = all.filter((sys) => !sys.hidden).length;
+    expect(all.length).toBe(41); // the Fathoms brought the galaxy to 41 (playtest Nov 12)
+    expect(pilotCard(save(), real).explored).toBe(`${save().known.length}/${open} systems`);
+    const flags = [...new Set(all.flatMap((sys) => (sys.unlockFlag ? [sys.unlockFlag] : [])))];
+    expect(pilotCard(save({ flags }), real).explored.split('/')[1]).toBe(`${all.length} systems`);
+    // A system added to the data shows up in the total: no hard-coded count.
+    const more = { ...real, systems: { ...real.systems, extra: { ...all[0], id: 'extra', hidden: false } } };
+    expect(pilotCard(save(), more).explored.split('/')[1]).toBe(`${open + 1} systems`);
   });
 
   it('a hidden system in known is not counted before the flag', () => {
