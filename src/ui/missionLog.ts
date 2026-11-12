@@ -179,19 +179,28 @@ export function showMissionLog(ctx: UiContext, onClose: () => void, opts: { sele
         ? []
         : [
             el('h2', { text: 'Leads' }),
+            // Each lead is a row: a click or Enter shows its system on the map (a row, not a button, so a long list
+            // scrolls in its own box on a phone without pushing the log's buttons off screen).
             ...ls.map((l) => {
-              const show = button('Show on map', () =>
+              const open = () => {
+                if (!l.systemId) return;
                 ctx.go.map({
-                  preview: { systemId: l.systemId!, label: l.text },
+                  preview: { systemId: l.systemId, label: l.text },
                   onClose: () => showMissionLog(ctx, onClose, { selectId: jobMissions(controller.world)[index]?.id }),
-                }),
-              );
-              show.disabled = !l.systemId;
-              return el('div', { class: `sw-lead sw-lead-${l.kind}` }, [
-                el('p', { class: 'sw-mc-desc', text: l.text }),
-                el('p', { class: 'sw-story-from', text: l.why }),
-                show,
-              ]);
+                });
+              };
+              const row = el('div', {
+                class: `sw-lead sw-lead-${l.kind}`,
+                attrs: { role: 'button', tabindex: '0', 'aria-label': `Lead: ${l.text}`, 'aria-disabled': l.systemId ? 'false' : 'true' },
+                onClick: open,
+              }, [el('span', { class: 'sw-mc-desc', text: l.text }), el('span', { class: 'sw-story-from', text: l.systemId ? `${l.why} · map ›` : l.why })]);
+              row.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                e.stopPropagation();
+                open();
+              });
+              return row;
             }),
           ]),
     );

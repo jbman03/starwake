@@ -1,8 +1,17 @@
 import { expect, test, type Page } from '@playwright/test';
 import { newPilot, trackErrors } from './helpers';
 
+/** These tests are about the bar itself: take the career arcs' missions (the Navy commission at Halcyon) out of the data. */
+async function withoutArcOffers(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const h = window.__starwake!;
+    for (const [id, d] of Object.entries(h.data.story)) if (d.arc in h.data.arcs) delete h.data.story[id];
+  });
+}
+
 /** Adds a bar offer at Halcyon through the dev test hook (data/story.json ships empty until the content task). */
 async function injectOffer(page: Page): Promise<void> {
+  await withoutArcOffers(page);
   await page.evaluate(() => {
     const h = window.__starwake!;
     h.data.story['e2e-fixture'] = {
@@ -46,6 +55,7 @@ test.describe('desktop', () => {
   test('an empty bar still shows gossip', async ({ page }) => {
     const errors = trackErrors(page);
     await newPilot(page, 'Quiet');
+    await withoutArcOffers(page);
     await page.keyboard.press('KeyB');
     const bar = page.getByTestId('bar');
     await expect(bar).toBeVisible();

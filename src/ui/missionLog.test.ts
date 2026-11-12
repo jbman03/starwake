@@ -146,7 +146,8 @@ describe('mission log: Story section', () => {
     expect(leadsBox().textContent).toContain('Leads');
     expect(leadsBox().textContent).toContain('Ansel Voss');
     const row = leadsBox().querySelector<HTMLElement>('.sw-lead')!;
-    a.btn('Show on map', row)!.click();
+    expect(row.getAttribute('role')).toBe('button');
+    row.click();
     expect(a.maps[0].preview?.systemId).toBe(a.data.planets.halcyon.systemId);
     const b = await setup([side], ['s1']);
     showMissionLog(b.ctx, () => {});
