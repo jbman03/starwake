@@ -7,7 +7,7 @@ import { revealOnArrival } from '../sim/galaxy';
 import { hashString } from '../sim/random';
 import { departFrom, newWorld } from '../sim/world';
 
-export const CURRENT_SAVE_VERSION = 10;
+export const CURRENT_SAVE_VERSION = 11;
 
 export class SaveError extends Error {
   constructor(public readonly code: 'futureVersion' | 'invalid' | 'unknownContent', message?: string) {
@@ -101,7 +101,7 @@ function fixEscort(e: Record<string, unknown>): SavedEscort {
 }
 
 export const PilotSaveSchema = z.object({
-  version: z.literal(10),
+  version: z.literal(11),
   id: z.string().min(1),
   name: z.string(),
   /** May be negative: tow fees can put a pilot in debt (spec §7). */
@@ -174,6 +174,11 @@ export const PilotSaveSchema = z.object({
   nemesis: z
     .object({ defeats: z.number().int().nonnegative(), nextDay: z.number().finite().nonnegative(), done: z.boolean() })
     .catch({ defeats: 0, nextDay: 0, done: false }),
+  // v11: story map changes and arc points (cycle 7). A corrupt record loads as no changes.
+  galaxy: z
+    .object({ governments: z.record(z.string(), z.string()), destroyed: z.array(z.string()) })
+    .catch({ governments: {}, destroyed: [] }),
+  arcPoints: z.record(z.string(), z.number().finite().nonnegative()).catch({}),
 });
 
 export type PilotSave = z.infer<typeof PilotSaveSchema>;
@@ -263,6 +268,8 @@ export const migrations: Record<number, (s: any) => any> = {
   8: (s) => ({ ...s, version: 9, crew: -1 }),
   // v9 -> v10. Data-free: the rival has not appeared yet.
   9: (s) => ({ ...s, version: 10, nemesis: { defeats: 0, nextDay: 0, done: false } }),
+  // v10 -> v11. Data-free: the map is as shipped, no arc points.
+  10: (s) => ({ ...s, version: 11, galaxy: { governments: {}, destroyed: [] }, arcPoints: {} }),
 };
 
 export function upgradeSave(raw: unknown): PilotSave {
@@ -341,6 +348,8 @@ export function pilotFromWorld(world: WorldState, planetId: string, meta: { id: 
     escortOrder: world.escortOrder,
     crew: world.crew,
     nemesis: { ...world.nemesis },
+    galaxy: { governments: { ...world.galaxy.governments }, destroyed: [...world.galaxy.destroyed] },
+    arcPoints: { ...world.arcPoints },
   };
 }
 
@@ -403,6 +412,8 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     // -1 is a full complement (a migrated save); otherwise a whole number within the hull's berths.
     crew: p.crew < 0 ? data.ships[p.shipId].crew : clamp(Math.floor(p.crew), 0, data.ships[p.shipId].crew),
     // More duels than the data has levels (a shortened rival) clamps to the last one.
+    galaxy: { governments: { ...p.galaxy.governments }, destroyed: [...p.galaxy.destroyed] },
+    arcPoints: { ...p.arcPoints },
     nemesis: { ...p.nemesis, defeats: Math.min(p.nemesis.defeats, data.fleet.nemesis.levels.length) },
   };
   return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };

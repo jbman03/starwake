@@ -4,6 +4,7 @@ import { cargoFree } from './cargo';
 import { HIDDEN_LANE_FLAG, hopDistance, revealOnArrival, revealWithin } from './galaxy';
 import { accept, buildOffer } from './missions';
 import { hashString, mulberry32, pick } from './random';
+import { addHeat } from './law';
 import { addPoints } from './ranks';
 import { worldStats } from './shipStats';
 import { shipDisplayName } from './shipyard';
@@ -242,6 +243,15 @@ export function applyOutcomes(
         else messages.push(`Your group is full, so ${o.name} stays behind.`);
         break;
       }
+      case 'government':
+        w = { ...w, galaxy: { ...w.galaxy, governments: { ...w.galaxy.governments, [o.system]: o.government } } };
+        break;
+      case 'destroyPlanet':
+        if (!w.galaxy.destroyed.includes(o.planet)) w = { ...w, galaxy: { ...w.galaxy, destroyed: [...w.galaxy.destroyed, o.planet] } };
+        break;
+      case 'heat':
+        w = addHeat(w, data, o.government, o.n);
+        break;
     }
   };
   outcomes.forEach(apply);

@@ -121,6 +121,10 @@ export interface WorldState {
   crew: number;
   /** The rival pilot's record: duels won, when he may next appear, and whether he is finished. */
   nemesis: { defeats: number; nextDay: number; done: boolean };
+  /** Story map changes (cycle 7): systems that changed flag, and ports destroyed. See `applyGalaxy`. */
+  galaxy: { governments: Record<string, string>; destroyed: string[] };
+  /** Story arc points per arc id (data/arcs.json). */
+  arcPoints: Record<string, number>;
 }
 
 export type EscortOrder = 'follow' | 'attack' | 'hold' | 'defend';

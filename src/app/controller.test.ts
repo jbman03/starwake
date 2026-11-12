@@ -56,6 +56,25 @@ describe('Controller', () => {
     expect(c.isFlying).toBe(false);
   });
 
+  it('the data view follows the story map: a flipped system reads as its new government', async () => {
+    const { c } = await setup();
+    expect(c.data.systems.brannock.government).toBe('free-reach');
+    c.world = { ...c.world, galaxy: { governments: { brannock: 'concord' }, destroyed: [] } };
+    expect(c.data.systems.brannock.government).toBe('concord');
+  });
+
+  it('a destroyed planet the pilot is landed at: leavePlanet takes off at its last position without throwing', async () => {
+    const { c } = await setup();
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'merrow');
+    c.world = { ...c.world, galaxy: { governments: {}, destroyed: ['merrow'] } };
+    expect(c.data.planets.merrow).toBeUndefined();
+    expect(() => c.leavePlanet()).not.toThrow();
+    const m = c.baseData.planets.merrow.pos;
+    expect(Math.hypot(c.world.ship.pos.x - m.x, c.world.ship.pos.y - m.y)).toBeLessThan(200);
+    run(c, LANDING_FX_SEC + 0.1);
+    expect(c.isFlying).toBe(true);
+  });
+
   it('thrust key builds speed', async () => {
     const { c, target } = await setup();
     c.startFlight();

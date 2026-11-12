@@ -98,6 +98,8 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     escortOrder: 'follow',
     crew: def.crew,
     nemesis: { defeats: 0, nextDay: 0, done: false },
+    galaxy: { governments: {}, destroyed: [] },
+    arcPoints: {},
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
 }

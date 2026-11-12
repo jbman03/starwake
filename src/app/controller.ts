@@ -1,3 +1,4 @@
+import { applyGalaxy } from '../sim/galaxyOverlay';
 import { isFinalStep } from '../guide/guide';
 import type { EncounterDef, GameData, StoryMissionDef, WingmanDef } from '../data/schemas';
 import type { Guide } from '../guide/guide';
@@ -282,15 +283,23 @@ export class Controller {
   /** Settles when the most recent autosave finishes (never rejects). */
   lastSave: Promise<void> = Promise.resolve();
 
+  /**
+   * The galaxy as the story has changed it (see `applyGalaxy`): every reader takes its data from here.
+   * `baseData` is the data as loaded (plug-ins included), before story map changes.
+   */
+  get data(): GameData {
+    return applyGalaxy(this.baseData, this.world);
+  }
+
   constructor(
-    readonly data: GameData,
+    readonly baseData: GameData,
     readonly settings: Settings,
     keyTarget: EventTarget = window,
-    world: WorldState = newWorld(data),
+    world: WorldState = newWorld(baseData),
   ) {
     this.world = world;
     this.traffic = this.freshTraffic(world);
-    this.combat = new CombatControl(data, world);
+    this.combat = new CombatControl(() => this.data, world);
     this.prevShip = world.ship;
     this.keyboard = new KeyboardSource(
       keyTarget,
@@ -424,7 +433,9 @@ export class Controller {
     if (!this.landedPlanetId) return;
     // Save before take-off too, so purchases, refuels and jobs taken here survive a reload (playtest bug 11).
     this.autosave();
-    this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
+    // The base data still has the port if the story has since removed it from the galaxy: take off where it was.
+    const from = this.data.planets[this.landedPlanetId] ? this.data : this.baseData;
+    this.world = { ...departFrom(this.world, from, this.landedPlanetId), targetPlanetId: null };
     if (this.traffic.systemId !== this.world.systemId) this.traffic = this.freshTraffic(this.world);
     this.traffic = withEscorts(this.traffic, this.world, this.data, this.world.ship); // the group takes off around the parked ship
     this.combat.reset(this.world);

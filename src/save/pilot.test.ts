@@ -142,9 +142,9 @@ describe('pilot', () => {
     );
   });
 
-  it('a version-11 save -> futureVersion', () => {
+  it('a version-12 save -> futureVersion', () => {
     const p = pilotFromWorld(newWorld(data), start, { id: 'a', name: 'A' });
-    expect(() => upgradeSave({ ...p, version: 11 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
+    expect(() => upgradeSave({ ...p, version: 12 })).toThrowError(expect.objectContaining({ code: 'futureVersion' }));
   });
 
   it('migration 3 -> 4 fills the story fields; shipName starts empty', () => {
@@ -330,7 +330,7 @@ describe('save v7', () => {
 
   it('a v6 save migrates to v7 with empty law and ranks', () => {
     const up = upgradeSave(v6Of());
-    expect(up).toMatchObject({ version: 10, law: {}, ranks: {} });
+    expect(up).toMatchObject({ version: 11, law: {}, ranks: {} });
     const w = worldFromPilot(up, data);
     expect(w.law).toEqual({});
     expect(w.ranks).toEqual({});
@@ -341,7 +341,7 @@ describe('save v7', () => {
       version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
       planetId: start, gameTimeSec: 0, savedAt: '2026-01-01T00:00:00.000Z',
     });
-    expect(p).toMatchObject({ version: 10, law: {}, ranks: {}, escorts: [], escortOrder: 'follow' });
+    expect(p).toMatchObject({ version: 11, law: {}, ranks: {}, escorts: [], escortOrder: 'follow' });
   });
 
   it('corrupt heat clamps to 0–100 and negative points to 0 on load', () => {
@@ -380,7 +380,7 @@ describe('save v7', () => {
   it('a v7 save whose law or ranks is missing, null or an array still loads as empty', () => {
     for (const bad of [undefined, null, [], [1, 2], 'x', 7]) {
       const up = upgradeSave({ ...v6Of(), version: 7, law: bad, ranks: bad });
-      expect(up).toMatchObject({ version: 10, law: {}, ranks: {} });
+      expect(up).toMatchObject({ version: 11, law: {}, ranks: {} });
     }
     const { law: _l, ranks: _r, ...rest } = { ...v6Of(), version: 7, law: 1, ranks: 1 };
     expect(upgradeSave(rest)).toMatchObject({ law: {}, ranks: {} });
@@ -407,7 +407,7 @@ describe('save v8', () => {
 
   it('a v7 save migrates to v8 with no escorts and order follow', () => {
     const up = upgradeSave(v7Of());
-    expect(up).toMatchObject({ version: 10, escorts: [], escortOrder: 'follow' });
+    expect(up).toMatchObject({ version: 11, escorts: [], escortOrder: 'follow' });
     const w = worldFromPilot(up, data);
     expect(w.escorts).toEqual([]);
     expect(w.escortOrder).toBe('follow');
@@ -418,7 +418,7 @@ describe('save v8', () => {
       version: 1, id: 'old', name: 'Old', credits: 5, shipId: 'shuttle', fuel: 3, systemId: 'vesk',
       planetId: start, gameTimeSec: 0, savedAt: '2026-01-01T00:00:00.000Z',
     });
-    expect(p).toMatchObject({ version: 10, escorts: [], escortOrder: 'follow' });
+    expect(p).toMatchObject({ version: 11, escorts: [], escortOrder: 'follow' });
   });
 
   it('newWorld starts with no escorts and order follow', () => {
@@ -527,7 +527,7 @@ describe('save v9', () => {
 
   it('a v8 save migrates to v9 with a full crew', () => {
     const up = upgradeSave(v8Of({ shipId: 'warden' }));
-    expect(up).toMatchObject({ version: 10, crew: -1 });
+    expect(up).toMatchObject({ version: 11, crew: -1 });
     expect(worldFromPilot(up, data).crew).toBe(data.ships.warden.crew);
   });
 
@@ -572,5 +572,26 @@ describe('save v10', () => {
     expect(worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data).nemesis).toEqual(w.nemesis);
     for (const bad of [null, 'x', { defeats: -1, nextDay: 0, done: false }, { defeats: 1 }])
       expect(worldFromPilot(upgradeSave({ ...base(), nemesis: bad }), data).nemesis).toEqual({ defeats: 0, nextDay: 0, done: false });
+  });
+});
+
+describe('save v11', () => {
+  const base = () => JSON.parse(JSON.stringify(pilotFromWorld(newWorld(data, 5), start, { id: 'a', name: 'A' })));
+  it('a v10 save migrates to v11 with an empty galaxy and arcPoints', () => {
+    const { galaxy: _g, arcPoints: _a, ...rest } = base();
+    const up = upgradeSave({ ...rest, version: 10 });
+    expect(up.version).toBe(11);
+    expect(up.galaxy).toEqual({ governments: {}, destroyed: [] });
+    expect(up.arcPoints).toEqual({});
+  });
+  it('a save with a flipped system and a destroyed station round-trips', () => {
+    const w = { ...newWorld(data, 5), galaxy: { governments: { brannock: 'concord' }, destroyed: ['the-commons'] }, arcPoints: { navy: 30 } };
+    const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), data);
+    expect(back.galaxy).toEqual(w.galaxy);
+    expect(back.arcPoints).toEqual({ navy: 30 });
+  });
+  it('a corrupt galaxy loads empty', () => {
+    for (const bad of [null, 'x', { governments: 3 }])
+      expect(worldFromPilot(upgradeSave({ ...base(), galaxy: bad }), data).galaxy).toEqual({ governments: {}, destroyed: [] });
   });
 });
