@@ -98,3 +98,24 @@ describe('pilotCard standing', () => {
     expect(pilotCard(save({ standing: { nowhere: 'friend' } }), data).standing).toBe('Standing: neutral everywhere');
   });
 });
+
+describe('pilotCard arc ranks (cycle 7)', () => {
+  it('shows "Concord Navy: Lieutenant", then "(struck off)" after navy-exposed', async () => {
+    const { twoArcs } = await import('../sim/arcsTestKit');
+    const d = { ...twoArcs(), arcs: { navy: { ...twoArcs().arcs.alpha, id: 'navy', title: 'Concord Navy' } } };
+    const s = save({ flags: ['arc:navy'], arcPoints: { navy: 25 } });
+    expect(pilotCard(s, d).rankLines).toContain('Concord Navy: Lieutenant');
+    expect(pilotCard({ ...s, flags: ['arc:navy', 'navy-exposed'] }, d).rankLines).toContain('Concord Navy: Lieutenant (struck off)');
+    expect(pilotCard(save(), d).rankLines.some((l) => l.startsWith('Concord Navy'))).toBe(false);
+  });
+});
+
+describe('new-pilot legacy lines (cycle 7)', () => {
+  it("lists each finished arc's perk text, skipping arcs this data lacks", async () => {
+    const { twoArcs } = await import('../sim/arcsTestKit');
+    const { legacyLines } = await import('./mainMenu');
+    const d = twoArcs();
+    expect(legacyLines(d, [])).toEqual([]);
+    expect(legacyLines(d, ['alpha', 'gone'])).toEqual([`Alpha Arc: ${d.arcs.alpha.legacy.text}`]);
+  });
+});

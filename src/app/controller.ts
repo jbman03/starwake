@@ -1,3 +1,4 @@
+import { applyGalaxy } from '../sim/galaxyOverlay';
 import { isFinalStep } from '../guide/guide';
 import type { EncounterDef, GameData, StoryMissionDef, WingmanDef } from '../data/schemas';
 import type { Guide } from '../guide/guide';
@@ -54,6 +55,7 @@ import {
   declineStory,
   FIND_SITE_REVEAL,
   nextLead,
+  pendingDecide,
   storyHoldPos,
   storyOffersAt,
   storyHailAt,
@@ -125,7 +127,8 @@ export interface EncounterView {
   kind: 'hail' | 'site';
   title: string;
   text: string;
-  choices: { label: string; blocked: string | null }[];
+  /** `commit`: the choice can't be undone, so the card asks first. */
+  choices: { label: string; blocked: string | null; commit?: boolean }[];
   /** True when the card can't be put off (no "Not now"). */
   noDecline?: boolean;
   /** True when the card must be answered: no way to close it before a choice, Esc included (law hails, Ruling 14). */
@@ -208,6 +211,8 @@ export interface SaveSink {
   save(p: PilotSave): Promise<void>;
   /** Present on the real store; the no-pod Destroyed card reloads through it. */
   load?(id: string): Promise<{ pilot: PilotSave; usedBackup: boolean }>;
+  /** Present on the real store: finished arcs go into the device's legacy (cycle 7). Never rejects. */
+  recordArcsDone?(ids: readonly string[]): Promise<void>;
 }
 
 type UiInput = { groups: readonly ActionGroup[]; handler: (pressed: Set<ActionId>) => void };
@@ -271,6 +276,8 @@ export class Controller {
    * (it mounts after `missionsCompleted` fires, so it collects them with takeCompletion()).
    */
   private completion: { missions: Mission[]; pay: number } | null = null;
+  /** The port where the decide card was put off this visit (cleared on every landing). */
+  private decideDismissedAt: string | null = null;
   /**
    * Messages raised while the ship was being towed (e.g. missions failed on the way). The HUD is
    * hidden behind the planet screen by then, so that screen collects them with takeNotices().
@@ -282,15 +289,23 @@ export class Controller {
   /** Settles when the most recent autosave finishes (never rejects). */
   lastSave: Promise<void> = Promise.resolve();
 
+  /**
+   * The galaxy as the story has changed it (see `applyGalaxy`): every reader takes its data from here.
+   * `baseData` is the data as loaded (plug-ins included), before story map changes.
+   */
+  get data(): GameData {
+    return applyGalaxy(this.baseData, this.world);
+  }
+
   constructor(
-    readonly data: GameData,
+    readonly baseData: GameData,
     readonly settings: Settings,
     keyTarget: EventTarget = window,
-    world: WorldState = newWorld(data),
+    world: WorldState = newWorld(baseData),
   ) {
     this.world = world;
     this.traffic = this.freshTraffic(world);
-    this.combat = new CombatControl(data, world);
+    this.combat = new CombatControl(() => this.data, world);
     this.prevShip = world.ship;
     this.keyboard = new KeyboardSource(
       keyTarget,
@@ -400,13 +415,17 @@ export class Controller {
     // Fighters out in space count as aboard in a save.
     const p = pilotFromWorld(syncEscorts(dockFighters(this.world, this.data, this.traffic).world, this.data, this.traffic), this.lastPlanetId, this.pilot);
     // Saves are landed snapshots: keep the system consistent with the planet even after a jump.
-    return { ...p, systemId: this.data.planets[this.lastPlanetId].systemId };
+    // The base data: the port may have left the galaxy since (the story destroyed it) and the save still names it.
+    return { ...p, systemId: this.baseData.planets[this.lastPlanetId].systemId };
   }
 
   /** Save the pilot (a landed snapshot at the last planet). Rejects if the store fails. */
   async save(): Promise<void> {
     const p = this.snapshot();
     if (p && this.store) await this.store.save(p);
+    // Finished arcs become every later pilot's legacy perk.
+    const done = this.world.flags.filter((f) => f.startsWith('arcdone:')).map((f) => f.slice('arcdone:'.length));
+    if (p && done.length > 0) await this.store?.recordArcsDone?.(done);
   }
 
   private autosave(): void {
@@ -424,7 +443,9 @@ export class Controller {
     if (!this.landedPlanetId) return;
     // Save before take-off too, so purchases, refuels and jobs taken here survive a reload (playtest bug 11).
     this.autosave();
-    this.world = { ...departFrom(this.world, this.data, this.landedPlanetId), targetPlanetId: null };
+    // The base data still has the port if the story has since removed it from the galaxy: take off where it was.
+    const from = this.data.planets[this.landedPlanetId] ? this.data : this.baseData;
+    this.world = { ...departFrom(this.world, from, this.landedPlanetId), targetPlanetId: null };
     if (this.traffic.systemId !== this.world.systemId) this.traffic = this.freshTraffic(this.world);
     this.traffic = withEscorts(this.traffic, this.world, this.data, this.world.ship); // the group takes off around the parked ship
     this.combat.reset(this.world);
@@ -653,7 +674,8 @@ export class Controller {
     try {
       if (!id || !this.store?.load) throw new Error('no save');
       const { pilot, usedBackup } = await this.store.load(id);
-      this.beginSession(worldFromPilot(pilot, this.data), { id: pilot.id, name: pilot.name }, pilot.planetId);
+      // Checked against the base data: the save carries its own galaxy changes, not this session's.
+      this.beginSession(worldFromPilot(pilot, this.baseData), { id: pilot.id, name: pilot.name }, pilot.planetId);
       if (usedBackup) this.notices.push(MSG_USED_BACKUP);
       this.emit({ type: 'landed', planetId: pilot.planetId });
     } catch (err) {
@@ -705,6 +727,7 @@ export class Controller {
    */
   tapPlanet(id: string, pointerType: string = 'touch'): void {
     if (!this.flying || this.fx || this.world.jump) return;
+    if (!this.data.planets[id]) return; // gone from the galaxy (the story destroyed it) though the scene still drew it
     if (pointerType === 'mouse') {
       this.selectPlanet(id);
       return;
@@ -1630,7 +1653,7 @@ export class Controller {
         text: fillText(meet.card.text, ctx),
         choices: meet.card.choices.map((c) => {
           const block = choiceBlock(this.world, this.data, c, `story:${this.storyMeet!.missionId}`);
-          return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null };
+          return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null, ...(c.commit ? { commit: true } : {}) };
         }),
       };
     }
@@ -1645,7 +1668,7 @@ export class Controller {
       text: fillText(p.def.text, ctx),
       choices: p.def.choices.map((c) => {
         const block = choiceBlock(this.world, this.data, c, p.def.id);
-        return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null };
+        return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null, ...(c.commit ? { commit: true } : {}) };
       }),
     };
   }
@@ -1725,6 +1748,47 @@ export class Controller {
     this.pending = null;
     this.checkContext();
     return { messages: [...r.messages, ...r.missions.map((m) => `New job: ${m.title}`)] };
+  }
+
+  /**
+   * The decide card waiting at the port we're landed at (a story step, cycle 7), or null: none, not landed, or put off
+   * with Not now this visit (it opens again at the next landing there).
+   */
+  decideCard(): { missionId: string; view: EncounterView } | null {
+    const at = this.landedPlanetId;
+    const def = at && this.decideDismissedAt !== at ? pendingDecide(this.world, this.data, at) : null;
+    const step = def ? currentStep(this.world, this.data, def.id) : null;
+    if (!def || step?.kind !== 'decide') return null;
+    const ctx = this.cardContext(def.giver.name);
+    return {
+      missionId: def.id,
+      view: {
+        kind: 'hail',
+        title: fillText(step.card.title, ctx),
+        text: fillText(step.card.text, ctx),
+        choices: step.card.choices.map((c) => {
+          const block = choiceBlock(this.world, this.data, c, `story:${def.id}`);
+          return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null, ...(c.commit ? { commit: true } : {}) };
+        }),
+      },
+    };
+  }
+
+  /** Not now: the decide card stays shut until the next landing. */
+  dismissDecide(): void {
+    this.decideDismissedAt = this.landedPlanetId;
+  }
+
+  /** Answer the decide card: its outcomes go to the story rules, which finish the step (and maybe the mission). */
+  chooseDecide(idx: number): { messages: string[] } | null {
+    const card = this.decideCard();
+    const step = card ? currentStep(this.world, this.data, card.missionId) : null;
+    const choice = step?.kind === 'decide' ? step.card.choices[idx] : undefined;
+    if (!card || !choice || choiceBlock(this.world, this.data, choice, `story:${card.missionId}`)) return null;
+    const r = advanceStory(this.world, this.data, { kind: 'card', missionId: card.missionId, outcomes: choice.outcomes });
+    this.world = r.world;
+    this.refreshStory();
+    return { messages: r.messages };
   }
 
   /** A story meet card's choice: its outcomes go to the story rules, which advance the step. */
@@ -1852,6 +1916,7 @@ export class Controller {
     this.pauseFlight();
     this.landedPlanetId = planetId;
     this.lastPlanetId = planetId;
+    this.decideDismissedAt = null;
     this.prevShip = this.world.ship;
     this.alpha = 0;
     // Escorts land too (also on load): their flight damage is kept, unpaid ones leave, the rest refuel and rejoin.

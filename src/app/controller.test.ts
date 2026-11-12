@@ -23,6 +23,12 @@ function run(c: Controller, sec: number): void {
   for (let i = 0; i < Math.round(sec * 60); i++) c.update(1 / 60);
 }
 
+/** Land at a port at once, as the test hook's teleport does (the private landing path, no flight). */
+const landAt = (c: Controller, planetId: string) => {
+  c.world = { ...c.world, systemId: c.data.planets[planetId].systemId };
+  (c as unknown as { landAt(id: string): void }).landAt(planetId);
+};
+
 const keyEvent = (type: string, code: string) => Object.assign(new Event(type), { code, repeat: false });
 
 /** `portless` names systems whose ports are removed (every port sells fuel, so that is how a test strands the ship). */
@@ -54,6 +60,97 @@ describe('Controller', () => {
     c.update(1 / 60);
     expect(events).toContainEqual({ type: 'menu', action: 'map' });
     expect(c.isFlying).toBe(false);
+  });
+
+  it('the data view follows the story map: a flipped system reads as its new government', async () => {
+    const { c } = await setup();
+    expect(c.data.systems.brannock.government).toBe('free-reach');
+    c.world = { ...c.world, galaxy: { governments: { brannock: 'concord' }, destroyed: [] } };
+    expect(c.data.systems.brannock.government).toBe('concord');
+  });
+
+  it('a destroyed planet the pilot is landed at: leavePlanet takes off at its last position without throwing', async () => {
+    const { c } = await setup();
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'merrow');
+    c.world = { ...c.world, galaxy: { governments: {}, destroyed: ['merrow'] } };
+    expect(c.data.planets.merrow).toBeUndefined();
+    expect(() => c.leavePlanet()).not.toThrow();
+    const m = c.baseData.planets.merrow.pos;
+    expect(Math.hypot(c.world.ship.pos.x - m.x, c.world.ship.pos.y - m.y)).toBeLessThan(200);
+    run(c, LANDING_FX_SEC + 0.1);
+    expect(c.isFlying).toBe(true);
+  });
+
+  it('a decide card on landing: Not now keeps the step for the next landing; a choice finishes it', async () => {
+    const { decideMission } = await import('../sim/arcsTestKit');
+    const { c } = await setup();
+    c.baseData.story['dec-1'] = decideMission();
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'halcyon');
+    expect(c.acceptStory('dec-1').ok).toBe(true);
+    expect(c.decideCard()).toBeNull();
+    landAt(c, 'merrow');
+    const card = c.decideCard()!;
+    expect(card.missionId).toBe('dec-1');
+    expect(card.view.title).toBe('The Call');
+    expect(card.view.choices.map((x) => [x.label, x.commit ?? false])).toEqual([['Keep it', true], ['Let it go', false]]);
+    c.dismissDecide();
+    expect(c.decideCard()).toBeNull();
+    landAt(c, 'halcyon');
+    landAt(c, 'merrow');
+    expect(c.decideCard()?.missionId).toBe('dec-1');
+    expect(c.chooseDecide(1)?.messages.join(' ')).toContain('Story complete: A Hard Call');
+    expect(c.world.flags).toContain('let-it-go');
+    expect(c.decideCard()).toBeNull();
+  });
+
+  it('saving records finished arcs in the legacy store', async () => {
+    const { c } = await setup();
+    const recorded: string[][] = [];
+    c.store = { save: async () => {}, recordArcsDone: async (ids: string[]) => void recorded.push(ids) };
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'halcyon');
+    await c.save();
+    expect(recorded).toEqual([]);
+    c.world = { ...c.world, flags: [...c.world.flags, 'arcdone:navy'] };
+    await c.save();
+    expect(recorded).toEqual([['navy']]);
+  });
+
+  it('review I1: snapshot works when the last port has since been destroyed (the save keeps it, from the base data)', async () => {
+    const { c } = await setup();
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'merrow');
+    c.leavePlanet();
+    c.world = { ...c.world, galaxy: { governments: {}, destroyed: ['merrow'] } };
+    const snap = c.snapshot();
+    expect(snap?.planetId).toBe('merrow');
+    expect(snap?.systemId).toBe(c.baseData.planets.merrow.systemId);
+  });
+
+  it('review I3: a tap on a planet no longer in the galaxy does nothing', async () => {
+    const { c } = await setup();
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'halcyon');
+    c.leavePlanet();
+    run(c, LANDING_FX_SEC + 0.1);
+    c.world = { ...c.world, galaxy: { governments: {}, destroyed: ['merrow'] } };
+    const before = c.world;
+    c.tapPlanet('merrow', 'touch');
+    run(c, 1);
+    expect(c.world.targetPlanetId).toBeNull();
+    expect(c.landedPlanetId).toBeNull();
+    expect(c.isFlying).toBe(true);
+    expect(c.world.assist.kind).toBe(before.assist.kind);
+  });
+
+  it('review C1: the in-session reload checks the save against the base data, so a pilot saved at a story-opened port loads', async () => {
+    const { c } = await setup();
+    const { pilotFromWorld } = await import('../save/pilot');
+    const w = { ...newWorld(c.data, 1), flags: ['navy-freehold'], systemId: 'hollis' };
+    const save = pilotFromWorld(w, 'freehold-light', { id: 'p', name: 'P' });
+    c.store = { save: async () => {}, load: async () => ({ pilot: save, usedBackup: false }) };
+    c.beginSession(newWorld(c.data, 2), { id: 'p', name: 'P' }, 'halcyon');
+    // Destroyed with no escape pod: the game reloads the last save.
+    (c as unknown as { combat: { battle: { playerDestroyed: boolean } } }).combat.battle.playerDestroyed = true;
+    await c.continueAfterDeath();
+    expect(c.landedPlanetId).toBe('freehold-light');
   });
 
   it('thrust key builds speed', async () => {

@@ -245,11 +245,20 @@
             <li><code>ferry</code>: carry <code>passengers</code> to a <code>planet</code>.</li>
             <li><code>scan</code> or <code>find</code>: a <code>site</code> (<code>{"label"}</code>) in a <code>system</code>. A find site stays hidden until the pilot is near.</li>
             <li><code>meet</code>: a <code>ship</code> (<code>{"name","shipId","government"}</code>) hails the pilot in a <code>system</code>, with a <code>card</code> of choices like an encounter.</li>
+            <li><code>decide</code>: a <code>card</code> of choices that opens when the pilot lands at a <code>planet</code>.</li>
           </ul>
         </li>
         <li>Set <code>onComplete</code>, the outcomes when it's done (usually credits, a message, and a flag that a later mission can <code>require</code>). Optionally set <code>onFail</code> as well.</li>
       </ol>
       <div class="tip">To make a story with several missions, have each mission's <code>onComplete</code> set a flag, and make the next mission's offer <code>require</code> that flag. That is how the game's own arcs are built.</div>
+      <h3 id="arcs">Career arcs</h3>
+      <p>A <em>Story arc</em> record (the Editor's <strong>Story arcs</strong> list) turns a chain of missions into a career, like the Concord Navy. It has an <code>id</code>, a <code>title</code>, a <code>government</code>, a <code>blurb</code>, an <code>entry</code> (<code>{"mission","lead"}</code>: its first mission, and the line the Leads log shows before anyone takes it), <code>ranks</code> (titles with the arc <code>points</code> each needs, the first at 0) and a <code>legacy</code> perk for every later pilot (<code>text</code>, plus any of <code>credits</code>, <code>shipId</code> and <code>flag</code>).</p>
+      <ul>
+        <li>Give each of its missions <code>"arc": "&lt;arc id&gt;"</code>. Taking one sets the flag <code>arc:&lt;id&gt;</code> and closes every other arc for that pilot, so mark the first mission <code>"commit": true</code>: the bar then asks before taking it.</li>
+        <li>Outcomes for arcs: <code>arcPoints</code> (<code>arc</code>, <code>n</code>; each rank reached sets <code>&lt;arc&gt;-rank-&lt;k&gt;</code>, which a ship's <code>requiresFlag</code> can name), <code>arcDone</code> (the arc is finished, and its legacy perk is earned), <code>government</code> (a <code>system</code> changes flag), <code>destroyPlanet</code> (a port is gone for good), and <code>heat</code> (legal heat with a <code>government</code>: 100 makes the pilot Hunted there).</li>
+        <li>A port with <code>appearsFlag</code> is not in the galaxy until that flag is set: a port the story builds.</li>
+        <li>A card choice with <code>"commit": true</code> asks "This choice can't be undone" first.</li>
+      </ul>
 
       <h2 id="fields">9. Field reference</h2>
       <h3>Ships</h3>

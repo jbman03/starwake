@@ -49,6 +49,19 @@ describe('applyPlugins', () => {
   });
 });
 
+describe('plug-in arcs', () => {
+  it('a plug-in can add an arc with its entry mission, and the game loads it', () => {
+    const m = (raw.story as { missions: { id: string }[] }).missions[0] as Record<string, unknown>;
+    const p = plugin({
+      story: [{ ...m, id: 'pa1', arc: 'plug-arc', offer: { where: 'bar', ports: ['halcyon'] } }],
+      arcs: [{ id: 'plug-arc', title: 'Plug Arc', government: 'concord', blurb: 'B.', entry: { mission: 'pa1', lead: 'L.' }, ranks: [{ title: 'R', points: 0 }], legacy: { text: 'P.' } }],
+    });
+    expect(checkPlugins(raw, [p])).toBeNull();
+    const d = parseGameData(applyPlugins(raw, [p]));
+    expect(d.arcs['plug-arc'].title).toBe('Plug Arc');
+  });
+});
+
 describe('checkPlugins', () => {
   it('a good plug-in loads, and its ship is in the game', () => {
     const p = plugin({ ships: [{ ...kestrel, id: 'kestrel-mk2', name: 'Kestrel Mk II', price: 90000 }] });

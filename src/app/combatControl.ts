@@ -143,11 +143,18 @@ export class CombatControl {
   /** Seconds since the player was destroyed, or null. */
   private destroyedSec: number | null = null;
 
+  /** The live data view (the controller's, which follows story map changes), or fixed data in tests. */
+  private readonly source: () => GameData;
+  private get data(): GameData {
+    return this.source();
+  }
+
   constructor(
-    private readonly data: GameData,
-    world: WorldState = newWorld(data),
+    data: GameData | (() => GameData),
+    world: WorldState = newWorld(typeof data === 'function' ? data() : data),
   ) {
-    this.battle = newBattle(world, data);
+    this.source = typeof data === 'function' ? data : () => data;
+    this.battle = newBattle(world, this.data);
   }
 
   /**

@@ -5,7 +5,8 @@ import { rumor, SURVEY_RUMOUR } from '../sim/economy';
 import { worldStats } from '../sim/shipStats';
 import { STORY_BLOCK_REASON } from '../sim/storyMissions';
 import type { UiContext } from './context';
-import { button, dialogOpen, el, hotkeyFor } from './dom';
+import { button, confirmDialog, dialogOpen, el, hotkeyFor } from './dom';
+import { COMMIT_TITLE } from './encounterCard';
 import { mapCornerButton, mapCornerKey } from './mapButton';
 
 /** The gossip line when no rumour is going round. */
@@ -67,6 +68,18 @@ export function showBar(ctx: UiContext, portId: string, onClose: () => void): vo
   function accept(): void {
     const def = offers[index];
     if (!def || taken) return;
+    if (def.commit) {
+      // Taking it can't be undone (an arc's first mission closes the other arcs): ask first.
+      void confirmDialog(ctx.root, { title: COMMIT_TITLE, message: `Take ${def.title}?`, confirm: 'Confirm', cancel: 'Back' }).then((ok) => {
+        if (ok) take(def);
+      });
+      return;
+    }
+    take(def);
+  }
+
+  function take(def: StoryMissionDef): void {
+    if (taken) return;
     const r = controller.acceptStory(def.id);
     if (r.ok) {
       taken = def;

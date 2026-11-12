@@ -431,3 +431,23 @@ describe('doneDays', () => {
     expect(r.world.story.doneDays).toEqual({ s1: 14 });
   });
 });
+
+describe('decide steps (cycle 7)', () => {
+  it("landing at a decide step's port makes it pending; a card choice applies its outcomes and finishes the step", async () => {
+    const { decideMission } = await import('./arcsTestKit');
+    const { testData } = await import('../data/testData');
+    const { newWorld } = await import('./world');
+    const { acceptStory, advanceStory, pendingDecide } = await import('./storyMissions');
+    const base = testData();
+    const data = { ...base, story: { ...base.story, 'dec-1': decideMission() } };
+    const w = acceptStory(newWorld(data, 1), data, 'dec-1');
+    expect(pendingDecide(w, data, 'halcyon')).toBeNull();
+    expect(pendingDecide(w, data, 'merrow')?.id).toBe('dec-1');
+    const card = data.story['dec-1'].steps[0];
+    if (card.kind !== 'decide') throw new Error('not decide');
+    const r = advanceStory(w, data, { kind: 'card', missionId: 'dec-1', outcomes: card.card.choices[1].outcomes });
+    expect(r.world.flags).toContain('let-it-go');
+    expect(r.completed).toEqual(['dec-1']);
+    expect(pendingDecide(r.world, data, 'merrow')).toBeNull();
+  });
+});

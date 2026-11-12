@@ -229,7 +229,8 @@ describe('full story walk-through, one pilot per side', () => {
     it(`plays M1-M4, the whole ${side} arc and every side chain, then buys the ${ARC[side].hull}`, () => {
       const w = fullWalk(side);
       const arc = ARC[side];
-      for (const d of Object.values(data.story)) {
+      // Cycle 7 arcs (data/arcs.json) have walk-throughs of their own (storyArcNavy.test.ts).
+      for (const d of Object.values(data.story).filter((x) => !(x.arc in data.arcs))) {
         const other = d.arc === 'concord' || d.arc === 'reach' ? d.arc !== side : false;
         if (other) expect(w.story.done, `${d.id} belongs to the other side`).not.toContain(d.id);
         else expect(w.story.done, `${d.id} done`).toContain(d.id);

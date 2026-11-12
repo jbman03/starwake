@@ -12,6 +12,7 @@ import type { RefuelQuote } from '../sim/rules';
 import type { Escort } from '../sim/types';
 import type { UiContext } from './context';
 import { alertDialog, button, confirmDialog, el, formatCredits, hotkeyFor } from './dom';
+import { showEncounterCard } from './encounterCard';
 import { showExchange } from './exchange';
 import { showHowToPlay } from './howToPlay';
 import { worldStats } from '../sim/shipStats';
@@ -41,6 +42,12 @@ const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
  * Mission Log and Leave, with a Map button fixed in the corner. Hotkeys come from the `planet` binding group.
  */
 export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: string): void {
+  // A port the story has removed from the galaxy (a plug-in can do this to the port you stand at): take off.
+  if (!ctx.controller.data.planets[planetId]) {
+    ctx.controller.leavePlanet();
+    ctx.unmount();
+    return;
+  }
   const { controller } = ctx;
   const { data } = controller;
   const planet = data.planets[planetId];
@@ -354,4 +361,14 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
     if (done.pay > 0) lines.push(`Paid ${Math.round(done.pay).toLocaleString('en-US')} cr.`);
     void alertDialog(ctx.root, { title: done.missions.length === 1 ? 'Mission complete' : 'Missions complete', message: lines.join('\n') });
   }
+
+  // A story decide card waiting at this port opens over the screen (cycle 7). Not now puts it off until the next landing.
+  const decide = controller.decideCard();
+  if (decide)
+    showEncounterCard(ctx, decide.view, (i) => controller.chooseDecide(i)?.messages ?? null, {
+      onClose: (answered) => {
+        if (!answered) controller.dismissDecide();
+        ctx.go.planet(planetId);
+      },
+    });
 }

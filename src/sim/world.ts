@@ -98,8 +98,27 @@ export function newWorld(data: GameData, seed: number = hashString(Date.now())):
     escortOrder: 'follow',
     crew: def.crew,
     nemesis: { defeats: 0, nextDay: 0, done: false },
+    galaxy: { governments: {}, destroyed: [] },
+    arcPoints: {},
   };
   return { ...base, ship: parkAt(base, data, data.planets[startPlanetId]) };
+}
+
+/**
+ * A new pilot's legacy (cycle 7): each arc a pilot on this device has finished gives its perk: credits, a better
+ * start hull (fuelled, with its full crew) and a contact flag. Arc ids this data no longer has are ignored.
+ */
+export function applyLegacy(world: WorldState, data: GameData, arcsDone: readonly string[]): WorldState {
+  let w = world;
+  for (const id of arcsDone) {
+    const perk = data.arcs[id]?.legacy;
+    if (!perk) continue;
+    if (perk.credits) w = { ...w, credits: w.credits + perk.credits };
+    const hull = perk.shipId ? data.ships[perk.shipId] : undefined;
+    if (hull) w = { ...w, shipId: hull.id, crew: hull.crew, ship: { ...w.ship, fuel: hull.fuelCapacity } };
+    if (perk.flag && !w.flags.includes(perk.flag)) w = { ...w, flags: [...w.flags, perk.flag] };
+  }
+  return w;
 }
 
 /**

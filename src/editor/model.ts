@@ -6,7 +6,7 @@ export type Rec = Record<string, unknown> & { id: string };
 /** Labels for the record types, in the Editor's list. */
 export const TYPE_LABEL: Record<ListKey, string> = {
   ships: 'Ships', outfits: 'Outfits', commodities: 'Goods', systems: 'Systems', planets: 'Ports', governments: 'Governments',
-  events: 'Market events', missionTypes: 'Mission types', encounters: 'Encounters', story: 'Story missions',
+  events: 'Market events', missionTypes: 'Mission types', encounters: 'Encounters', story: 'Story missions', arcs: 'Story arcs',
 };
 
 export const DRAFT_KEY = 'starwake-editor-draft';
@@ -17,7 +17,9 @@ export const newDraft = (): Plugin => ({
 
 /** The base game's records of a type (story missions live under story.missions). */
 export function baseRecords(raw: RawGameData, type: ListKey): Rec[] {
-  return (type === 'story' ? (raw.story as { missions: Rec[] }).missions : (raw[type] as Rec[])) ?? [];
+  if (type === 'story') return (raw.story as { missions: Rec[] }).missions ?? [];
+  if (type === 'arcs') return (raw.arcs as { arcs: Rec[] } | undefined)?.arcs ?? [];
+  return (raw[type] as Rec[]) ?? [];
 }
 
 export const recordsOf = (p: Plugin, type: ListKey): Rec[] => (p.data[type] as Rec[] | undefined) ?? [];

@@ -13,6 +13,7 @@ import law from '../../data/law.json';
 import escorts from '../../data/escorts.json';
 import factions from '../../data/factions.json';
 import fleet from '../../data/fleet.json';
+import arcs from '../../data/arcs.json';
 import planets from '../../data/planets.json';
 import ships from '../../data/ships.json';
 import systems from '../../data/systems.json';
@@ -23,12 +24,12 @@ let cached: GameData | null = null;
 
 /** The shipped data files, raw and unvalidated (a fresh deep copy each call). For tests. */
 export function testRaw(): RawGameData {
-  return JSON.parse(JSON.stringify({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions, fleet })) as RawGameData;
+  return JSON.parse(JSON.stringify({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions, fleet, arcs })) as RawGameData;
 }
 
 /** The shipped game data, parsed once and shared. For tests; treat it as read-only. */
 export function testData(): GameData {
-  cached ??= parseGameData({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions, fleet });
+  cached ??= parseGameData({ ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions, fleet, arcs });
   return cached;
 }
 

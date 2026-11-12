@@ -428,4 +428,11 @@ training (an unarmed `training` drone, steps in `TRAINING_STEPS`).
 The Fathoms (2026-11-08, `2026-11-08-starwake-the-fathoms.md`): a southern region in data only: 11 systems (Longlamp
 hidden behind `longlamp-lane`), the Tideward Guild (`tideward`) with ranks and hub Tidehall, two goods, two hulls, four
 outfits, four encounters and the six-mission "Longlamp" side chain. The galaxy is now 41 systems and 61 ports.
-Later: bounty hunters, smuggling missions, rank-locked faction story chains, more regions.
+Cycle 7 Part 1, branching storylines (2026-11-12, `2026-11-12-starwake-cycle7-arcs-design.md`): career arcs in
+`data/arcs.json` that lock each other out from their first mission (`arc:<id>`), arc points and ranks
+(`src/sim/arcs.ts`), commit confirms, `decide` cards on landing, story map changes as an overlay on the data view
+(`applyGalaxy`: `government`, `destroyPlanet`, ports with `appearsFlag`), a `heat` outcome, a Leads log in the
+Mission Log (`src/sim/leads.ts`), device-wide legacy perks (`PilotStore.loadLegacy`) and the first arc, Concord Navy
+(N1-N7L loyal, N6X-N7X exposed; the Picket cutter; Freehold Light). Saves: v11 (`galaxy`, `arcPoints`). Still to come:
+Free Reach Rising, The Syndicate and The Wake mystery, in data.
+Later: bounty hunters, smuggling missions, more regions.

@@ -134,3 +134,39 @@ describe('mission log notes', () => {
     expect(items[0]).toContain('Second rumour.');
   });
 });
+
+describe('commit choices (cycle 7)', () => {
+  it("a commit choice asks \"This choice can't be undone\"; Back applies nothing and keeps the card; Confirm applies it", async () => {
+    const { ctx, root, btn } = await setup();
+    const picked: number[] = [];
+    showEncounterCard(
+      ctx,
+      { kind: 'hail', title: 'The Call', text: 'Decide.', choices: [{ label: 'Burn it', blocked: null, commit: true }, { label: 'Walk away', blocked: null }] },
+      (i) => (picked.push(i), ['Done it.']),
+    );
+    btn(/^Burn it/).click();
+    const dialog = () => root.querySelector<HTMLElement>('.sw-dialog');
+    expect(dialog()?.textContent).toContain("This choice can't be undone");
+    expect(dialog()?.textContent).toContain('Burn it?');
+    [...dialog()!.querySelectorAll('button')].find((b) => /^Back/.test(b.textContent ?? ''))!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(picked).toEqual([]);
+    expect(btn(/^Burn it/)).toBeTruthy();
+    btn(/^Burn it/).click();
+    [...dialog()!.querySelectorAll('button')].find((b) => /^Confirm/.test(b.textContent ?? ''))!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(picked).toEqual([0]);
+    expect(root.querySelector('[data-testid="encounter-outcome"]')!.textContent).toContain('Done it.');
+  });
+
+  it('a plain choice applies at once, with no confirm', async () => {
+    const { ctx, root, btn } = await setup();
+    const picked: number[] = [];
+    showEncounterCard(ctx, { kind: 'hail', title: 'T', text: 'X', choices: [{ label: 'Walk away', blocked: null }] }, (i) => (picked.push(i), []));
+    btn(/^Walk away/).click();
+    expect(root.querySelector('.sw-dialog')).toBeNull();
+    expect(picked).toEqual([0]);
+  });
+});

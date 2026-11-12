@@ -139,14 +139,21 @@ describe('mission log: Story section', () => {
     expect(item('h1')!.textContent).not.toContain('Hushwater');
   });
 
-  it('Next lead shows only when nothing is active', async () => {
+  it('the Leads section lists each thread with Show on map: an offer before taking it, the step once active', async () => {
     const a = await setup([side]);
     showMissionLog(a.ctx, () => {});
-    expect(a.story()!.textContent).toContain('Next lead');
-    expect(a.story()!.textContent).toContain('Ansel Voss');
+    const leadsBox = () => a.root.querySelector<HTMLElement>('[data-testid="log-leads"]')!;
+    expect(leadsBox().textContent).toContain('Leads');
+    expect(leadsBox().textContent).toContain('Ansel Voss');
+    const row = leadsBox().querySelector<HTMLElement>('.sw-lead')!;
+    expect(row.getAttribute('role')).toBe('button');
+    row.click();
+    expect(a.maps[0].preview?.systemId).toBe(a.data.planets.halcyon.systemId);
     const b = await setup([side], ['s1']);
     showMissionLog(b.ctx, () => {});
-    expect(b.story()!.textContent).not.toContain('Next lead');
+    const box = b.root.querySelector<HTMLElement>('[data-testid="log-leads"]')!;
+    expect(box.textContent).toContain('Rations Run:');
+    expect(box.textContent).toContain('for Ansel Voss');
   });
 
   it('Abandon is offered for side missions only, asks first, and drops the mission', async () => {

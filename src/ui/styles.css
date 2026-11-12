@@ -427,6 +427,10 @@
 .sw-log-scroll > * { flex: none; }
 .sw-log .sw-ex-actions { flex: none; }
 .sw-log .sw-mc-list, .sw-log .sw-mc-detail, .sw-log .sw-story, .sw-log .sw-notes { max-height: none; overflow: visible; }
+.sw-leads .sw-lead { display: flex; flex-direction: column; justify-content: center; min-height: 44px; padding: 4px 8px; border-radius: 3px; cursor: pointer; }
+.sw-leads .sw-lead:hover, .sw-leads .sw-lead:focus-visible { background: rgba(120, 170, 230, 0.12); }
+.sw-leads .sw-lead[aria-disabled='true'] { cursor: default; }
+.sw-log .sw-leads { max-height: 30vh; overflow-y: auto; }
 .sw-mc-left { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; }
 .sw-story { min-height: 0; max-height: 34vh; overflow-y: auto; overflow-wrap: anywhere; padding: 6px 10px; border: 1px solid var(--sw-border); border-radius: 3px; background: var(--sw-panel-2); font-size: 13px; color: #c9d3de; }
 .sw-story h2 { margin: 0 0 4px; font-size: 13px; color: var(--sw-accent); text-transform: uppercase; letter-spacing: 0.08em; }

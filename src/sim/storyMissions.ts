@@ -1,4 +1,6 @@
 import type { GameData, Outcome, StoryMissionDef, StoryStepDef } from '../data/schemas';
+import { arcFlag, arcLocked } from './arcs';
+import { setFlag } from './story';
 import { berthsFree, cargoFree } from './cargo';
 import { applyOutcomes } from './encounters';
 import { STORY_TYPE } from './missions';
@@ -53,7 +55,7 @@ export function currentStep(world: WorldState, data: GameData, id: string): Stor
 }
 
 /** The offer conditions every mission shares, bar or hail: state, flags, day, standing and the one-at-a-time rules. */
-function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef): boolean {
+export function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef): boolean {
   const o = def.offer;
   const s = world.story;
   if (s.active.some((a) => a.id === def.id) || s.done.includes(def.id) || s.failed.includes(def.id)) return false;
@@ -61,6 +63,8 @@ function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef):
   if (o.minDay !== undefined && world.day < o.minDay) return false;
   if (o.requires?.some((f) => !world.flags.includes(f))) return false;
   if (o.notFlags?.some((f) => world.flags.includes(f))) return false;
+  // Arcs lock each other out: once one is taken, the others' missions are never offered.
+  if (def.arc in data.arcs && arcLocked(world, data, def.arc)) return false;
   for (const [gov, level] of Object.entries(o.standing ?? {})) if (RANK[standingOf(world, gov, data)] < RANK[level]) return false;
   // One main mission at a time (its `requires` flags carry the order), and one per chain.
   const others = s.active.map((a) => data.story[a.id]).filter((d): d is StoryMissionDef => !!d);
@@ -69,7 +73,7 @@ function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef):
   return true;
 }
 
-function offerable(world: WorldState, data: GameData, def: StoryMissionDef, portId: string): boolean {
+export function offerable(world: WorldState, data: GameData, def: StoryMissionDef, portId: string): boolean {
   const port = data.planets[portId];
   const o = def.offer;
   if (!port || o.where !== 'bar') return false;
@@ -125,8 +129,10 @@ export function acceptStory(world: WorldState, data: GameData, id: string): Worl
       cargoName: s.kind === 'deliver' ? s.cargo.name : 'passengers',
     });
   });
+  // Taking an arc's mission commits the pilot to that arc.
+  const flagged = def.arc in data.arcs ? setFlag(world, arcFlag(def.arc)) : world;
   return {
-    ...world,
+    ...flagged,
     missions: [...world.missions, ...held],
     story: {
       ...world.story,
@@ -162,8 +168,18 @@ function stepMatches(step: StoryStepDef, ev: StoryEvent, missionId: string): boo
     case 'site':
       return (step.kind === 'scan' || step.kind === 'find') && ev.missionId === missionId;
     case 'card':
-      return step.kind === 'meet' && ev.missionId === missionId;
+      return (step.kind === 'meet' || step.kind === 'decide') && ev.missionId === missionId;
   }
+}
+
+/** The active mission whose current step is a decide card at `planetId` (first in data order), or null. */
+export function pendingDecide(world: WorldState, data: GameData, planetId: string): StoryMissionDef | null {
+  for (const a of world.story.active) {
+    const def = data.story[a.id];
+    const step = def?.steps[a.step];
+    if (step?.kind === 'decide' && step.planet === planetId) return def;
+  }
+  return null;
 }
 
 /** The system a step is played in. */

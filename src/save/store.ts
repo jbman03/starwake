@@ -5,6 +5,8 @@ type Entry = { current: PilotSave; backup?: PilotSave };
 type Store = ReturnType<typeof createStore>;
 
 const PREFIX = 'pilot:';
+/** The device-wide legacy record (not a pilot: `list` skips it, as every key lacks the pilot prefix). */
+const LEGACY_KEY = 'legacy';
 const keyOf = (id: string) => `${PREFIX}${id}`;
 
 function tryUpgrade(raw: unknown): PilotSave | null {
@@ -45,6 +47,31 @@ export class PilotStore {
       if (p) out.push({ id: p.id, name: p.name, savedAt: p.savedAt, save: p });
     }
     return out;
+  }
+
+  /**
+   * The device's legacy (cycle 7): the arcs any pilot here has finished. Never rejects: a store that can't be read
+   * (private mode, blocked IndexedDB) or a corrupt record gives none.
+   */
+  async loadLegacy(): Promise<{ arcsDone: string[] }> {
+    try {
+      const v = (await get(LEGACY_KEY, this.store)) as { arcsDone?: unknown } | undefined;
+      const ids = Array.isArray(v?.arcsDone) ? v.arcsDone.filter((x): x is string => typeof x === 'string' && x.length > 0) : [];
+      return { arcsDone: ids };
+    } catch {
+      return { arcsDone: [] };
+    }
+  }
+
+  /** Add finished arcs to the legacy (merged, no duplicates). Never rejects: a failed write just leaves no perk. */
+  async recordArcsDone(ids: readonly string[]): Promise<void> {
+    try {
+      const have = (await this.loadLegacy()).arcsDone;
+      const next = [...new Set([...have, ...ids])];
+      if (next.length !== have.length) await set(LEGACY_KEY, { arcsDone: next }, this.store);
+    } catch {
+      // No legacy this time; the pilot's own save is unaffected.
+    }
   }
 
   /** Validates `p` first: an invalid pilot rejects with SaveError and the store is untouched. */

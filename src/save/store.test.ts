@@ -7,9 +7,9 @@ import { PILOT_DB, PILOT_OBJECT_STORE, PilotStore } from './store';
 let n = 0;
 const mkStore = () => createStore(`db-${n++}`, 'kv');
 const mk = (over: Partial<PilotSave> = {}): PilotSave => ({
-  version: 10, id: 'p1', name: 'Ann', credits: 100, shipId: 's', fuel: 5, systemId: 'x',
+  version: 11, id: 'p1', name: 'Ann', credits: 100, shipId: 's', fuel: 5, systemId: 'x',
   planetId: 'y', gameTimeSec: 1, savedAt: '2026-01-01T00:00:00.000Z',
-  day: 0, seed: 1, cargo: {}, missions: [], route: [], known: ['x'], seen: [], pressure: {}, events: [], takenOffers: [], outfits: {}, flags: [], notes: [], shipName: 'Shuttle', stats: { jobsDone: 0, kills: 0, captures: 0 }, lastEncounterDay: null, story: { active: [], done: [], failed: [], declined: [] }, standing: {}, law: {}, ranks: {}, escorts: [], escortOrder: 'follow', crew: 2, nemesis: { defeats: 0, nextDay: 0, done: false }, ...over,
+  day: 0, seed: 1, cargo: {}, missions: [], route: [], known: ['x'], seen: [], pressure: {}, events: [], takenOffers: [], outfits: {}, flags: [], notes: [], shipName: 'Shuttle', stats: { jobsDone: 0, kills: 0, captures: 0 }, lastEncounterDay: null, story: { active: [], done: [], failed: [], declined: [] }, standing: {}, law: {}, ranks: {}, escorts: [], escortOrder: 'follow', crew: 2, nemesis: { defeats: 0, nextDay: 0, done: false }, galaxy: { governments: {}, destroyed: [] }, arcPoints: {}, ...over,
 });
 
 describe('PilotStore', () => {
@@ -89,5 +89,32 @@ describe('PilotStore', () => {
     expect(raw?.current?.id).toBe('dflt');
     expect(await get('pilot:dflt')).toBeUndefined();
     await s.remove('dflt');
+  });
+});
+
+describe('legacy (cycle 7)', () => {
+  it('recordArcsDone merges and dedupes', async () => {
+    const s = new PilotStore(mkStore());
+    expect(await s.loadLegacy()).toEqual({ arcsDone: [] });
+    await s.recordArcsDone(['navy']);
+    await s.recordArcsDone(['navy', 'wake']);
+    expect(await s.loadLegacy()).toEqual({ arcsDone: ['navy', 'wake'] });
+  });
+  it('PilotStore.list ignores the legacy key', async () => {
+    const s = new PilotStore(mkStore());
+    await s.save(mk());
+    await s.recordArcsDone(['navy']);
+    expect((await s.list()).map((p) => p.id)).toEqual(['p1']);
+  });
+  it('a legacy store that throws: loadLegacy gives none and recordArcsDone does not reject', async () => {
+    const broken = (() => Promise.reject(new Error('blocked'))) as unknown as ReturnType<typeof createStore>;
+    const s = new PilotStore(broken);
+    expect(await s.loadLegacy()).toEqual({ arcsDone: [] });
+    await expect(s.recordArcsDone(['navy'])).resolves.toBeUndefined();
+  });
+  it('a corrupt legacy record loads as none', async () => {
+    const st = mkStore();
+    await set('legacy', { arcsDone: 'nope' }, st);
+    expect(await new PilotStore(st).loadLegacy()).toEqual({ arcsDone: [] });
   });
 });

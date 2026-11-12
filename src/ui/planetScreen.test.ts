@@ -99,6 +99,27 @@ describe('planet screen', () => {
     }
   });
 
+  it("landing at a decide step's port opens its card over the planet screen; Not now returns to the planet", async () => {
+    const { decideMission } = await import('../sim/arcsTestKit');
+    const { c, ctx, root, calls } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'merrow');
+    c.baseData.story['dec-1'] = decideMission();
+    c.world = { ...c.world, story: { ...c.world.story, active: [{ id: 'dec-1', step: 0, deadlineDay: null }] } };
+    showPlanetScreen(ctx, 'merrow');
+    expect(root.querySelector('[data-testid="encounter-card"]')?.textContent).toContain('The Call');
+    [...root.querySelectorAll('button')].find((b) => /^Not now/.test(b.textContent ?? ''))!.click();
+    expect(calls.planet).toEqual(['merrow']);
+    expect(c.decideCard()).toBeNull();
+    expect(c.world.story.active.map((a) => a.id)).toEqual(['dec-1']);
+  });
+
+  it('review I2: a planet screen for a port the story has removed takes off instead of throwing', async () => {
+    const { c, ctx } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'merrow');
+    c.world = { ...c.world, galaxy: { governments: {}, destroyed: ['merrow'] } };
+    expect(() => showPlanetScreen(ctx, 'merrow')).not.toThrow();
+    expect(c.landedPlanetId).toBeNull();
+    expect(c.isFlying).toBe(true);
+  });
+
   it('a former fuel-less port (Tallow Rock) now offers Refuel', async () => {
     const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, 'tallow-rock');
     expect(labels(root)).toContain('Refuel — 600 cr (400 cr/jump)'); // fringe fuel eased (phone playtest)

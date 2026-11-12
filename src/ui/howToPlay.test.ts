@@ -63,6 +63,10 @@ describe('How to Play', () => {
     expect(text('Travel & fuel')).toContain('500 cr');
     expect(text('Travel & fuel')).toContain('PLOT COURSE');
     expect(text('Missions')).toContain('advance is taken back');
+    // Cycle 7: arcs lock each other out, the Leads log, legacy perks.
+    expect(text('Missions')).toContain('closes the other arcs');
+    expect(text('Missions')).toContain('Leads');
+    expect(text('Missions')).toContain('every new pilot');
     expect(text('Planets & trade')).toContain('20 t');
   });
 

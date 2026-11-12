@@ -1,4 +1,5 @@
-import type { GameData, StoryMissionDef } from '../data/schemas';
+import type { GameData, Outcome, StoryMissionDef } from '../data/schemas';
+import { applyOutcomes } from '../sim/encounters';
 import type { StoryAccept } from '../sim/storyMissions';
 import type { PilotStore } from '../save/store';
 import type { JumpPhase, WorldState } from '../sim/types';
@@ -29,6 +30,8 @@ export interface StarwakeTestHook {
   storyMeet: () => StoryMeet | null;
   /** Test-only: take a story mission as the bar would, whatever the pilot's location. */
   acceptStoryNow: (id: string) => StoryAccept;
+  /** Test-only: apply story outcomes to the world now (a story map change, a flag), as a mission ending would. */
+  applyOutcomesNow: (outcomes: Outcome[]) => void;
   /** Test-only: put the world at `planetId` (in its system) and land there, as a real landing would. */
   teleport: (planetId: string) => void;
   /** The fight: the player's hull, the selected launcher and every NPC's hull and stance. */
@@ -176,6 +179,9 @@ export function installTestHook(controller: Controller, data: GameData, store: P
     storySite: () => controller.storySite,
     storyMeet: () => controller.storyMeet,
     acceptStoryNow: (id) => controller.acceptStory(id),
+    applyOutcomesNow: (outcomes) => {
+      controller.world = applyOutcomes(controller.world, controller.data, outcomes, 'test-hook', { npcName: '' }).world;
+    },
     forceEncounter: (id) => controller.forceEncounter(id),
     combatState,
     spawnHostile,
