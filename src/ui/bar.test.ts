@@ -95,6 +95,23 @@ describe('spaceport bar', () => {
     expect(rows()).toHaveLength(0);
   });
 
+  it("a commit mission's Accept asks the same confirm: Back takes nothing, Confirm takes it", async () => {
+    const { ctx, c, btn, root } = await setup(mk({ id: 'oath', commit: true }));
+    showBar(ctx, 'halcyon', () => {});
+    btn('Accept').click();
+    const dialog = () => root.querySelector<HTMLElement>('.sw-dialog');
+    expect(dialog()?.textContent).toContain("This choice can't be undone");
+    [...dialog()!.querySelectorAll('button')].find((b) => /^Back/.test(b.textContent ?? ''))!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(c.world.story.active).toEqual([]);
+    btn('Accept').click();
+    [...dialog()!.querySelectorAll('button')].find((b) => /^Confirm/.test(b.textContent ?? ''))!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(c.world.story.active.map((a) => a.id)).toEqual(['oath']);
+  });
+
   it('Enter accepts the selected offer and Down selects the next', async () => {
     const { ctx, c, rows } = await setup(light, heavy);
     showBar(ctx, 'halcyon', () => {});

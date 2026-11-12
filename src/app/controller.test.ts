@@ -23,6 +23,12 @@ function run(c: Controller, sec: number): void {
   for (let i = 0; i < Math.round(sec * 60); i++) c.update(1 / 60);
 }
 
+/** Land at a port at once, as the test hook's teleport does (the private landing path, no flight). */
+const landAt = (c: Controller, planetId: string) => {
+  c.world = { ...c.world, systemId: c.data.planets[planetId].systemId };
+  (c as unknown as { landAt(id: string): void }).landAt(planetId);
+};
+
 const keyEvent = (type: string, code: string) => Object.assign(new Event(type), { code, repeat: false });
 
 /** `portless` names systems whose ports are removed (every port sells fuel, so that is how a test strands the ship). */
@@ -73,6 +79,28 @@ describe('Controller', () => {
     expect(Math.hypot(c.world.ship.pos.x - m.x, c.world.ship.pos.y - m.y)).toBeLessThan(200);
     run(c, LANDING_FX_SEC + 0.1);
     expect(c.isFlying).toBe(true);
+  });
+
+  it('a decide card on landing: Not now keeps the step for the next landing; a choice finishes it', async () => {
+    const { decideMission } = await import('../sim/arcsTestKit');
+    const { c } = await setup();
+    c.baseData.story['dec-1'] = decideMission();
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'halcyon');
+    expect(c.acceptStory('dec-1').ok).toBe(true);
+    expect(c.decideCard()).toBeNull();
+    landAt(c, 'merrow');
+    const card = c.decideCard()!;
+    expect(card.missionId).toBe('dec-1');
+    expect(card.view.title).toBe('The Call');
+    expect(card.view.choices.map((x) => [x.label, x.commit ?? false])).toEqual([['Keep it', true], ['Let it go', false]]);
+    c.dismissDecide();
+    expect(c.decideCard()).toBeNull();
+    landAt(c, 'halcyon');
+    landAt(c, 'merrow');
+    expect(c.decideCard()?.missionId).toBe('dec-1');
+    expect(c.chooseDecide(1)?.messages.join(' ')).toContain('Story complete: A Hard Call');
+    expect(c.world.flags).toContain('let-it-go');
+    expect(c.decideCard()).toBeNull();
   });
 
   it('thrust key builds speed', async () => {

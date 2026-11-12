@@ -55,6 +55,7 @@ import {
   declineStory,
   FIND_SITE_REVEAL,
   nextLead,
+  pendingDecide,
   storyHoldPos,
   storyOffersAt,
   storyHailAt,
@@ -126,7 +127,8 @@ export interface EncounterView {
   kind: 'hail' | 'site';
   title: string;
   text: string;
-  choices: { label: string; blocked: string | null }[];
+  /** `commit`: the choice can't be undone, so the card asks first. */
+  choices: { label: string; blocked: string | null; commit?: boolean }[];
   /** True when the card can't be put off (no "Not now"). */
   noDecline?: boolean;
   /** True when the card must be answered: no way to close it before a choice, Esc included (law hails, Ruling 14). */
@@ -272,6 +274,8 @@ export class Controller {
    * (it mounts after `missionsCompleted` fires, so it collects them with takeCompletion()).
    */
   private completion: { missions: Mission[]; pay: number } | null = null;
+  /** The port where the decide card was put off this visit (cleared on every landing). */
+  private decideDismissedAt: string | null = null;
   /**
    * Messages raised while the ship was being towed (e.g. missions failed on the way). The HUD is
    * hidden behind the planet screen by then, so that screen collects them with takeNotices().
@@ -1641,7 +1645,7 @@ export class Controller {
         text: fillText(meet.card.text, ctx),
         choices: meet.card.choices.map((c) => {
           const block = choiceBlock(this.world, this.data, c, `story:${this.storyMeet!.missionId}`);
-          return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null };
+          return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null, ...(c.commit ? { commit: true } : {}) };
         }),
       };
     }
@@ -1656,7 +1660,7 @@ export class Controller {
       text: fillText(p.def.text, ctx),
       choices: p.def.choices.map((c) => {
         const block = choiceBlock(this.world, this.data, c, p.def.id);
-        return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null };
+        return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null, ...(c.commit ? { commit: true } : {}) };
       }),
     };
   }
@@ -1736,6 +1740,47 @@ export class Controller {
     this.pending = null;
     this.checkContext();
     return { messages: [...r.messages, ...r.missions.map((m) => `New job: ${m.title}`)] };
+  }
+
+  /**
+   * The decide card waiting at the port we're landed at (a story step, cycle 7), or null: none, not landed, or put off
+   * with Not now this visit (it opens again at the next landing there).
+   */
+  decideCard(): { missionId: string; view: EncounterView } | null {
+    const at = this.landedPlanetId;
+    const def = at && this.decideDismissedAt !== at ? pendingDecide(this.world, this.data, at) : null;
+    const step = def ? currentStep(this.world, this.data, def.id) : null;
+    if (!def || step?.kind !== 'decide') return null;
+    const ctx = this.cardContext(def.giver.name);
+    return {
+      missionId: def.id,
+      view: {
+        kind: 'hail',
+        title: fillText(step.card.title, ctx),
+        text: fillText(step.card.text, ctx),
+        choices: step.card.choices.map((c) => {
+          const block = choiceBlock(this.world, this.data, c, `story:${def.id}`);
+          return { label: fillText(c.label, ctx), blocked: block ? ENCOUNTER_BLOCK_TEXT[block] : null, ...(c.commit ? { commit: true } : {}) };
+        }),
+      },
+    };
+  }
+
+  /** Not now: the decide card stays shut until the next landing. */
+  dismissDecide(): void {
+    this.decideDismissedAt = this.landedPlanetId;
+  }
+
+  /** Answer the decide card: its outcomes go to the story rules, which finish the step (and maybe the mission). */
+  chooseDecide(idx: number): { messages: string[] } | null {
+    const card = this.decideCard();
+    const step = card ? currentStep(this.world, this.data, card.missionId) : null;
+    const choice = step?.kind === 'decide' ? step.card.choices[idx] : undefined;
+    if (!card || !choice || choiceBlock(this.world, this.data, choice, `story:${card.missionId}`)) return null;
+    const r = advanceStory(this.world, this.data, { kind: 'card', missionId: card.missionId, outcomes: choice.outcomes });
+    this.world = r.world;
+    this.refreshStory();
+    return { messages: r.messages };
   }
 
   /** A story meet card's choice: its outcomes go to the story rules, which advance the step. */
@@ -1863,6 +1908,7 @@ export class Controller {
     this.pauseFlight();
     this.landedPlanetId = planetId;
     this.lastPlanetId = planetId;
+    this.decideDismissedAt = null;
     this.prevShip = this.world.ship;
     this.alpha = 0;
     // Escorts land too (also on load): their flight damage is kept, unpaid ones leave, the rest refuel and rejoin.

@@ -1,7 +1,10 @@
 import type { EncounterView } from '../app/controller';
 import type { ActionId } from '../input/actions';
 import type { UiContext } from './context';
-import { button, el, hotkeyFor } from './dom';
+import { button, confirmDialog, el, hotkeyFor } from './dom';
+
+/** The confirm before a choice that can't be undone (story commit choices and an arc's first mission). */
+export const COMMIT_TITLE = "This choice can't be undone";
 
 const CHOICE_ACTIONS: readonly ActionId[] = ['encounterChoice1', 'encounterChoice2', 'encounterChoice3'];
 
@@ -13,12 +16,20 @@ const CHOICE_ACTIONS: readonly ActionId[] = ['encounterChoice1', 'encounterChoic
  * one with `mustAnswer` shows nothing to close it, and Esc does nothing, until it is answered. Closing
  * resumes flight.
  */
-export function showEncounterCard(ctx: UiContext, view: EncounterView, onChoose: (index: number) => string[] | null): void {
+export function showEncounterCard(
+  ctx: UiContext,
+  view: EncounterView,
+  onChoose: (index: number) => string[] | null,
+  opts: { onClose?: (answered: boolean) => void } = {},
+): void {
   const { controller } = ctx;
   const { bindings } = controller.settings;
   let done = false;
+  let asking = false;
 
+  // A card opened from a landed screen (a story decide card) says where to go back to; otherwise flight resumes.
   const close = () => {
+    if (opts.onClose) return opts.onClose(done);
     ctx.unmount();
     controller.startFlight();
   };
@@ -43,7 +54,20 @@ export function showEncounterCard(ctx: UiContext, view: EncounterView, onChoose:
 
   function choose(i: number): void {
     const c = view.choices[i];
-    if (done || !c || c.blocked !== null) return;
+    if (done || asking || !c || c.blocked !== null) return;
+    if (c.commit) {
+      // A choice that can't be undone asks first; Back leaves the card as it was.
+      asking = true;
+      void confirmDialog(ctx.root, { title: COMMIT_TITLE, message: `${c.label}?`, confirm: 'Confirm', cancel: 'Back' }).then((ok) => {
+        asking = false;
+        if (ok) apply(i);
+      });
+      return;
+    }
+    apply(i);
+  }
+
+  function apply(i: number): void {
     const lines = onChoose(i);
     if (!lines) return;
     done = true;

@@ -24,3 +24,28 @@ export const twoArcs = (): GameData => ({
   },
 });
 
+
+/** A side mission whose one step is a decide card on landing at Merrow: "Keep it" (commit) or "Let it go". */
+export const decideMission = (): StoryMissionDef => ({
+  ...m1,
+  id: 'dec-1',
+  arc: 'side',
+  title: 'A Hard Call',
+  offer: { where: 'bar', ports: ['halcyon'] },
+  steps: [
+    {
+      kind: 'decide',
+      planet: 'merrow',
+      text: 'Land at Merrow and decide.',
+      card: {
+        title: 'The Call',
+        text: 'Someone has to decide.',
+        choices: [
+          { label: 'Keep it', commit: true, outcomes: [{ type: 'flag', flag: 'kept-it' }] },
+          { label: 'Let it go', outcomes: [{ type: 'flag', flag: 'let-it-go' }] },
+        ],
+      },
+    },
+  ],
+  onComplete: [{ type: 'credits', n: 100 }],
+});

@@ -168,8 +168,18 @@ function stepMatches(step: StoryStepDef, ev: StoryEvent, missionId: string): boo
     case 'site':
       return (step.kind === 'scan' || step.kind === 'find') && ev.missionId === missionId;
     case 'card':
-      return step.kind === 'meet' && ev.missionId === missionId;
+      return (step.kind === 'meet' || step.kind === 'decide') && ev.missionId === missionId;
   }
+}
+
+/** The active mission whose current step is a decide card at `planetId` (first in data order), or null. */
+export function pendingDecide(world: WorldState, data: GameData, planetId: string): StoryMissionDef | null {
+  for (const a of world.story.active) {
+    const def = data.story[a.id];
+    const step = def?.steps[a.step];
+    if (step?.kind === 'decide' && step.planet === planetId) return def;
+  }
+  return null;
 }
 
 /** The system a step is played in. */
