@@ -88,7 +88,15 @@ describe('planet screen', () => {
     const chips = [...root.querySelectorAll('.sw-actions .sw-key')].map((k) => k.textContent);
     expect(chips).toEqual(['C', 'M', 'O', 'B', 'R', 'K', 'H', 'L']);
     expect(root.textContent).toContain('1 Mar 3207');
-    expect(root.textContent).toContain('Cargo: 20/20 t');
+    expect(root.textContent).toContain('Cargo: 0/20 t'); // used / total: an empty hold reads 0
+  });
+
+  it('the header names the port kind: Pell is a moon, Glasshouse a station, Halcyon a planet', async () => {
+    for (const [id, kind] of [['pell', 'Moon · Tessaly system'], ['glasshouse', 'Station · Tessaly system'], ['halcyon', 'Planet · Calder system']]) {
+      const { root } = await setup(1000, 150, DEFAULT_SETTINGS.bindings, id);
+      expect(root.querySelector('.sw-planet-sub')!.textContent).toContain(kind);
+      root.remove();
+    }
   });
 
   it('a former fuel-less port (Tallow Rock) now offers Refuel', async () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PORT_KIND_LABEL } from '../data/schemas';
 import { testData } from '../data/testData';
 import { worldStats } from '../sim/shipStats';
 import type { WorldState } from '../sim/types';
@@ -59,7 +60,7 @@ describe('sidebarInfo', () => {
     const w = at({ ...base(), targetPlanetId: p.id }, p.pos.x - 1234.4, p.pos.y);
     const i = sidebarInfo(w, data);
     expect(i.target).toBe(p.name);
-    expect(i.targetDetail).toBe(`${p.kind === 'station' ? 'Station' : 'Planet'} · 1,234`);
+    expect(i.targetDetail).toBe(`${PORT_KIND_LABEL[p.kind]} · 1,234`);
   });
 
   it('a targeted ship shows its label and distance', () => {

@@ -21,6 +21,10 @@ export const PAD = 100;
 /** Wider at the sides: a name drawn beside an edge system needs the room. */
 export const PAD_X = 160;
 const MAX_ZOOM = 4;
+/** A system name sits this many px above its dot (baseline), about LABEL_HEIGHT px tall, and keeps LABEL_MARGIN px from the map's edge. */
+const LABEL_Y = -16;
+const LABEL_HEIGHT = 13;
+const LABEL_MARGIN = 4;
 const PREVIEW_ZOOM = 2;
 const ZOOM_STEP = 1.5;
 /** Pointer travel (px) before a press on the map counts as a drag rather than a click. */
@@ -223,6 +227,32 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
     // Systems keep their on-screen size at every zoom: each is drawn in px and scaled back.
     const k = unitsPerPx();
     for (const n of nodeGroups) n.g.setAttribute('transform', `translate(${n.x} ${n.y}) scale(${k})`);
+    clampLabels(w, h, k);
+  };
+
+  /**
+   * Keep each name inside the map: a label near an edge slides inward (labels are drawn in px, centred over
+   * the dot, so an edge system's half-label can stick out past the padding on a narrow map; Nov 12 playtest, Quillon).
+   */
+  const clampLabels = (w: number, h: number, k: number) => {
+    const r = root.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return;
+    // Screen offset of the letterboxed drawing inside the element.
+    const ox = (r.width - w / k) / 2;
+    const oy = (r.height - h / k) / 2;
+    for (const n of nodeGroups) {
+      const t = n.g.querySelector<SVGTextElement>('text.sw-map-name');
+      if (!t || typeof t.getComputedTextLength !== 'function') continue;
+      const half = t.getComputedTextLength() / 2;
+      const sx = ox + (n.x - (view.cx - w / 2)) / k;
+      const sy = oy + (n.y - (view.cy - h / 2)) / k;
+      let dx = 0;
+      if (sx - half < LABEL_MARGIN) dx = LABEL_MARGIN - (sx - half);
+      else if (sx + half > r.width - LABEL_MARGIN) dx = r.width - LABEL_MARGIN - (sx + half);
+      const top = sy + LABEL_Y - LABEL_HEIGHT;
+      t.setAttribute('x', String(Math.round(dx)));
+      t.setAttribute('y', String(top < LABEL_MARGIN ? LABEL_Y + LABEL_MARGIN - top : LABEL_Y));
+    }
   };
 
   /** Zoom by `factor`, keeping the map point under (clientX, clientY) in place; center by default. */
@@ -382,7 +412,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
         if (n.flag) g.append(svg('path', { d: 'M8 -8 V-24 L19 -19.5 L8 -15', class: 'sw-map-flag' }));
         // A small warning triangle beside raider-heavy systems (red: high, amber: medium).
         if (n.danger === 'high' || n.danger === 'med') g.append(svg('path', { d: 'M-15 6 L-9 -4 L-3 6 Z', class: `sw-map-danger sw-map-danger-${n.danger}` }));
-        if (n.name !== null) g.append(svg('text', { y: -16, class: 'sw-map-name' }, n.name));
+        if (n.name !== null) g.append(svg('text', { y: LABEL_Y, class: 'sw-map-name' }, n.name));
         g.addEventListener('click', () => select(n.id));
         g.addEventListener('keydown', (e) => {
           if (e.key !== 'Enter' && e.key !== ' ') return;

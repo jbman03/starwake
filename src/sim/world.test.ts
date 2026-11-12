@@ -91,15 +91,30 @@ describe('stepWorld: landing', () => {
     expect(done.world.assist).toEqual({ kind: 'none' });
   });
 
-  it('pressing land again during the landing autopilot retargets to another planet', () => {
+  it('pressing land again during the landing autopilot keeps the same port', () => {
     let w = at(newWorld(data), { x: 0, y: -1500 });
     w = stepWorld(w, data, frame(['land']), DT, OPTS).world;
     const first = w.targetPlanetId;
-    w = stepWorld(w, data, frame(), DT, OPTS).world;
-    w = stepWorld(w, data, frame(['land']), DT, OPTS).world;
-    expect(w.targetPlanetId).not.toBeNull();
-    expect(w.targetPlanetId).not.toBe(first);
-    expect(w.assist).toMatchObject({ kind: 'autopilot', autoLand: true, dest: { type: 'planet', id: w.targetPlanetId } });
+    expect(first).not.toBeNull();
+    for (let i = 0; i < 3; i++) {
+      w = stepWorld(w, data, frame(), DT, OPTS).world;
+      w = stepWorld(w, data, frame(['land']), DT, OPTS).world;
+    }
+    expect(w.targetPlanetId).toBe(first);
+    expect(w.assist).toMatchObject({ kind: 'autopilot', autoLand: true, dest: { type: 'planet', id: first } });
+  });
+
+  it('Tessaly: just off Pell with Glasshouse targeted, L (pressed twice) flies to Glasshouse, never back to Pell', () => {
+    const pell = data.planets.pell;
+    let w: WorldState = { ...newWorld(data), systemId: 'tessaly', targetPlanetId: 'glasshouse' };
+    w = { ...w, ship: { ...w.ship, pos: { x: pell.pos.x, y: pell.pos.y + 20 }, vel: { x: 0, y: 0 } } };
+    let r = stepWorld(w, data, frame(['land']), DT, OPTS);
+    expect(r.events.some((e) => e.type === 'landed')).toBe(false);
+    expect(r.world.assist).toMatchObject({ kind: 'autopilot', autoLand: true, dest: { type: 'planet', id: 'glasshouse' } });
+    r = stepWorld(stepWorld(r.world, data, frame(), DT, OPTS).world, data, frame(['land']), DT, OPTS);
+    expect(r.world.targetPlanetId).toBe('glasshouse');
+    const done = run(r.world, 120);
+    expect(done.events.filter((e) => e.type === 'landed')).toEqual([{ type: 'landed', planetId: 'glasshouse' }]);
   });
 });
 

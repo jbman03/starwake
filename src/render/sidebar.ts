@@ -183,7 +183,7 @@ export class Sidebar {
     L.secondary.setText(fitText(`Ammo: ${info.secondary}`, MAX_CHARS));
     L.target.setText(fitText(info.target ?? 'No target', MAX_CHARS));
     L.targetDetail.setText(info.targetHull?.disabled ? `${info.targetDetail ?? ''} · Disabled` : (info.targetDetail ?? ''));
-    L.cargo.setText(`Cargo free: ${info.cargoFree}`);
+    L.cargo.setText(`Cargo: ${info.cargo}`);
     L.credits.setText(info.credits);
     L.date.setText(info.date);
     const key = this.mapKeyLabel();

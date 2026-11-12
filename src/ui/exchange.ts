@@ -1,6 +1,6 @@
 import { sellsHighAt } from '../sim/economy';
 import { formatDate } from '../sim/calendar';
-import { cargoFree, maxBuy } from '../sim/cargo';
+import { cargoFree, cargoLabel, maxBuy } from '../sim/cargo';
 import { displayLevel, localNews, outlawedAt, priceOf } from '../sim/economy';
 import { governmentShortName } from '../sim/standing';
 import { worldStats } from '../sim/shipStats';
@@ -113,7 +113,7 @@ export function showExchange(ctx: UiContext, portId: string, onClose: () => void
     stats.replaceChildren(
       el('span', { text: formatDate(w.day, data.config) }),
       el('span', { text: `Credits: ${formatCredits(w.credits)}` }),
-      el('span', { text: `Cargo: ${cargoFree(w, data)}/${shipCargo} t` }),
+      el('span', { text: `Cargo: ${cargoLabel(w, data)}` }),
     );
     tbody.replaceChildren(
       ...goods.map((id) => {

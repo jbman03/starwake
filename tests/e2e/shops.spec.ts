@@ -14,7 +14,8 @@ async function pilotAtDunmore(page: Page, name: string): Promise<void> {
 
 const cargoFreeOf = async (page: Page): Promise<number> => {
   const text = await page.getByTestId('planet-screen').textContent();
-  return Number(/Cargo: (\d+)\//.exec(text ?? '')![1]);
+  const m = /Cargo: (\d+)\/(\d+) t/.exec(text ?? '')!;
+  return Number(m[2]) - Number(m[1]); // the readout is used / total
 };
 
 test.describe('desktop', () => {

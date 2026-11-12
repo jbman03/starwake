@@ -415,7 +415,6 @@ function currentTarget(world: WorldState, data: GameData): PlanetDef | null {
   return p && p.systemId === world.systemId ? p : null;
 }
 
-const isLandingAutopilot = (a: Assist) => a.kind === 'autopilot' && a.dest.type === 'planet' && a.autoLand;
 
 /** Manual flight input from held keys and the stick, or null if the player isn't flying manually. */
 function manualInput(world: WorldState, input: FrameInput): FlightInput | null {
@@ -466,27 +465,19 @@ export function stepWorld(
   if (pressed.has('nextTarget')) w = { ...w, targetPlanetId: nextTargetId(w, data) };
 
   if (pressed.has('land')) {
-    if (isLandingAutopilot(w.assist)) {
-      const id = pickLandTarget(w, data, true);
-      if (id && landingRefused(w, data, id)) {
-        // A system's ports share its government, so the next port refuses too: say so at once.
-        events.push({ type: 'message', text: landingRefusedText(data, id) });
-        w = { ...w, targetPlanetId: id, assist: NONE };
-      } else if (id) {
-        w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
-      }
-    } else {
-      const id = pickLandTarget(w, data, false);
-      if (id && landingRefused(w, data, id)) {
-        // Refused outright, near or far: say so rather than fly there to be turned away.
-        events.push({ type: 'message', text: landingRefusedText(data, id) });
-        w = { ...w, targetPlanetId: id, assist: NONE };
-      } else if (id && canLand(w, data, id)) {
-        events.push({ type: 'landed', planetId: id });
-        return { world: { ...w, targetPlanetId: id, assist: NONE, ship: { ...w.ship, vel: { ...ZERO } } }, events };
-      } else if (id) {
-        w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
-      }
+    // L lands at the targeted port, or flies there and lands; with no target, the nearest port. Pressing it
+    // again on the way keeps the same port (Tab changes it): it used to cycle ports by distance, which could
+    // land the pilot back at the port just left (Nov 12 playtest, Pell / Glasshouse).
+    const id = pickLandTarget(w, data, false);
+    if (id && landingRefused(w, data, id)) {
+      // Refused outright, near or far: say so rather than fly there to be turned away.
+      events.push({ type: 'message', text: landingRefusedText(data, id) });
+      w = { ...w, targetPlanetId: id, assist: NONE };
+    } else if (id && canLand(w, data, id)) {
+      events.push({ type: 'landed', planetId: id });
+      return { world: { ...w, targetPlanetId: id, assist: NONE, ship: { ...w.ship, vel: { ...ZERO } } }, events };
+    } else if (id) {
+      w = { ...w, targetPlanetId: id, assist: { kind: 'autopilot', dest: { type: 'planet', id }, autoLand: true } };
     }
   }
 

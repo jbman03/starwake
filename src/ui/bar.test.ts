@@ -8,7 +8,8 @@ import { InputMode } from '../input/mode';
 import { DEFAULT_SETTINGS } from '../save/settings';
 import type { PilotStore } from '../save/store';
 import { newWorld } from '../sim/world';
-import { showBar } from './bar';
+import { QUIET_BAR, showBar } from './bar';
+import { rumor } from '../sim/economy';
 import type { UiContext } from './context';
 import { showPlanetScreen } from './planetScreen';
 
@@ -72,7 +73,16 @@ describe('spaceport bar', () => {
     expect(rows()[0].getAttribute('aria-selected')).toBe('true');
     expect(q('bar-detail').textContent).toContain('Offer text light');
     expect(q('bar-gossip').textContent).toContain('Gossip');
-    expect(q('bar-gossip').textContent).toContain(data.planets.halcyon.description);
+    expect(q('bar-gossip').textContent).not.toContain(data.planets.halcyon.description);
+  });
+
+  it('gossip is the rumour when one goes round, else a quiet line: never the port description (Pell, Nov 12 playtest)', async () => {
+    const { ctx, c, q, data } = await setup();
+    showBar(ctx, 'pell', () => {});
+    const talk = rumor(c.world, data, 'pell');
+    expect(q('bar-gossip').textContent).toContain(talk ?? QUIET_BAR);
+    expect(q('bar-gossip').textContent).not.toContain(data.planets.pell.description);
+    expect(q('bar-gossip').querySelectorAll('.sw-bar-line')).toHaveLength(1);
   });
 
   it('Accept moves the mission to active and shows its acceptText', async () => {

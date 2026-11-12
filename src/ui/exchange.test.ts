@@ -116,7 +116,7 @@ describe('commodity exchange', () => {
     btn('Buy 10').click();
     btn('Buy 10').click();
     expect(q('exchange-message')).toBe('Hold full');
-    expect(q('exchange-stats')).toContain('Cargo: 0/20 t');
+    expect(q('exchange-stats')).toContain('Cargo: 20/20 t'); // full hold reads used = total
   });
 
   it('says "Not enough credits" when the pilot is broke', async () => {

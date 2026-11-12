@@ -31,6 +31,11 @@ export function cargoFree(world: WorldState, data: GameData): number {
   return Math.max(0, worldStats(world, data).cargo - cargoUsed(world));
 }
 
+/** Hold readout shown on every screen: used / total, e.g. "5/20 t" (empty hold reads 0/20). */
+export function cargoLabel(world: WorldState, data: GameData): string {
+  return `${cargoUsed(world)}/${worldStats(world, data).cargo} t`;
+}
+
 export function berthsFree(world: WorldState, data: GameData): number {
   let taken = 0;
   for (const m of world.missions) taken += m.passengers;

@@ -5,7 +5,7 @@
     "description": "A temperate world of terraced orchards and quiet harbors, where the evening light turns the sea to copper."
   },
   {
-    "id": "merrow", "name": "Merrow", "systemId": "calder", "pos": { "x": -900, "y": 450 }, "radius": 48, "techTier": 3, "fuelPrice": 2, "kind": "planet",
+    "id": "merrow", "name": "Merrow", "systemId": "calder", "pos": { "x": -900, "y": 450 }, "radius": 48, "techTier": 3, "fuelPrice": 2, "kind": "moon",
     "services": ["exchange", "bar"], "market": { "metal": "low", "equipment": "med", "food": "high", "industrial": "med" },
     "description": "A fog-wrapped moon of salvage yards and rope bridges. Everything here has been mended at least twice."
   },
@@ -26,7 +26,7 @@
     "description": "A spindle of greenhouses and laboratories where half the Concord's medicines are grown in rows. It smells of mint and disinfectant in equal measure."
   },
   {
-    "id": "pell", "name": "Pell", "systemId": "tessaly", "pos": { "x": 100, "y": 1150 }, "radius": 40, "techTier": 3, "fuelPrice": 2, "kind": "planet",
+    "id": "pell", "name": "Pell", "systemId": "tessaly", "pos": { "x": 100, "y": 1150 }, "radius": 40, "techTier": 3, "fuelPrice": 2, "kind": "moon",
     "services": ["exchange", "bar"], "market": { "metal": "med", "food": "high", "industrial": "med" },
     "description": "A dusty commuter moon that houses the people who work on Vanterre. Rents are cheap, and the view of the workshop lights is free."
   },
@@ -75,7 +75,7 @@
     "description": "An old artisans' world of glass towers and narrow galleries. Everything sold here is beautiful, and nothing is cheap except the compliments."
   },
   {
-    "id": "inkwell", "name": "Inkwell", "systemId": "quillon", "pos": { "x": 750, "y": 600 }, "radius": 38, "techTier": 3, "fuelPrice": 2, "kind": "planet",
+    "id": "inkwell", "name": "Inkwell", "systemId": "quillon", "pos": { "x": 750, "y": 600 }, "radius": 38, "techTier": 3, "fuelPrice": 2, "kind": "moon",
     "services": ["exchange", "missions", "bar"], "market": { "medical": "med", "food": "high", "industrial": "high" },
     "description": "A dark little moon where the Spires' craftsmen send their apprentices. The workshops are cramped, and the ambition is enormous."
   },
@@ -124,7 +124,7 @@
     "description": "A cooperative station where every dock, bunk and bolt belongs to someone in particular. Pilots who mind their manners are made welcome; the rest are made to sweep."
   },
   {
-    "id": "little-wren", "name": "Little Wren", "systemId": "wrenhold", "pos": { "x": 200, "y": -1100 }, "radius": 34, "techTier": 2, "fuelPrice": 3, "kind": "planet",
+    "id": "little-wren", "name": "Little Wren", "systemId": "wrenhold", "pos": { "x": 200, "y": -1100 }, "radius": 34, "techTier": 2, "fuelPrice": 3, "kind": "moon",
     "services": ["exchange", "bar"], "market": { "food": "low", "metal": "med" },
     "description": "A small moon of allotments and fish ponds that keeps the capital fed. The only fuel pump is a hand crank behind the pond sheds, and the price reflects the arm work."
   },

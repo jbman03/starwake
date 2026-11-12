@@ -1,12 +1,15 @@
 import type { StoryMissionDef } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
-import { berthsFree, cargoFree } from '../sim/cargo';
+import { berthsFree, cargoFree, cargoLabel } from '../sim/cargo';
 import { rumor, SURVEY_RUMOUR } from '../sim/economy';
 import { worldStats } from '../sim/shipStats';
 import { STORY_BLOCK_REASON } from '../sim/storyMissions';
 import type { UiContext } from './context';
 import { button, dialogOpen, el, hotkeyFor } from './dom';
 import { mapCornerButton, mapCornerKey } from './mapButton';
+
+/** The gossip line when no rumour is going round. */
+export const QUIET_BAR = 'Nobody has news worth repeating tonight.';
 
 /**
  * The spaceport bar: contacts with story and side offers (left) and the selected offer's words
@@ -45,8 +48,8 @@ export function showBar(ctx: UiContext, portId: string, onClose: () => void): vo
   if (talk === SURVEY_RUMOUR) controller.noteRumour(SURVEY_RUMOUR);
   gossip.replaceChildren(
     el('h2', { class: 'sw-bar-head', text: 'Gossip' }),
-    ...(talk ? [el('p', { class: 'sw-bar-line', text: talk })] : []),
-    el('p', { class: 'sw-bar-line', text: port.description }),
+    // Gossip is its own talk, never the port description (that is on the planet screen; Nov 12 playtest).
+    el('p', { class: 'sw-bar-line', text: talk ?? QUIET_BAR }),
   );
 
   const reopen = () => showBar(ctx, portId, onClose);
@@ -88,7 +91,7 @@ export function showBar(ctx: UiContext, portId: string, onClose: () => void): vo
     index = Math.min(index, Math.max(0, offers.length - 1));
     stats.replaceChildren(
       el('span', { text: formatDate(w.day, data.config) }),
-      el('span', { text: `Cargo: ${cargoFree(w, data)}/${worldStats(w, data).cargo} t` }),
+      el('span', { text: `Cargo: ${cargoLabel(w, data)}` }),
       el('span', { text: `Berths: ${berthsFree(w, data)}/${worldStats(w, data).passengers}` }),
     );
 

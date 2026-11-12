@@ -45,6 +45,17 @@ describe('Controller', () => {
     expect(c.world.timeSec).toBeCloseTo(0.1, 5);
   });
 
+  it('N during the take-off effect still opens the map; other keys wait for it to end (Nov 12 playtest)', async () => {
+    const { c, target, events } = await setup();
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'halcyon');
+    c.leavePlanet();
+    target.dispatchEvent(keyEvent('keydown', 'KeyN'));
+    target.dispatchEvent(keyEvent('keyup', 'KeyN'));
+    c.update(1 / 60);
+    expect(events).toContainEqual({ type: 'menu', action: 'map' });
+    expect(c.isFlying).toBe(false);
+  });
+
   it('thrust key builds speed', async () => {
     const { c, target } = await setup();
     c.startFlight();

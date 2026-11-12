@@ -2,7 +2,7 @@
 import { weaponsOf } from '../sim/weapons';
 import { PLAYER_ID } from '../sim/combat';
 import type { GameData } from '../data/schemas';
-import { cargoFree } from '../sim/cargo';
+import { cargoFree, cargoLabel } from '../sim/cargo';
 import { fuelText, jumpsOf } from '../sim/fuel';
 import { objectiveText, roundDistance, siteTargetText } from '../sim/siteText';
 import { jumpDestination } from '../sim/rules';
@@ -32,7 +32,7 @@ export interface HudInfo {
   fuelColor: string;
   /** "Credits: 9,290 cr" */
   credits: string;
-  /** "Cargo: 10/20 t" (free / hold size). */
+  /** "Cargo: 10/20 t" (used / hold size). */
   cargo: string;
   target: string;
   /** "Course: Vesk (2 jumps)" while a course is plotted, else null. */
@@ -87,7 +87,7 @@ export function hudInfo(world: WorldState, data: GameData, traffic: Traffic | nu
     fuel: fuelText(jumps),
     fuelColor: fuelColor(jumps),
     credits: `Credits: ${Math.round(world.credits).toLocaleString('en-US')} cr`,
-    cargo: `Cargo: ${cargoFree(world, data)}/${worldStats(world, data).cargo} t`,
+    cargo: `Cargo: ${cargoLabel(world, data)}`,
     target: site
       ? `Target: ${siteTargetText(site, world.ship.pos)}`
       : ship

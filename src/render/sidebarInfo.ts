@@ -1,7 +1,7 @@
 /** Sidebar HUD data, free of Phaser so it is unit-tested. */
-import type { GameData } from '../data/schemas';
+import { PORT_KIND_LABEL, type GameData } from '../data/schemas';
 import { formatDate } from '../sim/calendar';
-import { cargoFree } from '../sim/cargo';
+import { cargoLabel } from '../sim/cargo';
 import { legalStatus, LEGAL_COLOR, LEGAL_LABEL } from '../sim/law';
 import { jumpPoint, SYSTEM_CENTER } from '../sim/rules';
 import { inFlight, npcLabel, targetedNpc, type Traffic } from '../sim/traffic';
@@ -37,7 +37,8 @@ export interface SidebarInfo {
   target: string | null;
   targetDetail: string | null;
   /** "10/20 t" (free / hold size). */
-  cargoFree: string;
+  /** Hold used / total, e.g. "5/20 t". */
+  cargo: string;
   credits: string;
   date: string;
 }
@@ -79,9 +80,9 @@ export function sidebarInfo(
       : ship
       ? `Ship · ${Math.round(dist(ship.ship.pos, world.ship.pos)).toLocaleString('en-US')}`
       : hasTarget
-        ? `${t.kind === 'station' ? 'Station' : 'Planet'} · ${Math.round(dist(t.pos, world.ship.pos)).toLocaleString('en-US')}`
+        ? `${PORT_KIND_LABEL[t.kind]} · ${Math.round(dist(t.pos, world.ship.pos)).toLocaleString('en-US')}`
         : null,
-    cargoFree: `${cargoFree(world, data)}/${stats.cargo} t`,
+    cargo: cargoLabel(world, data),
     credits: `${Math.round(world.credits).toLocaleString('en-US')} cr`,
     date: formatDate(world.day, data.config),
   };

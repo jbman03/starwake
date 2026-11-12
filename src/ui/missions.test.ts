@@ -120,6 +120,15 @@ describe('mission computer', () => {
     expect(q('mc-reason').textContent).toBe('Not enough cargo space');
   });
 
+  it('the header shows hold used / total: 0/20 t empty, 20/20 t full', async () => {
+    const { ctx, c, data, q } = await setup();
+    showMissionComputer(ctx, 'halcyon', () => {});
+    expect(q('mc-stats').textContent).toContain('Cargo: 0/20 t');
+    c.world = { ...c.world, cargo: { ...c.world.cargo, [Object.keys(data.commodities)[0]]: 20 } };
+    showMissionComputer(ctx, 'halcyon', () => {});
+    expect(q('mc-stats').textContent).toContain('Cargo: 20/20 t');
+  });
+
   it('Done and Esc close it', async () => {
     const { ctx, state, btn } = await setup();
     let closed = 0;

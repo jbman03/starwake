@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { leavePlanet, newPilot } from './helpers';
+import { leavePlanet, newPilot, trackErrors } from './helpers';
 
 // Owner report (iPhone, Chrome): after clicking around a planet screen and leaving, the ship sat at the
 // bottom of the screen and could not be recentred. iPhone browsers can zoom or scroll the page under a
@@ -43,3 +43,30 @@ for (const port of ['halcyon', 'brigg-station']) {
     expect(Math.abs(r.camCy - r.winCy)).toBeLessThanOrEqual(2);
   });
 }
+
+test.describe('phone landscape 812x375 planet screen (Nov 12 playtest)', () => {
+  test.use({ hasTouch: true, viewport: { width: 812, height: 375 } });
+
+  test('Leave sits below the scrolling service list: no button overlaps another, and every row scrolls into view above Leave', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Short Screen');
+    const screen = page.getByTestId('planet-screen');
+    const leave = screen.getByRole('button', { name: /^Leave/ });
+    await expect(leave).toBeVisible();
+    const rows = screen.getByTestId('planet-actions-list').locator('button');
+    const n = await rows.count();
+    expect(n).toBeGreaterThanOrEqual(7);
+    for (let i = 0; i < n; i++) {
+      await rows.nth(i).scrollIntoViewIfNeeded();
+      const r = (await rows.nth(i).boundingBox())!;
+      const l = (await leave.boundingBox())!;
+      const name = await rows.nth(i).textContent();
+      expect(r.y + r.height, `${name} clears Leave`).toBeLessThanOrEqual(l.y);
+      expect(l.y + l.height, 'Leave on screen').toBeLessThanOrEqual(375);
+      // The row is the topmost element at its centre: nothing covers it.
+      const top = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.textContent ?? null, [r.x + r.width / 2, r.y + r.height / 2]);
+      expect(top, `${name} uncovered`).toBe(name);
+    }
+    expect(errors).toEqual([]);
+  });
+});

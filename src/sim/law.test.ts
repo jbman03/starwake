@@ -186,7 +186,7 @@ describe('landing refusal', () => {
     expect(f.events).toEqual([{ type: 'message', text: 'Landing refused: you are hunted by the Concord.' }]);
     expect(f.world.assist.kind).toBe('none');
   });
-  it('pressing land again during a landing autopilot (cycling ports) refuses at once too', () => {
+  it('pressing land again during a landing autopilot to a refusing port refuses at once too', () => {
     const w: WorldState = {
       ...hunted,
       systemId: 'calder',

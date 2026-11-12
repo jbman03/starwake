@@ -125,6 +125,9 @@ export const SystemSchema = z.object({
   traffic: z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]).optional(), // [min, max] NPC ships
 });
 
+/** How a port's kind reads on screen (planet screen header, target readout). */
+export const PORT_KIND_LABEL = { planet: 'Planet', moon: 'Moon', station: 'Station' } as const;
+
 export const PlanetSchema = z.object({
   id,
   name: z.string(),
@@ -134,7 +137,7 @@ export const PlanetSchema = z.object({
   techTier: tier,
   fuelPrice: z.number().nonnegative(),
   description: z.string(),
-  kind: z.enum(['planet', 'station']),
+  kind: z.enum(['planet', 'moon', 'station']),
   services: z.array(z.enum(['exchange', 'missions', 'shipyard', 'outfitter', 'bar'])),
   market: z.record(z.string(), z.enum(['low', 'med', 'high'])).optional(),
   dumpSite: z.boolean().optional(),
