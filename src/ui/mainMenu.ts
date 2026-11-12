@@ -1,3 +1,4 @@
+import { arcRankLine } from '../sim/arcs';
 import { showPluginsScreen } from './pluginsScreen';
 import { MSG_USED_BACKUP } from '../app/controller';
 import { SaveError, worldFromPilot, type PilotSave } from '../save/pilot';
@@ -83,7 +84,8 @@ export function pilotCard(save: PilotSave, data: GameData): PilotCard {
     rankLines: Object.keys(data.factions)
       .map((g) => [g, rankTitle(save, data, g)] as const)
       .filter((r): r is readonly [string, string] => r[1] !== null)
-      .map(([g, title]) => `${governmentShortName(g, data)}: ${title}`),
+      .map(([g, title]) => `${governmentShortName(g, data)}: ${title}`)
+      .concat(arcRankLine(save, data) ?? []),
     rating: combatRating(save.stats),
   };
 }

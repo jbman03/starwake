@@ -4,6 +4,7 @@ import { cargoFree } from './cargo';
 import { HIDDEN_LANE_FLAG, hopDistance, revealOnArrival, revealWithin } from './galaxy';
 import { accept, buildOffer } from './missions';
 import { hashString, mulberry32, pick } from './random';
+import { addArcPoints, arcDoneFlag } from './arcs';
 import { addHeat } from './law';
 import { addPoints } from './ranks';
 import { worldStats } from './shipStats';
@@ -248,6 +249,15 @@ export function applyOutcomes(
         break;
       case 'destroyPlanet':
         if (!w.galaxy.destroyed.includes(o.planet)) w = { ...w, galaxy: { ...w.galaxy, destroyed: [...w.galaxy.destroyed, o.planet] } };
+        break;
+      case 'arcPoints': {
+        const r = addArcPoints(w, data, o.arc, o.n);
+        w = r.world;
+        if (r.promoted) messages.push(`Promoted to ${r.promoted} (${data.arcs[o.arc].title}).`);
+        break;
+      }
+      case 'arcDone':
+        w = setFlag(w, arcDoneFlag(o.arc));
         break;
       case 'heat':
         w = addHeat(w, data, o.government, o.n);

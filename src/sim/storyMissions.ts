@@ -1,4 +1,6 @@
 import type { GameData, Outcome, StoryMissionDef, StoryStepDef } from '../data/schemas';
+import { arcFlag, arcLocked } from './arcs';
+import { setFlag } from './story';
 import { berthsFree, cargoFree } from './cargo';
 import { applyOutcomes } from './encounters';
 import { STORY_TYPE } from './missions';
@@ -61,6 +63,8 @@ function conditionsMet(world: WorldState, data: GameData, def: StoryMissionDef):
   if (o.minDay !== undefined && world.day < o.minDay) return false;
   if (o.requires?.some((f) => !world.flags.includes(f))) return false;
   if (o.notFlags?.some((f) => world.flags.includes(f))) return false;
+  // Arcs lock each other out: once one is taken, the others' missions are never offered.
+  if (def.arc in data.arcs && arcLocked(world, data, def.arc)) return false;
   for (const [gov, level] of Object.entries(o.standing ?? {})) if (RANK[standingOf(world, gov, data)] < RANK[level]) return false;
   // One main mission at a time (its `requires` flags carry the order), and one per chain.
   const others = s.active.map((a) => data.story[a.id]).filter((d): d is StoryMissionDef => !!d);
@@ -125,8 +129,10 @@ export function acceptStory(world: WorldState, data: GameData, id: string): Worl
       cargoName: s.kind === 'deliver' ? s.cargo.name : 'passengers',
     });
   });
+  // Taking an arc's mission commits the pilot to that arc.
+  const flagged = def.arc in data.arcs ? setFlag(world, arcFlag(def.arc)) : world;
   return {
-    ...world,
+    ...flagged,
     missions: [...world.missions, ...held],
     story: {
       ...world.story,
