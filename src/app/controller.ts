@@ -211,6 +211,8 @@ export interface SaveSink {
   save(p: PilotSave): Promise<void>;
   /** Present on the real store; the no-pod Destroyed card reloads through it. */
   load?(id: string): Promise<{ pilot: PilotSave; usedBackup: boolean }>;
+  /** Present on the real store: finished arcs go into the device's legacy (cycle 7). Never rejects. */
+  recordArcsDone?(ids: readonly string[]): Promise<void>;
 }
 
 type UiInput = { groups: readonly ActionGroup[]; handler: (pressed: Set<ActionId>) => void };
@@ -420,6 +422,9 @@ export class Controller {
   async save(): Promise<void> {
     const p = this.snapshot();
     if (p && this.store) await this.store.save(p);
+    // Finished arcs become every later pilot's legacy perk.
+    const done = this.world.flags.filter((f) => f.startsWith('arcdone:')).map((f) => f.slice('arcdone:'.length));
+    if (p && done.length > 0) await this.store?.recordArcsDone?.(done);
   }
 
   private autosave(): void {

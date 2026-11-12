@@ -109,3 +109,13 @@ describe('pilotCard arc ranks (cycle 7)', () => {
     expect(pilotCard(save(), d).rankLines.some((l) => l.startsWith('Concord Navy'))).toBe(false);
   });
 });
+
+describe('new-pilot legacy lines (cycle 7)', () => {
+  it("lists each finished arc's perk text, skipping arcs this data lacks", async () => {
+    const { twoArcs } = await import('../sim/arcsTestKit');
+    const { legacyLines } = await import('./mainMenu');
+    const d = twoArcs();
+    expect(legacyLines(d, [])).toEqual([]);
+    expect(legacyLines(d, ['alpha', 'gone'])).toEqual([`Alpha Arc: ${d.arcs.alpha.legacy.text}`]);
+  });
+});

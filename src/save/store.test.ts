@@ -91,3 +91,30 @@ describe('PilotStore', () => {
     await s.remove('dflt');
   });
 });
+
+describe('legacy (cycle 7)', () => {
+  it('recordArcsDone merges and dedupes', async () => {
+    const s = new PilotStore(mkStore());
+    expect(await s.loadLegacy()).toEqual({ arcsDone: [] });
+    await s.recordArcsDone(['navy']);
+    await s.recordArcsDone(['navy', 'wake']);
+    expect(await s.loadLegacy()).toEqual({ arcsDone: ['navy', 'wake'] });
+  });
+  it('PilotStore.list ignores the legacy key', async () => {
+    const s = new PilotStore(mkStore());
+    await s.save(mk());
+    await s.recordArcsDone(['navy']);
+    expect((await s.list()).map((p) => p.id)).toEqual(['p1']);
+  });
+  it('a legacy store that throws: loadLegacy gives none and recordArcsDone does not reject', async () => {
+    const broken = (() => Promise.reject(new Error('blocked'))) as unknown as ReturnType<typeof createStore>;
+    const s = new PilotStore(broken);
+    expect(await s.loadLegacy()).toEqual({ arcsDone: [] });
+    await expect(s.recordArcsDone(['navy'])).resolves.toBeUndefined();
+  });
+  it('a corrupt legacy record loads as none', async () => {
+    const st = mkStore();
+    await set('legacy', { arcsDone: 'nope' }, st);
+    expect(await new PilotStore(st).loadLegacy()).toEqual({ arcsDone: [] });
+  });
+});

@@ -757,3 +757,19 @@ describe('newWorld start outfits', () => {
     expect(worldStats(w, data).spaceFree).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe('applyLegacy (cycle 7)', () => {
+  it('adds the done arcs\' credits, swaps the start hull and sets flags; unknown arc ids are ignored', async () => {
+    const { twoArcs } = await import('./arcsTestKit');
+    const { applyLegacy } = await import('./world');
+    const d0 = twoArcs();
+    const d = { ...d0, arcs: { ...d0.arcs, alpha: { ...d0.arcs.alpha, legacy: { text: 'P.', credits: 5000 } }, beta: { ...d0.arcs.beta, legacy: { text: 'Q.', shipId: 'courier', flag: 'old-contact' } } } };
+    const w0 = newWorld(d, 2);
+    expect(applyLegacy(w0, d, [])).toBe(w0);
+    const w = applyLegacy(w0, d, ['alpha', 'beta', 'gone']);
+    expect(w.credits).toBe(w0.credits + 5000);
+    expect(w.shipId).toBe('courier');
+    expect(w.ship.fuel).toBe(d.ships.courier.fuelCapacity);
+    expect(w.flags).toContain('old-contact');
+  });
+});

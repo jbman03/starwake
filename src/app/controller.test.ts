@@ -103,6 +103,18 @@ describe('Controller', () => {
     expect(c.decideCard()).toBeNull();
   });
 
+  it('saving records finished arcs in the legacy store', async () => {
+    const { c } = await setup();
+    const recorded: string[][] = [];
+    c.store = { save: async () => {}, recordArcsDone: async (ids: string[]) => void recorded.push(ids) };
+    c.beginSession(newWorld(c.data, 1), { id: 'p', name: 'P' }, 'halcyon');
+    await c.save();
+    expect(recorded).toEqual([]);
+    c.world = { ...c.world, flags: [...c.world.flags, 'arcdone:navy'] };
+    await c.save();
+    expect(recorded).toEqual([['navy']]);
+  });
+
   it('thrust key builds speed', async () => {
     const { c, target } = await setup();
     c.startFlight();

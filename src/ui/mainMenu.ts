@@ -11,7 +11,7 @@ import { combatRating } from '../sim/rating';
 import { governmentShortName, standingOf } from '../sim/standing';
 import { netWorth, shipDisplayName } from '../sim/shipyard';
 import { importPilot } from '../save/transfer';
-import { newWorld } from '../sim/world';
+import { applyLegacy, newWorld } from '../sim/world';
 import type { UiContext } from './context';
 import { replayWhere } from './guideHint';
 import { showHowToPlay } from './howToPlay';
@@ -90,6 +90,11 @@ export function pilotCard(save: PilotSave, data: GameData): PilotCard {
   };
 }
 
+/** The new-pilot dialog's Legacy list: "<arc title>: <perk>" for each finished arc this data still has. */
+export function legacyLines(data: GameData, arcsDone: readonly string[]): string[] {
+  return arcsDone.flatMap((id) => (data.arcs[id] ? [`${data.arcs[id].title}: ${data.arcs[id].legacy.text}`] : []));
+}
+
 /** Title screen: pilot list (Load / Rename / Delete), New Pilot and Import. */
 export function showMainMenu(ctx: UiContext): void {
   const { controller, store, root } = ctx;
@@ -144,7 +149,10 @@ export function showMainMenu(ctx: UiContext): void {
   }
 
   async function newPilot(): Promise<void> {
+    const { arcsDone } = await store.loadLegacy();
+    const legacy = legacyLines(data, arcsDone);
     const raw = await promptDialog(root, {
+      ...(legacy.length ? { note: { heading: 'Legacy', lines: legacy } } : {}),
       title: 'New Pilot',
       label: 'Pilot name',
       value: randomPilotName(),
@@ -154,7 +162,7 @@ export function showMainMenu(ctx: UiContext): void {
     });
     if (raw === null) return;
     const planetId = data.config.startPlanetId;
-    controller.beginSession(newWorld(data), { id: crypto.randomUUID(), name: cleanPilotName(raw) }, planetId);
+    controller.beginSession(applyLegacy(newWorld(data), data, arcsDone), { id: crypto.randomUUID(), name: cleanPilotName(raw) }, planetId);
     let notice: string | undefined;
     try {
       await controller.save();

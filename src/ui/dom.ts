@@ -186,6 +186,8 @@ export function promptDialog(
     confirm: string;
     /** When given, a 🎲 Random button refills the input with this generator's output. */
     randomize?: () => string;
+    /** A short list under the input (the new pilot's legacy perks). */
+    note?: { heading: string; lines: string[] };
   },
 ): Promise<string | null> {
   return new Promise((resolve) => {
@@ -230,6 +232,12 @@ export function promptDialog(
         el('label', { class: 'sw-label', text: opts.label, attrs: { for: inputId } }),
         opts.randomize ? el('div', { class: 'sw-input-row' }, [input, randomButton(opts.randomize)]) : input,
         error,
+        opts.note
+          ? el('div', { class: 'sw-prompt-note', attrs: { 'data-testid': 'prompt-note' } }, [
+              el('h3', { text: opts.note.heading }),
+              el('ul', {}, opts.note.lines.map((t) => el('li', { text: t }))),
+            ])
+          : null,
       ],
       [cancel, ok],
       () => finish(null),
