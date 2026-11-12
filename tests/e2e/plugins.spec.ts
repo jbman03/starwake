@@ -28,6 +28,7 @@ test('import a plug-in, restart, and its ship is in the game; a broken one is re
   await expect(page.locator('[data-plugin="e2e-pack"] [data-testid="plugin-state"]')).toHaveText('On: restart to load it');
 
   await page.reload();
+  await page.waitForFunction(() => !!window.__starwake); // the hook is set once the reloaded game has loaded its data
   expect(await page.evaluate(() => window.__starwake!.data.ships['e2e-falcon']?.name)).toBe('E2E Falcon');
   await page.getByRole('button', { name: 'Plug-ins' }).click();
   await expect(page.locator('[data-plugin="e2e-pack"] [data-testid="plugin-state"]')).toHaveText('Active');
