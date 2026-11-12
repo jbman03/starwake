@@ -138,6 +138,7 @@ export const PlanetSchema = z.object({
   fuelPrice: z.number().nonnegative(),
   description: z.string(),
   kind: z.enum(['planet', 'moon', 'station']),
+  appearsFlag: id.optional(), // absent from the galaxy until this story flag is set
   services: z.array(z.enum(['exchange', 'missions', 'shipyard', 'outfitter', 'bar'])),
   market: z.record(z.string(), z.enum(['low', 'med', 'high'])).optional(),
   dumpSite: z.boolean().optional(),
@@ -223,6 +224,14 @@ export const OutcomeSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('unlock'), flag: id }),
   // A pilot lent to the group: full armor and fuel, the hull's guns, no wage, never sold as a prize.
   z.object({ type: z.literal('escort'), shipId: id, name: z.string().min(1) }),
+  // Story map changes (cycle 7): a system changes flag, a port is destroyed.
+  z.object({ type: z.literal('government'), system: id, government: id }),
+  z.object({ type: z.literal('destroyPlanet'), planet: id }),
+  // Legal heat with a government's law (enough makes the pilot Hunted there).
+  z.object({ type: z.literal('heat'), government: id, n: z.number().int().positive() }),
+  // Story arcs (data/arcs.json): rank points, and the arc finished (a legacy perk for later pilots).
+  z.object({ type: z.literal('arcPoints'), arc: id, n: z.number().int().positive() }),
+  z.object({ type: z.literal('arcDone'), arc: id }),
 ]);
 
 const EncounterChoiceSchema = z.object({
@@ -237,6 +246,7 @@ const EncounterChoiceSchema = z.object({
     })
     .optional(),
   outcomes: z.array(OutcomeSchema),
+  commit: z.literal(true).optional(), // can't be undone: the card asks first
 });
 
 /** A card: title, text and 1-3 choices (the encounter card UI's shape). */
@@ -288,6 +298,8 @@ export const StoryStepSchema = z.discriminatedUnion('kind', [
     text,
   }),
   z.object({ kind: z.literal('scan'), system: id, site, text }),
+  // A choice card that opens on landing at `planet`.
+  z.object({ kind: z.literal('decide'), planet: id, card: EncounterCardSchema, text }),
   z.object({ kind: z.literal('find'), system: id, site, text }),
   z.object({
     kind: z.literal('meet'),
@@ -300,10 +312,11 @@ export const StoryStepSchema = z.discriminatedUnion('kind', [
 
 export const StoryMissionSchema = z.object({
   id,
-  arc: z.enum(['main', 'concord', 'reach', 'side']),
+  arc: id, // 'main', 'concord', 'reach', 'side' or an arc id from data/arcs.json (checked by the loader)
   chain: id.optional(),
   title: text,
-  giver: z.object({ name: text, title: text }),
+  giver: z.object({ name: text, title: text, stranger: z.literal(true).optional() }),
+  commit: z.literal(true).optional(), // taking it can't be undone (an arc's first mission): Accept asks first
   offer: z.object({
     where: z.enum(['bar', 'hail']),
     ports: z.array(id).optional(),
@@ -776,7 +789,23 @@ export type AudioRecipesMatch = AudioDef['sfx'] extends Record<RecipeId, unknown
 const audioMoodsMatch: [keyof AudioDef['moods']] extends [MoodId] ? ([MoodId] extends [keyof AudioDef['moods']] ? true : never) : never = true;
 void audioMoodsMatch;
 
+/** A story arc (data/arcs.json). Arcs lock each other out: taking one's first mission closes the rest. */
+export const ArcSchema = z.object({
+  id,
+  title: z.string().min(1),
+  government: id,
+  blurb: z.string().min(1),
+  entry: z.object({ mission: id, lead: z.string().min(1) }),
+  ranks: z.array(z.object({ title: z.string().min(1), points: z.number().int().nonnegative() })).min(1),
+  legacy: z.object({ text: z.string().min(1), credits: z.number().int().positive().optional(), shipId: id.optional(), flag: id.optional() }),
+});
+export type ArcDef = z.infer<typeof ArcSchema>;
+
+/** The story arc values that are not arcs.json ids. */
+export const BUILTIN_STORY_ARCS = ['main', 'concord', 'reach', 'side'] as const;
+
 export interface GameData {
+  arcs: Record<string, ArcDef>;
   ships: Record<string, ShipDef>;
   outfits: Record<string, OutfitDef>;
   systems: Record<string, SystemDef>;

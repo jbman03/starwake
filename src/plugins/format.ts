@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { DataError, parseGameData, type RawGameData } from '../data/load';
 
 /** The record lists a plug-in may add to or replace (spec §2). Tunables are never touched. */
-export const LIST_KEYS = ['ships', 'outfits', 'commodities', 'systems', 'planets', 'governments', 'events', 'missionTypes', 'encounters', 'story'] as const;
+export const LIST_KEYS = ['ships', 'outfits', 'commodities', 'systems', 'planets', 'governments', 'events', 'missionTypes', 'encounters', 'story', 'arcs'] as const;
 export type ListKey = (typeof LIST_KEYS)[number];
 
 export const PLUGIN_FORMAT = 'starwake-plugin';
@@ -40,12 +40,14 @@ export function readPlugin(text: string): { ok: true; plugin: Plugin } | { ok: f
 }
 
 type RawList = { id: string }[];
-const listOf = (raw: RawGameData, k: ListKey): RawList => (k === 'story' ? (raw.story as { missions: RawList }).missions : (raw[k] as RawList));
+/** story.json and arcs.json wrap their list ({ missions } / { arcs }); an absent arcs file counts as none. */
+const listOf = (raw: RawGameData, k: ListKey): RawList =>
+  k === 'story' ? (raw.story as { missions: RawList }).missions : k === 'arcs' ? ((raw.arcs as { arcs: RawList } | undefined)?.arcs ?? []) : (raw[k] as RawList);
 
 /** The raw data with each plug-in's records added or put in place of the record with the same id, in order. */
 export function applyPlugins(raw: RawGameData, plugins: readonly Plugin[]): RawGameData {
-  const out: RawGameData = { ...raw, story: { ...(raw.story as object), missions: [...listOf(raw, 'story')] } };
-  for (const k of LIST_KEYS) if (k !== 'story') (out as Record<string, unknown>)[k] = [...listOf(raw, k)];
+  const out: RawGameData = { ...raw, story: { ...(raw.story as object), missions: [...listOf(raw, 'story')] }, arcs: { arcs: [...listOf(raw, 'arcs')] } };
+  for (const k of LIST_KEYS) if (k !== 'story' && k !== 'arcs') (out as Record<string, unknown>)[k] = [...listOf(raw, k)];
   for (const p of plugins) {
     for (const k of LIST_KEYS) {
       const recs = p.data[k];
@@ -74,7 +76,7 @@ export function checkPlugins(raw: RawGameData, plugins: readonly Plugin[]): stri
 
 const NOUNS: Record<ListKey, string> = {
   ships: 'ships', outfits: 'outfits', commodities: 'commodities', systems: 'systems', planets: 'ports', governments: 'governments',
-  events: 'market events', missionTypes: 'mission types', encounters: 'encounters', story: 'story missions',
+  events: 'market events', missionTypes: 'mission types', encounters: 'encounters', story: 'story missions', arcs: 'story arcs',
 };
 
 /** "adds 2 ships, replaces 1 system" from the base data, for the Plug-ins screen. */

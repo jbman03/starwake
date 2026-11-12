@@ -17,6 +17,8 @@ import {
   PlanetSchema,
   ShipSchema,
   StoryMissionSchema,
+  ArcSchema,
+  BUILTIN_STORY_ARCS,
   SystemSchema,
   type CombatDef,
   type AudioDef,
@@ -109,6 +111,7 @@ interface Refs {
   commodities: Record<string, unknown>;
   missionTypes: Record<string, unknown>;
   ships: Record<string, { unique?: boolean; role?: string }>;
+  arcs: Record<string, unknown>;
 }
 
 /** Reference checks for one outcome; pushes a path-tagged issue for each unknown id. */
@@ -122,6 +125,13 @@ function checkOutcome(issues: string[], file: string, at: string, o: Outcome, r:
     for (const sid of o.systems ?? []) if (!(sid in r.systems)) issues.push(fmt(file, at, `unknown system "${sid}"`));
   if (o.type === 'standing' && !(o.government in r.governments))
     issues.push(fmt(file, at, `unknown government "${o.government}"`));
+  if (o.type === 'government') {
+    if (!(o.system in r.systems)) issues.push(fmt(file, at, `unknown system "${o.system}"`));
+    if (!(o.government in r.governments)) issues.push(fmt(file, at, `unknown government "${o.government}"`));
+  }
+  if (o.type === 'destroyPlanet' && !(o.planet in r.planets)) issues.push(fmt(file, at, `unknown planet "${o.planet}"`));
+  if (o.type === 'heat' && !(o.government in r.governments)) issues.push(fmt(file, at, `unknown government "${o.government}"`));
+  if ((o.type === 'arcPoints' || o.type === 'arcDone') && !(o.arc in r.arcs)) issues.push(fmt(file, at, `unknown arc "${o.arc}"`));
   if (o.type === 'escort' && (!(o.shipId in r.ships) || r.ships[o.shipId].unique || r.ships[o.shipId].role === 'fighter'))
     issues.push(fmt(file, at, `"${o.shipId}" is not a ship an escort can fly`));
 }
@@ -152,9 +162,13 @@ const KEYS = [
   'escorts',
   'factions',
   'fleet',
+  'arcs',
 ] as const;
 
-export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): GameData {
+/** Raw payloads to parse; `arcs` may be absent (no arcs). */
+export type ParseInput = Record<Exclude<(typeof KEYS)[number], 'arcs'>, unknown> & { arcs?: unknown };
+
+export function parseGameData(raw: ParseInput): GameData {
   const ships = parseList('ships.json', ShipSchema, raw.ships);
   const outfits = parseList('outfits.json', OutfitSchema, raw.outfits);
   const systems = parseList('systems.json', SystemSchema, raw.systems);
@@ -172,6 +186,27 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   const stf = z.object({ missions: z.array(z.unknown()) }).safeParse(raw.story);
   if (!stf.success) throw new DataError('story.json', zodIssues('story.json', '', stf.error));
   const story = parseList('story.json', StoryMissionSchema, stf.data.missions);
+
+  // data/arcs.json is optional in a raw payload (older test fixtures and plug-in bases have none).
+  const arf = z.object({ arcs: z.array(z.unknown()) }).safeParse(raw.arcs ?? { arcs: [] });
+  if (!arf.success) throw new DataError('arcs.json', zodIssues('arcs.json', '', arf.error));
+  const arcs = parseList('arcs.json', ArcSchema, arf.data.arcs);
+  const arcIssues: string[] = [];
+  for (const a of Object.values(arcs)) {
+    const entry = story[a.entry.mission];
+    if (!entry) arcIssues.push(fmt('arcs.json', `${a.id}.entry.mission`, `unknown story mission "${a.entry.mission}"`));
+    else if (entry.arc !== a.id) arcIssues.push(fmt('arcs.json', `${a.id}.entry.mission`, `"${entry.id}" belongs to arc "${entry.arc}", not "${a.id}"`));
+    if (a.ranks[0].points !== 0) arcIssues.push(fmt('arcs.json', `${a.id}.ranks.0.points`, 'the first rank starts at 0 points'));
+    a.ranks.forEach((rk, i) => {
+      if (i > 0 && rk.points <= a.ranks[i - 1].points) arcIssues.push(fmt('arcs.json', `${a.id}.ranks.${i}.points`, 'ranks must rise in points'));
+    });
+    if (!(a.government in governments)) arcIssues.push(fmt('arcs.json', `${a.id}.government`, `unknown government "${a.government}"`));
+    if (a.legacy.shipId !== undefined && !(a.legacy.shipId in ships)) arcIssues.push(fmt('arcs.json', `${a.id}.legacy.shipId`, `unknown ship "${a.legacy.shipId}"`));
+  }
+  for (const m of Object.values(story))
+    if (!(BUILTIN_STORY_ARCS as readonly string[]).includes(m.arc) && !(m.arc in arcs))
+      arcIssues.push(fmt('story.json', `${m.id}.arc`, `unknown arc "${m.arc}" (main, concord, reach, side or an arcs.json id)`));
+  if (arcIssues.length) throw new DataError('arcs.json', arcIssues);
 
   const cfg = ConfigSchema.safeParse(raw.config);
   if (!cfg.success) throw new DataError('config.json', zodIssues('config.json', '', cfg.error));
@@ -302,7 +337,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
           );
       }
   }
-  const partial = { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, escorts, factions, fleet } as GameData;
+  const partial = { arcs, ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, escorts, factions, fleet } as GameData;
   const items: { file: string; item: { id: string; techTier: number; soldBy?: string[] } }[] = [
     // Fighters only come from a carrier's bay, so no shipyard needs to sell one.
     ...Object.values(ships).filter((s) => s.role !== 'fighter').map((item) => ({ file: 'ships.json', item })),
@@ -367,7 +402,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   }
   if (eventIssues.length) throw new DataError('events.json', eventIssues);
 
-  const refs: Refs = { systems, planets, governments, commodities, missionTypes, ships };
+  const refs: Refs = { systems, planets, governments, commodities, missionTypes, ships, arcs };
   const encIssues: string[] = [];
   for (const e of Object.values(encounters)) {
     const w = e.when;
@@ -391,6 +426,12 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   const sf = 'story.json';
   // Every flag some outcome or hidden system can set; an offer may only mention these.
   const settable = new Set<string>(Object.values(systems).flatMap((sy) => (sy.unlockFlag ? [sy.unlockFlag] : [])));
+  // The arc engine sets these itself: the chosen arc, each rank reached and the arc finished.
+  for (const a of Object.values(arcs)) {
+    settable.add(`arc:${a.id}`);
+    settable.add(`arcdone:${a.id}`);
+    a.ranks.forEach((_, k) => settable.add(`${a.id}-rank-${k}`));
+  }
   const collect = (os: readonly Outcome[]) => {
     for (const o of os) if (o.type === 'flag' || o.type === 'unlock') settable.add(o.flag);
   };
@@ -398,7 +439,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   for (const m of Object.values(story)) {
     collect(m.onComplete);
     collect(m.onFail ?? []);
-    for (const st of m.steps) if (st.kind === 'meet') st.card.choices.forEach((c) => collect(c.outcomes));
+    for (const st of m.steps) if (st.kind === 'meet' || st.kind === 'decide') st.card.choices.forEach((c) => collect(c.outcomes));
   }
   // A choice gated on a flag must name one that something can set.
   const gate = (c: { needs?: { flag?: string } }, at: string) => {
@@ -407,7 +448,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   for (const e of Object.values(encounters)) e.choices.forEach((c, ci) => gate(c, `${e.id}.choices.${ci}`));
   for (const m of Object.values(story))
     m.steps.forEach((st, si) => {
-      if (st.kind === 'meet') st.card.choices.forEach((c, ci) => gate(c, `${m.id}.steps.${si}.card.choices.${ci}`));
+      if (st.kind === 'meet' || st.kind === 'decide') st.card.choices.forEach((c, ci) => gate(c, `${m.id}.steps.${si}.card.choices.${ci}`));
     });
   for (const m of Object.values(story)) {
     const unknownIn = (at: string, kind: string, v: string, set: Record<string, unknown>) => {
@@ -443,6 +484,8 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
         unknownIn(`${at}.ship.government`, 'government', st.ship.government, governments);
         if (ships[st.ship.shipId]?.unique)
           storyIssues.push(fmt(sf, `${m.id}.${at}.ship.shipId`, `ship "${st.ship.shipId}" is unique and cannot be met as an NPC`));
+      }
+      if (st.kind === 'meet' || st.kind === 'decide') {
         checkChoices(storyIssues, sf, `${m.id}.${at}.card`, st.card.choices, refs);
         st.card.choices.forEach((c, ci) =>
           c.outcomes.forEach((o, oi) => checkOutcome(storyIssues, sf, `${m.id}.${at}.card.choices.${ci}.outcomes.${oi}`, o, refs)),
@@ -550,7 +593,7 @@ export function parseGameData(raw: Record<(typeof KEYS)[number], unknown>): Game
   });
   if (fleetIssues.length) throw new DataError('fleet.json', fleetIssues);
 
-  return { ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, escorts, factions, fleet };
+  return { arcs, ships, outfits, systems, planets, governments, commodities, events, missionTypes, names, encounters, story, config, combat, audio, law, escorts, factions, fleet };
 }
 
 /** The raw payloads, one per data file, before validation. */
@@ -565,7 +608,7 @@ export async function loadGameData(
 
 /** The bundled data files as they are, unvalidated (plug-ins are applied to this). */
 export async function loadRawGameData(): Promise<RawGameData> {
-  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions, fleet] =
+  const [ships, systems, planets, config, governments, commodities, events, missionTypes, outfits, names, encounters, story, combat, audio, law, escorts, factions, fleet, arcs] =
     await Promise.all([
       import('../../data/ships.json'),
       import('../../data/systems.json'),
@@ -585,6 +628,7 @@ export async function loadRawGameData(): Promise<RawGameData> {
       import('../../data/escorts.json'),
       import('../../data/factions.json'),
       import('../../data/fleet.json'),
+      import('../../data/arcs.json'),
     ]);
   return {
     ships: ships.default,
@@ -605,5 +649,6 @@ export async function loadRawGameData(): Promise<RawGameData> {
     escorts: escorts.default,
     factions: factions.default,
     fleet: fleet.default,
+    arcs: arcs.default,
   };
 }

@@ -1400,3 +1400,73 @@ describe('port kinds match their descriptions (Nov 12 playtest: Pell read "Plane
     expect(wrong).toEqual([]);
   });
 });
+
+describe('story arcs (cycle 7)', () => {
+  const arc = (over: Record<string, unknown> = {}) => ({
+    id: 'alpha', title: 'Alpha', government: 'concord', blurb: 'An arc.',
+    entry: { mission: 'a1', lead: 'Someone waits at Halcyon.' },
+    ranks: [{ title: 'One', points: 0 }, { title: 'Two', points: 20 }],
+    legacy: { text: 'A perk.', credits: 100 },
+    ...over,
+  });
+  const mission = (over: Record<string, unknown> = {}) => ({
+    id: 'a1', arc: 'alpha', title: 'A1', giver: { name: 'G', title: 'T' },
+    offer: { where: 'bar', ports: ['halcyon'] }, text: 'Offer.', acceptText: 'Accept.', declinable: true,
+    steps: [{ kind: 'land', planet: 'merrow', text: 'Land.' }], onComplete: [],
+    ...over,
+  });
+  const withArc = (a = arc(), m = mission()) => {
+    const r = raw() as ReturnType<typeof raw> & { arcs: unknown };
+    r.arcs = { arcs: [a] };
+    r.story.missions.push(m);
+    return r;
+  };
+
+  it('a well-formed arc loads, with its mission tagged to it', () => {
+    const d = parseGameData(withArc() as any);
+    expect(d.arcs.alpha.title).toBe('Alpha');
+    expect(d.story.a1.arc).toBe('alpha');
+  });
+
+  it('an arc whose entry mission is missing or tagged with another arc is refused', () => {
+    expect(failure(withArc(arc({ entry: { mission: 'nope', lead: 'x' } }))).message).toContain('alpha');
+    expect(failure(withArc(arc(), mission({ arc: 'side' }))).message).toContain('alpha');
+  });
+
+  it('a story mission arc must be main, concord, reach, side or an arcs.json id', () => {
+    expect(failure(withArc(arc(), mission({ arc: 'zeta' }))).message).toContain('zeta');
+  });
+
+  it('ranks start at 0 points and rise', () => {
+    expect(failure(withArc(arc({ ranks: [{ title: 'One', points: 5 }] }))).message).toContain('alpha');
+    expect(failure(withArc(arc({ ranks: [{ title: 'One', points: 0 }, { title: 'Two', points: 0 }] }))).message).toContain('alpha');
+  });
+
+  it('outcomes naming an unknown system, planet, government or arc are refused', () => {
+    for (const [o, bad] of [
+      [{ type: 'government', system: 'nowhere', government: 'concord' }, 'nowhere'],
+      [{ type: 'government', system: 'calder', government: 'nobody' }, 'nobody'],
+      [{ type: 'destroyPlanet', planet: 'noplanet' }, 'noplanet'],
+      [{ type: 'heat', government: 'nobody', n: 10 }, 'nobody'],
+      [{ type: 'arcPoints', arc: 'zeta', n: 10 }, 'zeta'],
+      [{ type: 'arcDone', arc: 'zeta' }, 'zeta'],
+    ] as const)
+      expect(failure(withArc(arc(), mission({ onComplete: [o] }))).message, bad).toContain(bad);
+  });
+
+  it('a decide step and commit flags load', () => {
+    const card = { title: 'C', text: 'T', choices: [{ label: 'Yes', commit: true, outcomes: [{ type: 'arcPoints', arc: 'alpha', n: 5 }] }] };
+    const d = parseGameData(withArc(arc(), mission({ commit: true, steps: [{ kind: 'decide', planet: 'merrow', card, text: 'Decide.' }] })) as any);
+    const st = d.story.a1.steps[0];
+    expect(st.kind).toBe('decide');
+    expect(d.story.a1.commit).toBe(true);
+  });
+
+  it('a planet may carry appearsFlag, and a giver stranger', () => {
+    const r = withArc(arc(), mission({ giver: { name: 'G', title: 'T', stranger: true } }));
+    r.planets.find((p: { id: string }) => p.id === 'merrow').appearsFlag = 'some-flag';
+    const d = parseGameData(r as any);
+    expect(d.planets.merrow.appearsFlag).toBe('some-flag');
+    expect(d.story.a1.giver.stranger).toBe(true);
+  });
+});
