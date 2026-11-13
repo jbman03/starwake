@@ -77,5 +77,8 @@ export function arcRankLine(world: Pick<WorldState, 'flags' | 'arcPoints'>, data
 export function movePart1Defector(world: WorldState, data: GameData): WorldState {
   const f = world.flags;
   if (!data.arcs.rising || !f.includes(arcFlag('navy')) || !f.includes('navy-exposed') || f.includes('navy-done')) return world;
+  // Only a Part 1 save can be here: any Free Reach Rising flag means this pilot has already been through Part 2's rules
+  // (a Reach→Navy defector also holds arc:navy and, after a Navy expose before that, navy-exposed).
+  if (f.some((x) => x.startsWith('rising-')) || f.includes('navy-defector')) return world;
   return setFlag(switchArc(world, data, 'rising').world, 'rising-defector');
 }

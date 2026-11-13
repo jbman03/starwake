@@ -93,4 +93,14 @@ describe('Free Reach Rising arc', () => {
     const w = walk(RISING_OPEN, { 'rr3-picket-captain': 'Turn', 'rr5-price-of-lanterns': 'Have Ada Royce' });
     expect(chosenArc(w, data)).toBe('navy');
   });
+
+  it('review C1: a Navy→Reach defector is not offered RR1, and a Reach→Navy defector is not offered N1', async () => {
+    const { storyOffersAt } = await import('./storyMissions');
+    const navyDefector = walk(['n1-commission', 'n2-picket', 'n3-convoy', 'n4-ledger', 'n5-cold-cores'], { 'n3-convoy': 'Wave', 'n5-cold-cores': 'Expose' });
+    expect(storyOffersAt(navyDefector, data, 'dunmore-crossing').map((d) => d.id)).toEqual(['n6x-running-dark']);
+    expect(leads(navyDefector, data).some((l) => l.text.includes('A Free Hand'))).toBe(false);
+    const reachDefector = walk(RISING_OPEN, { 'rr5-price-of-lanterns': 'Take it to the Navy' });
+    expect(storyOffersAt(reachDefector, data, 'halcyon').map((d) => d.id)).not.toContain('n1-commission');
+    expect(leads(reachDefector, data).some((l) => l.text.includes('The Commission'))).toBe(false);
+  });
 });

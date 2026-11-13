@@ -102,6 +102,13 @@ describe('movePart1Defector (cycle 7 part 2)', () => {
     const once = movePart1Defector(exposed(data), data);
     expect(movePart1Defector(once, data)).toBe(once);
   });
+  it('review C1: a pilot who has already been in Free Reach Rising (any rising- flag) is never moved back on load', async () => {
+    const { movePart1Defector } = await import('./arcs');
+    const data = withRising();
+    const backToNavy = { ...newWorld(data, 1), flags: ['arc:navy', 'navy-exposed', 'navy-loyal', 'rising-1', 'rising-defector'], arcPoints: { navy: 37, rising: 75 } };
+    expect(movePart1Defector(backToNavy, data)).toBe(backToNavy);
+  });
+
   it('a Navy pilot who finished (navy-done) or stayed loyal is left alone; without the rising arc nothing moves', async () => {
     const { movePart1Defector } = await import('./arcs');
     const data = withRising();
