@@ -25,6 +25,7 @@ import {
   type RefuelQuote,
 } from './rules';
 import { worldStats } from './shipStats';
+import { yardFit } from './shipyard';
 import type { Assist, FlightInput, FrameInput, JumpPhase, ShipState, SimEvent, SiteTarget, WorldState } from './types';
 import { add, angleOf, fromAngle, len, norm, scale, sub, type Vec2 } from './vec';
 
@@ -115,7 +116,8 @@ export function applyLegacy(world: WorldState, data: GameData, arcsDone: readonl
     if (!perk) continue;
     if (perk.credits) w = { ...w, credits: w.credits + perk.credits };
     const hull = perk.shipId ? data.ships[perk.shipId] : undefined;
-    if (hull) w = { ...w, shipId: hull.id, crew: hull.crew, ship: { ...w.ship, fuel: hull.fuelCapacity } };
+    // The hull leaves the yard as a bought one would: its own name, its standard fit, a full tank and crew.
+    if (hull) w = { ...w, shipId: hull.id, shipName: hull.name, outfits: yardFit(data, hull.id), crew: hull.crew, ship: { ...w.ship, fuel: hull.fuelCapacity } };
     if (perk.flag && !w.flags.includes(perk.flag)) w = { ...w, flags: [...w.flags, perk.flag] };
   }
   return w;
