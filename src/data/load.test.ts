@@ -1453,6 +1453,7 @@ describe('story arcs (cycle 7)', () => {
       [{ type: 'heat', government: 'nobody', n: 10 }, 'nobody'],
       [{ type: 'arcPoints', arc: 'zeta', n: 10 }, 'zeta'],
       [{ type: 'arcDone', arc: 'zeta' }, 'zeta'],
+      [{ type: 'switchArc', to: 'zeta' }, 'zeta'],
     ] as const)
       expect(failure(withArc(arc(), mission({ onComplete: [o] }))).message, bad).toContain(bad);
   });

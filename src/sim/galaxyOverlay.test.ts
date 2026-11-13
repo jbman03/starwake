@@ -30,9 +30,9 @@ describe('applyGalaxy', () => {
     const open = applyGalaxy(withNew, { galaxy: empty, flags: ['opened'] });
     expect(open.planets['new-port']).toBeDefined();
   });
-  it('the shipped data hides Freehold Light until navy-freehold is set', () => {
+  it('the shipped data hides Freehold Light and the Hollis Market until their flags are set', () => {
     expect(applyGalaxy(shipped, { galaxy: empty, flags: [] }).planets['freehold-light']).toBeUndefined();
-    expect(applyGalaxy(shipped, { galaxy: empty, flags: ['navy-freehold'] })).toBe(shipped);
+    expect(applyGalaxy(shipped, { galaxy: empty, flags: ['navy-freehold', 'rising-market'] })).toBe(shipped);
   });
 
   it('returns the same object for the same changes', () => {

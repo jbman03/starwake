@@ -45,6 +45,22 @@ export function addArcPoints(world: WorldState, data: GameData, arcId: string, n
   return { world: w, promoted };
 }
 
+/**
+ * Switch sides: leave the taken arc for `to`, carrying half its points (the cost); the old arc's points stay as they
+ * were. Ranks the carried points reach in `to` set their flags and notes. With no arc taken it just takes `to`; a
+ * switch to the arc already taken changes nothing.
+ */
+export function switchArc(world: WorldState, data: GameData, to: string): { world: WorldState; promoted: string | null } {
+  const target = data.arcs[to];
+  const from = chosenArc(world, data);
+  if (!target || from === to) return { world, promoted: null };
+  let w: WorldState = { ...world, flags: world.flags.filter((f) => f !== (from ? arcFlag(from) : '')) };
+  w = setFlag(w, arcFlag(to));
+  w = addNote(w, `You have gone over to ${target.title}.`);
+  const carried = from ? Math.floor((world.arcPoints[from] ?? 0) / 2) : 0;
+  return carried > 0 ? addArcPoints(w, data, to, carried) : { world: w, promoted: null };
+}
+
 /** The pilot card's line for the taken arc: "<arc title>: <rank>", "(struck off)" once exposed. Null with no arc. */
 export function arcRankLine(world: Pick<WorldState, 'flags' | 'arcPoints'>, data: GameData): string | null {
   const id = chosenArc(world, data);
@@ -52,4 +68,17 @@ export function arcRankLine(world: Pick<WorldState, 'flags' | 'arcPoints'>, data
   const arc = data.arcs[id];
   const title = arc.ranks[arcRank(world, data, id)].title;
   return `${arc.title}: ${title}${world.flags.includes(`${id}-exposed`) ? ' (struck off)' : ''}`;
+}
+
+/**
+ * Part 1 saves (cycle 7 part 2): a Navy pilot who exposed the Navy but hadn't finished its old defector ending carries
+ * on into Free Reach Rising, as the new N5 choice now does. Applied on load; a second run changes nothing.
+ */
+export function movePart1Defector(world: WorldState, data: GameData): WorldState {
+  const f = world.flags;
+  if (!data.arcs.rising || !f.includes(arcFlag('navy')) || !f.includes('navy-exposed') || f.includes('navy-done')) return world;
+  // Only a Part 1 save can be here: any Free Reach Rising flag means this pilot has already been through Part 2's rules
+  // (a Reach→Navy defector also holds arc:navy and, after a Navy expose before that, navy-exposed).
+  if (f.some((x) => x.startsWith('rising-')) || f.includes('navy-defector')) return world;
+  return setFlag(switchArc(world, data, 'rising').world, 'rising-defector');
 }

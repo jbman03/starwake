@@ -595,3 +595,15 @@ describe('save v11', () => {
       expect(worldFromPilot(upgradeSave({ ...base(), galaxy: bad }), data).galaxy).toEqual({ governments: {}, destroyed: [] });
   });
 });
+
+describe('Part 1 defectors on load (cycle 7 part 2)', () => {
+  it('a v11 save of an exposed Navy pilot loads as a Free Reach Rising pilot', async () => {
+    const { withRising } = await import('../sim/arcsTestKit');
+    const d = withRising();
+    const w = { ...newWorld(d, 5), flags: ['arc:navy', 'navy-exposed'], arcPoints: { navy: 50 } };
+    const back = worldFromPilot(upgradeSave(JSON.parse(JSON.stringify(pilotFromWorld(w, start, { id: 'a', name: 'A' })))), d);
+    expect(back.flags).toContain('arc:rising');
+    expect(back.flags).not.toContain('arc:navy');
+    expect(back.arcPoints.rising).toBe(25);
+  });
+});

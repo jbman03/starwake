@@ -773,3 +773,20 @@ describe('applyLegacy (cycle 7)', () => {
     expect(w.flags).toContain('old-contact');
   });
 });
+
+describe('applyLegacy start hull (cycle 7 part 2)', () => {
+  it('a shipId perk gives the hull its name, its yard fit and no leftover outfits', async () => {
+    const { twoArcs } = await import('./arcsTestKit');
+    const { applyLegacy } = await import('./world');
+    const { tradeInValue, yardFit } = await import('./shipyard');
+    const d0 = twoArcs();
+    const d = { ...d0, arcs: { ...d0.arcs, alpha: { ...d0.arcs.alpha, legacy: { text: 'P.', shipId: 'courier' } } } };
+    const w = applyLegacy({ ...newWorld(d, 2), outfits: { 'leftover-thing': 1 } }, d, ['alpha']);
+    expect(w.shipId).toBe('courier');
+    expect(w.shipName).toBe(d.ships.courier.name);
+    expect(w.outfits).toEqual(yardFit(d, 'courier'));
+    expect(w.crew).toBe(d.ships.courier.crew);
+    expect(w.ship.fuel).toBe(d.ships.courier.fuelCapacity);
+    expect(tradeInValue(w, d)).toBeGreaterThan(0);
+  });
+});

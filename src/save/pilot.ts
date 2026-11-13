@@ -1,3 +1,4 @@
+import { movePart1Defector } from '../sim/arcs';
 import { z } from 'zod';
 import { StandingLevelSchema, type GameData } from '../data/schemas';
 import { ESCORT_ID_PREFIX } from '../sim/combat';
@@ -416,7 +417,8 @@ export function worldFromPilot(p: PilotSave, data: GameData): WorldState {
     arcPoints: { ...p.arcPoints },
     nemesis: { ...p.nemesis, defeats: Math.min(p.nemesis.defeats, data.fleet.nemesis.levels.length) },
   };
-  return { ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null };
+  // Part 1 Navy defectors carry on into Free Reach Rising (cycle 7 part 2); a no-op for everyone else.
+  return movePart1Defector({ ...departFrom(w, data, p.planetId), assist: { kind: 'none' }, jump: null, targetPlanetId: null }, data);
 }
 
 /**

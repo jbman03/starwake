@@ -131,6 +131,7 @@ function checkOutcome(issues: string[], file: string, at: string, o: Outcome, r:
   }
   if (o.type === 'destroyPlanet' && !(o.planet in r.planets)) issues.push(fmt(file, at, `unknown planet "${o.planet}"`));
   if (o.type === 'heat' && !(o.government in r.governments)) issues.push(fmt(file, at, `unknown government "${o.government}"`));
+  if (o.type === 'switchArc' && !(o.to in r.arcs)) issues.push(fmt(file, at, `unknown arc "${o.to}"`));
   if ((o.type === 'arcPoints' || o.type === 'arcDone') && !(o.arc in r.arcs)) issues.push(fmt(file, at, `unknown arc "${o.arc}"`));
   if (o.type === 'escort' && (!(o.shipId in r.ships) || r.ships[o.shipId].unique || r.ships[o.shipId].role === 'fighter'))
     issues.push(fmt(file, at, `"${o.shipId}" is not a ship an escort can fly`));

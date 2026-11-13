@@ -3,7 +3,7 @@ import { addArcPoints, arcLocked, arcRank, chosenArc } from './arcs';
 import { applyOutcomes } from './encounters';
 import { acceptStory, storyHailAt, storyOffersAt } from './storyMissions';
 import { newWorld } from './world';
-import { twoArcs } from './arcsTestKit';
+import { twoArcs, withRising } from './arcsTestKit';
 
 describe('arc lockout', () => {
   const data = twoArcs();
@@ -45,5 +45,78 @@ describe('arc points and ranks', () => {
     const r = applyOutcomes(newWorld(data, 1), data, [{ type: 'arcPoints', arc: 'alpha', n: 20 }, { type: 'arcDone', arc: 'alpha' }], 't', { npcName: '' });
     expect(r.messages).toContain('Promoted to Lieutenant (Alpha Arc).');
     expect(r.world.flags).toContain('arcdone:alpha');
+  });
+});
+
+describe('switchArc (cycle 7 part 2)', () => {
+  const data = twoArcs();
+  it('switchArc moves alpha to beta: flags swap, half the points carry, rank flags and the note', async () => {
+    const { switchArc } = await import('./arcs');
+    let w = acceptStory(newWorld(data, 1), data, 'alpha-1');
+    w = addArcPoints(w, data, 'alpha', 50).world;
+    const r = switchArc(w, data, 'beta');
+    expect(chosenArc(r.world, data)).toBe('beta');
+    expect(r.world.flags).not.toContain('arc:alpha');
+    expect(r.world.flags).toContain('arc:beta');
+    expect(r.world.arcPoints).toEqual({ alpha: 50, beta: 25 });
+    expect(r.world.flags).toContain('beta-rank-1');
+    expect(r.world.notes.map((n) => n.text)).toContain('You have gone over to Beta Arc.');
+  });
+  it('switchArc with no arc chosen sets the target and moves nothing', async () => {
+    const { switchArc } = await import('./arcs');
+    const r = switchArc(newWorld(data, 1), data, 'beta');
+    expect(chosenArc(r.world, data)).toBe('beta');
+    expect(r.world.arcPoints).toEqual({});
+  });
+  it('switchArc to the arc already chosen changes nothing', async () => {
+    const { switchArc } = await import('./arcs');
+    const w = acceptStory(newWorld(data, 1), data, 'alpha-1');
+    expect(switchArc(w, data, 'alpha').world).toBe(w);
+  });
+  it('the switchArc outcome promotes with a message', () => {
+    let w = acceptStory(newWorld(data, 1), data, 'alpha-1');
+    w = addArcPoints(w, data, 'alpha', 50).world;
+    const r = applyOutcomes(w, data, [{ type: 'switchArc', to: 'beta' }], 't', { npcName: '' });
+    expect(r.messages).toContain('Promoted to Lieutenant (Beta Arc).');
+    expect(chosenArc(r.world, data)).toBe('beta');
+  });
+  it('acceptStory refuses a mission of a locked arc', () => {
+    const w = acceptStory(newWorld(data, 1), data, 'alpha-1');
+    expect(acceptStory(w, data, 'beta-1')).toBe(w);
+  });
+});
+
+describe('movePart1Defector (cycle 7 part 2)', () => {
+  const exposed = (data: ReturnType<typeof withRising>) => ({ ...newWorld(data, 1), flags: ['arc:navy', 'navy-exposed', 'navy-rank-1', 'navy-rank-2'], arcPoints: { navy: 50 } });
+  it('a Part 1 exposed Navy pilot is moved to rising with half the points and rising-defector', async () => {
+    const { movePart1Defector } = await import('./arcs');
+    const data = withRising();
+    const w = movePart1Defector(exposed(data), data);
+    expect(chosenArc(w, data)).toBe('rising');
+    expect(w.arcPoints).toEqual({ navy: 50, rising: 25 });
+    expect(w.flags).toEqual(expect.arrayContaining(['rising-defector', 'rising-rank-1', 'navy-rank-2', 'navy-exposed']));
+  });
+  it('running it twice changes nothing more', async () => {
+    const { movePart1Defector } = await import('./arcs');
+    const data = withRising();
+    const once = movePart1Defector(exposed(data), data);
+    expect(movePart1Defector(once, data)).toBe(once);
+  });
+  it('review C1: a pilot who has already been in Free Reach Rising (any rising- flag) is never moved back on load', async () => {
+    const { movePart1Defector } = await import('./arcs');
+    const data = withRising();
+    const backToNavy = { ...newWorld(data, 1), flags: ['arc:navy', 'navy-exposed', 'navy-loyal', 'rising-1', 'rising-defector'], arcPoints: { navy: 37, rising: 75 } };
+    expect(movePart1Defector(backToNavy, data)).toBe(backToNavy);
+  });
+
+  it('a Navy pilot who finished (navy-done) or stayed loyal is left alone; without the rising arc nothing moves', async () => {
+    const { movePart1Defector } = await import('./arcs');
+    const data = withRising();
+    const done = { ...exposed(data), flags: [...exposed(data).flags, 'navy-done'] };
+    expect(movePart1Defector(done, data)).toBe(done);
+    const loyal = { ...exposed(data), flags: ['arc:navy', 'navy-loyal'] };
+    expect(movePart1Defector(loyal, data)).toBe(loyal);
+    const noRising = exposed(data);
+    expect(movePart1Defector(noRising, twoArcs())).toBe(noRising);
   });
 });
