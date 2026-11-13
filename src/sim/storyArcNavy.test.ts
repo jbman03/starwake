@@ -56,7 +56,7 @@ describe('Concord Navy arc', () => {
     expect(view.systems.wrenhold.government).toBe('concord');
   });
 
-  it('exposed path: N1 to N7X; the pilot is Hunted by the Concord; hollis is Free Reach; Freehold Light is in the view', () => {
+  it('exposed path: N1 to N7X now carries on into Free Reach Rising; Hunted by the Concord; hollis Free Reach; Freehold Light in the view', () => {
     expect(applyGalaxy(data, newWorld(data, 1)).planets['freehold-light']).toBeUndefined();
     const w = walk([...NAVY_OPEN, 'n6x-running-dark', 'n7x-lantern-fire'], { 'n3-convoy': 'Wave', 'n5-cold-cores': 'Expose' });
     expect(legalStatus(w, data, 'concord')).toBe('hunted');
@@ -64,8 +64,10 @@ describe('Concord Navy arc', () => {
     expect(view.systems.hollis.government).toBe('free-reach');
     expect(view.planets['freehold-light']?.systemId).toBe('hollis');
     expect(landingRefused(w, view, 'freehold-light')).toBe(false);
-    expect(w.flags).toEqual(expect.arrayContaining(['arcdone:navy', 'navy-done', 'navy-exposed']));
-    expect(w.arcPoints.navy).toBe(90);
+    expect(chosenArc(w, data)).toBe('rising');
+    expect(w.flags).toEqual(expect.arrayContaining(['navy-exposed', 'rising-defector', 'rising-line']));
+    expect(w.flags).not.toContain('arcdone:navy');
+    expect(w.arcPoints).toEqual({ navy: 50, rising: 65 });
   });
 
   it('each of the three convoy choices leads on to N4', () => {

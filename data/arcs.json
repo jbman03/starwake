@@ -31,6 +31,38 @@
         "text": "Navy veteran: your old commander sends 5,000 cr to every new pilot.",
         "credits": 5000
       }
+    },
+    {
+      "id": "rising",
+      "title": "Free Reach Rising",
+      "government": "free-reach",
+      "blurb": "Break the Concord's grip and open the lanes for the Free Reach.",
+      "entry": {
+        "mission": "rr1-free-hand",
+        "lead": "Organiser Mara Quell is looking for pilots at the Dunmore Crossing bar."
+      },
+      "ranks": [
+        {
+          "title": "Hand",
+          "points": 0
+        },
+        {
+          "title": "Agitator",
+          "points": 20
+        },
+        {
+          "title": "Organiser",
+          "points": 50
+        },
+        {
+          "title": "Speaker",
+          "points": 90
+        }
+      ],
+      "legacy": {
+        "text": "Reach friend: every new pilot starts in a Courier, a gift from the Compact.",
+        "shipId": "courier"
+      }
     }
   ]
 }
