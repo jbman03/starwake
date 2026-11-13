@@ -70,3 +70,32 @@ test.describe('phone landscape 812x375 planet screen (Nov 12 playtest)', () => {
     expect(errors).toEqual([]);
   });
 });
+
+for (const [width, height] of [[812, 375], [844, 390]] as const) {
+  test.describe(`phone landscape ${width}x${height} with the guide on (playtest: the guide bubble blocked the Mission Computer)`, () => {
+    test.use({ hasTouch: true, viewport: { width, height } });
+
+    test('every service button can be tapped with the guide bubble showing', async ({ page }) => {
+      const errors = trackErrors(page);
+      await newPilot(page, 'Guided', true);
+      const screen = page.getByTestId('planet-screen');
+      await expect(screen).toContainText('Step 1 of');
+      const rows = screen.getByTestId('planet-actions-list').locator('button');
+      const n = await rows.count();
+      expect(n).toBeGreaterThanOrEqual(7);
+      // The list keeps room for at least two rows beside the guide.
+      const list = (await screen.getByTestId('planet-actions-list').boundingBox())!;
+      expect(list.height).toBeGreaterThanOrEqual(88);
+      for (let i = 0; i < n; i++) {
+        await rows.nth(i).scrollIntoViewIfNeeded();
+        const r = (await rows.nth(i).boundingBox())!;
+        const name = await rows.nth(i).textContent();
+        const top = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.textContent ?? null, [r.x + r.width / 2, r.y + r.height / 2]);
+        expect(top, `${name} uncovered`).toBe(name);
+      }
+      await screen.getByRole('button', { name: /^Mission Computer/ }).tap();
+      await expect(page.getByTestId('mission-computer')).toBeVisible();
+      expect(errors).toEqual([]);
+    });
+  });
+}
