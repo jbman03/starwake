@@ -67,6 +67,7 @@ describe('How to Play', () => {
     expect(text('Missions')).toContain('closes the other arcs');
     expect(text('Missions')).toContain('Leads');
     expect(text('Missions')).toContain('every new pilot');
+    expect(text('Missions')).toContain('switch sides');
     expect(text('Planets & trade')).toContain('20 t');
   });
 
