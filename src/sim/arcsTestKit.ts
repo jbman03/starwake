@@ -49,3 +49,9 @@ export const decideMission = (): StoryMissionDef => ({
   ],
   onComplete: [{ type: 'credits', n: 100 }],
 });
+
+/** The shipped data (with its Navy arc) plus a fixture `rising` arc, as Part 2 adds. */
+export const withRising = (): GameData => {
+  const base = testData();
+  return { ...base, arcs: { ...base.arcs, rising: arc('rising', { title: 'Free Reach Rising', government: 'free-reach', ranks: [{ title: 'Hand', points: 0 }, { title: 'Agitator', points: 20 }, { title: 'Organiser', points: 50 }, { title: 'Speaker', points: 90 }] }) } };
+};

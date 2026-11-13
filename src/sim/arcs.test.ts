@@ -3,7 +3,7 @@ import { addArcPoints, arcLocked, arcRank, chosenArc } from './arcs';
 import { applyOutcomes } from './encounters';
 import { acceptStory, storyHailAt, storyOffersAt } from './storyMissions';
 import { newWorld } from './world';
-import { twoArcs } from './arcsTestKit';
+import { twoArcs, withRising } from './arcsTestKit';
 
 describe('arc lockout', () => {
   const data = twoArcs();
@@ -83,5 +83,33 @@ describe('switchArc (cycle 7 part 2)', () => {
   it('acceptStory refuses a mission of a locked arc', () => {
     const w = acceptStory(newWorld(data, 1), data, 'alpha-1');
     expect(acceptStory(w, data, 'beta-1')).toBe(w);
+  });
+});
+
+describe('movePart1Defector (cycle 7 part 2)', () => {
+  const exposed = (data: ReturnType<typeof withRising>) => ({ ...newWorld(data, 1), flags: ['arc:navy', 'navy-exposed', 'navy-rank-1', 'navy-rank-2'], arcPoints: { navy: 50 } });
+  it('a Part 1 exposed Navy pilot is moved to rising with half the points and rising-defector', async () => {
+    const { movePart1Defector } = await import('./arcs');
+    const data = withRising();
+    const w = movePart1Defector(exposed(data), data);
+    expect(chosenArc(w, data)).toBe('rising');
+    expect(w.arcPoints).toEqual({ navy: 50, rising: 25 });
+    expect(w.flags).toEqual(expect.arrayContaining(['rising-defector', 'rising-rank-1', 'navy-rank-2', 'navy-exposed']));
+  });
+  it('running it twice changes nothing more', async () => {
+    const { movePart1Defector } = await import('./arcs');
+    const data = withRising();
+    const once = movePart1Defector(exposed(data), data);
+    expect(movePart1Defector(once, data)).toBe(once);
+  });
+  it('a Navy pilot who finished (navy-done) or stayed loyal is left alone; without the rising arc nothing moves', async () => {
+    const { movePart1Defector } = await import('./arcs');
+    const data = withRising();
+    const done = { ...exposed(data), flags: [...exposed(data).flags, 'navy-done'] };
+    expect(movePart1Defector(done, data)).toBe(done);
+    const loyal = { ...exposed(data), flags: ['arc:navy', 'navy-loyal'] };
+    expect(movePart1Defector(loyal, data)).toBe(loyal);
+    const noRising = exposed(data);
+    expect(movePart1Defector(noRising, twoArcs())).toBe(noRising);
   });
 });

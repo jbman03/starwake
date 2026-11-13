@@ -69,3 +69,13 @@ export function arcRankLine(world: Pick<WorldState, 'flags' | 'arcPoints'>, data
   const title = arc.ranks[arcRank(world, data, id)].title;
   return `${arc.title}: ${title}${world.flags.includes(`${id}-exposed`) ? ' (struck off)' : ''}`;
 }
+
+/**
+ * Part 1 saves (cycle 7 part 2): a Navy pilot who exposed the Navy but hadn't finished its old defector ending carries
+ * on into Free Reach Rising, as the new N5 choice now does. Applied on load; a second run changes nothing.
+ */
+export function movePart1Defector(world: WorldState, data: GameData): WorldState {
+  const f = world.flags;
+  if (!data.arcs.rising || !f.includes(arcFlag('navy')) || !f.includes('navy-exposed') || f.includes('navy-done')) return world;
+  return setFlag(switchArc(world, data, 'rising').world, 'rising-defector');
+}
