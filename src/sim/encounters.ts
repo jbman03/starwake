@@ -4,7 +4,7 @@ import { cargoFree } from './cargo';
 import { HIDDEN_LANE_FLAG, hopDistance, revealOnArrival, revealWithin } from './galaxy';
 import { accept, buildOffer } from './missions';
 import { hashString, mulberry32, pick } from './random';
-import { addArcPoints, arcDoneFlag } from './arcs';
+import { addArcPoints, arcDoneFlag, switchArc } from './arcs';
 import { addHeat } from './law';
 import { addPoints } from './ranks';
 import { worldStats } from './shipStats';
@@ -254,6 +254,12 @@ export function applyOutcomes(
         const r = addArcPoints(w, data, o.arc, o.n);
         w = r.world;
         if (r.promoted) messages.push(`Promoted to ${r.promoted} (${data.arcs[o.arc].title}).`);
+        break;
+      }
+      case 'switchArc': {
+        const r = switchArc(w, data, o.to);
+        w = r.world;
+        if (r.promoted) messages.push(`Promoted to ${r.promoted} (${data.arcs[o.to].title}).`);
         break;
       }
       case 'arcDone':

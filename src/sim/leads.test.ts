@@ -42,3 +42,13 @@ describe('leads', () => {
     expect(l.why).toBe(`From ${formatDate(30, d.config)}`);
   });
 });
+
+describe('leads after a decline (cycle 7 part 2)', () => {
+  it('a declined arc entry keeps its arc lead that day', async () => {
+    const { declineStory } = await import('./storyMissions');
+    const data = twoArcs();
+    const w = declineStory(newWorld(data, 1), 'alpha-1');
+    const lead = leads(w, data).find((l) => l.kind === 'arc' && l.text.startsWith('alpha'));
+    expect(lead?.systemId).toBe('calder');
+  });
+});

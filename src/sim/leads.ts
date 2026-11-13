@@ -52,8 +52,10 @@ export function leads(world: WorldState, data: GameData): Lead[] {
   if (!arcTaken)
     for (const arc of Object.values(data.arcs)) {
       const entry = data.story[arc.entry.mission];
-      if (!entry || !conditionsMet(world, data, entry)) continue;
-      const port = ports.find((p) => offerable(world, data, entry, p.id));
+      // A decline puts the offer off till tomorrow, but the arc is still there to take: keep its lead.
+      const undeclined = { ...world, story: { ...world.story, declined: world.story.declined.filter((d) => d.split('@')[0] !== entry?.id) } };
+      if (!entry || !conditionsMet(undeclined, data, entry)) continue;
+      const port = ports.find((p) => offerable(undeclined, data, entry, p.id));
       out.push({ kind: 'arc', text: arc.entry.lead, why: `Story arc: ${arc.title}. Taking it closes the other arcs.`, systemId: port ? visible(port.systemId) : null });
     }
   return out;

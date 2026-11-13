@@ -232,6 +232,8 @@ export const OutcomeSchema = z.discriminatedUnion('type', [
   // Story arcs (data/arcs.json): rank points, and the arc finished (a legacy perk for later pilots).
   z.object({ type: z.literal('arcPoints'), arc: id, n: z.number().int().positive() }),
   z.object({ type: z.literal('arcDone'), arc: id }),
+  // Switch sides (cycle 7 part 2): leave the taken arc for `to`, carrying half its points.
+  z.object({ type: z.literal('switchArc'), to: id }),
 ]);
 
 const EncounterChoiceSchema = z.object({

@@ -47,3 +47,41 @@ describe('arc points and ranks', () => {
     expect(r.world.flags).toContain('arcdone:alpha');
   });
 });
+
+describe('switchArc (cycle 7 part 2)', () => {
+  const data = twoArcs();
+  it('switchArc moves alpha to beta: flags swap, half the points carry, rank flags and the note', async () => {
+    const { switchArc } = await import('./arcs');
+    let w = acceptStory(newWorld(data, 1), data, 'alpha-1');
+    w = addArcPoints(w, data, 'alpha', 50).world;
+    const r = switchArc(w, data, 'beta');
+    expect(chosenArc(r.world, data)).toBe('beta');
+    expect(r.world.flags).not.toContain('arc:alpha');
+    expect(r.world.flags).toContain('arc:beta');
+    expect(r.world.arcPoints).toEqual({ alpha: 50, beta: 25 });
+    expect(r.world.flags).toContain('beta-rank-1');
+    expect(r.world.notes.map((n) => n.text)).toContain('You have gone over to Beta Arc.');
+  });
+  it('switchArc with no arc chosen sets the target and moves nothing', async () => {
+    const { switchArc } = await import('./arcs');
+    const r = switchArc(newWorld(data, 1), data, 'beta');
+    expect(chosenArc(r.world, data)).toBe('beta');
+    expect(r.world.arcPoints).toEqual({});
+  });
+  it('switchArc to the arc already chosen changes nothing', async () => {
+    const { switchArc } = await import('./arcs');
+    const w = acceptStory(newWorld(data, 1), data, 'alpha-1');
+    expect(switchArc(w, data, 'alpha').world).toBe(w);
+  });
+  it('the switchArc outcome promotes with a message', () => {
+    let w = acceptStory(newWorld(data, 1), data, 'alpha-1');
+    w = addArcPoints(w, data, 'alpha', 50).world;
+    const r = applyOutcomes(w, data, [{ type: 'switchArc', to: 'beta' }], 't', { npcName: '' });
+    expect(r.messages).toContain('Promoted to Lieutenant (Beta Arc).');
+    expect(chosenArc(r.world, data)).toBe('beta');
+  });
+  it('acceptStory refuses a mission of a locked arc', () => {
+    const w = acceptStory(newWorld(data, 1), data, 'alpha-1');
+    expect(acceptStory(w, data, 'beta-1')).toBe(w);
+  });
+});

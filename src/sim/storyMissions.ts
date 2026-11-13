@@ -111,6 +111,7 @@ export function canAcceptStory(world: WorldState, data: GameData, id: string): S
 export function acceptStory(world: WorldState, data: GameData, id: string): WorldState {
   const def = data.story[id];
   if (!def || !canAcceptStory(world, data, id).ok) return world;
+  if (def.arc in data.arcs && arcLocked(world, data, def.arc)) return world; // another arc is taken
   const held: Mission[] = [];
   def.steps.forEach((s, i) => {
     if (!hasLoad(s)) return;

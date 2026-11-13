@@ -45,6 +45,22 @@ export function addArcPoints(world: WorldState, data: GameData, arcId: string, n
   return { world: w, promoted };
 }
 
+/**
+ * Switch sides: leave the taken arc for `to`, carrying half its points (the cost); the old arc's points stay as they
+ * were. Ranks the carried points reach in `to` set their flags and notes. With no arc taken it just takes `to`; a
+ * switch to the arc already taken changes nothing.
+ */
+export function switchArc(world: WorldState, data: GameData, to: string): { world: WorldState; promoted: string | null } {
+  const target = data.arcs[to];
+  const from = chosenArc(world, data);
+  if (!target || from === to) return { world, promoted: null };
+  let w: WorldState = { ...world, flags: world.flags.filter((f) => f !== (from ? arcFlag(from) : '')) };
+  w = setFlag(w, arcFlag(to));
+  w = addNote(w, `You have gone over to ${target.title}.`);
+  const carried = from ? Math.floor((world.arcPoints[from] ?? 0) / 2) : 0;
+  return carried > 0 ? addArcPoints(w, data, to, carried) : { world: w, promoted: null };
+}
+
 /** The pilot card's line for the taken arc: "<arc title>: <rank>", "(struck off)" once exposed. Null with no arc. */
 export function arcRankLine(world: Pick<WorldState, 'flags' | 'arcPoints'>, data: GameData): string | null {
   const id = chosenArc(world, data);
