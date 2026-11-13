@@ -159,3 +159,6 @@ and bar), exact credits within the balance test's cap, and the prose.
   Free Reach Rising. Pilots who already finished The Lantern Fire keep their Navy ending.
 - **The Navy defector's old ending (N7X) now carries on into RR6–RR7** instead of ending the Navy arc.
 - **Free Reach Rising's legacy perk is a Courier as the starting hull,** and the shipId perk is now complete.
+- **Part 1 defectors are moved at load time** (`worldFromPilot`), not by a v12 save migration. Save migrations
+  here are data-free, and this one needs the arcs' rank data. The save version stays 11, the result is the same,
+  and loading twice changes nothing more. (Planning call.)
