@@ -36,6 +36,9 @@ const REFUEL_REASON: Record<NonNullable<RefuelQuote['reason']>, string> = {
   noCredits: 'Not enough credits to buy fuel.',
 };
 
+/** Phone landscape, as the stylesheet's short-screen rules (max-height: 500px). */
+const SHORT_SCREEN = '(max-height: 500px)';
+
 /**
  * EV-style planet screen: picture, name, kind and tech tier, description, then credits, fuel
  * and a column of buttons for the port's services (Commodity Exchange, Mission Computer, Refuel) then
@@ -313,12 +316,24 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
   }
   render();
 
+  // The guide's callout sits above the buttons, except on a short (phone landscape) screen: there the buttons' column
+  // has no room to spare, so it goes under the port's description instead (playtest: on a phone the callout squeezed
+  // the service list to nothing and hid the Mission Computer).
+  const side = el('div', { class: 'sw-planet-side' }, [stats, hint.node, actions, status]);
+  const shortScreen = typeof window.matchMedia === 'function' ? window.matchMedia(SHORT_SCREEN) : null;
+  const placeHint = () => {
+    if (shortScreen?.matches) info.append(hint.node);
+    else side.insertBefore(hint.node, actions);
+  };
+  placeHint();
+  shortScreen?.addEventListener?.('change', placeHint); // older Safari lacks it: the placement then holds until the next screen
+
   const screen = el('div', { class: 'sw-screen sw-planet-screen', attrs: { 'data-testid': 'planet-screen' } }, [
     el('div', { class: 'sw-panel sw-planet-frame' }, [
       mapCornerButton(ctx, () => ctx.go.planet(planetId)),
       picture,
       info,
-      el('div', { class: 'sw-planet-side' }, [stats, hint.node, actions, status]),
+      side,
     ]),
   ]);
 
@@ -344,6 +359,7 @@ export function showPlanetScreen(ctx: UiContext, planetId: string, notice?: stri
       else if (pressed.has('refuel') && (controller.refuelQuote()?.units ?? 0) > 0) refuel();
     },
     cleanup: () => {
+      shortScreen?.removeEventListener?.('change', placeHint);
       stopCount();
       offSaved();
       offMessage();
