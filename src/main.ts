@@ -7,7 +7,7 @@ import { Controller } from './app/controller';
 import { WakeLockManager, vibrateIfEnabled, type WakeLockApi } from './app/device';
 import { installTestHook, testFlags } from './app/testHook';
 import { createUpdateGate } from './app/updateGate';
-import { installZoomBlock, restoreViewport, type GuardWindow } from './app/viewportGuard';
+import { installZoomBlock, fitToScreen, restoreViewport, type GuardWindow, type ScreenWindow } from './app/viewportGuard';
 import { DataError } from './data/load';
 import { bootData } from './plugins/boot';
 import { PluginStore } from './plugins/store';
@@ -157,9 +157,28 @@ async function boot(): Promise<void> {
   // iPhone browsers can leave the page zoomed or scrolled after a planet screen; the canvas can't
   // undo that, so block page zoom and put the page back whenever flight resumes or the page moves.
   installZoomBlock(window as unknown as GuardWindow);
-  const restore = () => restoreViewport(window as unknown as GuardWindow, () => game.scale.refresh());
+  // refresh() alone reuses the size Phaser last cached for the container; re-read it first, or a stale portrait size
+  // sticks (playtest, Nov 14: the ship at the bottom of the screen after a rotation while paused).
+  const remeasure = () => {
+    game.scale.getParentBounds();
+    game.scale.refresh();
+  };
+  const restore = () => restoreViewport(window as unknown as GuardWindow, remeasure);
+  // Keep the game the size of the visible screen, paused or not: WebKit can leave the full-screen container at its
+  // portrait size after a rotation, and it settles late, so look again shortly after each change.
+  const gameEl = document.getElementById('game')!;
+  const fit = () => fitToScreen(window as unknown as ScreenWindow, gameEl, remeasure);
+  const fitSoon = () => {
+    fit();
+    for (const ms of [150, 600]) setTimeout(fit, ms);
+  };
+  window.addEventListener('resize', fitSoon);
+  window.addEventListener('orientationchange', fitSoon);
+  window.visualViewport?.addEventListener('resize', fitSoon);
   controller.on('flying', (e) => {
-    if (e.flying) restore();
+    if (!e.flying) return;
+    restore();
+    fitSoon();
   });
   window.visualViewport?.addEventListener('resize', () => controller.isFlying && restore());
   window.visualViewport?.addEventListener('scroll', () => controller.isFlying && restore());

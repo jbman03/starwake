@@ -99,3 +99,37 @@ for (const [width, height] of [[812, 375], [844, 390]] as const) {
     });
   });
 }
+
+test.describe('phone: rotating while paused (playtest: the ship sat at the bottom of the screen afterwards)', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 844, height: 390 } });
+
+  test('after a rotation that leaves the game container at its portrait height, resuming puts the ship back in the centre', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Rotator');
+    await leavePlanet(page);
+    await page.evaluate(() => window.__starwake!.controller.pauseFlight());
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(300);
+    await page.setViewportSize({ width: 844, height: 390 });
+    // WebKit can leave the full-screen container at its portrait size after a rotation (Chromium never does): simulate it.
+    await page.evaluate(() => {
+      const g = document.getElementById('game')!;
+      g.style.bottom = 'auto';
+      g.style.height = '844px';
+      window.dispatchEvent(new Event('resize'));
+    });
+    await page.waitForTimeout(700);
+    await page.evaluate(() => window.__starwake!.controller.startFlight());
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const cam = window.__starwake!.cameraViewport!();
+          const c = document.querySelector('canvas')!.getBoundingClientRect();
+          return Math.round(Math.abs(c.y + cam.y + cam.h / 2 - innerHeight / 2));
+        }),
+      )
+      .toBeLessThanOrEqual(2);
+    expect(await page.evaluate(() => Math.round(document.querySelector('canvas')!.getBoundingClientRect().height))).toBe(390);
+    expect(errors).toEqual([]);
+  });
+});

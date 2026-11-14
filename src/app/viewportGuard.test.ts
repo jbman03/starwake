@@ -84,3 +84,29 @@ describe('installZoomBlock', () => {
     expect(one.preventDefault).not.toHaveBeenCalled();
   });
 });
+
+describe('fitToScreen (playtest: a rotation left the game at its portrait height)', () => {
+  const el = () => ({ style: {} as Record<string, string>, getBoundingClientRect: () => ({ width: 390, height: 844 }) });
+  it('sizes the game container to the visible screen and refreshes the game when it was off', async () => {
+    const { fitToScreen } = await import('./viewportGuard');
+    const g = el();
+    const refresh = vi.fn();
+    expect(fitToScreen({ visualViewport: { width: 844, height: 390 }, innerWidth: 844, innerHeight: 390 }, g, refresh)).toBe(true);
+    expect(g.style.width).toBe('844px');
+    expect(g.style.height).toBe('390px');
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+  it('does nothing when the container already matches', async () => {
+    const { fitToScreen } = await import('./viewportGuard');
+    const g = { style: {} as Record<string, string>, getBoundingClientRect: () => ({ width: 844, height: 390 }) };
+    const refresh = vi.fn();
+    expect(fitToScreen({ visualViewport: { width: 844, height: 390 }, innerWidth: 844, innerHeight: 390 }, g, refresh)).toBe(false);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+  it('falls back to the window size without a visual viewport', async () => {
+    const { fitToScreen } = await import('./viewportGuard');
+    const g = el();
+    fitToScreen({ visualViewport: null, innerWidth: 844, innerHeight: 390 }, g, () => {});
+    expect(g.style.height).toBe('390px');
+  });
+});

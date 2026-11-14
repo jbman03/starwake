@@ -61,3 +61,34 @@ export function installZoomBlock(w: GuardWindow): void {
     { passive: false },
   );
 }
+
+/** The slice of `window` that fitToScreen reads (a fake in tests). */
+export interface ScreenWindow {
+  visualViewport: { width: number; height: number; scale?: number } | null;
+  innerWidth: number;
+  innerHeight: number;
+}
+
+/**
+ * Size the game's container to the visible screen, in px, and let the game re-measure when it was off. The container
+ * is `position: fixed; inset: 0`, but WebKit can leave such an element at its portrait size after a rotation (seen
+ * while paused on the pause menu): the canvas then stays tall and the ship sits at the bottom of the screen
+ * (playtest, Nov 14). Returns whether it acted.
+ */
+export function fitToScreen(
+  w: ScreenWindow,
+  el: { style: { width?: string; height?: string }; getBoundingClientRect(): { width: number; height: number } },
+  refreshGame: () => void,
+): boolean {
+  const vv = w.visualViewport;
+  // A zoomed page shrinks the visual viewport; restoreViewport undoes the zoom, so size from the window meanwhile.
+  const useVv = !!vv && Math.abs((vv.scale ?? 1) - 1) <= 0.01;
+  const width = Math.round(useVv ? vv!.width : w.innerWidth);
+  const height = Math.round(useVv ? vv!.height : w.innerHeight);
+  const r = el.getBoundingClientRect();
+  if (Math.round(r.width) === width && Math.round(r.height) === height) return false;
+  el.style.width = `${width}px`;
+  el.style.height = `${height}px`;
+  refreshGame();
+  return true;
+}
