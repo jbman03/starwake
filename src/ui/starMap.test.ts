@@ -333,3 +333,32 @@ describe('danger on the map (playtest)', () => {
     for (const n of m.nodes) expect(n.danger === null).toBe(n.state === 'unknown');
   });
 });
+
+describe('active jobs on the map (Nov 21)', () => {
+  const job = (id: string, destId: string, title: string): Mission => ({
+    id, typeId: 'cargo', originId: 'halcyon', destId, tons: 1, passengers: 0, pay: 100, paidUpfront: false, deadlineDay: null, title, description: '', cargoName: 'goods',
+  });
+  it('two jobs to one system: jobs 2 on that node, two entries in activeJobs', async () => {
+    const { activeJobs } = await import('./starMap');
+    const w = { ...world(), missions: [job('a', 'vanterre', 'Bolts to Vanterre'), job('b', 'glasshouse', 'Seeds to Glasshouse')] };
+    const node = mapModel(w, data).nodes.find((n) => n.id === 'tessaly')!;
+    expect(node.jobs).toBe(2);
+    expect(node.flag).toBe(true);
+    expect(mapModel(w, data).nodes.find((n) => n.id === 'calder')!.jobs).toBe(0);
+    expect(activeJobs(w, data)).toEqual([
+      { title: 'Bolts to Vanterre', systemId: 'tessaly' },
+      { title: 'Seeds to Glasshouse', systemId: 'tessaly' },
+    ]);
+  });
+  it('a story step in a hidden system: no job count there, entry systemId null; story comes first', async () => {
+    const { activeJobs } = await import('./starMap');
+    const quiet = { ...data.story['m1-lights-out'], id: 'h1', title: 'Quiet Water', steps: [{ kind: 'go' as const, system: 'hushwater', text: 'Find the quiet water.' }] };
+    const d = { ...data, story: { ...data.story, h1: quiet } };
+    const w = { ...newWorld(d, 1), missions: [job('a', 'vanterre', 'Bolts to Vanterre')], story: { ...newWorld(d, 1).story, active: [{ id: 'h1', step: 0, deadlineDay: null }] } };
+    expect(mapModel(w, d).nodes.some((n) => n.id === 'hushwater')).toBe(false);
+    expect(activeJobs(w, d)).toEqual([
+      { title: 'Quiet Water', systemId: null },
+      { title: 'Bolts to Vanterre', systemId: 'tessaly' },
+    ]);
+  });
+});

@@ -5,7 +5,7 @@ import { fuelCheck, lanesOf, routeBetween, systemOpen, visibleSystems } from '..
 import { missionSystem } from '../sim/combatMissions';
 import { jobMissions } from '../sim/missions';
 import type { WorldState } from '../sim/types';
-import { storyDestinations } from '../sim/storyMissions';
+import { stepSystem } from '../sim/storyMissions';
 import { setRoute } from '../sim/world';
 import type { UiContext } from './context';
 import { button, el, hotkeyFor } from './dom';
@@ -43,6 +43,8 @@ export interface MapNode {
   current: boolean;
   /** A mission's (job or story step) destination is in this system. */
   flag: boolean;
+  /** How many of your jobs and story steps lead here (drawn as a ring, with a count when more than one). */
+  jobs: number;
   /** Raider danger, shown for known and seen systems (null when unknown). */
   danger: Danger | null;
 }
@@ -58,12 +60,25 @@ function stateOf(world: WorldState, id: string): SystemState {
   return world.seen.includes(id) ? 'seen' : 'unknown';
 }
 
+/**
+ * Your active missions, for the map's "Your jobs" list and its rings: story missions first (their current step's
+ * system), then jobs. `systemId` is null while that system isn't on your chart yet (a hidden one).
+ */
+export function activeJobs(world: WorldState, data: GameData): { title: string; systemId: string | null }[] {
+  const open = (id: string | undefined) => (id && data.systems[id] && systemOpen(data.systems[id], world.flags) ? id : null);
+  const story = world.story.active.flatMap((a) => {
+    const def = data.story[a.id];
+    const step = def?.steps[a.step];
+    return def && step ? [{ title: def.title, systemId: open(stepSystem(step, data)) }] : [];
+  });
+  const jobs = jobMissions(world).map((m) => ({ title: m.title, systemId: open(missionSystem(m, data)) }));
+  return [...story, ...jobs];
+}
+
 /** What the star map draws: systems by exploration state, the lanes you know of, mission flags. */
 export function mapModel(world: WorldState, data: GameData): MapModel {
-  const flagged = new Set([
-    ...jobMissions(world).map((m) => missionSystem(m, data)).filter((id): id is string => id !== undefined),
-    ...storyDestinations(world, data),
-  ]);
+  const count = new Map<string, number>();
+  for (const j of activeJobs(world, data)) if (j.systemId) count.set(j.systemId, (count.get(j.systemId) ?? 0) + 1);
   const nodes: MapNode[] = visibleSystems(data, world.flags).map((s) => {
     const state = stateOf(world, s.id);
     return {
@@ -74,7 +89,8 @@ export function mapModel(world: WorldState, data: GameData): MapModel {
       x: s.mapPos.x,
       y: s.mapPos.y,
       current: s.id === world.systemId,
-      flag: flagged.has(s.id),
+      flag: (count.get(s.id) ?? 0) > 0,
+      jobs: count.get(s.id) ?? 0,
       danger: state === 'unknown' ? null : dangerOf(data, s.id),
     };
   });
