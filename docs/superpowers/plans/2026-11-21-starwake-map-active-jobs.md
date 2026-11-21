@@ -11,7 +11,7 @@
 
 ## Global Constraints
 
-- **Job colour:** the existing flag yellow, `#ffd166`.
+- **Job colour:** bright lime `#9cff57` (changed from flag yellow while building: independent systems are drawn in a near-identical gold).
 - **Legend:** bottom-left, text "◯ Your jobs ▲ Raiders", shown only with at least one job.
 - **List:** story missions first, then jobs; row text "<title> → <system name>", or "→ ?" when not visible.
 - **Touch targets:** at least 44 px; the existing map fit e2e checks must still pass.

@@ -382,6 +382,38 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
   });
   const closeBtn = button('Close', close, { class: 'sw-btn-primary', hotkey: hotkeyFor(controller.settings.bindings, closeAction) });
 
+  // "Your jobs": each active mission and where it leads; a tap selects that system (Set course is then one tap away).
+  const jobsBox = el('section', { class: 'sw-map-jobs', attrs: { 'data-testid': 'map-jobs' } });
+  const legend = el('div', { class: 'sw-map-legend', attrs: { 'data-testid': 'map-legend', 'aria-hidden': 'true' } }, [
+    el('span', { class: 'sw-map-legend-job', text: '◯' }),
+    el('span', { text: ' Your jobs ' }),
+    el('span', { class: 'sw-map-legend-danger', text: '▲' }),
+    el('span', { text: ' Raiders' }),
+  ]);
+  const renderJobs = (world: WorldState) => {
+    const jobs = activeJobs(world, data);
+    jobsBox.replaceChildren(
+      ...(jobs.length === 0
+        ? []
+        : [
+            el('h2', { text: 'Your jobs' }),
+            ...jobs.map((j) => {
+              const where = j.systemId ? data.systems[j.systemId].name : '?';
+              const b = el('button', { class: 'sw-map-job-row', text: `${j.title} → ${where}`, attrs: { type: 'button' }, onClick: () => j.systemId && select(j.systemId) });
+              (b as HTMLButtonElement).disabled = !j.systemId;
+              return b;
+            }),
+          ]),
+    );
+    if (jobs.length === 0) {
+      jobsBox.remove();
+      legend.remove();
+    } else {
+      if (info.parentNode && jobsBox.parentNode !== info.parentNode) info.before(jobsBox);
+      if (root.parentNode && legend.parentNode !== root.parentNode) root.after(legend);
+    }
+  };
+
   const select = (id: string) => {
     if (dragged) return; // the press was a pan, not a pick
     selected = id;
@@ -425,9 +457,16 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
         if (n.state === 'known') dot.style.fill = n.color;
         if (n.state !== 'unknown') dot.style.stroke = n.color;
         g.append(dot);
-        if (n.flag) g.append(svg('path', { d: 'M8 -8 V-24 L19 -19.5 L8 -15', class: 'sw-map-flag' }));
-        // A small warning triangle beside raider-heavy systems (red: high, amber: medium).
-        if (n.danger === 'high' || n.danger === 'med') g.append(svg('path', { d: 'M-15 6 L-9 -4 L-3 6 Z', class: `sw-map-danger sw-map-danger-${n.danger}` }));
+        // Your jobs lead here: a bright ring, with a count when more than one (playtest Nov 21: the old tiny flag was
+        // lost among the danger triangles).
+        if (n.jobs > 0) g.append(svg('circle', { r: 16, class: 'sw-map-job-halo' }), svg('circle', { r: 13, class: 'sw-map-job' }));
+        if (n.jobs > 1) {
+          const badge = svg('g', { class: 'sw-map-jobcount', transform: 'translate(14 8)' });
+          badge.append(svg('circle', { r: 7 }), svg('text', { y: 3.5 }, String(n.jobs)));
+          g.append(badge);
+        }
+        // A small, quiet warning triangle beside raider-heavy systems (red: high, amber: medium).
+        if (n.danger === 'high' || n.danger === 'med') g.append(svg('path', { d: 'M-13 5 L-9 -2 L-5 5 Z', class: `sw-map-danger sw-map-danger-${n.danger}` }));
         if (n.name !== null) g.append(svg('text', { y: LABEL_Y, class: 'sw-map-name' }, n.name));
         g.addEventListener('click', () => select(n.id));
         g.addEventListener('keydown', (e) => {
@@ -446,6 +485,7 @@ export function showStarMap(ctx: UiContext, opts: { onClose?: () => void; initia
   function render(): void {
     const world = controller.world;
     drawNodes(world);
+    renderJobs(world);
 
     // Plotted course (faint), then the selected system's route: solid while the fuel lasts.
     const summary = routeSummary(world, data, selected, { anyLane: preview?.systemId === selected });

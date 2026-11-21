@@ -17,7 +17,7 @@ existing Star Map (`src/ui/starMap.ts`, `styles.css`), with no new screens.
 **Non-goals:** changes in flight or to the HUD, and changing how danger is computed.
 
 **Builder's calls:**
-- **Badge and ring colours:** the existing flag yellow (#ffd166).
+- **Badge and ring colours:** bright lime (#9cff57). Changed from the flag yellow while building, because independent systems are drawn in a near-identical gold and looked like jobs.
 - **Legend position:** bottom-left, clear of the bottom-right zoom buttons.
 - **List order:** story missions first, then jobs.
 - **List row text:** "<title> → <system>", or "→ ?" when the system isn't visible yet.

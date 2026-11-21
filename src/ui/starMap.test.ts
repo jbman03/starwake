@@ -362,3 +362,51 @@ describe('active jobs on the map (Nov 21)', () => {
     ]);
   });
 });
+
+describe('showStarMap: your jobs (Nov 21)', () => {
+  afterEach(() => document.body.replaceChildren());
+  const job = (id: string, destId: string, title: string): Mission => ({
+    id, typeId: 'cargo', originId: 'halcyon', destId, tons: 1, passengers: 0, pay: 100, paidUpfront: false, deadlineDay: null, title, description: '', cargoName: 'goods',
+  });
+  function open(missions: Mission[]) {
+    const c = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget(), { ...world(), missions });
+    const root = document.createElement('div');
+    document.body.append(root);
+    const ctx = {
+      root, controller: c, store: {} as PilotStore,
+      inputMode: new InputMode(new EventTarget(), () => DEFAULT_SETTINGS.bindings, 'keyboard'),
+      planetImage: () => null,
+      mount: (node: HTMLElement) => root.replaceChildren(node),
+      unmount: () => root.replaceChildren(),
+      go: { mainMenu() {}, planet() {}, pause() {}, map() {} },
+    } as unknown as UiContext;
+    showStarMap(ctx, {});
+    return root;
+  }
+
+  it('a job destination gets a ring and a count badge, the legend shows, and a "Your jobs" row selects its system', () => {
+    const root = open([job('a', 'vanterre', 'Bolts to Vanterre'), job('b', 'glasshouse', 'Seeds to Glasshouse')]);
+    const node = root.querySelector('[data-system="tessaly"]')!;
+    expect(node.querySelector('.sw-map-job')).not.toBeNull();
+    expect(node.querySelector('.sw-map-jobcount')?.textContent).toBe('2');
+    expect(root.querySelector('.sw-map-flag')).toBeNull();
+    expect(root.querySelector('[data-testid="map-legend"]')?.textContent).toContain('Your jobs');
+    const list = root.querySelector('[data-testid="map-jobs"]')!;
+    expect(list.textContent).toContain('Your jobs');
+    const rows = [...list.querySelectorAll('button')];
+    expect(rows.map((b) => b.textContent)).toEqual(['Bolts to Vanterre → Tessaly', 'Seeds to Glasshouse → Tessaly']);
+    rows[0].click();
+    expect(root.querySelector('[data-testid="map-info"]')!.textContent).toContain('Tessaly');
+    expect(root.querySelector('[data-system="tessaly"]')!.classList.contains('sw-map-selected')).toBe(true);
+  });
+
+  it('no legend and no list without jobs; a single job has a ring but no badge', () => {
+    const none = open([]);
+    expect(none.querySelector('[data-testid="map-legend"]')).toBeNull();
+    expect(none.querySelector('[data-testid="map-jobs"]')).toBeNull();
+    document.body.replaceChildren();
+    const one = open([job('a', 'vanterre', 'Bolts to Vanterre')]);
+    expect(one.querySelector('[data-system="tessaly"] .sw-map-job')).not.toBeNull();
+    expect(one.querySelector('.sw-map-jobcount')).toBeNull();
+  });
+});

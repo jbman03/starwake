@@ -215,8 +215,20 @@
 .sw-map-prev { fill: none; stroke: var(--sw-accent); stroke-width: 1; opacity: 0.6; }
 .sw-map-preview-label { margin: 0 0 6px; color: var(--sw-accent); font-weight: 600; }
 .sw-map-sys:focus-visible .sw-map-hit { stroke: var(--sw-accent); stroke-width: 1.5; }
-.sw-map-flag { fill: #ffd166; stroke: #ffd166; stroke-width: 1.5; stroke-linejoin: round; }
-.sw-map-danger { stroke-width: 1; stroke-linejoin: round; pointer-events: none; }
+.sw-map-danger { stroke-width: 1; stroke-linejoin: round; pointer-events: none; opacity: 0.6; }
+/* Your jobs (Nov 21): a bright ring round the destination, a count badge, a legend and a list in the side panel. */
+.sw-map-job { fill: none; stroke: #9cff57; stroke-width: 2.5; pointer-events: none; }
+.sw-map-job-halo { fill: none; stroke: #9cff57; stroke-width: 5; opacity: 0.25; pointer-events: none; }
+.sw-map-jobcount { pointer-events: none; }
+.sw-map-jobcount circle { fill: #9cff57; }
+.sw-map-jobcount text { fill: #02040a; font: 700 10px var(--sw-font); text-anchor: middle; }
+.sw-map-legend { position: absolute; left: 8px; bottom: 6px; padding: 3px 8px; border-radius: 3px; background: rgba(2, 4, 10, 0.75); color: var(--sw-dim); font-size: 12px; pointer-events: none; }
+.sw-map-legend-job { color: #9cff57; font-weight: 700; }
+.sw-map-legend-danger { color: #f0a040; }
+.sw-map-jobs { display: flex; flex-direction: column; gap: 4px; flex: none; max-height: 34vh; overflow-y: auto; }
+.sw-map-jobs h2 { margin: 0; font-size: 12px; color: var(--sw-accent); text-transform: uppercase; letter-spacing: 0.08em; }
+.sw-map-job-row { min-height: 44px; padding: 4px 10px; border: 1px solid var(--sw-border); border-left: 3px solid #9cff57; border-radius: 3px; background: var(--sw-panel-2); color: var(--sw-text); font: 13px var(--sw-font); text-align: left; cursor: pointer; }
+.sw-map-job-row:disabled { border-left-color: var(--sw-border); color: var(--sw-dim); cursor: default; }
 .sw-map-danger-high { fill: #ff5d5d; stroke: #ff5d5d; }
 .sw-map-danger-med { fill: #f0a040; stroke: #f0a040; }
 .sw-map-name { fill: var(--sw-text); font: 13px var(--sw-font); text-anchor: middle; paint-order: stroke; stroke: #02040a; stroke-width: 3px; }
