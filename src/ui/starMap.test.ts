@@ -333,3 +333,80 @@ describe('danger on the map (playtest)', () => {
     for (const n of m.nodes) expect(n.danger === null).toBe(n.state === 'unknown');
   });
 });
+
+describe('active jobs on the map (Nov 21)', () => {
+  const job = (id: string, destId: string, title: string): Mission => ({
+    id, typeId: 'cargo', originId: 'halcyon', destId, tons: 1, passengers: 0, pay: 100, paidUpfront: false, deadlineDay: null, title, description: '', cargoName: 'goods',
+  });
+  it('two jobs to one system: jobs 2 on that node, two entries in activeJobs', async () => {
+    const { activeJobs } = await import('./starMap');
+    const w = { ...world(), missions: [job('a', 'vanterre', 'Bolts to Vanterre'), job('b', 'glasshouse', 'Seeds to Glasshouse')] };
+    const node = mapModel(w, data).nodes.find((n) => n.id === 'tessaly')!;
+    expect(node.jobs).toBe(2);
+    expect(node.flag).toBe(true);
+    expect(mapModel(w, data).nodes.find((n) => n.id === 'calder')!.jobs).toBe(0);
+    expect(activeJobs(w, data)).toEqual([
+      { title: 'Bolts to Vanterre', systemId: 'tessaly' },
+      { title: 'Seeds to Glasshouse', systemId: 'tessaly' },
+    ]);
+  });
+  it('a story step in a hidden system: no job count there, entry systemId null; story comes first', async () => {
+    const { activeJobs } = await import('./starMap');
+    const quiet = { ...data.story['m1-lights-out'], id: 'h1', title: 'Quiet Water', steps: [{ kind: 'go' as const, system: 'hushwater', text: 'Find the quiet water.' }] };
+    const d = { ...data, story: { ...data.story, h1: quiet } };
+    const w = { ...newWorld(d, 1), missions: [job('a', 'vanterre', 'Bolts to Vanterre')], story: { ...newWorld(d, 1).story, active: [{ id: 'h1', step: 0, deadlineDay: null }] } };
+    expect(mapModel(w, d).nodes.some((n) => n.id === 'hushwater')).toBe(false);
+    expect(activeJobs(w, d)).toEqual([
+      { title: 'Quiet Water', systemId: null },
+      { title: 'Bolts to Vanterre', systemId: 'tessaly' },
+    ]);
+  });
+});
+
+describe('showStarMap: your jobs (Nov 21)', () => {
+  afterEach(() => document.body.replaceChildren());
+  const job = (id: string, destId: string, title: string): Mission => ({
+    id, typeId: 'cargo', originId: 'halcyon', destId, tons: 1, passengers: 0, pay: 100, paidUpfront: false, deadlineDay: null, title, description: '', cargoName: 'goods',
+  });
+  function open(missions: Mission[]) {
+    const c = new Controller(data, { ...DEFAULT_SETTINGS }, new EventTarget(), { ...world(), missions });
+    const root = document.createElement('div');
+    document.body.append(root);
+    const ctx = {
+      root, controller: c, store: {} as PilotStore,
+      inputMode: new InputMode(new EventTarget(), () => DEFAULT_SETTINGS.bindings, 'keyboard'),
+      planetImage: () => null,
+      mount: (node: HTMLElement) => root.replaceChildren(node),
+      unmount: () => root.replaceChildren(),
+      go: { mainMenu() {}, planet() {}, pause() {}, map() {} },
+    } as unknown as UiContext;
+    showStarMap(ctx, {});
+    return root;
+  }
+
+  it('a job destination gets a ring and a count badge, the legend shows, and a "Your jobs" row selects its system', () => {
+    const root = open([job('a', 'vanterre', 'Bolts to Vanterre'), job('b', 'glasshouse', 'Seeds to Glasshouse')]);
+    const node = root.querySelector('[data-system="tessaly"]')!;
+    expect(node.querySelector('.sw-map-job')).not.toBeNull();
+    expect(node.querySelector('.sw-map-jobcount')?.textContent).toBe('2');
+    expect(root.querySelector('.sw-map-flag')).toBeNull();
+    expect(root.querySelector('[data-testid="map-legend"]')?.textContent).toContain('Your jobs');
+    const list = root.querySelector('[data-testid="map-jobs"]')!;
+    expect(list.textContent).toContain('Your jobs');
+    const rows = [...list.querySelectorAll('button')];
+    expect(rows.map((b) => b.textContent)).toEqual(['Bolts to Vanterre → Tessaly', 'Seeds to Glasshouse → Tessaly']);
+    rows[0].click();
+    expect(root.querySelector('[data-testid="map-info"]')!.textContent).toContain('Tessaly');
+    expect(root.querySelector('[data-system="tessaly"]')!.classList.contains('sw-map-selected')).toBe(true);
+  });
+
+  it('no legend and no list without jobs; a single job has a ring but no badge', () => {
+    const none = open([]);
+    expect(none.querySelector('[data-testid="map-legend"]')).toBeNull();
+    expect(none.querySelector('[data-testid="map-jobs"]')).toBeNull();
+    document.body.replaceChildren();
+    const one = open([job('a', 'vanterre', 'Bolts to Vanterre')]);
+    expect(one.querySelector('[data-system="tessaly"] .sw-map-job')).not.toBeNull();
+    expect(one.querySelector('.sw-map-jobcount')).toBeNull();
+  });
+});

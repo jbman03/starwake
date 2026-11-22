@@ -256,3 +256,31 @@ test('at the default zoom every system label sits inside the map and clear of th
   }
   expect(errors).toEqual([]);
 });
+
+test.describe('phone: your jobs on the map (Nov 21)', () => {
+  test.use({ hasTouch: true, viewport: { width: 844, height: 390 } });
+
+  test('with three jobs the map shows rings, the legend and a "Your jobs" list; a row then Set course plots the route', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Jobs');
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      const job = (id: string, destId: string, title: string) => ({ id, typeId: 'cargo', originId: 'halcyon', destId, tons: 1, passengers: 0, pay: 100, paidUpfront: false, deadlineDay: null, title, description: '', cargoName: 'goods' });
+      h.controller.world = { ...h.controller.world, missions: [job('a', 'vanterre', 'Bolts to Vanterre'), job('b', 'glasshouse', 'Seeds to Glasshouse'), job('c', 'hallow', 'Bandages to Hallow')] };
+    });
+    await page.getByRole('button', { name: /^Map/ }).first().tap();
+    const map = page.getByTestId('star-map');
+    await expect(map).toBeVisible();
+    await expect(map.getByTestId('map-legend')).toContainText('Your jobs');
+    await expect(map.locator('[data-system="tessaly"] .sw-map-jobcount')).toHaveText('2');
+    await expect(map.locator('[data-system="minster"] .sw-map-job')).toHaveCount(1);
+    const rows = map.getByTestId('map-jobs').locator('button');
+    await expect(rows).toHaveCount(3);
+    await checkFits(page);
+    await rows.filter({ hasText: 'Bandages to Hallow' }).tap();
+    await expect(map.getByTestId('map-info')).toContainText('Minster');
+    await map.getByRole('button', { name: /^Set course/ }).tap();
+    await expect.poll(() => page.evaluate(() => window.__starwake!.controller.world.route.at(-1))).toBe('minster');
+    expect(errors).toEqual([]);
+  });
+});
