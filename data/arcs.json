@@ -63,6 +63,38 @@
         "text": "Reach friend: every new pilot starts in a Courier, a gift from the Compact.",
         "shipId": "courier"
       }
+    },
+    {
+      "id": "syndicate",
+      "title": "The Syndicate",
+      "government": "syndicate",
+      "blurb": "Own the rim's lanes for the Hollow Syndicate.",
+      "entry": {
+        "mission": "sy1-quiet-cargo",
+        "lead": "Dockfixer Nell Corbin has work for a pilot who doesn't ask questions, at the Merrow bar."
+      },
+      "ranks": [
+        {
+          "title": "Runner",
+          "points": 0
+        },
+        {
+          "title": "Fixer",
+          "points": 20
+        },
+        {
+          "title": "Underboss",
+          "points": 50
+        },
+        {
+          "title": "Boss",
+          "points": 90
+        }
+      ],
+      "legacy": {
+        "text": "Old favours: every new pilot starts with 7,500 cr of the Syndicate's laundered money.",
+        "credits": 7500
+      }
     }
   ]
 }

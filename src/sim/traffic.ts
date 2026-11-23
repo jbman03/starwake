@@ -119,7 +119,10 @@ export function raiderChance(data: GameData, systemId: string, opts: TrafficOpts
   if (opts.noRaiders || opts.guideActive || systemId === opts.startSystem) return 0;
   const sp = data.combat.spawn;
   if (opts.clearBoost === systemId) return sp.clearBoost;
-  const byGov = sp.raiderChance[data.systems[systemId].government] ?? 0;
+  const gov = data.systems[systemId].government;
+  // A government listed at 0 keeps raiders out of its systems, fringe ones included (the Syndicate's own lanes).
+  if (sp.raiderChance[gov] === 0) return 0;
+  const byGov = sp.raiderChance[gov] ?? 0;
   return isFringe(data, systemId) ? Math.max(byGov, sp.raiderChance.fringe ?? 0) : byGov;
 }
 

@@ -104,3 +104,41 @@ test.describe('desktop, part 2', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test.describe('desktop, part 3', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('take the Syndicate job at Merrow: the confirm shows, then the Leads log shows the delivery to Tallow Rock', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Runner');
+    await page.evaluate(() => window.__starwake!.teleport('merrow'));
+    await expect(page.getByTestId('planet-screen')).toContainText('Merrow');
+    await page.keyboard.press('KeyB');
+    const bar = page.getByTestId('bar');
+    await bar.locator('.sw-mc-row', { hasText: 'A Quiet Cargo' }).click();
+    await bar.getByRole('button', { name: /^Accept/ }).click();
+    await expect(page.locator('.sw-dialog')).toContainText("This choice can't be undone");
+    await page.locator('.sw-dialog').getByRole('button', { name: /^Confirm/ }).click();
+    await expect.poll(() => page.evaluate(() => window.__starwake!.story().active.map((a) => a.id))).toEqual(['sy1-quiet-cargo']);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('KeyK');
+    await expect(page.getByTestId('log-leads')).toContainText('A Quiet Cargo: Deliver the unmarked crates to Tallow Rock.');
+    expect(errors).toEqual([]);
+  });
+
+  test('a system the Syndicate takes shows in its pink on the Star Map', async ({ page }) => {
+    const errors = trackErrors(page);
+    await newPilot(page, 'Pinker');
+    await page.evaluate(() => {
+      const h = window.__starwake!;
+      h.controller.world = { ...h.controller.world, known: [...new Set([...h.controller.world.known, 'vesk'])] };
+      h.applyOutcomesNow([{ type: 'government', system: 'vesk', government: 'syndicate' }]);
+    });
+    await leavePlanet(page);
+    await page.keyboard.press('KeyN');
+    await expect(page.getByTestId('star-map')).toBeVisible();
+    const fill = await page.evaluate(() => document.querySelector<SVGElement>('[data-system="vesk"] .sw-map-dot')!.style.fill);
+    expect(fill).toBe('rgb(224, 95, 176)');
+    expect(errors).toEqual([]);
+  });
+});

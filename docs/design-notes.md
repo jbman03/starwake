@@ -434,10 +434,15 @@ Cycle 7 Part 1, branching storylines (2026-11-12, `2026-11-12-starwake-cycle7-ar
 (`applyGalaxy`: `government`, `destroyPlanet`, ports with `appearsFlag`), a `heat` outcome, a Leads log in the
 Mission Log (`src/sim/leads.ts`), device-wide legacy perks (`PilotStore.loadLegacy`) and the first arc, Concord Navy
 (N1-N7L loyal, N6X-N7X exposed; the Picket cutter; Freehold Light). Saves: v11 (`galaxy`, `arcPoints`). Still to come:
-The Syndicate and The Wake mystery, in data.
+The Wake mystery, in data.
 Cycle 7 Part 2, Free Reach Rising (2026-11-13, `2026-11-13-starwake-cycle7-reach-rising-design.md`): the `rising` arc
 (RR1-RR7 from Dunmore Crossing; Hollis, Minster and Corvana turn Free Reach; the Hollis Market; the Lane Runner;
 legacy: a Courier start). Switching sides: the `switchArc` outcome (half the points carry over). Navy defectors carry
 on into Rising (N6X/N7X now belong to it), Reach defectors into the Navy's loyal ending; Part 1 defectors are moved on
 load (`movePart1Defector`). `acceptStory` enforces lockout; a declined arc keeps its lead that day.
+Cycle 7 Part 3, The Syndicate (2026-11-22, `2026-11-22-starwake-cycle7-syndicate-design.md`): the `syndicate` arc
+(SY1-SY7 from Merrow; Vesk, Skerry and Brackwater turn Syndicate; The Undermarket; the Nightjar; legacy 7,500 cr; ends
+Hunted in Concord space). A new government, the Syndicate of the Hollow (pink); a government listed at raider chance 0 keeps
+raiders out of its systems, fringe ones included. Twist: the Syndicate is Navy-funded; defect to the Reach (RR6-RR7) or,
+having turned the customs inspector, to the Navy (N6L-N7L). Still to come: The Wake mystery.
 Later: bounty hunters, smuggling missions, more regions.

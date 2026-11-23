@@ -4,7 +4,7 @@ import type { GameData } from '../data/schemas';
 import { HIDDEN_LANE_FLAG, lanesOf } from './galaxy';
 import { npcLoadout } from './weapons';
 import { shipStats } from './shipStats';
-import { addStoryNpc, cycleTarget, npcLabel, npcLanes, seedTraffic, stepTraffic, trafficLevel, isTargetable, raiderChance, patrolChance, addBountyNpc, type Traffic, type TrafficOpts } from './traffic';
+import { addStoryNpc, cycleTarget, npcLabel, npcLanes, seedTraffic, stepTraffic, trafficLevel, isTargetable, raiderChance, patrolChance, isFringe, addBountyNpc, type Traffic, type TrafficOpts } from './traffic';
 import { newWorld } from './world';
 import type { Escort, WorldState } from './types';
 import { escortNpc } from './escortNpcs';
@@ -285,6 +285,14 @@ describe('raiderChance / patrolChance', () => {
     const ind = sysOf('independent');
     expect(raiderChance(data, ind, o())).toBe(Object.values(data.planets).filter((p) => p.systemId === ind).every((p) => p.techTier <= 1) ? 0.4 : 0.3);
     if (fringeSys) expect(raiderChance(data, fringeSys, o())).toBe(Math.max(0.4, spawn.raiderChance[data.systems[fringeSys].government] ?? 0));
+  });
+
+  it('a government listed at 0 keeps raiders out, even in a fringe system; the syndicate spawns no raiders or patrols', () => {
+    expect(spawn.raiderChance.syndicate).toBe(0);
+    const d: GameData = { ...data, systems: { ...data.systems, vesk: { ...data.systems.vesk, government: 'syndicate' } } };
+    expect(isFringe(d, 'vesk')).toBe(true);
+    expect(raiderChance(d, 'vesk', o())).toBe(0);
+    expect(patrolChance(d, 'vesk')).toBe(0);
   });
 
   it('reads the data, not constants', () => {
