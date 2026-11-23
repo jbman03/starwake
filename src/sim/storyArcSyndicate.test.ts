@@ -83,4 +83,12 @@ describe('The Syndicate arc', () => {
     expect(vosk).toBeDefined();
     expect(choiceBlock(newWorld(data, 1), data, vosk, 'story:sy5-whose-silver')).not.toBeNull();
   });
+
+  it('review: the Syndicate reads as "Syndicate" in short labels and traffic', async () => {
+    const { governmentShortName } = await import('./standing');
+    const { npcLabel } = await import('./traffic');
+    expect(governmentShortName('syndicate', data)).toBe('Syndicate');
+    const npc = { name: 'Brass Heron', shipId: 'mule', government: 'syndicate' } as Parameters<typeof npcLabel>[0];
+    expect(npcLabel(npc, data)).toBe('Brass Heron — Syndicate Mule (freighter)');
+  });
 });

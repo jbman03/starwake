@@ -26,7 +26,7 @@ the Wake.
 ## Approaches
 
 - **A. A new `syndicate` government (chosen).**
-  - The government is "The Hollow Syndicate", colour `#e05fb0` (pink, which no other government or map marker uses).
+  - The government is "Syndicate of the Hollow", colour `#e05fb0` (pink, which no other government or map marker uses).
   - Systems it takes have no raider or patrol spawns, because the spawn tables have no entry for it, so its lanes
     really are yours.
   - It is data only, in `governments.json`. Law and standing work for any government.

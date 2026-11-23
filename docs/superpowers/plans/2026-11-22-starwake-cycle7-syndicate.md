@@ -7,7 +7,7 @@
 
 ## Global Constraints
 
-- **Ids:** the government is `syndicate` ("The Hollow Syndicate", `#e05fb0`); the arc is `syndicate`, and its flags
+- **Ids:** the government is `syndicate` ("Syndicate of the Hollow", `#e05fb0`); the arc is `syndicate`, and its flags
   use the `syndicate-` prefix.
 - **Ranks:** Runner 0, Fixer 20, Underboss 50, Boss 90.
 - **Legacy:** `credits: 7500`, text "Old favours: every new pilot starts with 7,500 cr of the Syndicate's laundered

@@ -442,7 +442,7 @@ on into Rising (N6X/N7X now belong to it), Reach defectors into the Navy's loyal
 load (`movePart1Defector`). `acceptStory` enforces lockout; a declined arc keeps its lead that day.
 Cycle 7 Part 3, The Syndicate (2026-11-22, `2026-11-22-starwake-cycle7-syndicate-design.md`): the `syndicate` arc
 (SY1-SY7 from Merrow; Vesk, Skerry and Brackwater turn Syndicate; The Undermarket; the Nightjar; legacy 7,500 cr; ends
-Hunted in Concord space). A new government, the Hollow Syndicate (pink); a government listed at raider chance 0 keeps
+Hunted in Concord space). A new government, the Syndicate of the Hollow (pink); a government listed at raider chance 0 keeps
 raiders out of its systems, fringe ones included. Twist: the Syndicate is Navy-funded; defect to the Reach (RR6-RR7) or,
 having turned the customs inspector, to the Navy (N6L-N7L). Still to come: The Wake mystery.
 Later: bounty hunters, smuggling missions, more regions.
